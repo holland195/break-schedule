@@ -580,15 +580,13 @@ function demoLogin(type){
 }
 
 function autoDetectShift() {
-  const username = document.getElementById('li-user').value.trim();
-  const user = state.users.find(x => x.username === username);
-  const shiftSelect = document.getElementById('li-shift');
-  
+  const input = document.getElementById('li-user').value.trim();
+  const user = state.users.find(x => x.username === input);
   if (user) {
     const today = todayKey();
-    const scheduledShift = user.schedule[today];
-    if (scheduledShift && scheduledShift !== '0') {
-      shiftSelect.value = scheduledShift;
+    const scheduled = user.schedule[today];
+    if (scheduled && scheduled !== '0') {
+      document.getElementById('li-shift').value = scheduled; // Auto-select shift
     }
   }
 }
