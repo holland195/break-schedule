@@ -443,12 +443,13 @@ const BREAK_SLOTS = {
 };
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const ROLES = {
-  'Agent Leader':   {level:2,tag:'role-leader',label:'Leader'},
-  'Agent Supervisor':{level:2,tag:'role-leader',label:'Supervisor'},
-  'Sr Agent':       {level:1,tag:'role-agent',label:'Sr Agent'},
-  'Agent':          {level:1,tag:'role-agent',label:'Agent'},
-  'QA':             {level:1,tag:'role-qa',label:'QA'},
-  'Sr QA':          {level:1,tag:'role-qa',label:'Sr QA'},
+  'Admin':          {level:3, tag:'role-leader', label:'Admin'}, // Highest access
+  'Agent Leader':   {level:2, tag:'role-leader', label:'Leader'},
+  'Agent Supervisor':{level:2, tag:'role-leader', label:'Supervisor'},
+  'Sr Agent':       {level:1, tag:'role-agent', label:'Sr Agent'},
+  'Agent':          {level:1, tag:'role-agent', label:'Agent'},
+  'QA':             {level:1, tag:'role-qa', label:'QA'},
+  'Sr QA':          {level:1, tag:'role-qa', label:'Sr QA'},
 };
 
 let state = load();
@@ -472,15 +473,7 @@ function save() {
 //  SEED USERS (from screenshot)
 // ═══════════════════════════════════════════════
 
-const ROLES = {
-  'Admin':          {level:3, tag:'role-leader', label:'Admin'}, // Full access
-  'Agent Leader':   {level:2, tag:'role-leader', label:'Leader'},
-  'Agent Supervisor':{level:2, tag:'role-leader', label:'Supervisor'},
-  'Sr Agent':       {level:1, tag:'role-agent', label:'Sr Agent'},
-  'Agent':          {level:1, tag:'role-agent', label:'Agent'},
-  'QA':             {level:1, tag:'role-qa', label:'QA'},
-  'Sr QA':          {level:1, tag:'role-qa', label:'Sr QA'},
-};
+
   
 const SEED_USERS = [
   {
