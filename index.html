@@ -300,7 +300,7 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
 
     <div id="login-form">
       <label class="login-label">Username</label>
-      <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list">
+      <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
       <datalist id="user-list"></datalist>
       <label class="login-label">Password</label>
       <input class="login-input" id="li-pass" type="password" placeholder="••••••">
@@ -471,40 +471,7 @@ function save() {
 // ═══════════════════════════════════════════════
 //  SEED USERS (from screenshot)
 // ═══════════════════════════════════════════════
-const SEED_USERS = [
-  {id:1,username:'quang.pham',name:'Phạm Đỗ Duy Quang',team:'AT1',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:2,username:'huy.tran',name:'Trần Gia Huy',team:'AT1',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:3,username:'kim.hoang',name:'Hoàng Lập Kim',team:'AT1',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:4,username:'nam.nguyen',name:'Nguyễn Thành Nam',team:'AT1',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:5,username:'phong.phan',name:'Phan Trung Phong',team:'AT2',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:6,username:'an.nguyen',name:'Nguyễn Hoàng Thiên Ân',team:'AT2',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:7,username:'kien.nguyen',name:'Nguyễn Trung Kiên',team:'AT2',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:8,username:'tuan.tran',name:'Trần Trọng Tuấn',team:'AT2',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:9,username:'chi.nguyen',name:'Nguyễn Thị Kim Chi',team:'AT3',role:'Sr Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:10,username:'nguyen.nguyen',name:'Nguyễn Trần Khai Nguyên',team:'AT3',role:'Agent',password:'1234',schedule:{Mon:'D',Tue:'D',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:11,username:'thien.ho',name:'Hồ Trọng Thiên',team:'AT3',role:'Agent',password:'1234',schedule:{Mon:'A',Tue:'A',Wed:'A',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:12,username:'linh.phan',name:'Phan Thị Trúc Linh',team:'AT3',role:'Agent',password:'1234',schedule:{Mon:'E',Tue:'E',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:13,username:'phu.nguyen',name:'Nguyễn Hoàng Phú',team:'AT4',role:'Agent',password:'1234',schedule:{Mon:'D',Tue:'D',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:14,username:'phong.nguyen',name:'Nguyễn Thanh Phong',team:'AT4',role:'Agent',password:'1234',schedule:{Mon:'D',Tue:'D',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:15,username:'thuy.ngo',name:'Ngô Diễm Thùy',team:'AT4',role:'Agent',password:'1234',schedule:{Mon:'D',Tue:'D',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:16,username:'tinh.nguyen',name:'Nguyễn Mai Việt Tĩnh',team:'AT4',role:'Agent',password:'1234',schedule:{Mon:'B',Tue:'B',Wed:'B',Thu:'A',Fri:'A',Sat:'0',Sun:'0'}},
-  {id:17,username:'tu.nguyen',name:'Nguyễn Bảo Thái Tú',team:'AT5',role:'Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:18,username:'danh.pham',name:'Phạm Công Danh',team:'AT5',role:'Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:19,username:'ha.tran',name:'Trần Thanh Hà',team:'AT5',role:'Sr Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:20,username:'bao.vo',name:'Võ Hoàng Gia Bảo',team:'AT5',role:'Sr Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:21,username:'duy.nguyen',name:'Nguyễn Quốc Duy',team:'AT6',role:'Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:22,username:'ngoc.truong',name:'Trương Thị Như Ngọc',team:'AT6',role:'Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'B',Thu:'B',Fri:'B',Sat:'0',Sun:'0'}},
-  {id:23,username:'quang.nguyen',name:'Nguyễn Thành Quang',team:'AT6',role:'Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:24,username:'mai.luu',name:'Lưu Ngọc Mai',team:'AT6',role:'Agent',password:'1234',schedule:{Mon:'C',Tue:'C',Wed:'C',Thu:'C',Fri:'C',Sat:'0',Sun:'0'}},
-  {id:25,username:'duy.le',name:'Lê Khương Duy',team:'AT7',role:'Agent',password:'1234',schedule:{Mon:'B',Tue:'B',Wed:'B',Thu:'B',Fri:'B',Sat:'0',Sun:'0'}},
-  {id:26,username:'uyen.tran',name:'Trần Hà Phương Uyên',team:'AT7',role:'Agent',password:'1234',schedule:{Mon:'B',Tue:'B',Wed:'B',Thu:'B',Fri:'B',Sat:'0',Sun:'0'}},
-  {id:27,username:'nguyen.vu',name:'Vũ Đình Nguyên',team:'AT7',role:'Agent',password:'1234',schedule:{Mon:'B',Tue:'B',Wed:'B',Thu:'B',Fri:'B',Sat:'0',Sun:'0'}},
-  // Leaders per team
-  {id:100,username:'leader.at1',name:'Leader AT1',team:'AT1',role:'Agent Leader',password:'leader123',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:101,username:'leader.at2',name:'Leader AT2',team:'AT2',role:'Agent Leader',password:'leader123',schedule:{Mon:'E',Tue:'E',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-  {id:102,username:'leader.at3',name:'Leader AT3',team:'AT3',role:'Agent Leader',password:'leader123',schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'}},
-  {id:103,username:'leader.at4',name:'Leader AT4',team:'AT4',role:'Agent Supervisor',password:'leader123',schedule:{Mon:'D',Tue:'D',Wed:'D',Thu:'D',Fri:'D',Sat:'0',Sun:'0'}},
-];
+const SEED_USERS = [];
 
 if (!state.imported && state.users.length === 0) {
   state.users = SEED_USERS;
@@ -514,7 +481,20 @@ if (!state.imported && state.users.length === 0) {
 // ═══════════════════════════════════════════════
 //  AUTH
 // ═══════════════════════════════════════════════
+
+const ROLES = {
+  'Admin':          {level:3, tag:'role-leader', label:'Admin'}, // Full access
+  'Agent Leader':   {level:2, tag:'role-leader', label:'Leader'},
+  'Agent Supervisor':{level:2, tag:'role-leader', label:'Supervisor'},
+  'Sr Agent':       {level:1, tag:'role-agent', label:'Sr Agent'},
+  'Agent':          {level:1, tag:'role-agent', label:'Agent'},
+  'QA':             {level:1, tag:'role-qa', label:'QA'},
+  'Sr QA':          {level:1, tag:'role-qa', label:'Sr QA'},
+};
+  
+// Update this helper to include Admin
 function isLeader(u){ return u && (ROLES[u.role]?.level||0) >= 2; }
+function isAdmin(u){ return u && (ROLES[u.role]?.level||0) === 3; }
 function getRoleInfo(r){ return ROLES[r] || {level:0,tag:'role-agent',label:r||'—'}; }
 
 function setLoginMode(m) {
@@ -586,6 +566,20 @@ function demoLogin(type){
     currentShift = 'E';
   }
   enterApp();
+}
+
+function autoDetectShift() {
+  const username = document.getElementById('li-user').value.trim();
+  const user = state.users.find(x => x.username === username);
+  const shiftSelect = document.getElementById('li-shift');
+  
+  if (user) {
+    const today = todayKey();
+    const scheduledShift = user.schedule[today];
+    if (scheduledShift && scheduledShift !== '0') {
+      shiftSelect.value = scheduledShift;
+    }
+  }
 }
 
 function enterApp(){
@@ -904,26 +898,23 @@ function renderStaff(){
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>#</th><th>Name</th><th>Team</th><th>Role</th>
+        <th>#</th><th>Name</th><th>Username</th><th>Team</th><th>Role</th>
         ${WEEK_DAYS.map(d=>`<th class="c">${d}</th>`).join('')}
       </tr></thead>
       <tbody>
         ${state.users.map((u,i)=>`<tr>
           <td class="mono">${i+1}</td>
           <td style="font-weight:600">${u.name}</td>
-          <td class="mono">${u.team}</td>
+          <td class="mono" style="color:var(--accent)">${u.username}</td> <td class="mono">${u.team}</td>
           <td><span class="role-tag ${getRoleInfo(u.role).tag}">${u.role}</span></td>
           ${WEEK_DAYS.map(d=>{
             const s=u.schedule[d];
-            if(!s||s==='0') return `<td class="c"><span class="sh sh-0">—</span></td>`;
-            return `<td class="c"><span class="sh sh-${s}">${s}</span></td>`;
+            return `<td class="c"><span class="sh sh-${s==='0'?'0':s}">${s==='0'?'—':s}</span></td>`;
           }).join('')}
         </tr>`).join('')}
       </tbody>
     </table>
-  </div>
-  <div id="staff-import-panel"></div>
-  `;
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════
