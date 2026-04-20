@@ -902,27 +902,28 @@ function attachPageEvents(page){
 function renderStaff(){
   return `
   <div class="page-header">
-    <div><div class="page-title">Staff Directory</div>
-    <div class="page-sub">${state.users.length} employees loaded</div></div>
+    <div><div class="page-title">Staff Directory</div></div>
     <button class="btn btn-accent" onclick="openImportPanel()">↓ Re-import from Sheets</button>
   </div>
   <div class="tbl-wrap">
     <table>
-      <thead><tr>
-        <th>#</th><th>Name</th><th>Username</th><th>Team</th><th>Role</th>
-        ${WEEK_DAYS.map(d=>`<th class="c">${d}</th>`).join('')}
-      </tr></thead>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Username</th> <th>Team</th>
+          <th>Role</th>
+          ${WEEK_DAYS.map(d=>`<th class="c">${d}</th>`).join('')}
+        </tr>
+      </thead>
       <tbody>
-        ${state.users.map((u,i)=>`<tr>
-          <td class="mono">${i+1}</td>
-          <td style="font-weight:600">${u.name}</td>
-          <td class="mono" style="color:var(--accent)">${u.username}</td> <td class="mono">${u.team}</td>
-          <td><span class="role-tag ${getRoleInfo(u.role).tag}">${u.role}</span></td>
-          ${WEEK_DAYS.map(d=>{
-            const s=u.schedule[d];
-            return `<td class="c"><span class="sh sh-${s==='0'?'0':s}">${s==='0'?'—':s}</span></td>`;
-          }).join('')}
-        </tr>`).join('')}
+        ${state.users.map(u=>`
+          <tr>
+            <td style="font-weight:600">${u.name}</td>
+            <td class="mono" style="color:var(--accent)">${u.username}</td>
+            <td class="mono">${u.team}</td>
+            <td><span class="role-tag ${getRoleInfo(u.role).tag}">${u.role}</span></td>
+            ${WEEK_DAYS.map(d=>`<td class="c"><span class="sh sh-${u.schedule[d]}">${u.schedule[d]==='0'?'—':u.schedule[d]}</span></td>`).join('')}
+          </tr>`).join('')}
       </tbody>
     </table>
   </div>`;
