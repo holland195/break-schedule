@@ -500,18 +500,31 @@ if (!state.imported && state.users.length === 0) {
 function isLeader(u){ return u && (ROLES[u.role]?.level||0) >= 2; }
 function getRoleInfo(r){ return ROLES[r] || {level:0,tag:'role-agent',label:r||'—'}; }
 
-function setLoginMode(m){
-  // Handle Form Visibility
-  document.getElementById('login-form').style.display = (m==='login')?'block':'none';
-  document.getElementById('import-form').style.display = (m==='import')?'block':'none';
-  // Ensure this ID matches the HTML block added in Step 1
-  const pasteForm = document.getElementById('paste-form');
-  if(pasteForm) pasteForm.style.display = (m==='paste')?'block':'none';
-  
-  // Update Button Appearance (Highlights the active button)
-  document.getElementById('tab-login-btn').className = 'btn' + (m==='login'?' btn-accent':'');
-  document.getElementById('tab-import-btn').className = 'btn' + (m==='import'?' btn-accent':'');
-  document.getElementById('tab-paste-btn').className = 'btn' + (m==='paste'?' btn-accent':'');
+function setLoginMode(m) {
+  // Elements to toggle
+  const forms = {
+    'login-form': m === 'login',
+    'import-form': m === 'import',
+    'paste-form': m === 'paste'
+  };
+
+  const buttons = {
+    'tab-login-btn': m === 'login',
+    'tab-import-btn': m === 'import',
+    'tab-paste-btn': m === 'paste'
+  };
+
+  // Safe toggle for forms
+  Object.keys(forms).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = forms[id] ? 'block' : 'none';
+  });
+
+  // Safe toggle for button highlights
+  Object.keys(buttons).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'btn' + (buttons[id] ? ' btn-accent' : '');
+  });
 }
   
 function importFromPaste() {
