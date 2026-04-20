@@ -435,11 +435,11 @@ const SHIFTS = {
 };
 // Break slots per shift (30 min windows)
 const BREAK_SLOTS = {
-  A:['15:30–16:00','16:00–16:30','16:30–17:00','17:00–17:30','18:00–18:30','19:00–19:30','20:00–20:30','21:00–21:30'],
-  B:['19:30–20:00','20:00–20:30','20:30–21:00','21:00–21:30','22:00–22:30','23:00–23:30','00:00–00:30','01:00–01:30'],
-  C:['21:30–22:00','22:00–22:30','22:30–23:00','23:00–23:30','00:00–00:30','01:00–01:30','02:00–02:30','03:00–03:30'],
-  D:['00:30–01:00','01:00–01:30','01:30–02:00','02:00–02:30','03:00–03:30','04:00–04:30','05:00–05:30','06:00–06:30'],
-  E:['06:30–07:00','07:00–07:30','07:30–08:00','08:00–08:30','09:00–09:30','10:00–10:30','11:00–11:30','12:00–12:30'],
+  A:['18:00–19:30','19:30–21:00'],
+  B:['22:00–23:30','23:30–01:00'],
+  C:['01:00–02:30','02:30–04:00'],
+  D:['04:00–05:30','05:30–07:00'],
+  E:['09:30–11:00','11:00–12:30'],
 };
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const ROLES = {
@@ -525,6 +525,20 @@ function setLoginMode(m) {
   Object.keys(buttons).forEach(id => {
     const el = document.getElementById(id);
     if (el) el.className = 'btn' + (buttons[id] ? ' btn-accent' : '');
+  });
+}
+  
+function getWeekDates() {
+  const now = new Date();
+  const day = now.getDay();
+  // Get Monday of current week
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
+  const monday = new Date(now.setDate(diff));
+  
+  return WEEK_DAYS.map((d, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
   });
 }
   
@@ -861,35 +875,19 @@ function renderRequests(){
 function renderArrange(){
   if(!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
   const today = todayKey();
+  const weekDates = getWeekDates();
 
-  const tabs = WEEK_DAYS.map((d,i)=>`<div class="tab${d===today?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}">${d}</div>`).join('');
-
-  const dayContent = (day)=>{
-    const mates = getShiftMates(currentShift, day);
-    if(!mates.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} on ${day}.</div>`;
-    return `<div class="break-board">${mates.map(u=>{
-      const br = getAssigned(u.id, day);
-      const slots = BREAK_SLOTS[currentShift]||[];
-      return `<div class="break-row">
-        <div>
-          <div class="emp-name">${u.name}</div>
-          <div class="emp-meta">${u.team} · ${u.role}</div>
-        </div>
-        <div class="break-slots">
-          ${slots.map(s=>`<span class="break-slot${br?.slot===s?' assigned':''}" onclick="quickAssign(${u.id},'${day}','${s}')">${s}</span>`).join('')}
-        </div>
-        <div>
-          <button class="btn btn-sm btn-warn" onclick="openAssignModal(${u.id},'${day}')">Assign</button>
-        </div>
-      </div>`;
-    }).join('')}</div>`;
-  };
+  // Updated tabs with dates
+  const tabs = WEEK_DAYS.map((d,i)=>`
+    <div class="tab${d===today?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}">
+      ${d}<br><span style="font-size:10px; opacity:0.6">${weekDates[i]}</span>
+    </div>`).join('');
 
   return `
   <div class="page-header">
     <div>
       <div class="page-title">Arrange Breaks</div>
-      <div class="page-sub">Shift ${currentShift} · Click a slot to assign, or use Assign for more options</div>
+      <div class="page-sub">Shift ${currentShift} · Set timelines for your team</div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm" onclick="autofillDay()">⚡ Auto-fill today</button>
@@ -897,7 +895,13 @@ function renderArrange(){
     </div>
   </div>
   <div class="tabs" id="arrange-tabs">${tabs}</div>
-  <div id="arrange-day-content">${dayContent(today)}</div>
+  
+  <div class="card" style="padding:0; overflow:hidden; border-bottom:none; border-radius:10px 10px 0 0">
+    <div style="display:grid; grid-template-columns: 60px 180px 120px 100px 1fr 80px; background:var(--bg3); padding:10px 16px; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text3); border-bottom:1px solid var(--border)">
+      <div>GROUP</div><div>FULL NAME</div><div>USERNAME</div><div>POSITION</div><div>BREAK SLOTS</div><div style="text-align:right">ACTION</div>
+    </div>
+  </div>
+  <div id="arrange-day-content">${getArrangeDayHTML(today)}</div>
   `;
 }
 
@@ -945,20 +949,33 @@ function renderStaff(){
 // ═══════════════════════════════════════════════
 function switchArrangeDay(day){
   document.querySelectorAll('#arrange-tabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.day===day));
+  document.getElementById('arrange-day-content').innerHTML = getArrangeDayHTML(day);
+}
+
+function getArrangeDayHTML(day) {
   const mates = getShiftMates(currentShift, day);
   const slots = BREAK_SLOTS[currentShift]||[];
-  const content = document.getElementById('arrange-day-content');
-  if(!mates.length){content.innerHTML=`<div class="empty"><div class="empty-ico">👥</div>No staff on ${day}.</div>`;return;}
-  content.innerHTML=`<div class="break-board">${mates.map(u=>{
-    const br=getAssigned(u.id,day);
-    return `<div class="break-row">
-      <div><div class="emp-name">${u.name}</div><div class="emp-meta">${u.team}·${u.role}</div></div>
-      <div class="break-slots">
-        ${slots.map(s=>`<span class="break-slot${br?.slot===s?' assigned':''}" onclick="quickAssign(${u.id},'${day}','${s}')">${s}</span>`).join('')}
-      </div>
-      <div><button class="btn btn-sm btn-warn" onclick="openAssignModal(${u.id},'${day}')">Assign</button></div>
-    </div>`;
-  }).join('')}</div>`;
+  
+  if(!mates.length) return `<div class="empty" style="background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} on ${day}.</div>`;
+  
+  return `<div class="break-board" style="gap:0">
+    ${mates.map(u=>{
+      const br = getAssigned(u.id, day);
+      return `
+      <div class="break-row" style="border-radius:0; border-top:none; display:grid; grid-template-columns: 60px 180px 120px 100px 1fr 80px; align-items:center; gap:16px; padding:10px 16px;">
+        <div class="emp-meta">${u.team}</div>
+        <div class="emp-name">${u.name}</div>
+        <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
+        <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
+        <div class="break-slots">
+          ${slots.map(s=>`<span class="break-slot${br?.slot===s?' assigned':''}" onclick="quickAssign(${u.id},'${day}','${s}')" style="font-size:10px">${s}</span>`).join('')}
+        </div>
+        <div style="text-align:right">
+          <button class="btn btn-xs btn-warn" onclick="openAssignModal(${u.id},'${day}')">Edit</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 function quickAssign(uid, day, slot){
