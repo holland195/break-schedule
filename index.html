@@ -546,18 +546,38 @@ function importFromPaste() {
   document.getElementById('import-preview').style.display = 'block';
   status.innerHTML = `<span style="color:var(--ok)">✓ Paste parsed! Preview below.</span>`;
 }
+  
 function doLogin(){
   const u = document.getElementById('li-user').value.trim();
   const p = document.getElementById('li-pass').value.trim();
   const s = document.getElementById('li-shift').value;
   const err = document.getElementById('login-err');
-  if(!u||!p){ err.textContent='Enter username and password.'; return; }
-  if(!s){ err.textContent='Please select your current shift.'; return; }
-  const user = state.users.find(x=>x.username===u && x.password===p);
-  if(!user){ err.textContent='Invalid credentials.'; return; }
+
+  // 1. Basic check for credentials
+  if(!u || !p){ 
+    err.textContent = 'Enter username and password.'; 
+    return; 
+  }
+
+  // 2. Identify the user
+  const user = state.users.find(x => x.username === u && x.password === p);
+  if(!user){ 
+    err.textContent = 'Invalid credentials.'; 
+    return; 
+  }
+
+  // 3. Conditional Shift Alert
+  // Only require a shift if the user is NOT an Admin
+  if(user.role !== 'Admin' && !s){ 
+    err.textContent = 'Please select your current shift.'; 
+    return; 
+  }
+
+  // 4. Proceed to App
   currentUser = user;
-  currentShift = s;
-  err.textContent='';
+  // If Admin didn't pick a shift, default to 'E' so the dashboard still loads
+  currentShift = s || 'E'; 
+  err.textContent = '';
   enterApp();
 }
 
