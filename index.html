@@ -321,11 +321,27 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
       </div>
     </div>
 
-   <div id="paste-form" style="display:none">
+   <div id="import-form" style="display:none">
+  <label class="login-label">Google Sheet ID</label>
+  <div class="import-row">
+    <input class="login-input" id="sheet-id" placeholder="19YqrS2ls7..." value="19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs">
+    <button class="btn btn-accent" onclick="importSheet()">Import</button>
+  </div>
+</div>
+
+<div id="paste-form" style="display:none">
   <label class="login-label">Paste from Google Sheets</label>
   <textarea id="paste-area" class="login-input" style="min-height:120px; font-family:monospace; font-size:10px; margin-bottom:12px;" placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
   <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%">Parse Paste Data →</button>
-  <div id="paste-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
+</div>
+
+<div id="import-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
+<div id="import-preview" style="display:none; margin-top:16px">
+  <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin-bottom:8px; font-family:'IBM Plex Mono',monospace">
+    Preview (<span id="preview-count">0</span> staff found)
+  </div>
+  <div id="preview-list" style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:6px"></div>
+  <button class="btn btn-accent" onclick="confirmImport()" style="width:100%; margin-top:12px">Use this data →</button>
 </div>
     <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center"></div>
   </div>
@@ -1055,74 +1071,75 @@ function importSheet(){
     });
 }
 
-function parseSheetCSV(csv){
-  const status=document.getElementById('import-status');
-  try{
-    const lines=csv.split('\n').map(l=>parseCSVLine(l));
-    // Row 0 = dates header, Row 1 = day names, Row 2 = row 3 (ignore)
-    // Actual data starts at line 3 (0-indexed)
-    // Cols: A=No, B=Team, C=Name, D=Position, E=TimeStart, then date cols start at G (index 6)
-    // Find header row with day names
-    let headerIdx=-1;
-    for(let i=0;i<lines.length;i++){
-      if(lines[i].some(c=>c.trim()==='Mon'||c.trim()==='NAME')){headerIdx=i;break;}
+function parseSheetCSV(csv) {
+  const status = document.getElementById('import-status');
+  if (!status) {
+    console.error("Critical Error: 'import-status' element is missing from HTML.");
+    return;
+  }
+
+  try {
+    const lines = csv.split('\n').map(l => parseCSVLine(l));
+    
+    // Find header row and map days
+    let headerIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].some(c => c.trim() === 'Mon' || c.trim() === 'NAME')) { headerIdx = i; break; }
     }
-    // Find date column indices by looking for day names
-    const dateRow=lines.find(l=>l.some(c=>c.trim()==='Mon'));
-    const dayColMap={};
-    if(dateRow){
-      dateRow.forEach((c,i)=>{
-        const t=c.trim();
-        if(WEEK_DAYS.includes(t)) dayColMap[t]=i;
+    
+    const dateRow = lines.find(l => l.some(c => c.trim() === 'Mon'));
+    const dayColMap = {};
+    if (dateRow) {
+      dateRow.forEach((c, i) => {
+        const t = c.trim();
+        if (WEEK_DAYS.includes(t)) dayColMap[t] = i;
       });
     }
 
-    importedUsers=[];
-    for(let i=0;i<lines.length;i++){
-      const row=lines[i];
-      const no=row[0]?.trim();
-      const team=row[1]?.trim();
-      const name=row[2]?.trim();
-      const role=row[3]?.trim();
-      // Skip header rows and empty rows
-      if(!no||isNaN(parseInt(no))||!name||name.length<2) continue;
-      const username=makeUsername(name);
-      const schedule={};
-      WEEK_DAYS.forEach(d=>{
-        const col=dayColMap[d];
-        if(col!==undefined){
-          const val=(row[col]||'').trim();
-          schedule[d]=val==='0'?'0':(val||'0');
-        } else {
-          schedule[d]='0';
-        }
+    importedUsers = [];
+    for (let i = 0; i < lines.length; i++) {
+      const row = lines[i];
+      const no = row[0]?.trim();
+      const team = row[1]?.trim();
+      const name = row[2]?.trim();
+      const role = row[3]?.trim();
+      
+      if (!no || isNaN(parseInt(no)) || !name || name.length < 2) continue;
+      
+      const schedule = {};
+      WEEK_DAYS.forEach(d => {
+        const col = dayColMap[d];
+        schedule[d] = (col !== undefined) ? (row[col]?.trim() || '0') : '0';
       });
+
       importedUsers.push({
-        id:Date.now()+importedUsers.length,
-        username,name,team,role,
-        password:'1234',
+        id: Date.now() + importedUsers.length,
+        username: makeUsername(name),
+        name, team, role,
+        password: '1234',
         schedule,
       });
     }
 
-    if(importedUsers.length===0){
-      status.innerHTML=`<span style="color:var(--err)">Could not parse any staff rows. Check the sheet structure.</span>`;
+    if (importedUsers.length === 0) {
+      status.innerHTML = `<span style="color:var(--err)">Could not parse any staff rows. Check your selection.</span>`;
       return;
     }
 
-    status.innerHTML=`<span style="color:var(--ok)">✓ Parsed successfully</span>`;
-    document.getElementById('preview-count').textContent=importedUsers.length;
-    document.getElementById('preview-list').innerHTML=importedUsers.slice(0,30).map(u=>`
+    // Show results
+    status.innerHTML = `<span style="color:var(--ok)">✓ Parsed successfully</span>`;
+    document.getElementById('preview-count').textContent = importedUsers.length;
+    document.getElementById('import-preview').style.display = 'block';
+    document.getElementById('preview-list').innerHTML = importedUsers.slice(0, 30).map(u => `
       <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--border)">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);width:36px">${u.team}</span>
+        <span style="font-family:monospace;font-size:10px;color:var(--text3);width:36px">${u.team}</span>
         <span style="flex:1;font-size:12px;font-weight:500">${u.name}</span>
         <span style="font-size:11px;color:var(--text2)">${u.role}</span>
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;display:flex;gap:3px">${WEEK_DAYS.map(d=>`<span class="sh sh-${u.schedule[d]==='0'?'0':u.schedule[d]}" style="width:18px;height:18px;font-size:9px">${u.schedule[d]==='0'?'—':u.schedule[d]}</span>`).join('')}</span>
       </div>
     `).join('');
-    document.getElementById('import-preview').style.display='block';
-  } catch(e){
-    status.innerHTML=`<span style="color:var(--err)">Parse error: ${e.message}</span>`;
+
+  } catch (e) {
+    status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
   }
 }
 
