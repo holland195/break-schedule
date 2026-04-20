@@ -487,10 +487,10 @@ const SEED_USERS = [
   }
 ];
 
-// if (!state.imported && state.users.length === 0) {
-//   state.users = SEED_USERS;
-//   save();
-// }
+if (!state.imported && state.users.length === 0) {
+  state.users = SEED_USERS;
+  save();
+}
 
 // ═══════════════════════════════════════════════
 //  AUTH
