@@ -323,8 +323,8 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
 
    <div id="paste-form" style="display:none">
   <label class="login-label">Paste from Google Sheets</label>
-  <textarea id="paste-area" class="login-input" style="min-height:120px; font-family:monospace; font-size:10px;" placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
-  <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%; margin-top:12px">Parse Paste Data →</button>
+  <textarea id="paste-area" class="login-input" style="min-height:120px; font-family:monospace; font-size:10px; margin-bottom:12px;" placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
+  <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%">Parse Paste Data →</button>
   <div id="paste-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
 </div>
     <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center"></div>
@@ -501,10 +501,14 @@ function isLeader(u){ return u && (ROLES[u.role]?.level||0) >= 2; }
 function getRoleInfo(r){ return ROLES[r] || {level:0,tag:'role-agent',label:r||'—'}; }
 
 function setLoginMode(m){
+  // Handle Form Visibility
   document.getElementById('login-form').style.display = (m==='login')?'block':'none';
   document.getElementById('import-form').style.display = (m==='import')?'block':'none';
-  document.getElementById('paste-form').style.display = (m==='paste')?'block':'none';
+  // Ensure this ID matches the HTML block added in Step 1
+  const pasteForm = document.getElementById('paste-form');
+  if(pasteForm) pasteForm.style.display = (m==='paste')?'block':'none';
   
+  // Update Button Appearance (Highlights the active button)
   document.getElementById('tab-login-btn').className = 'btn' + (m==='login'?' btn-accent':'');
   document.getElementById('tab-import-btn').className = 'btn' + (m==='import'?' btn-accent':'');
   document.getElementById('tab-paste-btn').className = 'btn' + (m==='paste'?' btn-accent':'');
