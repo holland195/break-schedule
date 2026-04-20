@@ -1088,20 +1088,10 @@ function importSheet(){
 
 function parseSheetCSV(csv) {
   const status = document.getElementById('import-status');
-  if (!status) {
-    console.error("Critical Error: 'import-status' element is missing from HTML.");
-    return;
-  }
-
   try {
     const lines = csv.split('\n').map(l => parseCSVLine(l));
     
-    // Find header row and map days
-    let headerIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].some(c => c.trim() === 'Mon' || c.trim() === 'NAME')) { headerIdx = i; break; }
-    }
-    
+    // Find the day headers (Mon, Tue, etc.) to map schedule columns
     const dateRow = lines.find(l => l.some(c => c.trim() === 'Mon'));
     const dayColMap = {};
     if (dateRow) {
@@ -1117,42 +1107,35 @@ function parseSheetCSV(csv) {
       const no = row[0]?.trim();
       const team = row[1]?.trim();
       const name = row[2]?.trim();
-      const role = row[3]?.trim();
+      const usernameFromSheet = row[3]?.trim();
+      const role = row[4]?.trim(); // Adjusted mapping for your sheet
       
-      if (!no || isNaN(parseInt(no)) || !name || name.length < 2) continue;
+      // SKIP: Empty rows, header rows, or rows where the ID is not a simple number
+      if (!no || isNaN(parseInt(no)) || !name || name.includes('/')) continue;
       
       const schedule = {};
       WEEK_DAYS.forEach(d => {
         const col = dayColMap[d];
-        schedule[d] = (col !== undefined) ? (row[col]?.trim() || '0') : '0';
+        const val = (col !== undefined) ? (row[col]?.trim() || '0') : '0';
+        schedule[d] = val === '' ? '0' : val;
       });
 
       importedUsers.push({
         id: Date.now() + importedUsers.length,
-        username: makeUsername(name),
-        name, team, role,
+        username: usernameFromSheet || makeUsername(name), // Use sheet username if available
+        name, team, role: role || 'Agent',
         password: '1234',
         schedule,
       });
     }
 
     if (importedUsers.length === 0) {
-      status.innerHTML = `<span style="color:var(--err)">Could not parse any staff rows. Check your selection.</span>`;
+      status.innerHTML = `<span style="color:var(--err)">No valid staff found. Check your selection.</span>`;
       return;
     }
 
-    // Show results
-    status.innerHTML = `<span style="color:var(--ok)">✓ Parsed successfully</span>`;
-    document.getElementById('preview-count').textContent = importedUsers.length;
-    document.getElementById('import-preview').style.display = 'block';
-    document.getElementById('preview-list').innerHTML = importedUsers.slice(0, 30).map(u => `
-      <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--border)">
-        <span style="font-family:monospace;font-size:10px;color:var(--text3);width:36px">${u.team}</span>
-        <span style="flex:1;font-size:12px;font-weight:500">${u.name}</span>
-        <span style="font-size:11px;color:var(--text2)">${u.role}</span>
-      </div>
-    `).join('');
-
+    status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff parsed successfully</span>`;
+    renderImportPreview(); // Call the improved preview renderer
   } catch (e) {
     status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
   }
