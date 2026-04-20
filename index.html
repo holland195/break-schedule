@@ -293,9 +293,10 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
     <div class="login-sub">Shift Break Manager v2.0</div>
 
     <div id="login-mode-tabs" style="display:flex;gap:6px;margin-bottom:20px">
-      <button class="btn" id="tab-login-btn" onclick="setLoginMode('login')" style="flex:1">Sign in</button>
-      <button class="btn btn-accent" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1">Import from Sheets</button>
-    </div>
+  <button class="btn" id="tab-login-btn" onclick="setLoginMode('login')" style="flex:1">Sign in</button>
+  <button class="btn" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1.2">Sheets Link</button>
+  <button class="btn btn-accent" id="tab-paste-btn" onclick="setLoginMode('paste')" style="flex:1.2">Direct Paste</button>
+</div>
 
     <div id="login-form">
       <label class="login-label">Username</label>
@@ -320,23 +321,12 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
       </div>
     </div>
 
-    <div id="import-form" style="display:none">
-      <label class="login-label">Google Sheet ID</label>
-      <div class="import-row">
-        <input class="login-input" id="sheet-id" placeholder="19YqrS2ls7..." value="19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs">
-        <button class="btn btn-accent" onclick="importSheet()">Import</button>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.6">
-        Sheet must be publicly readable ("Anyone with the link can view").<br>
-        Imports from tab: <span style="color:var(--accent);font-family:'IBM Plex Mono',monospace">Schedule April_26</span>
-      </div>
-      <div id="import-status" style="margin-top:12px;font-size:12px;min-height:18px"></div>
-      <div id="import-preview" style="display:none;margin-top:16px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;font-family:'IBM Plex Mono',monospace">Preview (<span id="preview-count">0</span> staff found)</div>
-        <div id="preview-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px"></div>
-        <button class="btn btn-accent" onclick="confirmImport()" style="width:100%;margin-top:12px">Use this data →</button>
-      </div>
-    </div>
+   <div id="paste-form" style="display:none">
+  <label class="login-label">Paste from Google Sheets</label>
+  <textarea id="paste-area" class="login-input" style="min-height:120px; font-family:monospace; font-size:10px;" placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
+  <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%; margin-top:12px">Parse Paste Data →</button>
+  <div id="paste-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
+</div>
     <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center"></div>
   </div>
 </div>
@@ -511,13 +501,33 @@ function isLeader(u){ return u && (ROLES[u.role]?.level||0) >= 2; }
 function getRoleInfo(r){ return ROLES[r] || {level:0,tag:'role-agent',label:r||'—'}; }
 
 function setLoginMode(m){
-  const isImport = m==='import';
-  document.getElementById('login-form').style.display = isImport?'none':'block';
-  document.getElementById('import-form').style.display = isImport?'block':'none';
-  document.getElementById('tab-login-btn').className = 'btn'+(isImport?'':' btn-accent');
-  document.getElementById('tab-import-btn').className = 'btn'+(isImport?' btn-accent':'');
+  document.getElementById('login-form').style.display = (m==='login')?'block':'none';
+  document.getElementById('import-form').style.display = (m==='import')?'block':'none';
+  document.getElementById('paste-form').style.display = (m==='paste')?'block':'none';
+  
+  document.getElementById('tab-login-btn').className = 'btn' + (m==='login'?' btn-accent':'');
+  document.getElementById('tab-import-btn').className = 'btn' + (m==='import'?' btn-accent':'');
+  document.getElementById('tab-paste-btn').className = 'btn' + (m==='paste'?' btn-accent':'');
 }
-
+  
+function importFromPaste() {
+  const rawData = document.getElementById('paste-area').value.trim();
+  const status = document.getElementById('paste-status');
+  if (!rawData) { status.textContent = 'Paste something first!'; return; }
+  
+  // Convert tab-separated paste data into CSV format for the existing parser
+  // We replace tabs with commas, but only if they aren't inside quotes
+  const simulatedCSV = rawData.split('\n').map(line => {
+    return line.split('\t').map(cell => `"${cell.replace(/"/g, '""')}"`).join(',');
+  }).join('\n');
+  
+  // Reuse your existing parser!
+  parseSheetCSV(simulatedCSV);
+  
+  // Move the preview to the visible area
+  document.getElementById('import-preview').style.display = 'block';
+  status.innerHTML = `<span style="color:var(--ok)">✓ Paste parsed! Preview below.</span>`;
+}
 function doLogin(){
   const u = document.getElementById('li-user').value.trim();
   const p = document.getElementById('li-pass').value.trim();
