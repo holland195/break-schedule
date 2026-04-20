@@ -1167,25 +1167,36 @@ function renderImportPreview() {
   `).join('');
 }
 
-function confirmImport(){
-  // Add leaders for each team if not present
-  const teams=[...new Set(importedUsers.map(u=>u.team))];
-  const leaderUsers=teams.map((t,i)=>({
-    id:900+i,
-    username:`leader.${t.toLowerCase()}`,
-    name:`Leader ${t}`,
-    team:t,role:'Agent Leader',password:'leader123',
-    schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'},
-  }));
-  state.users=[...importedUsers,...leaderUsers];
-  state.imported=true;
-  state.breaks={};
-  state.requests=[];
+function confirmImport() {
+  // 1. Start with the master Admin user to ensure you don't lock yourself out
+  const adminUser = {
+    id: 999,
+    username: 'admin',
+    name: 'System Admin',
+    team: 'HQ',
+    role: 'Admin',
+    password: '1234',
+    schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'}
+  };
+
+  // 2. Set the state to ONLY your imported users plus the admin
+  state.users = [adminUser, ...importedUsers];
+  
+  // 3. Clear all old break data and requests for a clean start
+  state.imported = true;
+  state.breaks = {};
+  state.requests = [];
+  
+  // 4. Save to local storage and update UI
   save();
   buildDatalist();
-  document.getElementById('import-status').innerHTML=`<span style="color:var(--ok)">✓ ${importedUsers.length} staff imported! Leaders created.</span>`;
-  document.getElementById('import-preview').style.display='none';
-  setTimeout(()=>setLoginMode('login'),1500);
+  
+  const status = document.getElementById('import-status') || document.getElementById('paste-status');
+  if (status) status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff imported successfully!</span>`;
+  
+  // Hide the preview and switch back to the sign-in tab
+  document.getElementById('import-preview').style.display = 'none';
+  setTimeout(() => setLoginMode('login'), 1500);
 }
 
 function makeUsername(name){
