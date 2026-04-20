@@ -316,6 +316,7 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
       <div class="login-actions">
         <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
         <div class="login-divider">or</div>
+        <button class="btn btn-err" onclick="factoryReset()" style="width:100%; margin-bottom:10px;">⚠ Clear All Data (Reset)</button>
         <button class="btn" onclick="demoLogin('leader')" style="width:100%">Demo as Leader (AT1)</button>
         <button class="btn" onclick="demoLogin('agent')" style="width:100%">Demo as Agent</button>
       </div>
@@ -1181,6 +1182,16 @@ function parseCSVLine(line){
   }
   result.push(cur);
   return result;
+}
+
+function factoryReset() {
+  if (confirm("This will permanently erase ALL staff, breaks, and requests. Are you sure?")) {
+    // Completely remove the data from the browser storage
+    localStorage.removeItem(STORAGE);
+    
+    // Refresh the page to reload the original SEED_USERS
+    window.location.reload();
+  }
 }
 
 function openImportPanel(){
