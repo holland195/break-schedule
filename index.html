@@ -1,10 +1,611 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My Web Page</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Break Schedule Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#f5f4f0;
+  --surface:#ffffff;
+  --surface2:#eeede8;
+  --surface3:#e5e4de;
+  --border:#dddcd5;
+  --border2:#c4c3bb;
+  --ink:#18180f;
+  --ink2:#6b6a62;
+  --ink3:#a4a39a;
+  --d1-fill:#c8f0e0;--d1-ink:#064f3a;--d1-ring:#3dba8a;
+  --d2-fill:#cce4f8;--d2-ink:#0a3d6e;--d2-ring:#5aaae0;
+  --off-fill:#e2e1db;--off-ink:#3e3d38;--off-ring:#9e9d96;
+  --ok:#0a6b48;--err:#b52b2b;
+  --r:8px;--rl:14px;
+}
+
+html{scroll-behavior:smooth}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* HEADER */
+.hdr{
+  background:var(--ink);color:#fff;
+  padding:0 28px;height:58px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;
+  border-bottom:2px solid #2e2e20;
+}
+.hdr-brand{display:flex;align-items:center;gap:12px}
+.hdr-logo{
+  width:34px;height:34px;border-radius:8px;
+  background:#fff;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;letter-spacing:-.02em;flex-shrink:0;
+}
+.hdr-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.hdr-sub{font-size:11px;opacity:.45;font-family:'DM Mono',monospace;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.legend{display:flex;gap:10px;align-items:center}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;opacity:.7}
+.leg-dot{width:9px;height:9px;border-radius:2px}
+
+/* BUTTONS */
+.btn{
+  font-family:'Syne',sans-serif;font-size:12px;font-weight:600;
+  padding:7px 16px;border-radius:var(--r);
+  border:1.5px solid var(--border2);
+  background:var(--surface);color:var(--ink);
+  cursor:pointer;transition:all .12s;white-space:nowrap;
+  letter-spacing:.01em;
+}
+.btn:hover{background:var(--surface2);border-color:var(--ink)}
+.btn-dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn-dark:hover{opacity:.82}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--ink2)}
+.btn-ghost:hover{background:var(--surface2);border-color:var(--border)}
+.btn-danger{color:var(--err);border-color:#f2bcbc}
+.btn-danger:hover{background:#fff2f2}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* MAIN */
+.main{max-width:1140px;margin:0 auto;padding:22px 28px 60px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.stat{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--rl);padding:14px 16px;
+  transition:transform .12s;
+}
+.stat:hover{transform:translateY(-2px)}
+.stat-label{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.stat-num{font-size:28px;font-weight:700;letter-spacing:-.04em;line-height:1}
+.stat-num.c-d1{color:var(--d1-ink)}
+.stat-num.c-d2{color:var(--d2-ink)}
+.stat-num.c-off{color:var(--ink2)}
+
+/* TOOLBAR */
+.toolbar{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  margin-bottom:14px;
+}
+.search-wrap{position:relative;flex:1;min-width:180px;max-width:280px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink3);pointer-events:none}
+.search-wrap input{
+  width:100%;padding:8px 10px 8px 32px;
+  border:1.5px solid var(--border);border-radius:var(--r);
+  font-family:'Syne',sans-serif;font-size:12px;
+  background:var(--surface);color:var(--ink);
+  transition:border .12s;
+}
+.search-wrap input:focus{outline:none;border-color:var(--ink);background:#fff}
+.pills{display:flex;gap:5px;flex-wrap:wrap}
+.pill{
+  font-size:11px;font-weight:600;padding:5px 12px;
+  border-radius:99px;border:1.5px solid var(--border2);
+  background:var(--surface);color:var(--ink2);cursor:pointer;
+  transition:all .1s;letter-spacing:.01em;
+}
+.pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sel-filter{
+  font-family:'Syne',sans-serif;font-size:12px;font-weight:600;
+  padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);cursor:pointer;
+}
+.toolbar-right{margin-left:auto;display:flex;gap:8px}
+
+/* TABLE */
+.tbl-wrap{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--rl);overflow:hidden;margin-bottom:18px;
+  box-shadow:0 2px 12px rgba(0,0,0,.04);
+}
+table{width:100%;border-collapse:collapse;min-width:700px}
+thead th{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink3);padding:10px 14px;text-align:left;
+  background:var(--surface2);border-bottom:1.5px solid var(--border);
+  white-space:nowrap;
+}
+th.c{text-align:center}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg)}
+tbody tr.sel{background:#eef6ff}
+td{padding:9px 14px;vertical-align:middle}
+td.team{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink2);font-weight:500}
+td.name{font-weight:600;font-size:13px}
+td.c{text-align:center}
+
+/* BADGES */
+.badge{
+  display:inline-block;font-size:10px;font-weight:700;
+  padding:3px 9px;border-radius:99px;letter-spacing:.03em;
+}
+.b-agent{background:#fde5d5;color:#6b2410}
+.b-qa{background:#ece9fe;color:#332983}
+.b-srqa{background:#fde8f2;color:#6e1d42}
+
+/* SLOT CHIPS */
+.chip{
+  display:inline-block;font-family:'DM Mono',monospace;
+  font-size:11px;font-weight:500;padding:4px 11px;
+  border-radius:6px;cursor:pointer;border:1.5px solid transparent;
+  transition:transform .1s,box-shadow .1s;user-select:none;
+}
+.chip:hover{transform:scale(1.1);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.chip:active{transform:scale(.96)}
+.chip-d1{background:var(--d1-fill);color:var(--d1-ink);border-color:var(--d1-ring)}
+.chip-d2{background:var(--d2-fill);color:var(--d2-ink);border-color:var(--d2-ring)}
+.chip-off{background:var(--off-fill);color:var(--off-ink);border-color:var(--off-ring)}
+
+/* DETAIL PANEL */
+.detail{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--rl);padding:18px 22px;margin-bottom:18px;
+  display:none;box-shadow:0 2px 12px rgba(0,0,0,.04);
+  animation:slideIn .18s ease;
+}
+.detail.show{display:block}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.detail-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.detail-name{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.detail-meta{font-size:11px;color:var(--ink2);font-family:'DM Mono',monospace;margin-top:2px}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px}
+.di{background:var(--surface2);border-radius:var(--r);padding:10px 12px}
+.di-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:4px}
+.di-val{font-size:13px;font-weight:600}
+.tl{margin-top:4px}
+.tl-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.tl-day{font-size:10px;font-weight:700;color:var(--ink3);width:28px;font-family:'DM Mono',monospace}
+.tl-bar{height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'DM Mono',monospace;transition:width .3s ease}
+.tl-info{font-size:11px;color:var(--ink2)}
+
+/* FORM */
+.form-panel{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--rl);padding:20px 22px;
+  box-shadow:0 2px 12px rgba(0,0,0,.04);
+}
+.form-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.form-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:12px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)}
+.fg input,.fg select{
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:500;
+  padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);
+  background:var(--bg);color:var(--ink);transition:border .12s;
+}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--ink);background:#fff}
+.form-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.msg{font-size:12px;font-weight:600;min-height:18px;transition:opacity .3s}
+.msg.ok{color:var(--ok)}.msg.err{color:var(--err)}
+
+/* EMPTY / LOADING */
+.empty{text-align:center;padding:44px;color:var(--ink3)}
+.empty-ico{font-size:32px;margin-bottom:10px}
+.spin{
+  display:inline-block;width:22px;height:22px;
+  border:2.5px solid var(--border);border-top-color:var(--ink);
+  border-radius:50%;animation:spin .65s linear infinite;margin-bottom:10px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SCROLLABLE TABLE WRAPPER */
+.tbl-scroll{overflow-x:auto}
+
+/* EXPORT BADGE */
+.export-hint{
+  font-size:11px;color:var(--ink3);
+  font-family:'DM Mono',monospace;
+  border:1px dashed var(--border2);
+  border-radius:6px;padding:3px 10px;
+}
+
+@media(max-width:640px){
+  .main{padding:14px 14px 60px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .hdr{padding:0 14px}
+  .legend{display:none}
+}
+</style>
 </head>
 <body>
-    <h1>Welcome to My Web Page</h1>
-    <p>This is a sample web page.</p>
+
+<header class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-logo">BS</div>
+    <div>
+      <div class="hdr-title">Break Schedule Manager</div>
+      <div class="hdr-sub">D1: 4H00–5H30 &nbsp;·&nbsp; D2: 5H30–7H00</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#3dba8a"></div>D1</div>
+      <div class="leg"><div class="leg-dot" style="background:#5aaae0"></div>D2</div>
+      <div class="leg"><div class="leg-dot" style="background:#9e9d96"></div>OFF</div>
+    </div>
+    <button class="btn btn-dark btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Total staff</div><div class="stat-num" id="s-total">—</div></div>
+    <div class="stat"><div class="stat-label">D1 breaks</div><div class="stat-num c-d1" id="s-d1">—</div></div>
+    <div class="stat"><div class="stat-label">D2 breaks</div><div class="stat-num c-d2" id="s-d2">—</div></div>
+    <div class="stat"><div class="stat-label">Days off</div><div class="stat-num c-off" id="s-off">—</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="search" placeholder="Search name, team, user…" oninput="render()">
+    </div>
+    <div class="pills" id="pills"></div>
+    <select class="sel-filter" id="day-f" onchange="render()">
+      <option value="all">All days</option>
+      <option value="Mon">Monday 20/04</option>
+      <option value="Tue">Tuesday 21/04</option>
+      <option value="Wed">Wednesday 22/04</option>
+      <option value="Thu">Thursday 23/04</option>
+      <option value="Fri">Friday 24/04</option>
+    </select>
+    <div class="toolbar-right">
+      <button class="btn btn-sm" onclick="clearAll()" title="Reset all data">Reset data</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr id="thead-row"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Detail panel -->
+  <div class="detail" id="detail">
+    <div class="detail-hdr">
+      <div>
+        <div class="detail-name" id="d-name"></div>
+        <div class="detail-meta" id="d-meta"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-grid" id="d-grid"></div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin-bottom:10px">Weekly timeline</div>
+    <div id="d-tl"></div>
+  </div>
+
+  <!-- Form -->
+  <div class="form-panel">
+    <div class="form-head">
+      <div class="form-title" id="form-title">＋ Add employee</div>
+      <button class="btn btn-ghost btn-sm" onclick="cancelEdit()" id="cancel-btn" style="display:none">Cancel edit</button>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label>Team</label><input id="f-team" placeholder="e.g. QA1"></div>
+      <div class="fg"><label>Full name</label><input id="f-name" placeholder="Nguyễn Văn A"></div>
+      <div class="fg"><label>Username</label><input id="f-user" placeholder="a.nguyen"></div>
+      <div class="fg"><label>Role</label>
+        <select id="f-role"><option>Agent</option><option>QA</option><option>Sr QA</option></select>
+      </div>
+    </div>
+    <div class="form-grid" id="day-fgs"></div>
+    <div class="form-actions">
+      <button class="btn btn-dark" onclick="save()" id="save-btn">Save employee</button>
+      <button class="btn" onclick="clearForm()">Clear</button>
+      <button class="btn btn-danger" id="del-btn" style="display:none" onclick="del()">Delete selected</button>
+      <span class="msg" id="msg"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DAYS = ['Mon','Tue','Wed','Thu','Fri'];
+const SLOTS = ['D1','D2','OFF'];
+const SLOT_INFO = {D1:'4H00 – 5H30',D2:'5H30 – 7H00',OFF:'Day off'};
+const DATES = {Mon:'20/04',Tue:'21/04',Wed:'22/04',Thu:'23/04',Fri:'24/04'};
+const STORAGE_KEY = 'break_schedule_v2';
+
+const SEED = [
+  {id:1,team:'AT19',name:'Nguyễn Hữu Thọ',user:'tho.nh',role:'Agent',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:2,team:'AT9',name:'Nguyễn Phương Nam',user:'nam.np',role:'Agent',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:3,team:'AT10',name:'Phạm Sỹ Thái',user:'thai.ps',role:'Agent',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:4,team:'AT10',name:'Lê Huỳnh Minh Anh',user:'anh.le',role:'Agent',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:5,team:'AT11',name:'Bùi Lập Duy',user:'duy.bui',role:'Agent',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:6,team:'QA1',name:'Phan Xuân Thịnh',user:'thinh.phanxuan',role:'QA',s:{Mon:'OFF',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:7,team:'QA1',name:'Cao Chí Hải',user:'hai.cao',role:'QA',s:{Mon:'OFF',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:8,team:'QA1',name:'Nguyễn Thanh Thế Cường',user:'cuong.nguyenthan',role:'QA',s:{Mon:'OFF',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:9,team:'QA1',name:'Nguyễn Lâm Bảo Ngọc',user:'ngoc.nguyen',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:10,team:'QA2',name:'Võ Anh Kiệt',user:'kiet.voanh',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:11,team:'QA2',name:'Lê Khả Nhi',user:'nhi.le',role:'QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:12,team:'QA2',name:'Nguyễn Văn Trường',user:'truong.nguyen',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:13,team:'QA2',name:'Nguyễn Anh Vũ',user:'vu.nguyen',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:14,team:'QA2',name:'Bùi Trọng Sơn',user:'son.bui',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:15,team:'QA4',name:'Thái Thị Thanh Linh',user:'linh.thai',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:16,team:'QA5',name:'Mai Hà Bảo Trâm',user:'tram.mai',role:'QA',s:{Mon:'OFF',Tue:'D2',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:17,team:'QA5',name:'Lư Quang Trực',user:'truc.luquang',role:'QA',s:{Mon:'OFF',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:18,team:'QA6',name:'Cao Đức Hiếu',user:'hieu.cao',role:'QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:19,team:'QA6',name:'Nguyễn Tuyên Hoàng',user:'hoang.nguyentuye',role:'QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:20,team:'QA7',name:'Phan Thị Phương Thảo',user:'thao.phan',role:'QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:21,team:'QA7',name:'Nguyễn Đình Lưu',user:'luu.nguyendinh',role:'QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:22,team:'QA9',name:'Trần Tuấn Anh',user:'anh.trantuan',role:'QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:23,team:'QA9',name:'Huỳnh Thị Mỹ Kim',user:'kim.huynh',role:'QA',s:{Mon:'OFF',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:24,team:'SR1',name:'Đào Công Tấn Anh',user:'anh.dao',role:'Sr QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:25,team:'SR2',name:'Huỳnh Văn Danh',user:'danh.huynh',role:'Sr QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:26,team:'SR6',name:'Nguyễn Trần Tông',user:'tong.nguyen',role:'Sr QA',s:{Mon:'D2',Tue:'D2',Wed:'D2',Thu:'D2',Fri:'D2'}},
+  {id:27,team:'SR7',name:'Nguyễn Hữu Thịnh',user:'thinh.nguyen',role:'Sr QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+  {id:28,team:'SR8',name:'Nguyễn Huy Hiến',user:'huyhien.nguyen',role:'Sr QA',s:{Mon:'D1',Tue:'D1',Wed:'D1',Thu:'D1',Fri:'D1'}},
+];
+
+// ── State ──────────────────────────────────────────────────
+let employees = [];
+let nextId = 100;
+let selId = null;
+let editId = null;
+let roleFilter = 'All';
+
+// ── Persist ────────────────────────────────────────────────
+function persist(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify({employees, nextId})); }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){ const d=JSON.parse(raw); employees=d.employees; nextId=d.nextId||100; }
+    else{ employees=JSON.parse(JSON.stringify(SEED)); nextId=100; persist(); }
+  }catch(e){ employees=JSON.parse(JSON.stringify(SEED)); }
+}
+
+// ── Filters ────────────────────────────────────────────────
+function filtered(){
+  const q = document.getElementById('search').value.toLowerCase();
+  return employees.filter(e=>{
+    if(roleFilter!=='All' && e.role!==roleFilter) return false;
+    if(q && !e.name.toLowerCase().includes(q) && !e.user.toLowerCase().includes(q) && !e.team.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+// ── Stats ──────────────────────────────────────────────────
+function renderStats(){
+  document.getElementById('s-total').textContent = employees.length;
+  document.getElementById('s-d1').textContent = employees.filter(e=>Object.values(e.s).includes('D1')).length;
+  document.getElementById('s-d2').textContent = employees.filter(e=>Object.values(e.s).includes('D2')).length;
+  document.getElementById('s-off').textContent = employees.filter(e=>Object.values(e.s).includes('OFF')).length;
+}
+
+// ── Pills ──────────────────────────────────────────────────
+function renderPills(){
+  const roles = ['All',...new Set(employees.map(e=>e.role))];
+  document.getElementById('pills').innerHTML = roles.map(r=>
+    `<button class="pill${roleFilter===r?' on':''}" onclick="setRole('${r}')">${r}</button>`
+  ).join('');
+}
+function setRole(r){ roleFilter=r; render(); }
+
+// ── Table ──────────────────────────────────────────────────
+function render(){
+  renderStats(); renderPills();
+  const day = document.getElementById('day-f').value;
+  const days = day==='all'?DAYS:[day];
+
+  // thead
+  document.getElementById('thead-row').innerHTML =
+    `<th>Team</th><th>Name</th><th>Role</th>`+
+    days.map(d=>`<th class="c">${d}<br><span style="font-weight:400;opacity:.5;font-size:9px">${DATES[d]}</span></th>`).join('')+
+    `<th></th>`;
+
+  const list = filtered();
+  if(!list.length){
+    document.getElementById('tbody').innerHTML=`<tr><td colspan="${3+days.length+1}"><div class="empty"><div class="empty-ico">📭</div>No employees match.</div></td></tr>`;
+    return;
+  }
+  document.getElementById('tbody').innerHTML = list.map(e=>`
+    <tr onclick="selectEmp(${e.id})" class="${selId===e.id?'sel':''}">
+      <td class="team">${e.team}</td>
+      <td class="name">${e.name}</td>
+      <td>${badge(e.role)}</td>
+      ${days.map(d=>`<td class="c">${chip(e.s[d]||'D1',e.id,d)}</td>`).join('')}
+      <td><button class="btn btn-sm" onclick="startEdit(event,${e.id})">Edit</button></td>
+    </tr>
+  `).join('');
+}
+
+function badge(r){
+  const c=r==='Agent'?'b-agent':r==='QA'?'b-qa':'b-srqa';
+  return `<span class="badge ${c}">${r}</span>`;
+}
+function chip(v,id,day){
+  const c=v==='D1'?'chip-d1':v==='D2'?'chip-d2':'chip-off';
+  return `<span class="chip ${c}" onclick="cycle(event,${id},'${day}')" title="${SLOT_INFO[v]}">${v}</span>`;
+}
+
+// ── Cycle slot ─────────────────────────────────────────────
+function cycle(e,id,day){
+  e.stopPropagation();
+  const emp=employees.find(x=>x.id===id); if(!emp)return;
+  emp.s[day]=SLOTS[(SLOTS.indexOf(emp.s[day])+1)%SLOTS.length];
+  persist(); render();
+  if(selId===id) renderDetail(id);
+  msg(`${emp.name} — ${day} → ${emp.s[day]}`);
+}
+
+// ── Select ─────────────────────────────────────────────────
+function selectEmp(id){
+  selId = selId===id?null:id;
+  render();
+  if(selId) renderDetail(selId);
+  else closeDetail();
+  document.getElementById('del-btn').style.display = selId?'':'none';
+}
+
+// ── Detail ─────────────────────────────────────────────────
+function renderDetail(id){
+  const e=employees.find(x=>x.id===id); if(!e)return;
+  document.getElementById('detail').classList.add('show');
+  document.getElementById('d-name').textContent=e.name;
+  document.getElementById('d-meta').textContent=`${e.team} · ${e.user}`;
+  const d1d=DAYS.filter(d=>e.s[d]==='D1');
+  const d2d=DAYS.filter(d=>e.s[d]==='D2');
+  const ofd=DAYS.filter(d=>e.s[d]==='OFF');
+  document.getElementById('d-grid').innerHTML=`
+    <div class="di"><div class="di-label">Role</div><div class="di-val">${e.role}</div></div>
+    <div class="di"><div class="di-label">D1 days</div><div class="di-val" style="color:var(--d1-ink)">${d1d.join(', ')||'—'}</div></div>
+    <div class="di"><div class="di-label">D2 days</div><div class="di-val" style="color:var(--d2-ink)">${d2d.join(', ')||'—'}</div></div>
+    <div class="di"><div class="di-label">Days off</div><div class="di-val" style="color:var(--ink2)">${ofd.join(', ')||'—'}</div></div>
+  `;
+  const bc={D1:'#3dba8a',D2:'#5aaae0',OFF:'#9e9d96'};
+  const ic={D1:'#064f3a',D2:'#0a3d6e',OFF:'#3e3d38'};
+  document.getElementById('d-tl').innerHTML=DAYS.map(d=>{
+    const v=e.s[d]||'D1';
+    const w=v==='OFF'?44:88;
+    return `<div class="tl-row">
+      <span class="tl-day">${d}</span>
+      <div class="tl-bar" style="width:${w}px;background:${bc[v]};color:${ic[v]}">${v}</div>
+      <span class="tl-info">${SLOT_INFO[v]}</span>
+    </div>`;
+  }).join('');
+}
+function closeDetail(){ document.getElementById('detail').classList.remove('show'); selId=null; render(); }
+
+// ── Edit ───────────────────────────────────────────────────
+function startEdit(ev,id){
+  ev.stopPropagation();
+  const e=employees.find(x=>x.id===id); if(!e)return;
+  editId=id;
+  document.getElementById('f-team').value=e.team;
+  document.getElementById('f-name').value=e.name;
+  document.getElementById('f-user').value=e.user;
+  document.getElementById('f-role').value=e.role;
+  DAYS.forEach(d=>{ const s=document.getElementById('f-'+d); if(s)s.value=e.s[d]||'D1'; });
+  document.getElementById('form-title').textContent='✏️ Editing — '+e.name;
+  document.getElementById('save-btn').textContent='Save changes';
+  document.getElementById('cancel-btn').style.display='';
+  document.querySelector('.form-panel').scrollIntoView({behavior:'smooth',block:'center'});
+  msg('Editing '+e.name+' — click Save changes when done.');
+}
+
+// ── Save ───────────────────────────────────────────────────
+function save(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){ msg('Name is required.',true); return; }
+  const rec={
+    id: editId||nextId++,
+    team: document.getElementById('f-team').value.trim(),
+    name,
+    user: document.getElementById('f-user').value.trim(),
+    role: document.getElementById('f-role').value,
+    s: Object.fromEntries(DAYS.map(d=>[d,document.getElementById('f-'+d).value]))
+  };
+  if(editId){
+    const i=employees.findIndex(x=>x.id===editId);
+    if(i>-1) employees[i]=rec;
+  } else {
+    employees.push(rec);
+  }
+  persist(); clearForm(); render();
+  msg((editId?'Updated':'Added')+': '+name);
+}
+
+// ── Delete ─────────────────────────────────────────────────
+function del(){
+  if(!selId)return;
+  const e=employees.find(x=>x.id===selId);
+  if(!confirm('Delete '+(e?e.name:'this employee')+'?'))return;
+  employees=employees.filter(x=>x.id!==selId);
+  selId=null; persist(); closeDetail(); render();
+  msg('Deleted: '+(e?e.name:''));
+}
+
+// ── Clear form ─────────────────────────────────────────────
+function clearForm(){
+  ['f-team','f-name','f-user'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-role').value='QA';
+  DAYS.forEach(d=>{ const s=document.getElementById('f-'+d); if(s)s.value='D1'; });
+  editId=null;
+  document.getElementById('form-title').textContent='＋ Add employee';
+  document.getElementById('save-btn').textContent='Save employee';
+  document.getElementById('cancel-btn').style.display='none';
+  document.getElementById('del-btn').style.display='none';
+}
+function cancelEdit(){ clearForm(); }
+
+// ── Reset all ──────────────────────────────────────────────
+function clearAll(){
+  if(!confirm('Reset ALL data to the original sample? This cannot be undone.'))return;
+  localStorage.removeItem(STORAGE_KEY);
+  load(); selId=null; editId=null; roleFilter='All';
+  clearForm(); closeDetail(); render();
+  msg('Data reset to sample.');
+}
+
+// ── Export CSV ─────────────────────────────────────────────
+function exportCSV(){
+  const header=['Team','Name','User','Role','Mon','Tue','Wed','Thu','Fri'];
+  const rows=employees.map(e=>[e.team,e.name,e.user,e.role,...DAYS.map(d=>e.s[d]||'D1')]);
+  const csv=[header,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='break-schedule.csv'; a.click();
+}
+
+// ── Msg helper ─────────────────────────────────────────────
+let msgTimer;
+function msg(t,err){
+  const el=document.getElementById('msg');
+  el.textContent=t; el.className='msg '+(err?'err':'ok');
+  clearTimeout(msgTimer);
+  msgTimer=setTimeout(()=>el.textContent='',4000);
+}
+
+// ── Init ───────────────────────────────────────────────────
+(function(){
+  // Build day selects
+  document.getElementById('day-fgs').innerHTML=DAYS.map(d=>`
+    <div class="fg"><label>${d}</label>
+      <select id="f-${d}">
+        <option value="D1">D1 — 4H00–5H30</option>
+        <option value="D2">D2 — 5H30–7H00</option>
+        <option value="OFF">Day off</option>
+      </select>
+    </div>
+  `).join('');
+  load(); render();
+})();
+</script>
 </body>
 </html>
