@@ -876,43 +876,39 @@ function renderArrange(){
   if(!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
   const today = todayKey();
   const weekDates = getWeekDates();
-
-  // Updated tabs with dates
-  // Improved tabs layout with better spacing
-  const tabs = WEEK_DAYS.map((d,i)=>`
-    <div class="tab${d===today?' on':''}" 
-         onclick="switchArrangeDay('${d}')" 
-         data-day="${d}" 
-         style="text-align:center; min-width:80px; padding:10px 5px;">
-      <div style="font-weight:600; font-size:12px; margin-bottom:2px;">${d}</div>
-      <div style="font-size:10px; opacity:0.6; font-family:'IBM Plex Mono',monospace;">${weekDates[i]}</div>
-    </div>`).join('');
+  const teams = [...new Set(state.users.map(u => u.team))].sort();
 
   return `
   <div class="page-header">
-    <div>
-      <div class="page-title">Arrange Breaks</div>
-      <div class="page-sub">Shift ${currentShift} · Set timelines for your team</div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-sm" onclick="autofillDay()">⚡ Auto-fill today</button>
-      <button class="btn btn-sm btn-accent" onclick="autofillWeek()">⚡ Auto-fill week</button>
+    <div><div class="page-title">Arrange Breaks</div></div>
+    <div style="display:flex; gap:10px; background:var(--bg3); padding:8px 12px; border-radius:8px; border:1px solid var(--border2)">
+      <select id="bulk-team" class="login-select" style="width:120px; padding:4px 8px;">
+        <option value="">— Group —</option>
+        ${teams.map(t => `<option value="${t}">${t}</option>`).join('')}
+      </select>
+      <select id="bulk-slot" class="login-select" style="width:100px; padding:4px 8px;">
+        <option value="">— Slot —</option>
+        <option value="1">Shorthand 1</option>
+        <option value="2">Shorthand 2</option>
+      </select>
+      <button class="btn btn-sm btn-accent" onclick="bulkAssignGroup()">Apply to Group</button>
     </div>
   </div>
-  <div class="tabs" id="arrange-tabs">${tabs}</div>
   
-  <div class="card" style="padding:0; overflow:hidden; border-bottom:none; border-radius:10px 10px 0 0; margin-bottom: 0;">
-    <div style="display:grid; grid-template-columns: 60px 180px 140px 100px 1fr 80px; align-items:center; gap:16px; background:var(--bg3); padding:12px 16px; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text3); border-bottom:1px solid var(--border)">
-      <div>GROUP</div>
-      <div>FULL NAME</div>
-      <div>USERNAME</div>
-      <div>POSITION</div>
-      <div>BREAK SLOTS</div>
-      <div style="text-align:right">ACTION</div>
-    </div>
+  <div class="tabs" id="arrange-tabs">
+    ${WEEK_DAYS.map((d,i)=>`
+      <div class="tab${d===today?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
+        <div style="font-weight:600">${d}</div>
+        <div style="font-size:10px; opacity:0.6">${weekDates[i]}</div>
+      </div>`).join('')}
   </div>
-  <div id="arrange-day-content">${getArrangeDayHTML(today)}</div>
-  `;
+
+  <div class="card" style="padding:0; overflow:hidden; border-radius:10px;">
+    <div style="display:grid; grid-template-columns: 80px 1fr 140px 100px 160px 80px; gap:16px; background:var(--bg3); padding:12px 16px; font-size:10px; font-weight:700; color:var(--text3); border-bottom:1px solid var(--border)">
+      <div>GROUP</div><div>FULL NAME</div><div>USERNAME</div><div>POSITION</div><div>BREAK SLOTS</div><div style="text-align:right">ACTION</div>
+    </div>
+    <div id="arrange-day-content">${getArrangeDayHTML(today)}</div>
+  </div>`;
 }
 
 function attachPageEvents(page){
@@ -921,33 +917,75 @@ function attachPageEvents(page){
   }
 }
 
+  function bulkAssignGroup() {
+  const team = document.getElementById('bulk-team').value;
+  const slotIdx = document.getElementById('bulk-slot').value; // 1 or 2
+  const activeDay = document.querySelector('#arrange-tabs .tab.on').dataset.day;
+
+  if (!team || !slotIdx) {
+    toast('Select both a Group and a Slot index.', 'err');
+    return;
+  }
+
+  const mates = state.users.filter(u => u.team === team && u.schedule[activeDay] !== '0');
+  let count = 0;
+
+  mates.forEach(u => {
+    const shift = u.schedule[activeDay];
+    const actualSlot = BREAK_SLOTS[shift][parseInt(slotIdx) - 1];
+    if (actualSlot) {
+      assign(u.id, activeDay, actualSlot, 'Bulk assigned');
+      count++;
+    }
+  });
+
+  toast(`Assigned ${count} breaks to ${team}`, 'ok');
+  switchArrangeDay(activeDay);
+}
+
 // ═══════════════════════════════════════════════
 //  RENDER: STAFF
 // ═══════════════════════════════════════════════
 function renderStaff(){
+  const weekDates = getWeekDates(); // Use the helper created in the previous turn
+  
   return `
   <div class="page-header">
-    <div><div class="page-title">Staff Directory</div></div>
-    <button class="btn btn-accent" onclick="openImportPanel()">↓ Re-import from Sheets</button>
+    <div><div class="page-title">Staff Directory</div>
+    <div class="page-sub">${state.users.length} employees found in database</div></div>
+    <button class="btn btn-accent" onclick="openImportPanel()">↓ Re-import Data</button>
   </div>
   <div class="tbl-wrap">
     <table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Username</th> <th>Team</th>
-          <th>Role</th>
-          ${WEEK_DAYS.map(d=>`<th class="c">${d}</th>`).join('')}
+          <th>GROUP</th>
+          <th>FULL NAME</th>
+          <th>USER NAME</th>
+          <th>POSITION</th>
+          ${WEEK_DAYS.map((d, i) => `
+            <th class="c">
+              ${d}<br><span style="font-size:9px; opacity:0.5; font-weight:400">${weekDates[i]}</span>
+            </th>`).join('')}
         </tr>
       </thead>
       <tbody>
-        ${state.users.map(u=>`
+        ${state.users.map(u => `
           <tr>
+            <td class="mono">${u.team}</td>
             <td style="font-weight:600">${u.name}</td>
             <td class="mono" style="color:var(--accent)">${u.username}</td>
-            <td class="mono">${u.team}</td>
-            <td><span class="role-tag ${getRoleInfo(u.role).tag}">${u.role}</span></td>
-            ${WEEK_DAYS.map(d=>`<td class="c"><span class="sh sh-${u.schedule[d]}">${u.schedule[d]==='0'?'—':u.schedule[d]}</span></td>`).join('')}
+            <td><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></td>
+            ${WEEK_DAYS.map(d => {
+              const s = u.schedule[d];
+              const br = getAssigned(u.id, d);
+              // Convert full time to shorthand (e.g., E1) if assigned
+              const shortSlot = br ? getShortSlot(s, br.slot) : '—';
+              return `<td class="c">
+                <span class="sh sh-${s}" title="${s==='0'?'OFF':s}">${s==='0'?'—':s}</span>
+                <div style="font-size:9px; margin-top:4px; font-family:monospace; color:var(--ok)">${shortSlot}</div>
+              </td>`;
+            }).join('')}
           </tr>`).join('')}
       </tbody>
     </table>
@@ -978,14 +1016,26 @@ function getArrangeDayHTML(day) {
         <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
         <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
         <div class="break-slots">
-          ${slots.map(s=>`<span class="break-slot${br?.slot===s?' assigned':''}" onclick="quickAssign(${u.id},'${day}','${s}')" style="font-size:10px; padding: 4px 8px;">${s}</span>`).join('')}
-        </div>
-        <div style="text-align:right">
-          <button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.6">Edit</button>
-        </div>
+  ${slots.map((s, idx) => {
+    const shortLabel = `${currentShift}${idx + 1}`; // e.g., D1, D2
+    return `<span class="break-slot${br?.slot===s?' assigned':''}" 
+                  onclick="quickAssign(${u.id},'${day}','${s}')" 
+                  title="${s}" 
+                  style="font-size:11px; padding: 4px 12px; font-weight:700;">
+              ${shortLabel}
+            </span>`;
+  }).join('')}
+</div>
       </div>`;
     }).join('')}
   </div>`;
+}
+
+function getShortSlot(shift, fullTime) {
+  if (!fullTime || fullTime === '—') return '';
+  const slots = BREAK_SLOTS[shift] || [];
+  const index = slots.indexOf(fullTime);
+  return index !== -1 ? `${shift}${index + 1}` : fullTime;
 }
 
 function quickAssign(uid, day, slot){
