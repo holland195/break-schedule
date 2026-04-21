@@ -891,19 +891,53 @@ function renderArrange(){
   if(!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
   const today = todayKey();
   const weekDates = getWeekDates();
+  
+  // Get teams that have at least one person on this shift this week
+  const shiftTeams = [...new Set(state.users.filter(u => 
+    Object.values(u.schedule).includes(currentShift)).map(u => u.team))].sort();
 
   return `
-  <div class="page-header">
-    <div><div class="page-title">Arrange Breaks</div></div>
-    <div id="bulk-action-container"></div> 
+  <div class="page-header" style="align-items: flex-start; flex-direction: column; gap:16px;">
+    <div class="page-title">Arrange Breaks</div>
+    
+    <div class="card" style="width:100%; padding:16px; background:var(--bg3); border-color:var(--border2); display:grid; grid-template-columns: 1fr 1fr auto; gap:20px;">
+      
+      <div>
+        <label class="login-label" style="margin-top:0">Select Groups</label>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;" id="bulk-teams-list">
+          ${shiftTeams.map(t => `
+            <label style="display:flex; align-items:center; gap:6px; font-size:11px; background:var(--bg2); padding:4px 8px; border-radius:4px; cursor:pointer; border:1px solid var(--border)">
+              <input type="checkbox" name="target-team" value="${t}"> ${t}
+            </label>`).join('')}
+        </div>
+      </div>
+
+      <div>
+        <label class="login-label" style="margin-top:0">Select Days</label>
+        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+          ${WEEK_DAYS.map(d => `
+            <label style="display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--bg2); padding:4px; border-radius:4px; border:1px solid var(--border); min-width:40px; cursor:pointer;">
+              <span style="font-size:9px; font-weight:700;">${d}</span>
+              <input type="checkbox" name="target-day" value="${d}" ${d===today?'checked':''}>
+            </label>`).join('')}
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:8px;">
+        <select id="bulk-slot-multi" class="login-select" style="padding:6px;">
+          <option value="1">Slot 1 (Shorthand)</option>
+          <option value="2">Slot 2 (Shorthand)</option>
+        </select>
+        <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
+      </div>
+    </div>
   </div>
   
   <div class="tabs" id="arrange-tabs">
-    ${WEEK_DAYS.map((d,i)=>`
-      <div class="tab${d===today?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
-        <div style="font-weight:600">${d}</div>
-        <div style="font-size:10px; opacity:0.6">${weekDates[i]}</div>
-      </div>`).join('')}
+    ${WEEK_DAYS.map((d,i)=>`<div class="tab${d===today?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
+      <div style="font-weight:600">${d}</div>
+      <div style="font-size:10px; opacity:0.6">${weekDates[i]}</div>
+    </div>`).join('')}
   </div>
 
   <div class="card" style="padding:0; overflow:hidden; border-radius:10px;">
@@ -965,20 +999,44 @@ function getArrangeDayHTML(day) {
   </div>`;
 }
 
-// 2. Strict Shift Check for Bulk Assign
-function bulkAssignGroup() {
-  const team = document.getElementById('bulk-team').value;
-  const slotIdx = document.getElementById('bulk-slot').value;
+function bulkAssignMulti() {
+  // 1. Get selected teams
+  const selectedTeams = Array.from(document.querySelectorAll('input[name="target-team"]:checked')).map(el => el.value);
+  
+  // 2. Get selected days
+  const selectedDays = Array.from(document.querySelectorAll('input[name="target-day"]:checked')).map(el => el.value);
+  
+  // 3. Get selected slot index
+  const slotIdx = parseInt(document.getElementById('bulk-slot-multi').value) - 1;
+
+  if (selectedTeams.length === 0 || selectedDays.length === 0) {
+    toast('Select at least one Group and one Day.', 'err');
+    return;
+  }
+
+  let totalAssigned = 0;
+
+  // Process every selected day
+  selectedDays.forEach(day => {
+    // Process every selected team
+    selectedTeams.forEach(team => {
+      // Find users in this team who are on the SAME shift for THIS day
+      const targetUsers = state.users.filter(u => u.team === team && u.schedule[day] === currentShift);
+      const actualTime = BREAK_SLOTS[currentShift][slotIdx];
+
+      if (actualTime) {
+        targetUsers.forEach(u => {
+          assign(u.id, day, actualTime, `Multi-bulk by ${currentUser.name}`);
+          totalAssigned++;
+        });
+      }
+    });
+  });
+
+  toast(`Successfully assigned ${totalAssigned} breaks across ${selectedDays.length} days.`, 'ok');
+  
+  // Refresh current view if the active day was updated
   const activeDay = document.querySelector('#arrange-tabs .tab.on').dataset.day;
-
-  if (!team || !slotIdx) { toast('Select both a Group and a Slot.', 'err'); return; }
-
-  // Strictly filter by team AND currentShift
-  const targetUsers = state.users.filter(u => u.team === team && u.schedule[activeDay] === currentShift);
-  const actualSlot = BREAK_SLOTS[currentShift][parseInt(slotIdx) - 1];
-
-  targetUsers.forEach(u => assign(u.id, activeDay, actualSlot, 'Bulk assigned'));
-  toast(`Updated ${targetUsers.length} users in ${team}`, 'ok');
   switchArrangeDay(activeDay);
 }
 
