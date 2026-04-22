@@ -2577,7 +2577,7 @@
     // --- GLOBAL STATE ---
     let showFullMonth = false;
     let staffFilters = { team: '', name: '', user: '', role: '' };
-
+    let activeMonday = '20/04'; // Default starting week
     // Automatically identify the Monday of the current week (April 20, 2026)
     function getCurrentMonday() {
       const now = new Date(2026, 3, 23); // Today is Thursday, April 23
@@ -2588,15 +2588,15 @@
     }
 
     // Get the 7 days of a week starting from a specific Monday
-function getWeekRange(monStr) {
-  const [d, m] = monStr.split('/');
-  const range = [];
-  for(let i=0; i<7; i++) {
-    const dt = new Date(2026, parseInt(m)-1, parseInt(d) + i);
-    range.push(`${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}`);
-  }
-  return range;
-}
+    function getWeekRange(monStr) {
+      const [d, m] = monStr.split('/');
+      const range = [];
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(2026, parseInt(m) - 1, parseInt(d) + i);
+        range.push(`${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}`);
+      }
+      return range;
+    }
 
     let activeMonday = getCurrentMonday(); // Defaults to "20/04"
 
