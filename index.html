@@ -475,11 +475,6 @@ const ROLES = {
   'Sr QA':          {level:1, tag:'role-qa', label:'Sr QA'},
 };
 
-let currentUser = null;
-let currentShift = 'E';
-let currentPage = 'dashboard';
-let assigningEmp = null;
-
 function load() {
   try {
     const d = localStorage.getItem(STORAGE);
@@ -654,6 +649,11 @@ if (state.users.length === 0) {
   state.users = SEED_USERS;
   save();
 }
+
+let currentUser = null;
+let currentShift = 'E';
+let currentPage = 'dashboard';
+let assigningEmp = null;
 // Place this at the global level (not inside a function)
 buildDatalist();
 
