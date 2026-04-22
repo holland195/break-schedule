@@ -1807,17 +1807,19 @@
 
       return `
   <div class="page-header">
-    <div class="page-title">Team Schedule: ${currentUser.team}</div>
+    <div class="page-title">Team Dashboard: ${currentUser.team}</div>
+    <div class="page-sub">Week of ${activeMonday}</div>
   </div>
   <div class="week-grid">
-    <div class="wg-header">Name</div>
-    ${weekRange.map(d => `<div class="wg-header">${d}</div>`).join('')}
+    <div class="wg-header">Member</div>
+    ${weekRange.map(d => `<div class="wg-header" style="text-align:center">${d}</div>`).join('')}
     ${mates.map(u => `
       <div class="wg-row" style="display:contents">
         <div class="wg-name">${u.name}</div>
         ${weekRange.map(d => {
         const br = getAssigned(u.id, d);
-        return `<div class="wg-cell">${br ? br.slot : '—'}</div>`;
+        const shortSlot = br ? getShortSlot(u.schedule[d], br.slot) : '—';
+        return `<div class="wg-cell" style="text-align:center; font-weight:700; color:var(--accent)">${shortSlot}</div>`;
       }).join('')}
       </div>`).join('')}
   </div>`;
@@ -2013,21 +2015,21 @@
     function renderArrange() {
       if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
       const weekRange = getWeekRange(activeMonday);
-      const currentActiveDay = weekRange[0]; // Default to Monday of week
+      const today = weekRange[0]; // Default to Monday
 
       return `
   <div class="page-header">
-    <div class="page-title">Arrange Breaks (Week View)</div>
+    <div class="page-title">Arrange Breaks</div>
     <div id="bulk-action-container"></div>
   </div>
   
   <div class="tabs">
     ${weekRange.map(d => `
-      <div class="tab" onclick="switchArrangeDay('${d}')" data-day="${d}">
+      <div class="tab" onclick="switchArrangeDay('${d}')" data-day="${d}" style="min-width:100px; text-align:center">
         ${d}
       </div>`).join('')}
   </div>
-  <div id="arrange-day-content">${getArrangeDayHTML(currentActiveDay)}</div>`;
+  <div id="arrange-day-content" style="margin-top:20px">${getArrangeDayHTML(today)}</div>`;
     }
 
     function attachPageEvents(page) {
