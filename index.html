@@ -319,13 +319,7 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
   <button class="btn" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1.2">Sheets Link</button>
   <button class="btn btn-accent" id="tab-paste-btn" onclick="setLoginMode('paste')" style="flex:1.2">Direct Paste</button>
 </div>
-    <div id="import-preview">
-    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-      <div style="font-size: 14px; font-weight: 600;">Data Preview (<span id="preview-count">0</span> staff)</div>
-      <button class="btn btn-accent btn-sm" onclick="confirmImport()">Confirm & Use Data →</button>
-    </div>
-    <div id="preview-list" style="flex: 1; overflow: auto;"></div>
-  </div>
+    
 
     <div id="login-form">
       <label class="login-label">Username</label>
@@ -366,13 +360,13 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
 </div>
 
 <div id="import-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
-<div id="import-preview" style="display:none; margin-top:16px">
-  <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin-bottom:8px; font-family:'IBM Plex Mono',monospace">
-    Preview (<span id="preview-count">0</span> staff found)
+<div id="import-preview">
+    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <div style="font-size: 14px; font-weight: 600;">Data Preview (<span id="preview-count">0</span> staff)</div>
+      <button class="btn btn-accent btn-sm" onclick="confirmImport()">Confirm & Use Data →</button>
+    </div>
+    <div id="preview-list" style="flex: 1; overflow: auto;"></div>
   </div>
-  <div id="preview-list" style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:6px"></div>
-  <button class="btn btn-accent" onclick="confirmImport()" style="width:100%; margin-top:12px">Use this data →</button>
-</div>
     <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center"></div>
   </div>
 </div>
