@@ -502,8 +502,7 @@ let currentUser = null;
 let currentShift = 'E';
 let currentPage = 'dashboard';
 let assigningEmp = null;
-// Place this at the global level (not inside a function)
-buildDatalist();
+
 
 // ═══════════════════════════════════════════════
 //  AUTH
@@ -607,7 +606,9 @@ function doLogin(){
   err.textContent = '';
   enterApp();
 }
-
+// Place this at the global level (not inside a function)
+buildDatalist();
+  
 function demoLogin(type){
   if(type==='leader'){
     currentUser = state.users.find(x=>x.role==='Agent Leader')||state.users[0];
