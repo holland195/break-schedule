@@ -1293,7 +1293,7 @@
       color: var(--accent);
     }
 
-    
+
     /* Filter Row Styling */
     .filter-row td {
       padding: 8px !important;
@@ -1499,16 +1499,35 @@
     // ═══════════════════════════════════════════════
     //  DATA & STATE
     // ═══════════════════════════════════════════════
-    let staffFilters = { team: '', name: '', user: '', role: '' };
-    let showFullMonth = false;
-    let activeMonday = '20/04'; // Default starting week
+    // --- DATE HELPERS ---
 
-    // Helper to get Weekday from "DD/MM"
+    /** Converts "DD/MM" to a 2026 Date and returns the 7 days of that week */
+    function getWeekRange(monStr) {
+      const [d, m] = monStr.split('/');
+      const range = [];
+      const start = new Date(2026, parseInt(m) - 1, parseInt(d));
+
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(start);
+        dt.setDate(start.getDate() + i);
+        const dd = dt.getDate().toString().padStart(2, '0');
+        const mm = (dt.getMonth() + 1).toString().padStart(2, '0');
+        range.push(`${dd}/${mm}`);
+      }
+      return range;
+    }
+
+    /** Returns the weekday (Mon, Tue...) for a "DD/MM" string in 2026 */
     function getWkDay(dateStr) {
       const [d, m] = dateStr.split('/');
       const dateObj = new Date(2026, parseInt(m) - 1, parseInt(d));
       return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dateObj.getDay()];
     }
+
+    // Ensure these global variables are also at the top
+    let activeMonday = '20/04';
+    let showFullMonth = false;
+    let staffFilters = { team: '', name: '', user: '', role: '' };
 
     // Fix for the ReferenceError: Use standard function declarations
     function toggleStaffMonth() {
