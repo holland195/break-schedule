@@ -2222,33 +2222,36 @@
     //  RENDER: STAFF
     // ═══════════════════════════════════════════════
     function renderStaff() {
-      const allDates = Object.keys(state.users[0]?.schedule || {});
-      // Filter allDates to only include actual Mondays for the dropdown
-      const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon');
+  if (!state.users || state.users.length === 0) return '<div class="empty">No staff data.</div>';
 
-      const weekRange = getWeekRange(activeMonday);
-      const displayDates = showFullMonth ? allDates : weekRange;
+  const allDates = Object.keys(state.users[0].schedule || {});
+  // Only show Mondays in the dropdown for the Date Filter
+  const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon');
+  
+  const weekRange = getWeekRange(activeMonday);
+  const displayDates = showFullMonth ? allDates : weekRange;
 
-      const filteredUsers = state.users.filter(u =>
-        u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-        u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-        u.username.toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-        u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
-      );
+  // Filters apply only when renderStaff is called
+  const filteredUsers = state.users.filter(u => 
+    u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+    u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    u.username.toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+    u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
+  );
 
-      return `
+  return `
   <div class="page-header">
     <div>
       <div class="page-title">Staff Directory</div>
-      <div class="page-sub">Week of ${activeMonday} (${filteredUsers.length} staff)</div>
+      <div class="page-sub">Week: ${activeMonday} (${filteredUsers.length} staff)</div>
     </div>
-    <div style="display:flex; gap:10px; align-items:center;">
-      <label style="font-size:11px; color:var(--text3)">Jump to Week:</label>
-      <select class="login-select" style="width:120px; padding:4px;" onchange="changeWeek(this.value)">
-        ${availableMondays.map(m => `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>Week ${m}</option>`).join('')}
+    <div style="display:flex; gap:12px; align-items:center;">
+      <label style="font-size:11px; opacity:0.7">Jump to Week:</label>
+      <select class="login-select" style="width:130px; padding:4px;" onchange="activeMonday=this.value; renderPage('staff')">
+        ${availableMondays.map(m => `<option value="${m}" ${m===activeMonday?'selected':''}>Week ${m}</option>`).join('')}
       </select>
       
-      <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="toggleStaffMonth()">
+      <button class="toggle-btn ${showFullMonth?'active':''}" onclick="showFullMonth=!showFullMonth; renderPage('staff')">
         ${showFullMonth ? '📂 Hide Others' : '📂 Show Full Month'}
       </button>
     </div>
@@ -2257,11 +2260,11 @@
   <div class="tbl-wrap" style="overflow-x:auto;">
     <table>
       <thead>
-        <tr class="filter-row">
-          <td><input class="filter-input" placeholder="Team..." onchange="setFilterValue('team', this.value)" value="${staffFilters.team}"></td>
-          <td><input class="filter-input" placeholder="Name..." onchange="setFilterValue('name', this.value)" value="${staffFilters.name}"></td>
-          <td><input class="filter-input" placeholder="User..." onchange="setFilterValue('user', this.value)" value="${staffFilters.user}"></td>
-          <td><input class="filter-input" placeholder="Role..." onchange="setFilterValue('role', this.value)" value="${staffFilters.role}"></td>
+        <tr class="filter-row" style="background:var(--bg3)">
+          <td><input class="filter-input" placeholder="Group..." onchange="staffFilters.team=this.value" value="${staffFilters.team}"></td>
+          <td><input class="filter-input" placeholder="Name..." onchange="staffFilters.name=this.value" value="${staffFilters.name}"></td>
+          <td><input class="filter-input" placeholder="User..." onchange="staffFilters.user=this.value" value="${staffFilters.user}"></td>
+          <td><input class="filter-input" placeholder="Role..." onchange="staffFilters.role=this.value" value="${staffFilters.role}"></td>
           <td colspan="${displayDates.length}" style="padding-left:15px">
             <button class="btn btn-accent btn-xs" onclick="renderPage('staff')">🔍 Apply Filters</button>
           </td>
@@ -2269,28 +2272,28 @@
         <tr>
           <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
           ${displayDates.map(d => `
-            <th class="c" style="min-width:45px; padding:8px 4px;">
-              <div style="color:var(--accent); line-height:1">${d}</div>
-              <div style="font-size:9px; font-weight:400; opacity:0.5; margin-top:2px;">${getWkDay(d)}</div>
+            <th class="c" style="min-width:45px; padding:6px 2px;">
+              <div style="color:var(--accent); line-height:1; font-size:11px;">${d}</div>
+              <div style="font-size:8px; font-weight:400; opacity:0.5; margin-top:2px;">${getWkDay(d)}</div>
             </th>`).join('')}
         </tr>
       </thead>
       <tbody>
         ${filteredUsers.map(u => `
           <tr>
-            <td class="mono">${u.team}</td>
+            <td class="mono" style="font-size:11px;">${u.team}</td>
             <td style="font-weight:600">${u.name}</td>
-            <td class="mono" style="color:var(--accent)">${u.username}</td>
+            <td class="mono" style="color:var(--accent); font-size:11px;">${u.username}</td>
             <td style="font-size:11px; color:var(--text2)">${u.role}</td>
             ${displayDates.map(d => {
-        const s = u.schedule[d] || '0';
-        return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`;
-      }).join('')}
+              const s = u.schedule[d] || '0';
+              return `<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;
+            }).join('')}
           </tr>`).join('')}
       </tbody>
     </table>
   </div>`;
-    }
+}
 
     // ═══════════════════════════════════════════════
     //  ARRANGE HELPERS
