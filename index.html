@@ -339,14 +339,30 @@
       background: var(--bg2);
       border: 1px solid var(--border2);
       border-radius: 12px;
-      width: 900px;
-      /* Expanded width */
-      max-width: 60vw;
-      height: 600px;
+      width: 95vw;
+      /* Wider to handle many date columns */
+      max-width: 1200px;
+      height: 70vh;
       display: none;
       flex-direction: column;
       box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
       overflow: hidden;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+    }
+
+    /* Use a fixed-width grid for alignment */
+    .preview-grid-row {
+      display: grid;
+      /* Columns: Group (60px), Name (220px), Username (150px), Position (100px), then the dates */
+      grid-template-columns: 60px 220px 150px 100px 1fr;
+      gap: 12px;
+      padding: 10px 16px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
     }
 
     /* ── MAIN LAYOUT ── */
@@ -1320,7 +1336,8 @@
         <div class="nav-item" onclick="nav('schedule')" data-page="schedule"><span class="nav-ico">📅</span> Break
           Schedule</div>
         <div class="nav-item" onclick="nav('requests')" data-page="requests"><span class="nav-ico">🔄</span> Requests
-          <span class="nav-badge" id="req-badge" style="display:none">0</span></div>
+          <span class="nav-badge" id="req-badge" style="display:none">0</span>
+        </div>
         <div class="nav-item leader-only" onclick="nav('arrange')" data-page="arrange"><span class="nav-ico">✏️</span>
           Arrange Breaks</div>
         <div class="nav-item leader-only" onclick="nav('staff')" data-page="staff"><span class="nav-ico">👥</span> Staff
@@ -2232,28 +2249,29 @@
       try {
         const lines = csv.split('\n').map(l => parseCSVLine(l));
 
-        // Find the date row (03/04) and weekday row (Fri)
-        const dateRowIdx = lines.findIndex(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
-        const dayRowIdx = lines.findIndex(l => l.some(c => WEEK_DAYS.includes(c.trim())));
+        // 1. Identify Date Headers (Row with format DD/MM)
+        const dateRow = lines.find(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
+        // 2. Identify Weekday Headers (Row with Mon, Tue, etc.)
+        const dayRow = lines.find(l => l.some(c => WEEK_DAYS.includes(c.trim())));
 
-        if (dateRowIdx === -1) throw new Error("Could not find date headers (e.g. 23/04)");
+        if (!dateRow) throw new Error("Could not find date headers.");
 
         const colMap = {};
-        dateDayMap = {};
-        lines[dateRowIdx].forEach((c, i) => {
+        dateDayMap = {}; // Reset global map
+
+        dateRow.forEach((c, i) => {
           const dateVal = c.trim();
           if (/^\d{2}\/\d{2}$/.test(dateVal)) {
             colMap[dateVal] = i;
-            // Map the weekday if the day row exists
-            if (dayRowIdx !== -1) dateDayMap[dateVal] = lines[dayRowIdx][i]?.trim() || '';
+            if (dayRow) dateDayMap[dateVal] = dayRow[i]?.trim() || '';
           }
         });
 
         importedUsers = [];
-        lines.forEach((row, idx) => {
+        lines.forEach(row => {
           const no = row[0]?.trim();
-          // Skip headers and only process rows with a numeric ID
-          if (!no || isNaN(parseInt(no)) || idx <= Math.max(dateRowIdx, dayRowIdx)) return;
+          // Only process rows that start with a Number (The "No." column)
+          if (!no || isNaN(parseInt(no))) return;
 
           const schedule = {};
           Object.keys(colMap).forEach(date => {
@@ -2262,16 +2280,17 @@
 
           importedUsers.push({
             id: Date.now() + importedUsers.length,
-            username: row[3]?.trim() || makeUsername(row[2]),
-            name: row[2]?.trim(),
-            team: row[1]?.trim(),
-            role: row[4]?.trim() || 'Agent',
+            team: row[1]?.trim(),      // Col: New/Group
+            name: row[2]?.trim(),      // Col: NAME
+            username: row[3]?.trim(),  // Col: (Hidden/Next to name)
+            role: row[4]?.trim(),      // Col: POSITION
+            // Index 5 (TIME START) is intentionally ignored
             password: '1234',
             schedule
           });
         });
 
-        status.innerHTML = `<span style="color:var(--ok)">✓ Successfully parsed ${importedUsers.length} staff.</span>`;
+        status.innerHTML = `<span style="color:var(--ok)">✓ Parsed ${importedUsers.length} staff members.</span>`;
         renderImportPreview();
       } catch (e) {
         status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
@@ -2281,32 +2300,31 @@
     function renderImportPreview() {
       const container = document.getElementById('preview-list');
       const allDates = Object.keys(importedUsers[0]?.schedule || {});
-      // Show a wider range in the expanded view
-      const displayDates = allDates.slice(0, 15);
+      const displayDates = allDates.slice(0, 14); // Preview first 14 days
 
       document.getElementById('import-preview').style.display = 'flex';
       document.getElementById('preview-count').textContent = importedUsers.length;
 
-      // Header with combined Date and Weekday
       const headerHtml = `
-    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:10px; padding:12px 20px; background:var(--bg3); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; font-family:monospace; font-size:10px;">
-      <div>GROUP</div><div>FULL NAME</div><div>POSITION</div>
-      <div style="display:flex; gap:8px;">
+    <div class="preview-grid-row" style="background:var(--bg3); font-weight:700; font-size:10px; position:sticky; top:0; z-index:20;">
+      <div>GROUP</div><div>FULL NAME</div><div>USER</div><div>POSITION</div>
+      <div style="display:flex; gap:8px; overflow:hidden;">
         ${displayDates.map(d => `
-          <div style="width:30px; text-align:center; line-height:1.2;">
+          <div style="width:28px; text-align:center;">
             <div style="color:var(--accent)">${d}</div>
-            <div style="opacity:0.5">${dateDayMap[d] || ''}</div>
+            <div style="opacity:0.5; font-size:8px;">${dateDayMap[d] || ''}</div>
           </div>`).join('')}
       </div>
     </div>`;
 
       const rowsHtml = importedUsers.map(u => `
-    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:10px; padding:10px 20px; border-bottom: 1px solid var(--border); align-items: center; font-size: 12px;">
-      <div class="mono" style="color:var(--text3)">${u.team}</div>
+    <div class="preview-grid-row">
+      <div class="mono" style="font-size:10px; color:var(--text3)">${u.team}</div>
       <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name}</div>
+      <div class="mono" style="font-size:10px; color:var(--accent)">${u.username}</div>
       <div style="font-size:11px; color:var(--text2)">${u.role}</div>
       <div style="display:flex; gap:8px;">
-        ${displayDates.map(d => `<span class="sh sh-${u.schedule[d]}" style="width:30px; height:22px; font-size:10px;">${u.schedule[d] === '0' ? '—' : u.schedule[d]}</span>`).join('')}
+        ${displayDates.map(d => `<span class="sh sh-${u.schedule[d]}" style="width:28px; height:20px; font-size:9px;">${u.schedule[d] === '0' ? '—' : u.schedule[d]}</span>`).join('')}
       </div>
     </div>`).join('');
 
