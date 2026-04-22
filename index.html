@@ -2245,82 +2245,94 @@
     let dateDayMap = {};
 
     function parseSheetCSV(csv) {
-  const status = document.getElementById('import-status');
-  try {
-    const lines = csv.split('\n').map(l => parseCSVLine(l));
-    
-    // 1. Identify the Date Header row to get the date labels
-    const dateRow = lines.find(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
-    if (!dateRow) throw new Error("Could not find date headers (e.g., 25/03).");
+      const status = document.getElementById('import-status');
+      try {
+        const lines = csv.split('\n').map(l => parseCSVLine(l));
 
-    // Extract dates starting from index 6 (skipping No, Group, Name, User, Position, Time Start)
-    const pureDates = dateRow.slice(6).filter(d => /^\d{2}\/\d{2}$/.test(d.trim()));
-    
-    importedUsers = [];
-    lines.forEach(row => {
-      const idCell = row[0]?.trim() || '';
-      const nameCell = row[2]?.trim() || '';
+        // Find the date row (the one containing "31/03", etc.)
+        const dateRow = lines.find(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
+        if (!dateRow) throw new Error("Could not find date headers.");
 
-      // SKIP: Header rows, empty rows, or rows where column 3 is "NAME"
-      if (!idCell || isNaN(parseInt(idCell)) || idCell.includes('/') || nameCell === 'NAME') return;
+        // Capture every date column from index 6 onwards
+        const pureDates = [];
+        dateRow.forEach((cell, i) => {
+          if (i >= 6 && /^\d{2}\/\d{2}$/.test(cell.trim())) {
+            pureDates.push({ date: cell.trim(), index: i });
+          }
+        });
 
-      const schedule = {};
-      // Map shift data starting from Index 6 to our extracted dates
-      pureDates.forEach((date, i) => {
-        const shiftVal = row[i + 6]?.trim() || '0';
-        schedule[date] = shiftVal;
-      });
+        importedUsers = [];
+        lines.forEach(row => {
+          const idCell = row[0]?.trim() || '';
+          if (!idCell || isNaN(parseInt(idCell)) || idCell.includes('/')) return;
 
-      importedUsers.push({
-        id: Date.now() + importedUsers.length,
-        team: row[1]?.trim(),      // Group
-        name: nameCell,            // Full Name
-        username: row[3]?.trim(),  // User
-        role: row[4]?.trim(),      // Position
-        password: '1234',
-        schedule
-      });
-    });
+          const schedule = {};
+          pureDates.forEach(item => {
+            schedule[item.date] = row[item.index]?.trim() || '0';
+          });
 
-    status.innerHTML = `<span style="color:var(--ok)">✓ Parsed ${importedUsers.length} staff. Metadata columns ignored.</span>`;
-    renderImportPreview();
-  } catch (e) {
-    status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
-  }
-}
+          importedUsers.push({
+            id: Date.now() + importedUsers.length,
+            team: row[1]?.trim(),
+            name: row[2]?.trim(),
+            username: row[3]?.trim(),
+            role: row[4]?.trim(),
+            password: '1234',
+            schedule
+          });
+        });
 
+        status.innerHTML = `<span style="color:var(--ok)">✓ Parsed ${importedUsers.length} staff members (Range: ${pureDates[0].date} to ${pureDates[pureDates.length - 1].date})</span>`;
+        renderImportPreview();
+      } catch (e) {
+        status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
+      }
+    }
     function renderImportPreview() {
-  const container = document.getElementById('preview-list');
-  const allDates = Object.keys(importedUsers[0]?.schedule || {});
-  const displayDates = allDates.slice(0, 14); // Show first 2 weeks in preview
+      const container = document.getElementById('preview-list');
+      const previewCount = document.getElementById('preview-count');
 
-  document.getElementById('import-preview').style.display = 'flex';
-  document.getElementById('preview-count').textContent = importedUsers.length;
+      const allDates = Object.keys(importedUsers[0]?.schedule || {});
+      previewCount.textContent = importedUsers.length;
+      document.getElementById('import-preview').style.display = 'flex';
 
-  // Use fixed px widths for metadata to ensure perfect vertical alignment
-  const gridLayout = "grid-template-columns: 70px 220px 150px 100px 1fr;";
+      // Helper to get Weekday from "DD/MM"
+      const getWkDay = (dateStr) => {
+        const [d, m] = dateStr.split('/');
+        const dateObj = new Date(2026, parseInt(m) - 1, parseInt(d));
+        return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dateObj.getDay()];
+      };
 
-  const headerHtml = `
+      const gridLayout = "grid-template-columns: 60px 200px 150px 100px 1fr;";
+
+      const headerHtml = `
     <div style="display:grid; ${gridLayout} gap:12px; padding:12px 20px; background:var(--bg3); font-weight:700; font-size:10px; position:sticky; top:0; z-index:20; border-bottom:1px solid var(--border);">
       <div>GROUP</div><div>FULL NAME</div><div>USER</div><div>POSITION</div>
-      <div style="display:flex; gap:6px;">
-        ${displayDates.map(d => `<div style="width:28px; text-align:center; color:var(--accent)">${d}</div>`).join('')}
+      <div style="display:flex; gap:6px; overflow-x: auto;">
+        ${allDates.map(d => `
+          <div style="min-width:32px; text-align:center; line-height:1.2;">
+            <div style="color:var(--accent)">${d}</div>
+            <div style="opacity:0.5; font-size:8px; font-weight:400;">${getWkDay(d)}</div>
+          </div>`).join('')}
       </div>
     </div>`;
 
-  const rowsHtml = importedUsers.map(u => `
+      const rowsHtml = importedUsers.map(u => `
     <div style="display:grid; ${gridLayout} gap:12px; padding:10px 20px; border-bottom:1px solid var(--border); align-items:center;">
       <div class="mono" style="font-size:10px; color:var(--text3)">${u.team}</div>
       <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name}</div>
       <div class="mono" style="font-size:10px; color:var(--accent)">${u.username}</div>
       <div style="font-size:11px; color:var(--text2)">${u.role}</div>
-      <div style="display:flex; gap:6px;">
-        ${displayDates.map(d => `<span class="sh sh-${u.schedule[d]}" style="width:28px; height:20px; font-size:9px;">${u.schedule[d]==='0'?'—':u.schedule[d]}</span>`).join('')}
+      <div style="display:flex; gap:6px; overflow-x: auto;">
+        ${allDates.map(d => {
+        const s = u.schedule[d];
+        return `<span class="sh sh-${s}" style="min-width:32px; height:20px; font-size:9px; flex-shrink:0;">${s === '0' ? '—' : s}</span>`;
+      }).join('')}
       </div>
     </div>`).join('');
 
-  container.innerHTML = headerHtml + rowsHtml;
-}
+      container.innerHTML = headerHtml + rowsHtml;
+    }
 
     function confirmImport() {
       // 1. Merge lists: Put imported users FIRST and default users LAST
