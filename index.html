@@ -2587,6 +2587,17 @@
       return `${monday.getDate().toString().padStart(2, '0')}/${(monday.getMonth() + 1).toString().padStart(2, '0')}`;
     }
 
+    // Get the 7 days of a week starting from a specific Monday
+function getWeekRange(monStr) {
+  const [d, m] = monStr.split('/');
+  const range = [];
+  for(let i=0; i<7; i++) {
+    const dt = new Date(2026, parseInt(m)-1, parseInt(d) + i);
+    range.push(`${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}`);
+  }
+  return range;
+}
+
     let activeMonday = getCurrentMonday(); // Defaults to "20/04"
 
     /** * Use this wrapper to toggle the month view. 
