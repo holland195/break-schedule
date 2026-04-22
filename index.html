@@ -1317,25 +1317,46 @@ function parseSheetCSV(csv) {
 }
 
 function renderImportPreview() {
-  const list = document.getElementById('preview-list');
-  const previewDates = Object.keys(importedUsers[0]?.schedule || {}).slice(0, 7); // Show first 7 slots
+  const container = document.getElementById('preview-list');
+  const previewCount = document.getElementById('preview-count');
+  
+  if (!importedUsers || importedUsers.length === 0) return;
 
+  // Identify the dates to show (first 8 to keep it clean)
+  const allDates = Object.keys(importedUsers[0].schedule || {});
+  const displayDates = allDates.slice(0, 8); 
+
+  previewCount.textContent = importedUsers.length;
   document.getElementById('import-preview').style.display = 'block';
-  document.getElementById('preview-count').textContent = importedUsers.length;
 
-  list.innerHTML = importedUsers.slice(0, 50).map(u => `
-    <div style="display:grid; grid-template-columns: 50px 1fr 100px 120px; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border);">
-      <span class="mono" style="font-size:10px;">${u.team}</span>
-      <div style="font-weight:600;">${u.name}</div>
+  // 1. Create a sticky header row
+  const headerHtml = `
+    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:15px; padding:10px 16px; background:var(--bg4); font-weight:700; font-size:10px; color:var(--text3); border-bottom:1px solid var(--border2); position:sticky; top:0; z-index:10; font-family:'IBM Plex Mono',monospace;">
+      <div>TEAM</div>
+      <div>FULL NAME</div>
+      <div>POSITION</div>
+      <div style="display:flex; gap:10px;">
+        ${displayDates.map(d => `<span style="width:20px; text-align:center">${d.split('/')[0]}</span>`).join('')}
+      </div>
+    </div>`;
+
+  // 2. Create rows for each staff member
+  const rowsHtml = importedUsers.slice(0, 50).map(u => `
+    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:15px; padding:10px 16px; border-bottom:1px solid var(--border); align-items:center;">
+      <div class="mono" style="font-size:10px; color:var(--text3)">${u.team}</div>
+      <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name}</div>
       <div style="font-size:11px; color:var(--text2);">${u.role}</div>
-      <div style="display:flex; gap:2px;">
-        ${previewDates.map(d => {
+      <div style="display:flex; gap:10px;">
+        ${displayDates.map(d => {
           const s = u.schedule[d];
-          return `<span class="sh sh-${s}" title="${d}" style="width:14px; height:14px; font-size:8px;">${s==='0'?'—':s}</span>`;
+          return `<span class="sh sh-${s}" title="${d}" style="width:20px; height:20px; font-size:9px; flex-shrink:0;">${s==='0'?'—':s}</span>`;
         }).join('')}
       </div>
     </div>
   `).join('');
+
+  // 3. Clear existing messy content and insert new table
+  container.innerHTML = headerHtml + rowsHtml;
 }
 
 function confirmImport() {
