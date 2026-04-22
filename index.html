@@ -1359,31 +1359,22 @@ function renderImportPreview() {
 }
 
 function confirmImport() {
-  // 1. Start with the master Admin user to ensure you don't lock yourself out
-  const adminUser = {
-    id: 999,
-    username: 'admin',
-    name: 'System Admin',
-    team: 'HQ',
-    role: 'Admin',
-    password: '1234',
-    schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'}
-  };
-
-  // 2. Set the state to ONLY your imported users plus the admin
-  state.users = [adminUser, ...importedUsers];
+  // 1. Merge the full SEED_USERS list (Admin, L1-L5, S1-S5) with your new imported staff
+  state.users = [...SEED_USERS, ...importedUsers];
   
-  // 3. Clear all old break data and requests for a clean start
+  // 2. Clear all old break data and requests for a clean start
   state.imported = true;
   state.breaks = {};
   state.requests = [];
   
-  // 4. Save to local storage and update UI
+  // 3. Save to local storage and update UI
   save();
   buildDatalist();
   
   const status = document.getElementById('import-status') || document.getElementById('paste-status');
-  if (status) status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff imported successfully!</span>`;
+  if (status) {
+    status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff added to the system!</span>`;
+  }
   
   // Hide the preview and switch back to the sign-in tab
   document.getElementById('import-preview').style.display = 'none';
