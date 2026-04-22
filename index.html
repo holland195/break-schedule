@@ -445,10 +445,7 @@ const SEED_USERS = [
   { id: 2005, username: 'hoa.nguyen', name: 'Nguyễn Đức Hòa', team: 'S5', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} }
 ];
 
-if (!state.imported && state.users.length === 0) {
-  state.users = SEED_USERS;
-  save();
-}
+
 const SHIFTS = {
   A:{label:'Shift A',start:'15:00',end:'00:00',display:'3:00 PM → 12:00 AM',color:'var(--A-color)',bg:'var(--A-bg)'},
   B:{label:'Shift B',start:'19:00',end:'04:00',display:'7:00 PM → 4:00 AM',color:'var(--B-color)',bg:'var(--B-bg)'},
@@ -605,6 +602,11 @@ function doLogin(){
   currentShift = s || 'E'; 
   err.textContent = '';
   enterApp();
+}
+
+if (!state.imported && state.users.length === 0) {
+  state.users = SEED_USERS;
+  save();
 }
 // Place this at the global level (not inside a function)
 buildDatalist();
