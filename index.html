@@ -486,7 +486,10 @@ function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e) {}
 }
 
-
+function buildDatalist(){
+  const dl = document.getElementById('user-list');
+  dl.innerHTML = state.users.map(u=>`<option value="${u.username}">${u.name} (${u.team})</option>`).join('');
+}
 
 // ═══════════════════════════════════════════════
 //  AUTH
@@ -638,10 +641,7 @@ function logout(){
   document.getElementById('screen-login').classList.add('active');
 }
 
-function buildDatalist(){
-  const dl = document.getElementById('user-list');
-  dl.innerHTML = state.users.map(u=>`<option value="${u.username}">${u.name} (${u.team})</option>`).join('');
-}
+
 
 let state = load();
   // 2. If the database is empty (after a Reset), fill it with your SEED_USERS
