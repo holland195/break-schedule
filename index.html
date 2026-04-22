@@ -426,6 +426,29 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
 //  DATA & STATE
 // ═══════════════════════════════════════════════
 const STORAGE = 'bsched_v3';
+
+const SEED_USERS = [
+  { id: 999, username: 'admin', name: 'System Admin', team: 'HQ', role: 'Admin', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  
+  // Leaders (L1 - L5)
+  { id: 1001, username: 'cuong.pham', name: 'Phạm Minh Cường', team: 'L1', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 1002, username: 'hongthuy.nguyen', name: 'Nguyễn Thị Phương Hồng Thuỷ', team: 'L2', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 1003, username: 'dung.tran', name: 'Trần Quốc Dũng', team: 'L3', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 1004, username: 'ngocanh.tran', name: 'Trần Thị Ngọc Ánh', team: 'L4', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 1005, username: 'tam.to', name: 'Tô Hoài Tâm', team: 'L5', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  
+  // Supervisors (S1 - S5)
+  { id: 2001, username: 'hai.nguyen', name: 'Nguyễn Hồ Giang Hải', team: 'S1', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 2002, username: 'thanh.nguyen', name: 'Nguyễn Đức Thanh', team: 'S2', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 2003, username: 'duy.huynh', name: 'Huỳnh Minh Duy', team: 'S3', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 2004, username: 'tran.le', name: 'Lê Nguyễn Huyền Trân', team: 'S4', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
+  { id: 2005, username: 'hoa.nguyen', name: 'Nguyễn Đức Hòa', team: 'S5', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} }
+];
+
+if (!state.imported && state.users.length === 0) {
+  state.users = SEED_USERS;
+  save();
+}
 const SHIFTS = {
   A:{label:'Shift A',start:'15:00',end:'00:00',display:'3:00 PM → 12:00 AM',color:'var(--A-color)',bg:'var(--A-bg)'},
   B:{label:'Shift B',start:'19:00',end:'04:00',display:'7:00 PM → 4:00 AM',color:'var(--B-color)',bg:'var(--B-bg)'},
@@ -477,34 +500,7 @@ function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e) {}
 }
 
-// ═══════════════════════════════════════════════
-//  SEED USERS (from screenshot)
-// ═══════════════════════════════════════════════
 
-
-  
-const SEED_USERS = [
-  { id: 999, username: 'admin', name: 'System Admin', team: 'HQ', role: 'Admin', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  
-  // Leaders (L1 - L5)
-  { id: 1001, username: 'cuong.pham', name: 'Phạm Minh Cường', team: 'L1', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1002, username: 'hongthuy.nguyen', name: 'Nguyễn Thị Phương Hồng Thuỷ', team: 'L2', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1003, username: 'dung.tran', name: 'Trần Quốc Dũng', team: 'L3', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1004, username: 'ngocanh.tran', name: 'Trần Thị Ngọc Ánh', team: 'L4', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1005, username: 'tam.to', name: 'Tô Hoài Tâm', team: 'L5', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  
-  // Supervisors (S1 - S5)
-  { id: 2001, username: 'hai.nguyen', name: 'Nguyễn Hồ Giang Hải', team: 'S1', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2002, username: 'thanh.nguyen', name: 'Nguyễn Đức Thanh', team: 'S2', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2003, username: 'duy.huynh', name: 'Huỳnh Minh Duy', team: 'S3', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2004, username: 'tran.le', name: 'Lê Nguyễn Huyền Trân', team: 'S4', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2005, username: 'hoa.nguyen', name: 'Nguyễn Đức Hòa', team: 'S5', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} }
-];
-
-if (!state.imported && state.users.length === 0) {
-  state.users = SEED_USERS;
-  save();
-}
 
 // ═══════════════════════════════════════════════
 //  AUTH
