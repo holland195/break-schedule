@@ -1243,34 +1243,55 @@
     }
 
     /* Professional Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
 
-/* Filter Inputs */
-.filter-row input {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 4px 8px;
-  font-size: 11px;
-  border-radius: 4px;
-}
-.filter-row input:focus { border-color: var(--accent); outline: none; }
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
 
-/* Toggle Button Style */
-.toggle-btn {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--text2);
-  padding: 4px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 11px;
-}
-.toggle-btn.active { border-color: var(--accent); color: var(--accent); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+
+    /* Filter Inputs */
+    .filter-row input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+    }
+
+    .filter-row input:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    /* Toggle Button Style */
+    .toggle-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .toggle-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
   </style>
 </head>
 
@@ -1722,69 +1743,69 @@
     // ═══════════════════════════════════════════════
     //  RENDER: DASHBOARD
     // ═══════════════════════════════════════════════
-  //   function renderDashboard() {
-  //     const today = todayKey();
-  //     const mates = getShiftMates(currentShift, today);
-  //     const assigned = mates.filter(u => getAssigned(u.id, today));
-  //     const pending = state.requests.filter(r => r.status === 'pending');
-  //     const mine = getAssigned(currentUser.id, today);
+    //   function renderDashboard() {
+    //     const today = todayKey();
+    //     const mates = getShiftMates(currentShift, today);
+    //     const assigned = mates.filter(u => getAssigned(u.id, today));
+    //     const pending = state.requests.filter(r => r.status === 'pending');
+    //     const mine = getAssigned(currentUser.id, today);
 
-  //     return `
-  // <div class="page-header">
-  //   <div>
-  //     <div class="page-title">Dashboard</div>
-  //     <div class="page-sub">Today: ${today} · Shift ${currentShift} — ${SHIFTS[currentShift].display}</div>
-  //   </div>
-  // </div>
-  // <div class="stats">
-  //   <div class="stat"><div class="stat-label">Your shift</div><div class="stat-num c-accent">${currentShift}</div></div>
-  //   <div class="stat"><div class="stat-label">Shift mates today</div><div class="stat-num">${mates.length}</div></div>
-  //   <div class="stat"><div class="stat-label">Breaks assigned</div><div class="stat-num c-ok">${assigned.length}</div></div>
-  //   ${isLeader(currentUser) ? `<div class="stat"><div class="stat-label">Pending requests</div><div class="stat-num c-warn">${pending.length}</div></div>` : ''}
-  // </div>
+    //     return `
+    // <div class="page-header">
+    //   <div>
+    //     <div class="page-title">Dashboard</div>
+    //     <div class="page-sub">Today: ${today} · Shift ${currentShift} — ${SHIFTS[currentShift].display}</div>
+    //   </div>
+    // </div>
+    // <div class="stats">
+    //   <div class="stat"><div class="stat-label">Your shift</div><div class="stat-num c-accent">${currentShift}</div></div>
+    //   <div class="stat"><div class="stat-label">Shift mates today</div><div class="stat-num">${mates.length}</div></div>
+    //   <div class="stat"><div class="stat-label">Breaks assigned</div><div class="stat-num c-ok">${assigned.length}</div></div>
+    //   ${isLeader(currentUser) ? `<div class="stat"><div class="stat-label">Pending requests</div><div class="stat-num c-warn">${pending.length}</div></div>` : ''}
+    // </div>
 
-  // <div class="card">
-  //   <div class="card-title">Your break today</div>
-  //   ${mine
-  //         ? `<div style="display:flex;align-items:center;gap:12px">
-  //         <span class="break-slot mine">${mine.slot}</span>
-  //         <span style="font-size:12px;color:var(--text2)">Assigned by ${state.users.find(x => x.id === mine.by)?.name || 'system'}</span>
-  //         ${!isLeader(currentUser) ? `<button class="btn btn-sm btn-warn" onclick="openRequestModal('${mine.slot}')">Request change</button>` : ''}
-  //       </div>`
-  //         : `<div style="font-size:13px;color:var(--text2)">No break assigned yet for today. 
-  //         ${isLeader(currentUser) ? 'Go to <b>Arrange Breaks</b> to set schedules.' : 'Check back later or contact your leader.'}</div>`
-  //       }
-  // </div>
+    // <div class="card">
+    //   <div class="card-title">Your break today</div>
+    //   ${mine
+    //         ? `<div style="display:flex;align-items:center;gap:12px">
+    //         <span class="break-slot mine">${mine.slot}</span>
+    //         <span style="font-size:12px;color:var(--text2)">Assigned by ${state.users.find(x => x.id === mine.by)?.name || 'system'}</span>
+    //         ${!isLeader(currentUser) ? `<button class="btn btn-sm btn-warn" onclick="openRequestModal('${mine.slot}')">Request change</button>` : ''}
+    //       </div>`
+    //         : `<div style="font-size:13px;color:var(--text2)">No break assigned yet for today. 
+    //         ${isLeader(currentUser) ? 'Go to <b>Arrange Breaks</b> to set schedules.' : 'Check back later or contact your leader.'}</div>`
+    //       }
+    // </div>
 
-  // <div class="card">
-  //   <div class="card-title">Shift ${currentShift} — Today's breaks</div>
-  //   ${mates.length === 0
-  //         ? `<div class="empty"><div class="empty-ico">👥</div>No staff on shift ${currentShift} today.</div>`
-  //         : `<div class="break-board">${mates.map(u => {
-  //           const br = getAssigned(u.id, today);
-  //           const isMe = u.id === currentUser.id;
-  //           return `<div class="break-row${br ? '' : ' pending'}">
-  //           <div>
-  //             <div class="emp-name">${isMe ? '<b>' + u.name + ' (you)</b>' : u.name}</div>
-  //             <div class="emp-meta">${u.team} · ${u.role}</div>
-  //           </div>
-  //           <div>
-  //             ${br
-  //               ? `<span class="break-slot ${isMe ? 'mine' : 'assigned'}">${br.slot}</span>`
-  //               : `<span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace">Not assigned</span>`}
-  //           </div>
-  //           <div></div>
-  //         </div>`;
-  //         }).join('')}</div>`
-  //       }
-  // </div>
-  // `;
-  //   }
-  function renderDashboard() {
-  const weekRange = getWeekRange(activeMonday);
-  const mates = state.users.filter(u => u.team === currentUser.team);
+    // <div class="card">
+    //   <div class="card-title">Shift ${currentShift} — Today's breaks</div>
+    //   ${mates.length === 0
+    //         ? `<div class="empty"><div class="empty-ico">👥</div>No staff on shift ${currentShift} today.</div>`
+    //         : `<div class="break-board">${mates.map(u => {
+    //           const br = getAssigned(u.id, today);
+    //           const isMe = u.id === currentUser.id;
+    //           return `<div class="break-row${br ? '' : ' pending'}">
+    //           <div>
+    //             <div class="emp-name">${isMe ? '<b>' + u.name + ' (you)</b>' : u.name}</div>
+    //             <div class="emp-meta">${u.team} · ${u.role}</div>
+    //           </div>
+    //           <div>
+    //             ${br
+    //               ? `<span class="break-slot ${isMe ? 'mine' : 'assigned'}">${br.slot}</span>`
+    //               : `<span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace">Not assigned</span>`}
+    //           </div>
+    //           <div></div>
+    //         </div>`;
+    //         }).join('')}</div>`
+    //       }
+    // </div>
+    // `;
+    //   }
+    function renderDashboard() {
+      const weekRange = getWeekRange(activeMonday);
+      const mates = state.users.filter(u => u.team === currentUser.team);
 
-  return `
+      return `
   <div class="page-header">
     <div class="page-title">Team Schedule: ${currentUser.team}</div>
   </div>
@@ -1795,12 +1816,12 @@
       <div class="wg-row" style="display:contents">
         <div class="wg-name">${u.name}</div>
         ${weekRange.map(d => {
-          const br = getAssigned(u.id, d);
-          return `<div class="wg-cell">${br ? br.slot : '—'}</div>`;
-        }).join('')}
+        const br = getAssigned(u.id, d);
+        return `<div class="wg-cell">${br ? br.slot : '—'}</div>`;
+      }).join('')}
       </div>`).join('')}
   </div>`;
-}
+    }
 
     // ═══════════════════════════════════════════════
     //  RENDER: BREAK SCHEDULE (view whole week)
@@ -1928,73 +1949,73 @@
     // ═══════════════════════════════════════════════
     //  RENDER: ARRANGE (leader only)
     // ═══════════════════════════════════════════════
-  //   function renderArrange() {
-  //     if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
-  //     const today = todayKey();
-  //     const weekDates = getWeekDates();
+    //   function renderArrange() {
+    //     if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
+    //     const today = todayKey();
+    //     const weekDates = getWeekDates();
 
-  //     // Get teams that have at least one person on this shift this week
-  //     const shiftTeams = [...new Set(state.users.filter(u =>
-  //       Object.values(u.schedule).includes(currentShift)).map(u => u.team))].sort();
+    //     // Get teams that have at least one person on this shift this week
+    //     const shiftTeams = [...new Set(state.users.filter(u =>
+    //       Object.values(u.schedule).includes(currentShift)).map(u => u.team))].sort();
 
-  //     return `
-  // <div class="page-header" style="align-items: flex-start; flex-direction: column; gap:16px;">
-  //   <div class="page-title">Arrange Breaks</div>
-    
-  //   <div class="card" style="width:100%; padding:16px; background:var(--bg3); border-color:var(--border2); display:grid; grid-template-columns: 1fr 1fr auto; gap:20px;">
-      
-  //     <div>
-  //       <label class="login-label" style="margin-top:0">Select Groups</label>
-  //       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;" id="bulk-teams-list">
-  //         ${shiftTeams.map(t => `
-  //           <label style="display:flex; align-items:center; gap:6px; font-size:11px; background:var(--bg2); padding:4px 8px; border-radius:4px; cursor:pointer; border:1px solid var(--border)">
-  //             <input type="checkbox" name="target-team" value="${t}"> ${t}
-  //           </label>`).join('')}
-  //       </div>
-  //     </div>
+    //     return `
+    // <div class="page-header" style="align-items: flex-start; flex-direction: column; gap:16px;">
+    //   <div class="page-title">Arrange Breaks</div>
 
-  //     <div>
-  //       <label class="login-label" style="margin-top:0">Select Days</label>
-  //       <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
-  //         ${WEEK_DAYS.map(d => `
-  //           <label style="display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--bg2); padding:4px; border-radius:4px; border:1px solid var(--border); min-width:40px; cursor:pointer;">
-  //             <span style="font-size:9px; font-weight:700;">${d}</span>
-  //             <input type="checkbox" name="target-day" value="${d}" ${d === today ? 'checked' : ''}>
-  //           </label>`).join('')}
-  //       </div>
-  //     </div>
+    //   <div class="card" style="width:100%; padding:16px; background:var(--bg3); border-color:var(--border2); display:grid; grid-template-columns: 1fr 1fr auto; gap:20px;">
 
-  //     <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:8px;">
-  //       <select id="bulk-slot-multi" class="login-select" style="padding:6px;">
-  //         <option value="1">Slot 1 (Shorthand)</option>
-  //         <option value="2">Slot 2 (Shorthand)</option>
-  //       </select>
-  //       <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
-  //     </div>
-  //   </div>
-  // </div>
-  
-  // <div class="tabs" id="arrange-tabs">
-  //   ${WEEK_DAYS.map((d, i) => `<div class="tab${d === today ? ' on' : ''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
-  //     <div style="font-weight:600">${d}</div>
-  //     <div style="font-size:10px; opacity:0.6">${weekDates[i]}</div>
-  //   </div>`).join('')}
-  // </div>
+    //     <div>
+    //       <label class="login-label" style="margin-top:0">Select Groups</label>
+    //       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;" id="bulk-teams-list">
+    //         ${shiftTeams.map(t => `
+    //           <label style="display:flex; align-items:center; gap:6px; font-size:11px; background:var(--bg2); padding:4px 8px; border-radius:4px; cursor:pointer; border:1px solid var(--border)">
+    //             <input type="checkbox" name="target-team" value="${t}"> ${t}
+    //           </label>`).join('')}
+    //       </div>
+    //     </div>
 
-  // <div class="card" style="padding:0; overflow:hidden; border-radius:10px;">
-  //   <div style="display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px; gap:16px; background:var(--bg3); padding:12px 16px; font-size:10px; font-weight:700; color:var(--text3); border-bottom:1px solid var(--border)">
-  //     <div>GROUP</div><div>FULL NAME</div><div>USERNAME</div><div>POSITION</div><div>BREAK SLOTS</div><div style="text-align:right">ACTION</div>
-  //   </div>
-  //   <div id="arrange-day-content">${getArrangeDayHTML(today)}</div>
-  // </div>`;
-  //   }
+    //     <div>
+    //       <label class="login-label" style="margin-top:0">Select Days</label>
+    //       <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+    //         ${WEEK_DAYS.map(d => `
+    //           <label style="display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--bg2); padding:4px; border-radius:4px; border:1px solid var(--border); min-width:40px; cursor:pointer;">
+    //             <span style="font-size:9px; font-weight:700;">${d}</span>
+    //             <input type="checkbox" name="target-day" value="${d}" ${d === today ? 'checked' : ''}>
+    //           </label>`).join('')}
+    //       </div>
+    //     </div>
 
-  function renderArrange(){
-  if(!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
-  const weekRange = getWeekRange(activeMonday);
-  const currentActiveDay = weekRange[0]; // Default to Monday of week
+    //     <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:8px;">
+    //       <select id="bulk-slot-multi" class="login-select" style="padding:6px;">
+    //         <option value="1">Slot 1 (Shorthand)</option>
+    //         <option value="2">Slot 2 (Shorthand)</option>
+    //       </select>
+    //       <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
+    //     </div>
+    //   </div>
+    // </div>
 
-  return `
+    // <div class="tabs" id="arrange-tabs">
+    //   ${WEEK_DAYS.map((d, i) => `<div class="tab${d === today ? ' on' : ''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
+    //     <div style="font-weight:600">${d}</div>
+    //     <div style="font-size:10px; opacity:0.6">${weekDates[i]}</div>
+    //   </div>`).join('')}
+    // </div>
+
+    // <div class="card" style="padding:0; overflow:hidden; border-radius:10px;">
+    //   <div style="display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px; gap:16px; background:var(--bg3); padding:12px 16px; font-size:10px; font-weight:700; color:var(--text3); border-bottom:1px solid var(--border)">
+    //     <div>GROUP</div><div>FULL NAME</div><div>USERNAME</div><div>POSITION</div><div>BREAK SLOTS</div><div style="text-align:right">ACTION</div>
+    //   </div>
+    //   <div id="arrange-day-content">${getArrangeDayHTML(today)}</div>
+    // </div>`;
+    //   }
+
+    function renderArrange() {
+      if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
+      const weekRange = getWeekRange(activeMonday);
+      const currentActiveDay = weekRange[0]; // Default to Monday of week
+
+      return `
   <div class="page-header">
     <div class="page-title">Arrange Breaks (Week View)</div>
     <div id="bulk-action-container"></div>
@@ -2007,7 +2028,7 @@
       </div>`).join('')}
   </div>
   <div id="arrange-day-content">${getArrangeDayHTML(currentActiveDay)}</div>`;
-}
+    }
 
     function attachPageEvents(page) {
       if (page === 'arrange') {
@@ -2105,45 +2126,46 @@
     //  RENDER: STAFF
     // ═══════════════════════════════════════════════
     function renderStaff() {
-  const allDates = Object.keys(state.users[0]?.schedule || {});
-  const weekRange = getWeekRange(activeMonday);
-  const displayDates = showFullMonth ? allDates : weekRange;
+      const allDates = Object.keys(state.users[0]?.schedule || {});
+      const weekRange = getWeekRange(activeMonday);
+      const displayDates = showFullMonth ? allDates : weekRange;
 
-  // Apply Filters
-  const filteredUsers = state.users.filter(u => 
-    u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    u.username.toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
-  );
+      // Filters only apply when this function is called
+      const filteredUsers = state.users.filter(u =>
+        u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+        u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+        u.username.toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+        u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
+      );
 
-  return `
-  <div class="page-header" style="margin-bottom:10px">
+      return `
+  <div class="page-header">
     <div>
       <div class="page-title">Staff Directory</div>
-      <div class="page-sub">Managing ${filteredUsers.length} staff</div>
+      <div class="page-sub">Current Week: ${weekRange[0]} — ${weekRange[6]}</div>
     </div>
     <div style="display:flex; gap:10px">
-      <button class="toggle-btn ${showFullMonth?'active':''}" onclick="toggleMonthView()">
-        ${showFullMonth ? '👁 Showing Full Month' : '👁 Showing 1 Week'}
+      <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth = !showFullMonth; renderPage('staff')">
+        ${showFullMonth ? '📂 Hide Other Weeks' : '📂 Show Full Month'}
       </button>
-      <button class="btn btn-accent btn-sm" onclick="openImportPanel()">Re-import</button>
     </div>
   </div>
 
   <div class="tbl-wrap" style="overflow-x:auto;">
-    <table>
+    <table style="min-width:1000px">
       <thead>
+        <tr class="filter-row" style="background: var(--bg3)">
+          <td><input placeholder="Filter Group..." onchange="setFilterValue('team', this.value)" value="${staffFilters.team}"></td>
+          <td><input placeholder="Filter Name..." onchange="setFilterValue('name', this.value)" value="${staffFilters.name}"></td>
+          <td><input placeholder="Filter User..." onchange="setFilterValue('user', this.value)" value="${staffFilters.user}"></td>
+          <td><input placeholder="Filter Position..." onchange="setFilterValue('role', this.value)" value="${staffFilters.role}"></td>
+          <td colspan="${displayDates.length}" style="padding-left:15px">
+            <button class="btn btn-accent btn-xs" onclick="renderPage('staff')">🔍 Apply Filters</button>
+          </td>
+        </tr>
         <tr>
           <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
           ${displayDates.map(d => `<th class="c" style="min-width:45px; font-size:10px;">${d}</th>`).join('')}
-        </tr>
-        <tr class="filter-row">
-          <td><input placeholder="Filter..." oninput="updateFilter('team', this.value)" value="${staffFilters.team}"></td>
-          <td><input placeholder="Filter..." oninput="updateFilter('name', this.value)" value="${staffFilters.name}"></td>
-          <td><input placeholder="Filter..." oninput="updateFilter('user', this.value)" value="${staffFilters.user}"></td>
-          <td><input placeholder="Filter..." oninput="updateFilter('role', this.value)" value="${staffFilters.role}"></td>
-          <td colspan="${displayDates.length}"></td>
         </tr>
       </thead>
       <tbody>
@@ -2152,19 +2174,19 @@
             <td class="mono">${u.team}</td>
             <td style="font-weight:600">${u.name}</td>
             <td class="mono" style="color:var(--accent)">${u.username}</td>
-            <td style="font-size:11px">${u.role}</td>
+            <td style="font-size:11px; color:var(--text2)">${u.role}</td>
             ${displayDates.map(d => {
-              const s = u.schedule[d] || '0';
-              return `<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;
-            }).join('')}
+        const s = u.schedule[d] || '0';
+        return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`;
+      }).join('')}
           </tr>`).join('')}
       </tbody>
     </table>
   </div>`;
-}
+    }
 
-function updateFilter(key, val) { staffFilters[key] = val; renderPage('staff'); }
-function toggleMonthView() { showFullMonth = !showFullMonth; renderPage('staff'); }
+    function updateFilter(key, val) { staffFilters[key] = val; renderPage('staff'); }
+    function toggleMonthView() { showFullMonth = !showFullMonth; renderPage('staff'); }
 
     // ═══════════════════════════════════════════════
     //  ARRANGE HELPERS
@@ -2509,20 +2531,25 @@ function toggleMonthView() { showFullMonth = !showFullMonth; renderPage('staff')
     // ═══════════════════════════════════════════════
     //  UTILS
     // ═══════════════════════════════════════════════
+    // Global State for Filtering and Dates
+    let staffFilters = { team: '', name: '', user: '', role: '' };
     let showFullMonth = false;
-let staffFilters = { team: '', name: '', user: '', role: '' };
-let activeMonday = '20/04'; // Default starting week
 
-// Get the 7 days of a week starting from a specific Monday
-function getWeekRange(monStr) {
-  const [d, m] = monStr.split('/');
-  const range = [];
-  for(let i=0; i<7; i++) {
-    const dt = new Date(2026, parseInt(m)-1, parseInt(d) + i);
-    range.push(`${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}`);
-  }
-  return range;
-}
+    // Automatically find the Monday of the current week (April 20, 2026)
+    function getCurrentMonday() {
+      const now = new Date(2026, 3, 23); // April 23, 2026
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now.setDate(diff));
+      return `${monday.getDate().toString().padStart(2, '0')}/${(monday.getMonth() + 1).toString().padStart(2, '0')}`;
+    }
+
+    let activeMonday = getCurrentMonday(); // Starts at "20/04"
+
+    // Update values WITHOUT re-rendering the page
+    function setFilterValue(key, val) {
+      staffFilters[key] = val;
+    }
 
     function timeSince(ts) {
       const diff = Date.now() - ts;
