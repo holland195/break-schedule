@@ -1292,6 +1292,49 @@
       border-color: var(--accent);
       color: var(--accent);
     }
+
+    /* Professional Horizontal Scrollbar */
+    .tbl-wrap::-webkit-scrollbar {
+      height: 6px;
+      /* Thin and professional */
+    }
+
+    .tbl-wrap::-webkit-scrollbar-track {
+      background: var(--bg2);
+      border-radius: 10px;
+    }
+
+    .tbl-wrap::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 10px;
+      transition: background 0.3s;
+    }
+
+    .tbl-wrap::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+      /* Glows on hover */
+    }
+
+    /* Filter Row Styling */
+    .filter-row td {
+      padding: 8px !important;
+      background: var(--bg3);
+    }
+
+    .filter-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+    }
+
+    .filter-input:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
   </style>
 </head>
 
@@ -2129,10 +2172,10 @@
     // ═══════════════════════════════════════════════
     function renderStaff() {
       const allDates = Object.keys(state.users[0]?.schedule || {});
-      const weekRange = getWeekRange(activeMonday);
+      const weekRange = getWeekRange(activeMonday); // Gets Mon-Sun
       const displayDates = showFullMonth ? allDates : weekRange;
 
-      // Filters only apply when this function is called
+      // Filters are applied only when the page is rendered
       const filteredUsers = state.users.filter(u =>
         u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
         u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
@@ -2144,30 +2187,28 @@
   <div class="page-header">
     <div>
       <div class="page-title">Staff Directory</div>
-      <div class="page-sub">Current Week: ${weekRange[0]} — ${weekRange[6]}</div>
+      <div class="page-sub">Week of ${activeMonday} (${filteredUsers.length} matches)</div>
     </div>
-    <div style="display:flex; gap:10px">
-      <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth = !showFullMonth; renderPage('staff')">
-        ${showFullMonth ? '📂 Hide Other Weeks' : '📂 Show Full Month'}
-      </button>
-    </div>
+    <button class="btn btn-sm ${showFullMonth ? 'btn-accent' : ''}" onclick="toggleStaffMonth()">
+      ${showFullMonth ? '📂 Hide Full Month' : '📂 View Full Month'}
+    </button>
   </div>
 
-  <div class="tbl-wrap" style="overflow-x:auto;">
-    <table style="min-width:1000px">
+  <div class="tbl-wrap" style="overflow-x: auto;">
+    <table>
       <thead>
-        <tr class="filter-row" style="background: var(--bg3)">
-          <td><input placeholder="Filter Group..." onchange="setFilterValue('team', this.value)" value="${staffFilters.team}"></td>
-          <td><input placeholder="Filter Name..." onchange="setFilterValue('name', this.value)" value="${staffFilters.name}"></td>
-          <td><input placeholder="Filter User..." onchange="setFilterValue('user', this.value)" value="${staffFilters.user}"></td>
-          <td><input placeholder="Filter Position..." onchange="setFilterValue('role', this.value)" value="${staffFilters.role}"></td>
-          <td colspan="${displayDates.length}" style="padding-left:15px">
-            <button class="btn btn-accent btn-xs" onclick="renderPage('staff')">🔍 Apply Filters</button>
+        <tr class="filter-row">
+          <td><input class="filter-input" placeholder="Team..." onchange="setFilter('team', this.value)" value="${staffFilters.team}"></td>
+          <td><input class="filter-input" placeholder="Name..." onchange="setFilter('name', this.value)" value="${staffFilters.name}"></td>
+          <td><input class="filter-input" placeholder="User..." onchange="setFilter('user', this.value)" value="${staffFilters.user}"></td>
+          <td><input class="filter-input" placeholder="Position..." onchange="setFilter('role', this.value)" value="${staffFilters.role}"></td>
+          <td colspan="${displayDates.length}">
+            <button class="btn btn-xs btn-accent" onclick="renderPage('staff')">Apply Filters</button>
           </td>
         </tr>
         <tr>
           <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
-          ${displayDates.map(d => `<th class="c" style="min-width:45px; font-size:10px;">${d}</th>`).join('')}
+          ${displayDates.map(d => `<th class="c" style="min-width:45px;">${d}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
@@ -2533,34 +2574,31 @@
     // ═══════════════════════════════════════════════
     //  UTILS
     // ═══════════════════════════════════════════════
-    // Global State for Filtering and Dates
-    let staffFilters = { team: '', name: '', user: '', role: '' };
+    // --- GLOBAL STATE ---
     let showFullMonth = false;
+    let staffFilters = { team: '', name: '', user: '', role: '' };
 
-    // Automatically find the Monday of the current week (April 20, 2026)
+    // Automatically identify the Monday of the current week (April 20, 2026)
     function getCurrentMonday() {
-      const now = new Date(2026, 3, 23); // April 23, 2026
+      const now = new Date(2026, 3, 23); // Today is Thursday, April 23
       const day = now.getDay();
       const diff = now.getDate() - day + (day === 0 ? -6 : 1);
       const monday = new Date(now.setDate(diff));
       return `${monday.getDate().toString().padStart(2, '0')}/${(monday.getMonth() + 1).toString().padStart(2, '0')}`;
     }
 
-    // Get the 7 days of a week starting from a specific Monday
-    function getWeekRange(monStr) {
-      const [d, m] = monStr.split('/');
-      const range = [];
-      for (let i = 0; i < 7; i++) {
-        const dt = new Date(2026, parseInt(m) - 1, parseInt(d) + i);
-        range.push(`${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}`);
-      }
-      return range;
+    let activeMonday = getCurrentMonday(); // Defaults to "20/04"
+
+    /** * Use this wrapper to toggle the month view. 
+     * This fixes the error in your screenshot by removing logic from the HTML string.
+     */
+    function toggleStaffMonth() {
+      showFullMonth = !showFullMonth;
+      renderPage('staff');
     }
 
-    let activeMonday = getCurrentMonday(); // Starts at "20/04"
-
-    // Update values WITHOUT re-rendering the page
-    function setFilterValue(key, val) {
+    /** Updates the filter variables WITHOUT refreshing the list (prevents auto-display) */
+    function setFilter(key, val) {
       staffFilters[key] = val;
     }
 
