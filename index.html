@@ -1058,27 +1058,21 @@ function bulkAssignMulti() {
 // ═══════════════════════════════════════════════
 //  RENDER: STAFF
 // ═══════════════════════════════════════════════
-function renderStaff(){
-  const weekDates = getWeekDates(); // Use the helper created in the previous turn
+function renderStaff() {
+  if (state.users.length === 0) return '<div class="empty">No data.</div>';
   
+  // Get all dates available from the first user
+  const allDates = Object.keys(state.users[0].fullSchedule || {});
+
   return `
   <div class="page-header">
-    <div><div class="page-title">Staff Directory</div>
-    <div class="page-sub">${state.users.length} employees found in database</div></div>
-    <button class="btn btn-accent" onclick="openImportPanel()">↓ Re-import Data</button>
+    <div class="page-title">Staff Directory (Full Range)</div>
   </div>
-  <div class="tbl-wrap">
-    <table>
+  <div class="tbl-wrap" style="overflow-x: auto;"> <table>
       <thead>
         <tr>
-          <th>GROUP</th>
-          <th>FULL NAME</th>
-          <th>USER NAME</th>
-          <th>POSITION</th>
-          ${WEEK_DAYS.map((d, i) => `
-            <th class="c">
-              ${d}<br><span style="font-size:9px; opacity:0.5; font-weight:400">${weekDates[i]}</span>
-            </th>`).join('')}
+          <th>GROUP</th><th>FULL NAME</th><th>USER NAME</th><th>POSITION</th>
+          ${allDates.map(d => `<th class="c" style="min-width:40px; font-size:10px;">${d}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
@@ -1086,19 +1080,14 @@ function renderStaff(){
           <tr>
             <td class="mono">${u.team}</td>
             <td style="font-weight:600">${u.name}</td>
-            <td class="mono" style="color:var(--accent)">${u.username}</td>
-            <td><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></td>
-            ${WEEK_DAYS.map(d => {
-              const s = u.schedule[d];
-              const br = getAssigned(u.id, d);
-              // Convert full time to shorthand (e.g., E1) if assigned
-              const shortSlot = br ? getShortSlot(s, br.slot) : '—';
-              return `<td class="c">
-                <span class="sh sh-${s}" title="${s==='0'?'OFF':s}">${s==='0'?'—':s}</span>
-                <div style="font-size:9px; margin-top:4px; font-family:monospace; color:var(--ok)">${shortSlot}</div>
-              </td>`;
+            <td class="mono">${u.username}</td>
+            <td>${u.role}</td>
+            ${allDates.map(d => {
+              const s = u.fullSchedule[d];
+              return `<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;
             }).join('')}
-          </tr>`).join('')}
+          </tr>
+        `).join('')}
       </tbody>
     </table>
   </div>`;
@@ -1282,41 +1271,36 @@ function parseSheetCSV(csv) {
   try {
     const lines = csv.split('\n').map(l => parseCSVLine(l));
     
-    // Find the day headers (Mon, Tue, etc.) to map schedule columns
-    const dateRow = lines.find(l => l.some(c => c.trim() === 'Mon'));
-    const dayColMap = {};
-    if (dateRow) {
-      dateRow.forEach((c, i) => {
-        const t = c.trim();
-        if (WEEK_DAYS.includes(t)) dayColMap[t] = i;
-      });
-    }
+    // Find the header row containing dates (Row 1 or 2 in your sheet)
+    const headerRow = lines[1]; // Adjust index if headers are on a different row
+    const dateCols = [];
+    
+    headerRow.forEach((cell, i) => {
+      const val = cell.trim();
+      // Regex to identify date formats like 03/04 or 23/04
+      if (/^\d{2}\/\d{2}$/.test(val)) {
+        dateCols.push({ date: val, index: i });
+      }
+    });
 
     importedUsers = [];
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 3; i < lines.length; i++) { // Starting after headers
       const row = lines[i];
-      const no = row[0]?.trim();
-      const team = row[1]?.trim();
-      const name = row[2]?.trim();
-      const usernameFromSheet = row[3]?.trim();
-      const role = row[4]?.trim(); // Adjusted mapping for your sheet
-      
-      // SKIP: Empty rows, header rows, or rows where the ID is not a simple number
-      if (!no || isNaN(parseInt(no)) || !name || name.includes('/')) continue;
-      
-      const schedule = {};
-      WEEK_DAYS.forEach(d => {
-        const col = dayColMap[d];
-        const val = (col !== undefined) ? (row[col]?.trim() || '0') : '0';
-        schedule[d] = val === '' ? '0' : val;
+      if (!row[0] || isNaN(parseInt(row[0]))) continue;
+
+      const fullSchedule = {};
+      dateCols.forEach(col => {
+        fullSchedule[col.date] = row[col.index]?.trim() || '0';
       });
 
       importedUsers.push({
         id: Date.now() + importedUsers.length,
-        username: usernameFromSheet || makeUsername(name), // Use sheet username if available
-        name, team, role: role || 'Agent',
+        username: row[3]?.trim() || makeUsername(row[2]),
+        name: row[2]?.trim(),
+        team: row[1]?.trim(),
+        role: row[4]?.trim() || 'Agent',
         password: '1234',
-        schedule,
+        fullSchedule // Store every date here
       });
     }
 
