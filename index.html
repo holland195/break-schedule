@@ -1271,71 +1271,67 @@ function parseSheetCSV(csv) {
   try {
     const lines = csv.split('\n').map(l => parseCSVLine(l));
     
-    // Find the header row containing dates (Row 1 or 2 in your sheet)
-    const headerRow = lines[1]; // Adjust index if headers are on a different row
-    const dateCols = [];
-    
-    headerRow.forEach((cell, i) => {
-      const val = cell.trim();
-      // Regex to identify date formats like 03/04 or 23/04
-      if (/^\d{2}\/\d{2}$/.test(val)) {
-        dateCols.push({ date: val, index: i });
-      }
-    });
+    // Find the header row (looking for either Days or Dates)
+    const headerRow = lines.find(l => l.some(c => 
+      WEEK_DAYS.includes(c.trim()) || /^\d{2}\/\d{2}$/.test(c.trim())
+    ));
+
+    const colMap = {};
+    if (headerRow) {
+      headerRow.forEach((c, i) => {
+        const t = c.trim();
+        // Capture Mon-Sun OR 01/04-31/12
+        if (WEEK_DAYS.includes(t) || /^\d{2}\/\d{2}$/.test(t)) colMap[t] = i;
+      });
+    }
 
     importedUsers = [];
-    for (let i = 3; i < lines.length; i++) { // Starting after headers
+    for (let i = 0; i < lines.length; i++) {
       const row = lines[i];
-      if (!row[0] || isNaN(parseInt(row[0]))) continue;
+      const no = row[0]?.trim();
+      if (!no || isNaN(parseInt(no))) continue;
 
-      const fullSchedule = {};
-      dateCols.forEach(col => {
-        fullSchedule[col.date] = row[col.index]?.trim() || '0';
+      const name = row[2]?.trim();
+      const schedule = {};
+      // Fill the schedule with whatever keys were found in the header
+      Object.keys(colMap).forEach(key => {
+        schedule[key] = row[colMap[key]]?.trim() || '0';
       });
 
       importedUsers.push({
         id: Date.now() + importedUsers.length,
-        username: row[3]?.trim() || makeUsername(row[2]),
-        name: row[2]?.trim(),
+        username: row[3]?.trim() || makeUsername(name),
+        name: name,
         team: row[1]?.trim(),
         role: row[4]?.trim() || 'Agent',
         password: '1234',
-        fullSchedule // Store every date here
+        schedule: schedule // We use 'schedule' for both formats now
       });
     }
 
-    if (importedUsers.length === 0) {
-      status.innerHTML = `<span style="color:var(--err)">No valid staff found. Check your selection.</span>`;
-      return;
-    }
-
-    status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff parsed successfully</span>`;
-    renderImportPreview(); // Call the improved preview renderer
+    status.innerHTML = `<span style="color:var(--ok)">✓ Parsed ${importedUsers.length} staff</span>`;
+    renderImportPreview(); 
   } catch (e) {
     status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
   }
 }
 
 function renderImportPreview() {
-  const preview = document.getElementById('import-preview');
   const list = document.getElementById('preview-list');
-  const count = document.getElementById('preview-count');
-  
-  count.textContent = importedUsers.length;
-  preview.style.display = 'block';
-  
+  const previewDates = Object.keys(importedUsers[0]?.schedule || {}).slice(0, 7); // Show first 7 slots
+
+  document.getElementById('import-preview').style.display = 'block';
+  document.getElementById('preview-count').textContent = importedUsers.length;
+
   list.innerHTML = importedUsers.slice(0, 50).map(u => `
-    <div style="display:grid; grid-template-columns: 45px 1fr 120px 80px 100px; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border); font-size:12px;">
-      <span style="font-family:monospace; color:var(--text3); font-size:10px;">${u.team}</span>
-      <div style="font-weight:600; line-height:1.2;">
-        ${u.name}
-        <div style="font-weight:400; font-size:10px; color:var(--accent); font-family:monospace;">@${u.username}</div>
-      </div>
-      <span style="font-size:11px; color:var(--text2);">${u.role}</span>
+    <div style="display:grid; grid-template-columns: 50px 1fr 100px 120px; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border);">
+      <span class="mono" style="font-size:10px;">${u.team}</span>
+      <div style="font-weight:600;">${u.name}</div>
+      <div style="font-size:11px; color:var(--text2);">${u.role}</div>
       <div style="display:flex; gap:2px;">
-        ${WEEK_DAYS.map(d => {
+        ${previewDates.map(d => {
           const s = u.schedule[d];
-          return `<span class="sh sh-${s}" style="width:14px; height:14px; font-size:8px;">${s==='0'?'—':s}</span>`;
+          return `<span class="sh sh-${s}" title="${d}" style="width:14px; height:14px; font-size:8px;">${s==='0'?'—':s}</span>`;
         }).join('')}
       </div>
     </div>
