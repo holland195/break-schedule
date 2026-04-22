@@ -73,16 +73,25 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .btn-xs{padding:3px 8px;font-size:10px}
 .btn:disabled{opacity:.35;cursor:not-allowed}
 /* ── LOGIN ── */
-#screen-login{
-  display:flex;align-items:center;justify-content:center;
-  background:var(--bg);
-  background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),
-    repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);
+/* Updated Login Layout for Side-by-Side Preview */
+#screen-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  gap: 30px; /* Space between login and preview */
+  background: var(--bg);
+  background-image: repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),
+                    repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);
 }
-.login-card{
-  background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
-  padding:36px 32px;width:420px;max-width:95vw;
-  box-shadow:0 24px 80px rgba(0,0,0,.6);
+.login-card {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 36px 32px;
+  width: 420px;
+  flex-shrink: 0; /* Keep login card fixed width */
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
 }
 .login-logo{
   font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;
@@ -102,6 +111,19 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 .import-row{display:flex;gap:8px}
 .import-row input{flex:1}
+
+ #import-preview {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  width: 900px; /* Expanded width */
+  max-width: 60vw;
+  height: 600px;
+  display: none;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  overflow: hidden;
+} 
 /* ── MAIN LAYOUT ── */
 .layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 52px)}
 .sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
@@ -297,6 +319,13 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
   <button class="btn" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1.2">Sheets Link</button>
   <button class="btn btn-accent" id="tab-paste-btn" onclick="setLoginMode('paste')" style="flex:1.2">Direct Paste</button>
 </div>
+    <div id="import-preview">
+    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <div style="font-size: 14px; font-weight: 600;">Data Preview (<span id="preview-count">0</span> staff)</div>
+      <button class="btn btn-accent btn-sm" onclick="confirmImport()">Confirm & Use Data →</button>
+    </div>
+    <div id="preview-list" style="flex: 1; overflow: auto;"></div>
+  </div>
 
     <div id="login-form">
       <label class="login-label">Username</label>
@@ -1266,51 +1295,55 @@ function importSheet(){
     });
 }
 
+// Global to store date-to-day mapping
+let dateDayMap = {};
+
 function parseSheetCSV(csv) {
   const status = document.getElementById('import-status');
   try {
     const lines = csv.split('\n').map(l => parseCSVLine(l));
     
-    // Find the header row (looking for either Days or Dates)
-    const headerRow = lines.find(l => l.some(c => 
-      WEEK_DAYS.includes(c.trim()) || /^\d{2}\/\d{2}$/.test(c.trim())
-    ));
+    // Find the date row (03/04) and weekday row (Fri)
+    const dateRowIdx = lines.findIndex(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
+    const dayRowIdx = lines.findIndex(l => l.some(c => WEEK_DAYS.includes(c.trim())));
+    
+    if (dateRowIdx === -1) throw new Error("Could not find date headers (e.g. 23/04)");
 
     const colMap = {};
-    if (headerRow) {
-      headerRow.forEach((c, i) => {
-        const t = c.trim();
-        // Capture Mon-Sun OR 01/04-31/12
-        if (WEEK_DAYS.includes(t) || /^\d{2}\/\d{2}$/.test(t)) colMap[t] = i;
-      });
-    }
+    dateDayMap = {};
+    lines[dateRowIdx].forEach((c, i) => {
+      const dateVal = c.trim();
+      if (/^\d{2}\/\d{2}$/.test(dateVal)) {
+        colMap[dateVal] = i;
+        // Map the weekday if the day row exists
+        if (dayRowIdx !== -1) dateDayMap[dateVal] = lines[dayRowIdx][i]?.trim() || '';
+      }
+    });
 
     importedUsers = [];
-    for (let i = 0; i < lines.length; i++) {
-      const row = lines[i];
+    lines.forEach((row, idx) => {
       const no = row[0]?.trim();
-      if (!no || isNaN(parseInt(no))) continue;
+      // Skip headers and only process rows with a numeric ID
+      if (!no || isNaN(parseInt(no)) || idx <= Math.max(dateRowIdx, dayRowIdx)) return;
 
-      const name = row[2]?.trim();
       const schedule = {};
-      // Fill the schedule with whatever keys were found in the header
-      Object.keys(colMap).forEach(key => {
-        schedule[key] = row[colMap[key]]?.trim() || '0';
+      Object.keys(colMap).forEach(date => {
+        schedule[date] = row[colMap[date]]?.trim() || '0';
       });
 
       importedUsers.push({
         id: Date.now() + importedUsers.length,
-        username: row[3]?.trim() || makeUsername(name),
-        name: name,
+        username: row[3]?.trim() || makeUsername(row[2]),
+        name: row[2]?.trim(),
         team: row[1]?.trim(),
         role: row[4]?.trim() || 'Agent',
         password: '1234',
-        schedule: schedule // We use 'schedule' for both formats now
+        schedule
       });
-    }
+    });
 
-    status.innerHTML = `<span style="color:var(--ok)">✓ Parsed ${importedUsers.length} staff</span>`;
-    renderImportPreview(); 
+    status.innerHTML = `<span style="color:var(--ok)">✓ Successfully parsed ${importedUsers.length} staff.</span>`;
+    renderImportPreview();
   } catch (e) {
     status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
   }
@@ -1318,44 +1351,36 @@ function parseSheetCSV(csv) {
 
 function renderImportPreview() {
   const container = document.getElementById('preview-list');
-  const previewCount = document.getElementById('preview-count');
-  
-  if (!importedUsers || importedUsers.length === 0) return;
+  const allDates = Object.keys(importedUsers[0]?.schedule || {});
+  // Show a wider range in the expanded view
+  const displayDates = allDates.slice(0, 15); 
 
-  // Identify the dates to show (first 8 to keep it clean)
-  const allDates = Object.keys(importedUsers[0].schedule || {});
-  const displayDates = allDates.slice(0, 8); 
+  document.getElementById('import-preview').style.display = 'flex';
+  document.getElementById('preview-count').textContent = importedUsers.length;
 
-  previewCount.textContent = importedUsers.length;
-  document.getElementById('import-preview').style.display = 'block';
-
-  // 1. Create a sticky header row
+  // Header with combined Date and Weekday
   const headerHtml = `
-    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:15px; padding:10px 16px; background:var(--bg4); font-weight:700; font-size:10px; color:var(--text3); border-bottom:1px solid var(--border2); position:sticky; top:0; z-index:10; font-family:'IBM Plex Mono',monospace;">
-      <div>TEAM</div>
-      <div>FULL NAME</div>
-      <div>POSITION</div>
-      <div style="display:flex; gap:10px;">
-        ${displayDates.map(d => `<span style="width:20px; text-align:center">${d.split('/')[0]}</span>`).join('')}
+    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:10px; padding:12px 20px; background:var(--bg3); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; font-family:monospace; font-size:10px;">
+      <div>GROUP</div><div>FULL NAME</div><div>POSITION</div>
+      <div style="display:flex; gap:8px;">
+        ${displayDates.map(d => `
+          <div style="width:30px; text-align:center; line-height:1.2;">
+            <div style="color:var(--accent)">${d}</div>
+            <div style="opacity:0.5">${dateDayMap[d] || ''}</div>
+          </div>`).join('')}
       </div>
     </div>`;
 
-  // 2. Create rows for each staff member
-  const rowsHtml = importedUsers.slice(0, 50).map(u => `
-    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:15px; padding:10px 16px; border-bottom:1px solid var(--border); align-items:center;">
-      <div class="mono" style="font-size:10px; color:var(--text3)">${u.team}</div>
-      <div style="font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name}</div>
-      <div style="font-size:11px; color:var(--text2);">${u.role}</div>
-      <div style="display:flex; gap:10px;">
-        ${displayDates.map(d => {
-          const s = u.schedule[d];
-          return `<span class="sh sh-${s}" title="${d}" style="width:20px; height:20px; font-size:9px; flex-shrink:0;">${s==='0'?'—':s}</span>`;
-        }).join('')}
+  const rowsHtml = importedUsers.map(u => `
+    <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:10px; padding:10px 20px; border-bottom: 1px solid var(--border); align-items: center; font-size: 12px;">
+      <div class="mono" style="color:var(--text3)">${u.team}</div>
+      <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name}</div>
+      <div style="font-size:11px; color:var(--text2)">${u.role}</div>
+      <div style="display:flex; gap:8px;">
+        ${displayDates.map(d => `<span class="sh sh-${u.schedule[d]}" style="width:30px; height:22px; font-size:10px;">${u.schedule[d]==='0'?'—':u.schedule[d]}</span>`).join('')}
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
 
-  // 3. Clear existing messy content and insert new table
   container.innerHTML = headerHtml + rowsHtml;
 }
 
