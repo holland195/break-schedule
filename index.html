@@ -1335,6 +1335,32 @@
       border-color: var(--accent);
       outline: none;
     }
+
+    /* Custom Scrollbar for Staff Directory */
+    .tbl-wrap::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .tbl-wrap::-webkit-scrollbar-track {
+      background: var(--bg);
+      border-radius: 10px;
+    }
+
+    .tbl-wrap::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 10px;
+      border: 2px solid var(--bg);
+      /* Creates padding effect */
+    }
+
+    .tbl-wrap::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+
+    /* Header Date Styling */
+    .c div {
+      pointer-events: none;
+    }
   </style>
 </head>
 
@@ -1494,6 +1520,33 @@
     // ═══════════════════════════════════════════════
     //  DATA & STATE
     // ═══════════════════════════════════════════════
+    let staffFilters = { team: '', name: '', user: '', role: '' };
+    let showFullMonth = false;
+    let activeMonday = '20/04'; // Default starting week
+
+    // Helper to get Weekday from "DD/MM"
+    function getWkDay(dateStr) {
+      const [d, m] = dateStr.split('/');
+      const dateObj = new Date(2026, parseInt(m) - 1, parseInt(d));
+      return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dateObj.getDay()];
+    }
+
+    // Fix for the ReferenceError: Use standard function declarations
+    function toggleStaffMonth() {
+      showFullMonth = !showFullMonth;
+      renderPage('staff');
+    }
+
+    function setFilterValue(key, val) {
+      staffFilters[key] = val;
+    }
+
+    // Navigation for "Full Filter for Date" (Week Picker)
+    function changeWeek(newMon) {
+      activeMonday = newMon;
+      renderPage('staff');
+    }
+
     const STORAGE = 'bsched_v3';
     const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const SEED_USERS = [
@@ -2172,10 +2225,12 @@
     // ═══════════════════════════════════════════════
     function renderStaff() {
       const allDates = Object.keys(state.users[0]?.schedule || {});
-      const weekRange = getWeekRange(activeMonday); // Gets Mon-Sun
+      // Filter allDates to only include actual Mondays for the dropdown
+      const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon');
+
+      const weekRange = getWeekRange(activeMonday);
       const displayDates = showFullMonth ? allDates : weekRange;
 
-      // Filters are applied only when the page is rendered
       const filteredUsers = state.users.filter(u =>
         u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
         u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
@@ -2187,28 +2242,39 @@
   <div class="page-header">
     <div>
       <div class="page-title">Staff Directory</div>
-      <div class="page-sub">Week of ${activeMonday} (${filteredUsers.length} matches)</div>
+      <div class="page-sub">Week of ${activeMonday} (${filteredUsers.length} staff)</div>
     </div>
-    <button class="btn btn-sm ${showFullMonth ? 'btn-accent' : ''}" onclick="toggleStaffMonth()">
-      ${showFullMonth ? '📂 Hide Full Month' : '📂 View Full Month'}
-    </button>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <label style="font-size:11px; color:var(--text3)">Jump to Week:</label>
+      <select class="login-select" style="width:120px; padding:4px;" onchange="changeWeek(this.value)">
+        ${availableMondays.map(m => `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>Week ${m}</option>`).join('')}
+      </select>
+      
+      <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="toggleStaffMonth()">
+        ${showFullMonth ? '📂 Hide Others' : '📂 Show Full Month'}
+      </button>
+    </div>
   </div>
 
-  <div class="tbl-wrap" style="overflow-x: auto;">
+  <div class="tbl-wrap" style="overflow-x:auto;">
     <table>
       <thead>
         <tr class="filter-row">
-          <td><input class="filter-input" placeholder="Team..." onchange="setFilter('team', this.value)" value="${staffFilters.team}"></td>
-          <td><input class="filter-input" placeholder="Name..." onchange="setFilter('name', this.value)" value="${staffFilters.name}"></td>
-          <td><input class="filter-input" placeholder="User..." onchange="setFilter('user', this.value)" value="${staffFilters.user}"></td>
-          <td><input class="filter-input" placeholder="Position..." onchange="setFilter('role', this.value)" value="${staffFilters.role}"></td>
-          <td colspan="${displayDates.length}">
-            <button class="btn btn-xs btn-accent" onclick="renderPage('staff')">Apply Filters</button>
+          <td><input class="filter-input" placeholder="Team..." onchange="setFilterValue('team', this.value)" value="${staffFilters.team}"></td>
+          <td><input class="filter-input" placeholder="Name..." onchange="setFilterValue('name', this.value)" value="${staffFilters.name}"></td>
+          <td><input class="filter-input" placeholder="User..." onchange="setFilterValue('user', this.value)" value="${staffFilters.user}"></td>
+          <td><input class="filter-input" placeholder="Role..." onchange="setFilterValue('role', this.value)" value="${staffFilters.role}"></td>
+          <td colspan="${displayDates.length}" style="padding-left:15px">
+            <button class="btn btn-accent btn-xs" onclick="renderPage('staff')">🔍 Apply Filters</button>
           </td>
         </tr>
         <tr>
           <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
-          ${displayDates.map(d => `<th class="c" style="min-width:45px;">${d}</th>`).join('')}
+          ${displayDates.map(d => `
+            <th class="c" style="min-width:45px; padding:8px 4px;">
+              <div style="color:var(--accent); line-height:1">${d}</div>
+              <div style="font-size:9px; font-weight:400; opacity:0.5; margin-top:2px;">${getWkDay(d)}</div>
+            </th>`).join('')}
         </tr>
       </thead>
       <tbody>
@@ -2571,33 +2637,7 @@
     // ═══════════════════════════════════════════════
     //  UTILS
     // ═══════════════════════════════════════════════
-    // --- GLOBAL STATE ---
-    let showFullMonth = false;
-    let staffFilters = { team: '', name: '', user: '', role: '' };
 
-    // Automatically identify the Monday of the current week (April 20, 2026)
-    function getCurrentMonday() {
-      const now = new Date(2026, 3, 23); // Today is Thursday, April 23
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(now.setDate(diff));
-      return `${monday.getDate().toString().padStart(2, '0')}/${(monday.getMonth() + 1).toString().padStart(2, '0')}`;
-    }
-
-    let activeMonday = getCurrentMonday(); // Defaults to "20/04"
-
-    /** * Use this wrapper to toggle the month view. 
-     * This fixes the error in your screenshot by removing logic from the HTML string.
-     */
-    function toggleStaffMonth() {
-      showFullMonth = !showFullMonth;
-      renderPage('staff');
-    }
-
-    /** Updates the filter variables WITHOUT refreshing the list (prevents auto-display) */
-    function setFilter(key, val) {
-      staffFilters[key] = val;
-    }
 
     function timeSince(ts) {
       const diff = Date.now() - ts;
