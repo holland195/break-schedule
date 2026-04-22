@@ -1,753 +1,1688 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Break Schedule — Shift Manager</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0f0f0f;
-  --bg2:#161616;
-  --bg3:#1e1e1e;
-  --bg4:#252525;
-  --bg5:#2e2e2e;
-  --border:#333;
-  --border2:#444;
-  --text:#f0f0f0;
-  --text2:#a0a0a0;
-  --text3:#666;
-  --accent:#e8ff47;
-  --accent2:#b8cc2a;
-  --ok:#4ade80;
-  --err:#f87171;
-  --warn:#fbbf24;
-  --r:6px;
-  --A-color:#ff7eb3; --A-bg:#2d1020;
-  --B-color:#7dd3fc; --B-bg:#0c1f2d;
-  --C-color:#86efac; --C-bg:#0c2218;
-  --D-color:#fca5a5; --D-bg:#2d0f0f;
-  --E-color:#c4b5fd; --E-bg:#1a1030;
-}
-html{scroll-behavior:smooth}
-body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;min-height:100vh;overflow-x:hidden}
-/* ── SCREENS ── */
-.screen{display:none;min-height:100vh}
-.screen.active{display:block}
-/* ── TOPBAR ── */
-.topbar{
-  background:var(--bg2);border-bottom:1px solid var(--border);
-  padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:300;
-}
-.topbar-brand{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.04em}
-.topbar-right{display:flex;align-items:center;gap:12px}
-.user-chip{
-  display:flex;align-items:center;gap:8px;
-  background:var(--bg3);border:1px solid var(--border2);
-  border-radius:99px;padding:4px 12px 4px 6px;font-size:12px;
-}
-.user-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:var(--accent);color:#000}
-.role-tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;font-family:'IBM Plex Mono',monospace;letter-spacing:.02em}
-.role-leader{background:#2a1f0a;color:#fbbf24;border:1px solid #5a3a0a}
-.role-agent{background:#0a1a2a;color:#7dd3fc;border:1px solid #0a3a5a}
-.role-qa{background:#1a0a2a;color:#c4b5fd;border:1px solid #3a0a5a}
-/* ── BUTTONS ── */
-.btn{
-  font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:500;
-  padding:7px 16px;border-radius:var(--r);border:1px solid var(--border2);
-  background:var(--bg3);color:var(--text);cursor:pointer;transition:all .12s;white-space:nowrap;
-}
-.btn:hover{background:var(--bg4);border-color:var(--border2)}
-.btn-accent{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
-.btn-accent:hover{background:var(--accent2);border-color:var(--accent2)}
-.btn-ok{background:#14532d;color:var(--ok);border-color:#166534}
-.btn-ok:hover{background:#166534}
-.btn-err{background:#450a0a;color:var(--err);border-color:#7f1d1d}
-.btn-err:hover{background:#7f1d1d}
-.btn-warn{background:#422006;color:var(--warn);border-color:#854d0e}
-.btn-warn:hover{background:#854d0e}
-.btn-sm{padding:4px 10px;font-size:11px}
-.btn-xs{padding:3px 8px;font-size:10px}
-.btn:disabled{opacity:.35;cursor:not-allowed}
-/* ── LOGIN ── */
-/* Updated Login Layout for Side-by-Side Preview */
-#screen-login {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  gap: 30px; /* Space between login and preview */
-  background: var(--bg);
-  background-image: repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),
-                    repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);
-}
-.login-card {
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 12px;
-  padding: 36px 32px;
-  width: 420px;
-  flex-shrink: 0; /* Keep login card fixed width */
-  box-shadow: 0 24px 80px rgba(0,0,0,.6);
-}
-.login-logo{
-  font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;
-  color:var(--accent);letter-spacing:.06em;margin-bottom:6px;
-}
-.login-sub{font-size:12px;color:var(--text2);margin-bottom:28px;font-family:'IBM Plex Mono',monospace}
-.login-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;margin-top:16px;display:block}
-.login-input,.login-select{
-  width:100%;font-family:'IBM Plex Sans',sans-serif;font-size:13px;
-  padding:9px 12px;background:var(--bg3);border:1px solid var(--border2);
-  border-radius:var(--r);color:var(--text);transition:border .12s;
-}
-.login-input:focus,.login-select:focus{outline:none;border-color:var(--accent)}
-.login-input::placeholder{color:var(--text3)}
-.login-actions{margin-top:24px;display:flex;flex-direction:column;gap:10px}
-.login-divider{display:flex;align-items:center;gap:10px;margin:4px 0;color:var(--text3);font-size:11px}
-.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border)}
-.import-row{display:flex;gap:8px}
-.import-row input{flex:1}
 
- #import-preview {
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 12px;
-  width: 900px; /* Expanded width */
-  max-width: 60vw;
-  height: 600px;
-  display: none;
-  flex-direction: column;
-  box-shadow: 0 24px 80px rgba(0,0,0,.6);
-  overflow: hidden;
-} 
-/* ── MAIN LAYOUT ── */
-.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 52px)}
-.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
-.sidebar-section{padding:0 12px;margin-bottom:4px}
-.sidebar-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:8px 12px 4px;font-family:'IBM Plex Mono',monospace}
-.nav-item{
-  display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r);
-  color:var(--text2);cursor:pointer;transition:all .1s;font-size:12px;font-weight:500;
-  position:relative;
-}
-.nav-item:hover{background:var(--bg3);color:var(--text)}
-.nav-item.active{background:var(--bg4);color:var(--accent)}
-.nav-item.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:2px;background:var(--accent);border-radius:0 2px 2px 0}
-.nav-ico{font-size:14px;width:18px;text-align:center}
-.nav-badge{margin-left:auto;background:var(--err);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:99px;min-width:16px;text-align:center}
-.content{padding:24px;overflow-y:auto}
-/* ── SHIFT SELECTOR ── */
-.shift-selector{
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-  padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-}
-.shift-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-family:'IBM Plex Mono',monospace}
-.shift-pills{display:flex;gap:6px;flex-wrap:wrap}
-.shift-pill{
-  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;
-  padding:5px 14px;border-radius:99px;border:1px solid var(--border2);
-  background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .12s;
-}
-.shift-pill.A{border-color:var(--A-color);color:var(--A-color)}
-.shift-pill.A.on{background:var(--A-bg)}
-.shift-pill.B{border-color:var(--B-color);color:var(--B-color)}
-.shift-pill.B.on{background:var(--B-bg)}
-.shift-pill.C{border-color:var(--C-color);color:var(--C-color)}
-.shift-pill.C.on{background:var(--C-bg)}
-.shift-pill.D{border-color:var(--D-color);color:var(--D-color)}
-.shift-pill.D.on{background:var(--D-bg)}
-.shift-pill.E{border-color:var(--E-color);color:var(--E-color)}
-.shift-pill.E.on{background:var(--E-bg)}
-.shift-time{font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace;margin-left:auto}
-/* ── PAGE HEADER ── */
-.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
-.page-title{font-size:20px;font-weight:600;letter-spacing:-.02em}
-.page-sub{font-size:12px;color:var(--text2);margin-top:2px}
-/* ── CARDS / PANELS ── */
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px}
-.card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:14px}
-/* ── STAFF TABLE ── */
-.tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
-table{width:100%;border-collapse:collapse}
-thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:9px 12px;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border);white-space:nowrap;font-family:'IBM Plex Mono',monospace}
-th.c,td.c{text-align:center}
-tbody tr{border-bottom:1px solid var(--border);transition:background .08s}
-tbody tr:last-child{border-bottom:none}
-tbody tr:hover{background:var(--bg3)}
-td{padding:8px 12px;vertical-align:middle}
-td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
-/* ── SHIFT BADGE ── */
-.sh{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700}
-.sh-A{background:var(--A-bg);color:var(--A-color);border:1px solid var(--A-color)}
-.sh-B{background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color)}
-.sh-C{background:var(--C-bg);color:var(--C-color);border:1px solid var(--C-color)}
-.sh-D{background:var(--D-bg);color:var(--D-color);border:1px solid var(--D-color)}
-.sh-E{background:var(--E-bg);color:var(--E-color);border:1px solid var(--E-color)}
-.sh-0{background:var(--bg4);color:var(--text3);border:1px solid var(--border)}
-/* ── BREAK SCHEDULE BOARD ── */
-.break-board{display:grid;gap:10px}
-.break-row{
-  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-  padding:12px 16px;display:grid;grid-template-columns:180px 1fr auto;align-items:center;gap:16px;
-  transition:border-color .12s;
-}
-.break-row:hover{border-color:var(--border2)}
-.break-row.pending{border-color:var(--warn)}
-.emp-name{font-weight:600;font-size:13px}
-.emp-meta{font-size:11px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
-.break-slots{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.break-slot{
-  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;
-  padding:4px 10px;border-radius:5px;border:1px solid var(--border2);
-  background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .12s;
-}
-.break-slot:hover{border-color:var(--accent);color:var(--accent)}
-.break-slot.assigned{background:#1a2a0a;color:#86efac;border-color:#4ade80}
-.break-slot.mine{background:#1a1f0a;color:var(--accent);border-color:var(--accent);font-weight:600}
-.break-slot.locked{cursor:default;opacity:.7}
-.break-slot.locked:hover{border-color:var(--border2);color:var(--text2)}
-.time-label{font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;white-space:nowrap}
-/* ── WEEK GRID ── */
-.week-grid{display:grid;grid-template-columns:180px repeat(7,1fr);gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.wg-header{background:var(--bg3);padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
-.wg-header:last-child{border-right:none}
-.wg-name{background:var(--bg2);padding:9px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
-.wg-name .n{font-weight:600;font-size:12px}
-.wg-name .m{font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
-.wg-cell{background:var(--bg2);padding:6px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center}
-.wg-cell:last-child{border-right:none}
-.wg-row:last-child .wg-cell,.wg-row:last-child .wg-name{border-bottom:none}
-.slot-select{
-  font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;
-  padding:3px 6px;border-radius:4px;border:1px solid var(--border2);
-  background:var(--bg3);color:var(--text);cursor:pointer;
-  appearance:none;-webkit-appearance:none;text-align:center;width:52px;
-}
-.slot-select.v-D1{background:#0c1f0a;color:#4ade80;border-color:#4ade80}
-.slot-select.v-D2{background:#0a1d2d;color:#7dd3fc;border-color:#7dd3fc}
-.slot-select.v-OFF{background:var(--bg4);color:var(--text3);border-color:var(--border2)}
-/* ── REQUEST CARDS ── */
-.req-card{
-  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
-  padding:14px 16px;margin-bottom:10px;
-}
-.req-card.pending{border-color:var(--warn)}
-.req-card.approved{border-color:var(--ok)}
-.req-card.rejected{border-color:var(--err)}
-.req-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
-.req-title{font-weight:600;font-size:13px}
-.req-meta{font-size:11px;color:var(--text2);margin-top:2px;font-family:'IBM Plex Mono',monospace}
-.req-status{font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
-.req-status.pending{background:#2a1a00;color:var(--warn);border:1px solid #854d0e}
-.req-status.approved{background:#0a2a0a;color:var(--ok);border:1px solid #166534}
-.req-status.rejected{background:#2a0a0a;color:var(--err);border:1px solid #7f1d1d}
-.req-body{font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6}
-.req-actions{display:flex;gap:8px}
-/* ── STATS ── */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
-.stat{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
-.stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:6px}
-.stat-num{font-size:26px;font-weight:600;letter-spacing:-.03em;font-family:'IBM Plex Mono',monospace}
-/* ── FORM ── */
-.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
-.fg label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace}
-.fg input,.fg select,.fg textarea{
-  font-family:'IBM Plex Sans',sans-serif;font-size:13px;
-  padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);
-  border-radius:var(--r);color:var(--text);transition:border .12s;
-}
-.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--accent)}
-.fg textarea{resize:vertical;min-height:70px}
-.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-/* ── TABS ── */
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px}
-.tab{padding:8px 16px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .1s;margin-bottom:-1px}
-.tab:hover{color:var(--text)}
-.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
-.tab-panel{display:none}
-.tab-panel.on{display:block}
-/* ── MISC ── */
-.divider{height:1px;background:var(--border);margin:16px 0}
-.empty{text-align:center;padding:36px;color:var(--text3);font-size:12px}
-.empty-ico{font-size:28px;margin-bottom:8px}
-.spinner-wrap{display:flex;align-items:center;justify-content:center;padding:40px;gap:12px;color:var(--text2);font-size:13px}
-.spin{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;font-family:'IBM Plex Mono',monospace}
-.msg-bar{
-  position:fixed;bottom:20px;right:20px;z-index:999;
-  background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
-  padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);transform:translateY(80px);opacity:0;
-  transition:all .25s;max-width:320px;
-}
-.msg-bar.show{transform:none;opacity:1}
-.msg-bar.ok{border-color:var(--ok);color:var(--ok)}
-.msg-bar.err{border-color:var(--err);color:var(--err)}
-.msg-bar.warn{border-color:var(--warn);color:var(--warn)}
-.modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;
-  display:none;align-items:center;justify-content:center;padding:20px;
-}
-.modal-overlay.show{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;width:480px;max-width:100%;box-shadow:0 24px 80px rgba(0,0,0,.6);max-height:90vh;overflow-y:auto}
-.modal-title{font-size:16px;font-weight:600;margin-bottom:16px}
-.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
-/* COLORS */
-.c-ok{color:var(--ok)}.c-err{color:var(--err)}.c-warn{color:var(--warn)}.c-accent{color:var(--accent)}
-@media(max-width:700px){
-  .layout{grid-template-columns:1fr}
-  .sidebar{display:none}
-  .week-grid{grid-template-columns:140px repeat(7,1fr)}
-}
-</style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Break Schedule — Shift Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #0f0f0f;
+      --bg2: #161616;
+      --bg3: #1e1e1e;
+      --bg4: #252525;
+      --bg5: #2e2e2e;
+      --border: #333;
+      --border2: #444;
+      --text: #f0f0f0;
+      --text2: #a0a0a0;
+      --text3: #666;
+      --accent: #e8ff47;
+      --accent2: #b8cc2a;
+      --ok: #4ade80;
+      --err: #f87171;
+      --warn: #fbbf24;
+      --r: 6px;
+      --A-color: #ff7eb3;
+      --A-bg: #2d1020;
+      --B-color: #7dd3fc;
+      --B-bg: #0c1f2d;
+      --C-color: #86efac;
+      --C-bg: #0c2218;
+      --D-color: #fca5a5;
+      --D-bg: #2d0f0f;
+      --E-color: #c4b5fd;
+      --E-bg: #1a1030;
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      display: none;
+      min-height: 100vh
+    }
+
+    .screen.active {
+      display: block
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 300;
+    }
+
+    .topbar-brand {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: .04em
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 99px;
+      padding: 4px 12px 4px 6px;
+      font-size: 12px;
+    }
+
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--accent);
+      color: #000
+    }
+
+    .role-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: .02em
+    }
+
+    .role-leader {
+      background: #2a1f0a;
+      color: #fbbf24;
+      border: 1px solid #5a3a0a
+    }
+
+    .role-agent {
+      background: #0a1a2a;
+      color: #7dd3fc;
+      border: 1px solid #0a3a5a
+    }
+
+    .role-qa {
+      background: #1a0a2a;
+      color: #c4b5fd;
+      border: 1px solid #3a0a5a
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 16px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text);
+      cursor: pointer;
+      transition: all .12s;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--bg4);
+      border-color: var(--border2)
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 600
+    }
+
+    .btn-accent:hover {
+      background: var(--accent2);
+      border-color: var(--accent2)
+    }
+
+    .btn-ok {
+      background: #14532d;
+      color: var(--ok);
+      border-color: #166534
+    }
+
+    .btn-ok:hover {
+      background: #166534
+    }
+
+    .btn-err {
+      background: #450a0a;
+      color: var(--err);
+      border-color: #7f1d1d
+    }
+
+    .btn-err:hover {
+      background: #7f1d1d
+    }
+
+    .btn-warn {
+      background: #422006;
+      color: var(--warn);
+      border-color: #854d0e
+    }
+
+    .btn-warn:hover {
+      background: #854d0e
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px
+    }
+
+    .btn-xs {
+      padding: 3px 8px;
+      font-size: 10px
+    }
+
+    .btn:disabled {
+      opacity: .35;
+      cursor: not-allowed
+    }
+
+    /* ── LOGIN ── */
+    /* Updated Login Layout for Side-by-Side Preview */
+    #screen-login {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      gap: 30px;
+      /* Space between login and preview */
+      background: var(--bg);
+      background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px);
+    }
+
+    .login-card {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 36px 32px;
+      width: 420px;
+      flex-shrink: 0;
+      /* Keep login card fixed width */
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
+    }
+
+    .login-logo {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+
+    .login-sub {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 28px;
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .login-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+      margin-top: 16px;
+      display: block
+    }
+
+    .login-input,
+    .login-select {
+      width: 100%;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px;
+      padding: 9px 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      color: var(--text);
+      transition: border .12s;
+    }
+
+    .login-input:focus,
+    .login-select:focus {
+      outline: none;
+      border-color: var(--accent)
+    }
+
+    .login-input::placeholder {
+      color: var(--text3)
+    }
+
+    .login-actions {
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0;
+      color: var(--text3);
+      font-size: 11px
+    }
+
+    .login-divider::before,
+    .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border)
+    }
+
+    .import-row {
+      display: flex;
+      gap: 8px
+    }
+
+    .import-row input {
+      flex: 1
+    }
+
+    #import-preview {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      width: 900px;
+      /* Expanded width */
+      max-width: 60vw;
+      height: 600px;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
+      overflow: hidden;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      min-height: calc(100vh - 52px)
+    }
+
+    .sidebar {
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      padding: 16px 0;
+      position: sticky;
+      top: 52px;
+      height: calc(100vh - 52px);
+      overflow-y: auto
+    }
+
+    .sidebar-section {
+      padding: 0 12px;
+      margin-bottom: 4px
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text3);
+      padding: 8px 12px 4px;
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--r);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all .1s;
+      font-size: 12px;
+      font-weight: 500;
+      position: relative;
+    }
+
+    .nav-item:hover {
+      background: var(--bg3);
+      color: var(--text)
+    }
+
+    .nav-item.active {
+      background: var(--bg4);
+      color: var(--accent)
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 4px;
+      bottom: 4px;
+      width: 2px;
+      background: var(--accent);
+      border-radius: 0 2px 2px 0
+    }
+
+    .nav-ico {
+      font-size: 14px;
+      width: 18px;
+      text-align: center
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--err);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 99px;
+      min-width: 16px;
+      text-align: center
+    }
+
+    .content {
+      padding: 24px;
+      overflow-y: auto
+    }
+
+    /* ── SHIFT SELECTOR ── */
+    .shift-selector {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .shift-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .shift-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap
+    }
+
+    .shift-pill {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: 99px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .shift-pill.A {
+      border-color: var(--A-color);
+      color: var(--A-color)
+    }
+
+    .shift-pill.A.on {
+      background: var(--A-bg)
+    }
+
+    .shift-pill.B {
+      border-color: var(--B-color);
+      color: var(--B-color)
+    }
+
+    .shift-pill.B.on {
+      background: var(--B-bg)
+    }
+
+    .shift-pill.C {
+      border-color: var(--C-color);
+      color: var(--C-color)
+    }
+
+    .shift-pill.C.on {
+      background: var(--C-bg)
+    }
+
+    .shift-pill.D {
+      border-color: var(--D-color);
+      color: var(--D-color)
+    }
+
+    .shift-pill.D.on {
+      background: var(--D-bg)
+    }
+
+    .shift-pill.E {
+      border-color: var(--E-color);
+      color: var(--E-color)
+    }
+
+    .shift-pill.E.on {
+      background: var(--E-bg)
+    }
+
+    .shift-time {
+      font-size: 12px;
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace;
+      margin-left: auto
+    }
+
+    /* ── PAGE HEADER ── */
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -.02em
+    }
+
+    .page-sub {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 2px
+    }
+
+    /* ── CARDS / PANELS ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 16px
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace;
+      margin-bottom: 14px
+    }
+
+    /* ── STAFF TABLE ── */
+    .tbl-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border)
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    thead th {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text3);
+      padding: 9px 12px;
+      text-align: left;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    th.c,
+    td.c {
+      text-align: center
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .08s
+    }
+
+    tbody tr:last-child {
+      border-bottom: none
+    }
+
+    tbody tr:hover {
+      background: var(--bg3)
+    }
+
+    td {
+      padding: 8px 12px;
+      vertical-align: middle
+    }
+
+    td.mono {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px
+    }
+
+    /* ── SHIFT BADGE ── */
+    .sh {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 700
+    }
+
+    .sh-A {
+      background: var(--A-bg);
+      color: var(--A-color);
+      border: 1px solid var(--A-color)
+    }
+
+    .sh-B {
+      background: var(--B-bg);
+      color: var(--B-color);
+      border: 1px solid var(--B-color)
+    }
+
+    .sh-C {
+      background: var(--C-bg);
+      color: var(--C-color);
+      border: 1px solid var(--C-color)
+    }
+
+    .sh-D {
+      background: var(--D-bg);
+      color: var(--D-color);
+      border: 1px solid var(--D-color)
+    }
+
+    .sh-E {
+      background: var(--E-bg);
+      color: var(--E-color);
+      border: 1px solid var(--E-color)
+    }
+
+    .sh-0 {
+      background: var(--bg4);
+      color: var(--text3);
+      border: 1px solid var(--border)
+    }
+
+    /* ── BREAK SCHEDULE BOARD ── */
+    .break-board {
+      display: grid;
+      gap: 10px
+    }
+
+    .break-row {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 180px 1fr auto;
+      align-items: center;
+      gap: 16px;
+      transition: border-color .12s;
+    }
+
+    .break-row:hover {
+      border-color: var(--border2)
+    }
+
+    .break-row.pending {
+      border-color: var(--warn)
+    }
+
+    .emp-name {
+      font-weight: 600;
+      font-size: 13px
+    }
+
+    .emp-meta {
+      font-size: 11px;
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .break-slots {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .break-slot {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all .12s;
+    }
+
+    .break-slot:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .break-slot.assigned {
+      background: #1a2a0a;
+      color: #86efac;
+      border-color: #4ade80
+    }
+
+    .break-slot.mine {
+      background: #1a1f0a;
+      color: var(--accent);
+      border-color: var(--accent);
+      font-weight: 600
+    }
+
+    .break-slot.locked {
+      cursor: default;
+      opacity: .7
+    }
+
+    .break-slot.locked:hover {
+      border-color: var(--border2);
+      color: var(--text2)
+    }
+
+    .time-label {
+      font-size: 10px;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace;
+      white-space: nowrap
+    }
+
+    /* ── WEEK GRID ── */
+    .week-grid {
+      display: grid;
+      grid-template-columns: 180px repeat(7, 1fr);
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden
+    }
+
+    .wg-header {
+      background: var(--bg3);
+      padding: 8px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border)
+    }
+
+    .wg-header:last-child {
+      border-right: none
+    }
+
+    .wg-name {
+      background: var(--bg2);
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border)
+    }
+
+    .wg-name .n {
+      font-weight: 600;
+      font-size: 12px
+    }
+
+    .wg-name .m {
+      font-size: 10px;
+      color: var(--text2);
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .wg-cell {
+      background: var(--bg2);
+      padding: 6px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    .wg-cell:last-child {
+      border-right: none
+    }
+
+    .wg-row:last-child .wg-cell,
+    .wg-row:last-child .wg-name {
+      border-bottom: none
+    }
+
+    .slot-select {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+      color: var(--text);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      text-align: center;
+      width: 52px;
+    }
+
+    .slot-select.v-D1 {
+      background: #0c1f0a;
+      color: #4ade80;
+      border-color: #4ade80
+    }
+
+    .slot-select.v-D2 {
+      background: #0a1d2d;
+      color: #7dd3fc;
+      border-color: #7dd3fc
+    }
+
+    .slot-select.v-OFF {
+      background: var(--bg4);
+      color: var(--text3);
+      border-color: var(--border2)
+    }
+
+    /* ── REQUEST CARDS ── */
+    .req-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+
+    .req-card.pending {
+      border-color: var(--warn)
+    }
+
+    .req-card.approved {
+      border-color: var(--ok)
+    }
+
+    .req-card.rejected {
+      border-color: var(--err)
+    }
+
+    .req-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 10px
+    }
+
+    .req-title {
+      font-weight: 600;
+      font-size: 13px
+    }
+
+    .req-meta {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 2px;
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .req-status {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-family: 'IBM Plex Mono', monospace;
+      white-space: nowrap
+    }
+
+    .req-status.pending {
+      background: #2a1a00;
+      color: var(--warn);
+      border: 1px solid #854d0e
+    }
+
+    .req-status.approved {
+      background: #0a2a0a;
+      color: var(--ok);
+      border: 1px solid #166534
+    }
+
+    .req-status.rejected {
+      background: #2a0a0a;
+      color: var(--err);
+      border: 1px solid #7f1d1d
+    }
+
+    .req-body {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 12px;
+      line-height: 1.6
+    }
+
+    .req-actions {
+      display: flex;
+      gap: 8px
+    }
+
+    /* ── STATS ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px
+    }
+
+    .stat {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px
+    }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace;
+      margin-bottom: 6px
+    }
+
+    .stat-num {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -.03em;
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    /* ── FORM ── */
+    .fg {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 12px
+    }
+
+    .fg label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text3);
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .fg input,
+    .fg select,
+    .fg textarea {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 13px;
+      padding: 8px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      color: var(--text);
+      transition: border .12s;
+    }
+
+    .fg input:focus,
+    .fg select:focus,
+    .fg textarea:focus {
+      outline: none;
+      border-color: var(--accent)
+    }
+
+    .fg textarea {
+      resize: vertical;
+      min-height: 70px
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px
+    }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px
+    }
+
+    .tab {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .1s;
+      margin-bottom: -1px
+    }
+
+    .tab:hover {
+      color: var(--text)
+    }
+
+    .tab.on {
+      color: var(--accent);
+      border-bottom-color: var(--accent)
+    }
+
+    .tab-panel {
+      display: none
+    }
+
+    .tab-panel.on {
+      display: block
+    }
+
+    /* ── MISC ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0
+    }
+
+    .empty {
+      text-align: center;
+      padding: 36px;
+      color: var(--text3);
+      font-size: 12px
+    }
+
+    .empty-ico {
+      font-size: 28px;
+      margin-bottom: 8px
+    }
+
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      gap: 12px;
+      color: var(--text2);
+      font-size: 13px
+    }
+
+    .spin {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: 'IBM Plex Mono', monospace
+    }
+
+    .msg-bar {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 999;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all .25s;
+      max-width: 320px;
+    }
+
+    .msg-bar.show {
+      transform: none;
+      opacity: 1
+    }
+
+    .msg-bar.ok {
+      border-color: var(--ok);
+      color: var(--ok)
+    }
+
+    .msg-bar.err {
+      border-color: var(--err);
+      color: var(--err)
+    }
+
+    .msg-bar.warn {
+      border-color: var(--warn);
+      color: var(--warn)
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.show {
+      display: flex
+    }
+
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 24px;
+      width: 480px;
+      max-width: 100%;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .6);
+      max-height: 90vh;
+      overflow-y: auto
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      justify-content: flex-end
+    }
+
+    /* COLORS */
+    .c-ok {
+      color: var(--ok)
+    }
+
+    .c-err {
+      color: var(--err)
+    }
+
+    .c-warn {
+      color: var(--warn)
+    }
+
+    .c-accent {
+      color: var(--accent)
+    }
+
+    @media(max-width:700px) {
+      .layout {
+        grid-template-columns: 1fr
+      }
+
+      .sidebar {
+        display: none
+      }
+
+      .week-grid {
+        grid-template-columns: 140px repeat(7, 1fr)
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- ─── LOGIN SCREEN ─────────────────────────────── -->
-<div id="screen-login" class="screen active">
-  <div class="login-card">
-    <div class="login-logo">BREAK//SCHED</div>
-    <div class="login-sub">Shift Break Manager v2.0</div>
+  <!-- ─── LOGIN SCREEN ─────────────────────────────── -->
+  <div id="screen-login" class="screen active">
+    <div class="login-card">
+      <div class="login-logo">BREAK//SCHED</div>
+      <div class="login-sub">Shift Break Manager v2.0</div>
 
-    <div id="login-mode-tabs" style="display:flex;gap:6px;margin-bottom:20px">
-  <button class="btn" id="tab-login-btn" onclick="setLoginMode('login')" style="flex:1">Sign in</button>
-  <button class="btn" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1.2">Sheets Link</button>
-  <button class="btn btn-accent" id="tab-paste-btn" onclick="setLoginMode('paste')" style="flex:1.2">Direct Paste</button>
-</div>
-    
+      <div id="login-mode-tabs" style="display:flex;gap:6px;margin-bottom:20px">
+        <button class="btn" id="tab-login-btn" onclick="setLoginMode('login')" style="flex:1">Sign in</button>
+        <button class="btn" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1.2">Sheets Link</button>
+        <button class="btn btn-accent" id="tab-paste-btn" onclick="setLoginMode('paste')" style="flex:1.2">Direct
+          Paste</button>
+      </div>
+      <div id="login-form">
+        <label class="login-label">Username</label>
+        <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
+        <datalist id="user-list"></datalist>
+        <label class="login-label">Password</label>
+        <input class="login-input" id="li-pass" type="password" placeholder="••••••">
+        <label class="login-label" style="margin-top:12px">Your current shift</label>
+        <select class="login-select" id="li-shift">
+          <option value="">— Select shift —</option>
+          <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
+          <option value="B">Shift B — 7:00 PM → 4:00 AM</option>
+          <option value="C">Shift C — 9:00 PM → 6:00 AM</option>
+          <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
+          <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
+        </select>
+        <div class="login-actions">
+          <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
+          <div class="login-divider">or</div>
+          <button class="btn btn-err" onclick="factoryReset()" style="width:100%; margin-bottom:10px;">⚠ Clear All Data
+            (Reset)</button>
+          <button class="btn" onclick="demoLogin('leader')" style="width:100%">Demo as Leader (AT1)</button>
+          <button class="btn" onclick="demoLogin('agent')" style="width:100%">Demo as Agent</button>
+        </div>
+      </div>
 
-    <div id="login-form">
-      <label class="login-label">Username</label>
-      <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
-      <datalist id="user-list"></datalist>
-      <label class="login-label">Password</label>
-      <input class="login-input" id="li-pass" type="password" placeholder="••••••">
-      <label class="login-label" style="margin-top:12px">Your current shift</label>
-      <select class="login-select" id="li-shift">
-        <option value="">— Select shift —</option>
-        <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
-        <option value="B">Shift B — 7:00 PM → 4:00 AM</option>
-        <option value="C">Shift C — 9:00 PM → 6:00 AM</option>
-        <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
-        <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
-      </select>
-      <div class="login-actions">
-        <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
-        <div class="login-divider">or</div>
-        <button class="btn btn-err" onclick="factoryReset()" style="width:100%; margin-bottom:10px;">⚠ Clear All Data (Reset)</button>
-        <button class="btn" onclick="demoLogin('leader')" style="width:100%">Demo as Leader (AT1)</button>
-        <button class="btn" onclick="demoLogin('agent')" style="width:100%">Demo as Agent</button>
+      <div id="import-form" style="display:none">
+        <label class="login-label">Google Sheet ID</label>
+        <div class="import-row">
+          <input class="login-input" id="sheet-id" placeholder="19YqrS2ls7..."
+            value="19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs">
+          <button class="btn btn-accent" onclick="importSheet()">Import</button>
+        </div>
+      </div>
+
+      <div id="paste-form" style="display:none">
+        <label class="login-label">Paste from Google Sheets</label>
+        <textarea id="paste-area" class="login-input"
+          style="min-height:120px; font-family:monospace; font-size:10px; margin-bottom:12px;"
+          placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
+        <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%">Parse Paste Data →</button>
+      </div>
+
+      <div id="import-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
+
+      <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center">
       </div>
     </div>
-
-   <div id="import-form" style="display:none">
-  <label class="login-label">Google Sheet ID</label>
-  <div class="import-row">
-    <input class="login-input" id="sheet-id" placeholder="19YqrS2ls7..." value="19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs">
-    <button class="btn btn-accent" onclick="importSheet()">Import</button>
-  </div>
-</div>
-
-<div id="paste-form" style="display:none">
-  <label class="login-label">Paste from Google Sheets</label>
-  <textarea id="paste-area" class="login-input" style="min-height:120px; font-family:monospace; font-size:10px; margin-bottom:12px;" placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
-  <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%">Parse Paste Data →</button>
-</div>
-
-<div id="import-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
-<div id="import-preview">
-    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-      <div style="font-size: 14px; font-weight: 600;">Data Preview (<span id="preview-count">0</span> staff)</div>
-      <button class="btn btn-accent btn-sm" onclick="confirmImport()">Confirm & Use Data →</button>
-    </div>
-    <div id="preview-list" style="flex: 1; overflow: auto;"></div>
-  </div>
-    <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center"></div>
-  </div>
-</div>
-
-<!-- ─── MAIN APP SCREEN ─────────────────────────── -->
-<div id="screen-app" class="screen">
-  <div class="topbar">
-    <div class="topbar-brand">BREAK//SCHED</div>
-    <div class="topbar-right">
-      <div class="user-chip">
-        <div class="user-avatar" id="top-avatar">?</div>
-        <span id="top-name">—</span>
-        <span class="role-tag" id="top-role-tag">—</span>
+    <div id="import-preview">
+      <div
+        style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 14px; font-weight: 600;">Data Preview (<span id="preview-count">0</span> staff)</div>
+        <button class="btn btn-accent btn-sm" onclick="confirmImport()">Confirm & Use Data →</button>
       </div>
-      <button class="btn btn-sm" onclick="logout()">Sign out</button>
+      <div id="preview-list" style="flex: 1; overflow: auto;"></div>
     </div>
   </div>
-  <div class="layout">
-    <nav class="sidebar">
-      <div class="sidebar-label">Navigation</div>
-      <div class="nav-item active" onclick="nav('dashboard')" data-page="dashboard"><span class="nav-ico">⬛</span> Dashboard</div>
-      <div class="nav-item" onclick="nav('schedule')" data-page="schedule"><span class="nav-ico">📅</span> Break Schedule</div>
-      <div class="nav-item" onclick="nav('requests')" data-page="requests"><span class="nav-ico">🔄</span> Requests <span class="nav-badge" id="req-badge" style="display:none">0</span></div>
-      <div class="nav-item leader-only" onclick="nav('arrange')" data-page="arrange"><span class="nav-ico">✏️</span> Arrange Breaks</div>
-      <div class="nav-item leader-only" onclick="nav('staff')" data-page="staff"><span class="nav-ico">👥</span> Staff</div>
-      <div class="sidebar-label" style="margin-top:8px">Shift</div>
-      <div style="padding:0 12px">
-        <select id="sidebar-shift" class="fg" onchange="changeSidebarShift(this.value)" style="width:100%;margin:0">
-          <option value="A">A — 3PM→12AM</option>
-          <option value="B">B — 7PM→4AM</option>
-          <option value="C">C — 9PM→6AM</option>
-          <option value="D">D — 12AM→9AM</option>
-          <option value="E">E — 6AM→3PM</option>
+
+  <!-- ─── MAIN APP SCREEN ─────────────────────────── -->
+  <div id="screen-app" class="screen">
+    <div class="topbar">
+      <div class="topbar-brand">BREAK//SCHED</div>
+      <div class="topbar-right">
+        <div class="user-chip">
+          <div class="user-avatar" id="top-avatar">?</div>
+          <span id="top-name">—</span>
+          <span class="role-tag" id="top-role-tag">—</span>
+        </div>
+        <button class="btn btn-sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+    <div class="layout">
+      <nav class="sidebar">
+        <div class="sidebar-label">Navigation</div>
+        <div class="nav-item active" onclick="nav('dashboard')" data-page="dashboard"><span class="nav-ico">⬛</span>
+          Dashboard</div>
+        <div class="nav-item" onclick="nav('schedule')" data-page="schedule"><span class="nav-ico">📅</span> Break
+          Schedule</div>
+        <div class="nav-item" onclick="nav('requests')" data-page="requests"><span class="nav-ico">🔄</span> Requests
+          <span class="nav-badge" id="req-badge" style="display:none">0</span></div>
+        <div class="nav-item leader-only" onclick="nav('arrange')" data-page="arrange"><span class="nav-ico">✏️</span>
+          Arrange Breaks</div>
+        <div class="nav-item leader-only" onclick="nav('staff')" data-page="staff"><span class="nav-ico">👥</span> Staff
+        </div>
+        <div class="sidebar-label" style="margin-top:8px">Shift</div>
+        <div style="padding:0 12px">
+          <select id="sidebar-shift" class="fg" onchange="changeSidebarShift(this.value)" style="width:100%;margin:0">
+            <option value="A">A — 3PM→12AM</option>
+            <option value="B">B — 7PM→4AM</option>
+            <option value="C">C — 9PM→6AM</option>
+            <option value="D">D — 12AM→9AM</option>
+            <option value="E">E — 6AM→3PM</option>
+          </select>
+        </div>
+      </nav>
+      <main class="content" id="main-content">
+        <!-- dynamic -->
+      </main>
+    </div>
+  </div>
+
+  <!-- ─── MODALS ─────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-request">
+    <div class="modal">
+      <div class="modal-title">Request Break Change</div>
+      <div class="fg"><label>Current break slot</label><input id="req-cur" readonly></div>
+      <div class="fg"><label>Requested slot</label>
+        <select id="req-new">
+          <option value="">— pick a time —</option>
         </select>
       </div>
-    </nav>
-    <main class="content" id="main-content">
-      <!-- dynamic -->
-    </main>
-  </div>
-</div>
-
-<!-- ─── MODALS ─────────────────────────────────── -->
-<div class="modal-overlay" id="modal-request">
-  <div class="modal">
-    <div class="modal-title">Request Break Change</div>
-    <div class="fg"><label>Current break slot</label><input id="req-cur" readonly></div>
-    <div class="fg"><label>Requested slot</label>
-      <select id="req-new">
-        <option value="">— pick a time —</option>
-      </select>
-    </div>
-    <div class="fg"><label>Reason</label><textarea id="req-reason" placeholder="Please explain why you need to swap..."></textarea></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal('modal-request')">Cancel</button>
-      <button class="btn btn-warn" onclick="submitRequest()">Submit request</button>
+      <div class="fg"><label>Reason</label><textarea id="req-reason"
+          placeholder="Please explain why you need to swap..."></textarea></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-request')">Cancel</button>
+        <button class="btn btn-warn" onclick="submitRequest()">Submit request</button>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="modal-overlay" id="modal-assign">
-  <div class="modal">
-    <div class="modal-title" id="assign-title">Assign Break</div>
-    <div class="fg"><label>Break slot</label>
-      <select id="assign-slot"></select>
-    </div>
-    <div class="fg"><label>Note (optional)</label><textarea id="assign-note" placeholder="Any notes for this assignment..."></textarea></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal('modal-assign')">Cancel</button>
-      <button class="btn btn-accent" onclick="confirmAssign()">Assign →</button>
+  <div class="modal-overlay" id="modal-assign">
+    <div class="modal">
+      <div class="modal-title" id="assign-title">Assign Break</div>
+      <div class="fg"><label>Break slot</label>
+        <select id="assign-slot"></select>
+      </div>
+      <div class="fg"><label>Note (optional)</label><textarea id="assign-note"
+          placeholder="Any notes for this assignment..."></textarea></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-assign')">Cancel</button>
+        <button class="btn btn-accent" onclick="confirmAssign()">Assign →</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ─── TOAST ─────────────────────────────────── -->
-<div class="msg-bar" id="toast"></div>
+  <!-- ─── TOAST ─────────────────────────────────── -->
+  <div class="msg-bar" id="toast"></div>
 
-<script>
-// ═══════════════════════════════════════════════
-//  DATA & STATE
-// ═══════════════════════════════════════════════
-const STORAGE = 'bsched_v3';
-const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const SEED_USERS = [
-  { id: 999, username: 'admin', name: 'System Admin', team: 'HQ', role: 'Admin', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  
-  // Leaders (L1 - L5)
-  { id: 1001, username: 'cuong.pham', name: 'Phạm Minh Cường', team: 'L1', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1002, username: 'hongthuy.nguyen', name: 'Nguyễn Thị Phương Hồng Thuỷ', team: 'L2', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1003, username: 'dung.tran', name: 'Trần Quốc Dũng', team: 'L3', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1004, username: 'ngocanh.tran', name: 'Trần Thị Ngọc Ánh', team: 'L4', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 1005, username: 'tam.to', name: 'Tô Hoài Tâm', team: 'L5', role: 'Agent Leader', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  
-  // Supervisors (S1 - S5)
-  { id: 2001, username: 'hai.nguyen', name: 'Nguyễn Hồ Giang Hải', team: 'S1', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2002, username: 'thanh.nguyen', name: 'Nguyễn Đức Thanh', team: 'S2', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2003, username: 'duy.huynh', name: 'Huỳnh Minh Duy', team: 'S3', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2004, username: 'tran.le', name: 'Lê Nguyễn Huyền Trân', team: 'S4', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
-  { id: 2005, username: 'hoa.nguyen', name: 'Nguyễn Đức Hòa', team: 'S5', role: 'Agent Supervisor', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} }
-];
+  <script>
+    // ═══════════════════════════════════════════════
+    //  DATA & STATE
+    // ═══════════════════════════════════════════════
+    const STORAGE = 'bsched_v3';
+    const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const SEED_USERS = [
+      { id: 999, username: 'admin', name: 'System Admin', team: 'HQ', role: 'Admin', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
 
+      // Leaders (L1 - L5)
+      { id: 1001, username: 'cuong.pham', name: 'Phạm Minh Cường', team: 'L1', role: 'Agent Leader', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 1002, username: 'hongthuy.nguyen', name: 'Nguyễn Thị Phương Hồng Thuỷ', team: 'L2', role: 'Agent Leader', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 1003, username: 'dung.tran', name: 'Trần Quốc Dũng', team: 'L3', role: 'Agent Leader', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 1004, username: 'ngocanh.tran', name: 'Trần Thị Ngọc Ánh', team: 'L4', role: 'Agent Leader', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 1005, username: 'tam.to', name: 'Tô Hoài Tâm', team: 'L5', role: 'Agent Leader', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
 
-const SHIFTS = {
-  A:{label:'Shift A',start:'15:00',end:'00:00',display:'3:00 PM → 12:00 AM',color:'var(--A-color)',bg:'var(--A-bg)'},
-  B:{label:'Shift B',start:'19:00',end:'04:00',display:'7:00 PM → 4:00 AM',color:'var(--B-color)',bg:'var(--B-bg)'},
-  C:{label:'Shift C',start:'21:00',end:'06:00',display:'9:00 PM → 6:00 AM',color:'var(--C-color)',bg:'var(--C-bg)'},
-  D:{label:'Shift D',start:'00:00',end:'09:00',display:'12:00 AM → 9:00 AM',color:'var(--D-color)',bg:'var(--D-bg)'},
-  E:{label:'Shift E',start:'06:00',end:'15:00',display:'6:00 AM → 3:00 PM',color:'var(--E-color)',bg:'var(--E-bg)'},
-};
-// Break slots per shift (30 min windows)
-const BREAK_SLOTS = {
-  A:['18:00–19:30','19:30–21:00'],
-  B:['22:00–23:30','23:30–01:00'],
-  C:['01:00–02:30','02:30–04:00'],
-  D:['04:00–05:30','05:30–07:00'],
-  E:['09:30–11:00','11:00–12:30'],
-};
-
-const ROLES = {
-  'Admin':          {level:3, tag:'role-leader', label:'Admin'}, // Highest access
-  'Agent Leader':   {level:2, tag:'role-leader', label:'Leader'},
-  'Agent Supervisor':{level:2, tag:'role-leader', label:'Supervisor'},
-  'Sr Agent':       {level:1, tag:'role-agent', label:'Sr Agent'},
-  'Agent':          {level:1, tag:'role-agent', label:'Agent'},
-  'QA':             {level:1, tag:'role-qa', label:'QA'},
-  'Sr QA':          {level:1, tag:'role-qa', label:'Sr QA'},
-};
-
-function load() {
-  try {
-    const d = localStorage.getItem(STORAGE);
-    if (d) return JSON.parse(d);
-  } catch(e) {}
-  return { users: [], breaks: {}, requests: [], imported: false };
-}
-function save() {
-  try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e) {}
-}
-
-function buildDatalist(){
-  const dl = document.getElementById('user-list');
-  dl.innerHTML = state.users.map(u=>`<option value="${u.username}">${u.name} (${u.team})</option>`).join('');
-}
-
-let state = load();
-  // 2. If the database is empty (after a Reset), fill it with your SEED_USERS
-if (state.users.length === 0) {
-  state.users = SEED_USERS;
-  save();
-}
-
-let currentUser = null;
-let currentShift = 'E';
-let currentPage = 'dashboard';
-let assigningEmp = null;
-
-if (!state.imported && state.users.length === 0) {
-  state.users = SEED_USERS;
-  save();
-}
-// Place this at the global level (not inside a function)
-buildDatalist();
-// ═══════════════════════════════════════════════
-//  AUTH
-// ═══════════════════════════════════════════════
-  
-// Update this helper to include Admin
-function isLeader(u){ return u && (ROLES[u.role]?.level||0) >= 2; }
-function isAdmin(u){ return u && (ROLES[u.role]?.level||0) === 3; }
-function getRoleInfo(r){ return ROLES[r] || {level:0,tag:'role-agent',label:r||'—'}; }
-
-function setLoginMode(m) {
-  // Elements to toggle
-  const forms = {
-    'login-form': m === 'login',
-    'import-form': m === 'import',
-    'paste-form': m === 'paste'
-  };
-
-  const buttons = {
-    'tab-login-btn': m === 'login',
-    'tab-import-btn': m === 'import',
-    'tab-paste-btn': m === 'paste'
-  };
-
-  // Safe toggle for forms
-  Object.keys(forms).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = forms[id] ? 'block' : 'none';
-  });
-
-  // Safe toggle for button highlights
-  Object.keys(buttons).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.className = 'btn' + (buttons[id] ? ' btn-accent' : '');
-  });
-}
-  
-function getWeekDates() {
-  const now = new Date();
-  const day = now.getDay();
-  // Get Monday of current week
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
-  const monday = new Date(now.setDate(diff));
-  
-  return WEEK_DAYS.map((d, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-  });
-}
-  
-function importFromPaste() {
-  const rawData = document.getElementById('paste-area').value.trim();
-  const status = document.getElementById('paste-status');
-  if (!rawData) { status.textContent = 'Paste something first!'; return; }
-  
-  // Convert tab-separated paste data into CSV format for the existing parser
-  // We replace tabs with commas, but only if they aren't inside quotes
-  const simulatedCSV = rawData.split('\n').map(line => {
-    return line.split('\t').map(cell => `"${cell.replace(/"/g, '""')}"`).join(',');
-  }).join('\n');
-  
-  // Reuse your existing parser!
-  parseSheetCSV(simulatedCSV);
-  
-  // Move the preview to the visible area
-  document.getElementById('import-preview').style.display = 'block';
-  status.innerHTML = `<span style="color:var(--ok)">✓ Paste parsed! Preview below.</span>`;
-}
-  
-function doLogin(){
-  const u = document.getElementById('li-user').value.trim();
-  const p = document.getElementById('li-pass').value.trim();
-  const s = document.getElementById('li-shift').value;
-  const err = document.getElementById('login-err');
-
-  // 1. Basic check for credentials
-  if(!u || !p){ 
-    err.textContent = 'Enter username and password.'; 
-    return; 
-  }
-
-  // 2. Identify the user
-  const user = state.users.find(x => x.username === u && x.password === p);
-  if(!user){ 
-    err.textContent = 'Invalid credentials.'; 
-    return; 
-  }
-
-  // 3. Conditional Shift Alert
-  // Only require a shift if the user is NOT an Admin
-  if(user.role !== 'Admin' && !s){ 
-    err.textContent = 'Please select your current shift.'; 
-    return; 
-  }
-
-  // 4. Proceed to App
-  currentUser = user;
-  // If Admin didn't pick a shift, default to 'E' so the dashboard still loads
-  currentShift = s || 'E'; 
-  err.textContent = '';
-  enterApp();
-}
+      // Supervisors (S1 - S5)
+      { id: 2001, username: 'hai.nguyen', name: 'Nguyễn Hồ Giang Hải', team: 'S1', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 2002, username: 'thanh.nguyen', name: 'Nguyễn Đức Thanh', team: 'S2', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 2003, username: 'duy.huynh', name: 'Huỳnh Minh Duy', team: 'S3', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 2004, username: 'tran.le', name: 'Lê Nguyễn Huyền Trân', team: 'S4', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+      { id: 2005, username: 'hoa.nguyen', name: 'Nguyễn Đức Hòa', team: 'S5', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } }
+    ];
 
 
-  
-function demoLogin(type){
-  if(type==='leader'){
-    currentUser = state.users.find(x=>x.role==='Agent Leader')||state.users[0];
-    currentShift = 'E';
-  } else {
-    currentUser = state.users.find(x=>x.role==='Agent')||state.users[0];
-    currentShift = 'E';
-  }
-  enterApp();
-}
+    const SHIFTS = {
+      A: { label: 'Shift A', start: '15:00', end: '00:00', display: '3:00 PM → 12:00 AM', color: 'var(--A-color)', bg: 'var(--A-bg)' },
+      B: { label: 'Shift B', start: '19:00', end: '04:00', display: '7:00 PM → 4:00 AM', color: 'var(--B-color)', bg: 'var(--B-bg)' },
+      C: { label: 'Shift C', start: '21:00', end: '06:00', display: '9:00 PM → 6:00 AM', color: 'var(--C-color)', bg: 'var(--C-bg)' },
+      D: { label: 'Shift D', start: '00:00', end: '09:00', display: '12:00 AM → 9:00 AM', color: 'var(--D-color)', bg: 'var(--D-bg)' },
+      E: { label: 'Shift E', start: '06:00', end: '15:00', display: '6:00 AM → 3:00 PM', color: 'var(--E-color)', bg: 'var(--E-bg)' },
+    };
+    // Break slots per shift (30 min windows)
+    const BREAK_SLOTS = {
+      A: ['18:00–19:30', '19:30–21:00'],
+      B: ['22:00–23:30', '23:30–01:00'],
+      C: ['01:00–02:30', '02:30–04:00'],
+      D: ['04:00–05:30', '05:30–07:00'],
+      E: ['09:30–11:00', '11:00–12:30'],
+    };
 
-function autoDetectShift() {
-  const input = document.getElementById('li-user').value.trim();
-  const user = state.users.find(x => x.username === input);
-  if (user) {
-    const today = todayKey();
-    const scheduled = user.schedule[today];
-    if (scheduled && scheduled !== '0') {
-      document.getElementById('li-shift').value = scheduled; // Auto-select shift
+    const ROLES = {
+      'Admin': { level: 3, tag: 'role-leader', label: 'Admin' }, // Highest access
+      'Agent Leader': { level: 2, tag: 'role-leader', label: 'Leader' },
+      'Agent Supervisor': { level: 2, tag: 'role-leader', label: 'Supervisor' },
+      'Sr Agent': { level: 1, tag: 'role-agent', label: 'Sr Agent' },
+      'Agent': { level: 1, tag: 'role-agent', label: 'Agent' },
+      'QA': { level: 1, tag: 'role-qa', label: 'QA' },
+      'Sr QA': { level: 1, tag: 'role-qa', label: 'Sr QA' },
+    };
+
+    function load() {
+      try {
+        const d = localStorage.getItem(STORAGE);
+        if (d) return JSON.parse(d);
+      } catch (e) { }
+      return { users: [], breaks: {}, requests: [], imported: false };
     }
-  }
-}
+    function save() {
+      try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch (e) { }
+    }
 
-function enterApp(){
-  document.getElementById('screen-login').classList.remove('active');
-  document.getElementById('screen-app').classList.add('active');
-  // Topbar
-  const ri = getRoleInfo(currentUser.role);
-  document.getElementById('top-avatar').textContent = currentUser.name.charAt(0);
-  document.getElementById('top-name').textContent = currentUser.name.split(' ').slice(-1)[0];
-  document.getElementById('top-role-tag').textContent = ri.label;
-  document.getElementById('top-role-tag').className = 'role-tag '+ri.tag;
-  // Show/hide leader nav
-  document.querySelectorAll('.leader-only').forEach(el=>el.style.display = isLeader(currentUser)?'flex':'none');
-  // Autocomplete datalist
-  buildDatalist();
-  document.getElementById('sidebar-shift').value = currentShift;
-  nav('dashboard');
-  updateBadge();
-}
+    function buildDatalist() {
+      const dl = document.getElementById('user-list');
+      dl.innerHTML = state.users.map(u => `<option value="${u.username}">${u.name} (${u.team})</option>`).join('');
+    }
 
-function logout(){
-  currentUser=null;
-  document.getElementById('screen-app').classList.remove('active');
-  document.getElementById('screen-login').classList.add('active');
-}
+    let state = load();
+    // 2. If the database is empty (after a Reset), fill it with your SEED_USERS
+    if (state.users.length === 0) {
+      state.users = SEED_USERS;
+      save();
+    }
+
+    let currentUser = null;
+    let currentShift = 'E';
+    let currentPage = 'dashboard';
+    let assigningEmp = null;
+
+    if (!state.imported && state.users.length === 0) {
+      state.users = SEED_USERS;
+      save();
+    }
+    // Place this at the global level (not inside a function)
+    buildDatalist();
+    // ═══════════════════════════════════════════════
+    //  AUTH
+    // ═══════════════════════════════════════════════
+
+    // Update this helper to include Admin
+    function isLeader(u) { return u && (ROLES[u.role]?.level || 0) >= 2; }
+    function isAdmin(u) { return u && (ROLES[u.role]?.level || 0) === 3; }
+    function getRoleInfo(r) { return ROLES[r] || { level: 0, tag: 'role-agent', label: r || '—' }; }
+
+    function setLoginMode(m) {
+      // Elements to toggle
+      const forms = {
+        'login-form': m === 'login',
+        'import-form': m === 'import',
+        'paste-form': m === 'paste'
+      };
+
+      const buttons = {
+        'tab-login-btn': m === 'login',
+        'tab-import-btn': m === 'import',
+        'tab-paste-btn': m === 'paste'
+      };
+
+      // Safe toggle for forms
+      Object.keys(forms).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = forms[id] ? 'block' : 'none';
+      });
+
+      // Safe toggle for button highlights
+      Object.keys(buttons).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'btn' + (buttons[id] ? ' btn-accent' : '');
+      });
+    }
+
+    function getWeekDates() {
+      const now = new Date();
+      const day = now.getDay();
+      // Get Monday of current week
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now.setDate(diff));
+
+      return WEEK_DAYS.map((d, i) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + i);
+        return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      });
+    }
+
+    function importFromPaste() {
+      const rawData = document.getElementById('paste-area').value.trim();
+      const status = document.getElementById('paste-status');
+      if (!rawData) { status.textContent = 'Paste something first!'; return; }
+
+      // Convert tab-separated paste data into CSV format for the existing parser
+      // We replace tabs with commas, but only if they aren't inside quotes
+      const simulatedCSV = rawData.split('\n').map(line => {
+        return line.split('\t').map(cell => `"${cell.replace(/"/g, '""')}"`).join(',');
+      }).join('\n');
+
+      // Reuse your existing parser!
+      parseSheetCSV(simulatedCSV);
+
+      // Move the preview to the visible area
+      document.getElementById('import-preview').style.display = 'block';
+      status.innerHTML = `<span style="color:var(--ok)">✓ Paste parsed! Preview below.</span>`;
+    }
+
+    function doLogin() {
+      const u = document.getElementById('li-user').value.trim();
+      const p = document.getElementById('li-pass').value.trim();
+      const s = document.getElementById('li-shift').value;
+      const err = document.getElementById('login-err');
+
+      // 1. Basic check for credentials
+      if (!u || !p) {
+        err.textContent = 'Enter username and password.';
+        return;
+      }
+
+      // 2. Identify the user
+      const user = state.users.find(x => x.username === u && x.password === p);
+      if (!user) {
+        err.textContent = 'Invalid credentials.';
+        return;
+      }
+
+      // 3. Conditional Shift Alert
+      // Only require a shift if the user is NOT an Admin
+      if (user.role !== 'Admin' && !s) {
+        err.textContent = 'Please select your current shift.';
+        return;
+      }
+
+      // 4. Proceed to App
+      currentUser = user;
+      // If Admin didn't pick a shift, default to 'E' so the dashboard still loads
+      currentShift = s || 'E';
+      err.textContent = '';
+      enterApp();
+    }
+
+
+
+    function demoLogin(type) {
+      if (type === 'leader') {
+        currentUser = state.users.find(x => x.role === 'Agent Leader') || state.users[0];
+        currentShift = 'E';
+      } else {
+        currentUser = state.users.find(x => x.role === 'Agent') || state.users[0];
+        currentShift = 'E';
+      }
+      enterApp();
+    }
+
+    function autoDetectShift() {
+      const input = document.getElementById('li-user').value.trim();
+      const user = state.users.find(x => x.username === input);
+      if (user) {
+        const today = todayKey();
+        const scheduled = user.schedule[today];
+        if (scheduled && scheduled !== '0') {
+          document.getElementById('li-shift').value = scheduled; // Auto-select shift
+        }
+      }
+    }
+
+    function enterApp() {
+      document.getElementById('screen-login').classList.remove('active');
+      document.getElementById('screen-app').classList.add('active');
+      // Topbar
+      const ri = getRoleInfo(currentUser.role);
+      document.getElementById('top-avatar').textContent = currentUser.name.charAt(0);
+      document.getElementById('top-name').textContent = currentUser.name.split(' ').slice(-1)[0];
+      document.getElementById('top-role-tag').textContent = ri.label;
+      document.getElementById('top-role-tag').className = 'role-tag ' + ri.tag;
+      // Show/hide leader nav
+      document.querySelectorAll('.leader-only').forEach(el => el.style.display = isLeader(currentUser) ? 'flex' : 'none');
+      // Autocomplete datalist
+      buildDatalist();
+      document.getElementById('sidebar-shift').value = currentShift;
+      nav('dashboard');
+      updateBadge();
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('screen-app').classList.remove('active');
+      document.getElementById('screen-login').classList.add('active');
+    }
 
 
 
 
 
-// ═══════════════════════════════════════════════
-//  NAVIGATION
-// ═══════════════════════════════════════════════
-function nav(page){
-  currentPage = page;
-  document.querySelectorAll('.nav-item').forEach(el=>{
-    el.classList.toggle('active', el.dataset.page===page);
-  });
-  const content = document.getElementById('main-content');
-  const pages = {
-    dashboard: renderDashboard,
-    schedule:  renderSchedule,
-    requests:  renderRequests,
-    arrange:   renderArrange,
-    staff:     renderStaff,
-  };
-  if(pages[page]) content.innerHTML = pages[page]();
-  else content.innerHTML = '<div class="empty">Page not found.</div>';
-  attachPageEvents(page);
-}
+    // ═══════════════════════════════════════════════
+    //  NAVIGATION
+    // ═══════════════════════════════════════════════
+    function nav(page) {
+      currentPage = page;
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.page === page);
+      });
+      const content = document.getElementById('main-content');
+      const pages = {
+        dashboard: renderDashboard,
+        schedule: renderSchedule,
+        requests: renderRequests,
+        arrange: renderArrange,
+        staff: renderStaff,
+      };
+      if (pages[page]) content.innerHTML = pages[page]();
+      else content.innerHTML = '<div class="empty">Page not found.</div>';
+      attachPageEvents(page);
+    }
 
-function changeSidebarShift(v){
-  currentShift = v;
-  nav(currentPage);
-}
+    function changeSidebarShift(v) {
+      currentShift = v;
+      nav(currentPage);
+    }
 
-// ═══════════════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════════════
-function todayKey(){
-  const d=new Date();
-  return WEEK_DAYS[d.getDay()===0?6:d.getDay()-1];
-}
-function getShiftMates(shift, day){
-  return state.users.filter(u=>{
-    const s = u.schedule[day||todayKey()];
-    return s===shift;
-  });
-}
-function getBreakKey(userId, day){ return `${userId}_${day||todayKey()}`; }
-function getAssigned(userId, day){ return state.breaks[getBreakKey(userId,day)]; }
-function assign(userId, day, slot, note){
-  state.breaks[getBreakKey(userId,day)] = {slot, note:note||'', by:currentUser.id, at:Date.now()};
-  save();
-}
-function updateBadge(){
-  const pending = state.requests.filter(r=>r.status==='pending').length;
-  const badge = document.getElementById('req-badge');
-  badge.style.display = pending>0?'':'none';
-  badge.textContent = pending;
-}
+    // ═══════════════════════════════════════════════
+    //  HELPERS
+    // ═══════════════════════════════════════════════
+    function todayKey() {
+      const d = new Date();
+      return WEEK_DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
+    }
+    function getShiftMates(shift, day) {
+      return state.users.filter(u => {
+        const s = u.schedule[day || todayKey()];
+        return s === shift;
+      });
+    }
+    function getBreakKey(userId, day) { return `${userId}_${day || todayKey()}`; }
+    function getAssigned(userId, day) { return state.breaks[getBreakKey(userId, day)]; }
+    function assign(userId, day, slot, note) {
+      state.breaks[getBreakKey(userId, day)] = { slot, note: note || '', by: currentUser.id, at: Date.now() };
+      save();
+    }
+    function updateBadge() {
+      const pending = state.requests.filter(r => r.status === 'pending').length;
+      const badge = document.getElementById('req-badge');
+      badge.style.display = pending > 0 ? '' : 'none';
+      badge.textContent = pending;
+    }
 
-// ═══════════════════════════════════════════════
-//  RENDER: DASHBOARD
-// ═══════════════════════════════════════════════
-function renderDashboard(){
-  const today = todayKey();
-  const mates = getShiftMates(currentShift, today);
-  const assigned = mates.filter(u=>getAssigned(u.id, today));
-  const pending = state.requests.filter(r=>r.status==='pending');
-  const mine = getAssigned(currentUser.id, today);
+    // ═══════════════════════════════════════════════
+    //  RENDER: DASHBOARD
+    // ═══════════════════════════════════════════════
+    function renderDashboard() {
+      const today = todayKey();
+      const mates = getShiftMates(currentShift, today);
+      const assigned = mates.filter(u => getAssigned(u.id, today));
+      const pending = state.requests.filter(r => r.status === 'pending');
+      const mine = getAssigned(currentUser.id, today);
 
-  return `
+      return `
   <div class="page-header">
     <div>
       <div class="page-title">Dashboard</div>
@@ -758,92 +1693,92 @@ function renderDashboard(){
     <div class="stat"><div class="stat-label">Your shift</div><div class="stat-num c-accent">${currentShift}</div></div>
     <div class="stat"><div class="stat-label">Shift mates today</div><div class="stat-num">${mates.length}</div></div>
     <div class="stat"><div class="stat-label">Breaks assigned</div><div class="stat-num c-ok">${assigned.length}</div></div>
-    ${isLeader(currentUser)?`<div class="stat"><div class="stat-label">Pending requests</div><div class="stat-num c-warn">${pending.length}</div></div>`:''}
+    ${isLeader(currentUser) ? `<div class="stat"><div class="stat-label">Pending requests</div><div class="stat-num c-warn">${pending.length}</div></div>` : ''}
   </div>
 
   <div class="card">
     <div class="card-title">Your break today</div>
     ${mine
-      ? `<div style="display:flex;align-items:center;gap:12px">
+          ? `<div style="display:flex;align-items:center;gap:12px">
           <span class="break-slot mine">${mine.slot}</span>
-          <span style="font-size:12px;color:var(--text2)">Assigned by ${state.users.find(x=>x.id===mine.by)?.name||'system'}</span>
-          ${!isLeader(currentUser)?`<button class="btn btn-sm btn-warn" onclick="openRequestModal('${mine.slot}')">Request change</button>`:''}
+          <span style="font-size:12px;color:var(--text2)">Assigned by ${state.users.find(x => x.id === mine.by)?.name || 'system'}</span>
+          ${!isLeader(currentUser) ? `<button class="btn btn-sm btn-warn" onclick="openRequestModal('${mine.slot}')">Request change</button>` : ''}
         </div>`
-      : `<div style="font-size:13px;color:var(--text2)">No break assigned yet for today. 
-          ${isLeader(currentUser)?'Go to <b>Arrange Breaks</b> to set schedules.':'Check back later or contact your leader.'}</div>`
-    }
+          : `<div style="font-size:13px;color:var(--text2)">No break assigned yet for today. 
+          ${isLeader(currentUser) ? 'Go to <b>Arrange Breaks</b> to set schedules.' : 'Check back later or contact your leader.'}</div>`
+        }
   </div>
 
   <div class="card">
     <div class="card-title">Shift ${currentShift} — Today's breaks</div>
-    ${mates.length===0
-      ? `<div class="empty"><div class="empty-ico">👥</div>No staff on shift ${currentShift} today.</div>`
-      : `<div class="break-board">${mates.map(u=>{
-          const br = getAssigned(u.id, today);
-          const isMe = u.id===currentUser.id;
-          return `<div class="break-row${br?'':' pending'}">
+    ${mates.length === 0
+          ? `<div class="empty"><div class="empty-ico">👥</div>No staff on shift ${currentShift} today.</div>`
+          : `<div class="break-board">${mates.map(u => {
+            const br = getAssigned(u.id, today);
+            const isMe = u.id === currentUser.id;
+            return `<div class="break-row${br ? '' : ' pending'}">
             <div>
-              <div class="emp-name">${isMe?'<b>'+u.name+' (you)</b>':u.name}</div>
+              <div class="emp-name">${isMe ? '<b>' + u.name + ' (you)</b>' : u.name}</div>
               <div class="emp-meta">${u.team} · ${u.role}</div>
             </div>
             <div>
               ${br
-                ? `<span class="break-slot ${isMe?'mine':'assigned'}">${br.slot}</span>`
+                ? `<span class="break-slot ${isMe ? 'mine' : 'assigned'}">${br.slot}</span>`
                 : `<span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace">Not assigned</span>`}
             </div>
             <div></div>
           </div>`;
-        }).join('')}</div>`
-    }
+          }).join('')}</div>`
+        }
   </div>
   `;
-}
+    }
 
-// ═══════════════════════════════════════════════
-//  RENDER: BREAK SCHEDULE (view whole week)
-// ═══════════════════════════════════════════════
-function renderSchedule(){
-  const shiftUsers = state.users.filter(u=>WEEK_DAYS.some(d=>u.schedule[d]===currentShift));
-  const weekDates = getWeekDates(); // Dates for headers
+    // ═══════════════════════════════════════════════
+    //  RENDER: BREAK SCHEDULE (view whole week)
+    // ═══════════════════════════════════════════════
+    function renderSchedule() {
+      const shiftUsers = state.users.filter(u => WEEK_DAYS.some(d => u.schedule[d] === currentShift));
+      const weekDates = getWeekDates(); // Dates for headers
 
-  // Headers with Dates
-  const headers = `<div class="wg-header">Name</div>` + WEEK_DAYS.map((d, i) => `
-    <div class="wg-header${d===todayKey()?' c-accent':''}" style="text-align:center">
+      // Headers with Dates
+      const headers = `<div class="wg-header">Name</div>` + WEEK_DAYS.map((d, i) => `
+    <div class="wg-header${d === todayKey() ? ' c-accent' : ''}" style="text-align:center">
       ${d}<br><span style="font-size:9px; opacity:0.5; font-weight:400">${weekDates[i]}</span>
     </div>`).join('');
 
-  const rows = shiftUsers.map(u => {
-    const cells = WEEK_DAYS.map(d => {
-      const onShift = u.schedule[d] === currentShift;
-      const br = getAssigned(u.id, d);
-      const dayOff = u.schedule[d] === '0';
-      
-      if(dayOff) return `<div class="wg-cell"><span class="sh sh-0">—</span></div>`;
-      if(!onShift) return `<div class="wg-cell"><span class="sh sh-${u.schedule[d]}">${u.schedule[d]}</span></div>`;
-      
-      // Shorten break slot (e.g., E1)
-      const shortCode = br ? getShortSlot(currentShift, br.slot) : '—';
-      return `<div class="wg-cell">
-        <span class="${br?'break-slot assigned':'text3'}" style="font-size:10px; padding:3px 8px" title="${br?br.slot:''}">
+      const rows = shiftUsers.map(u => {
+        const cells = WEEK_DAYS.map(d => {
+          const onShift = u.schedule[d] === currentShift;
+          const br = getAssigned(u.id, d);
+          const dayOff = u.schedule[d] === '0';
+
+          if (dayOff) return `<div class="wg-cell"><span class="sh sh-0">—</span></div>`;
+          if (!onShift) return `<div class="wg-cell"><span class="sh sh-${u.schedule[d]}">${u.schedule[d]}</span></div>`;
+
+          // Shorten break slot (e.g., E1)
+          const shortCode = br ? getShortSlot(currentShift, br.slot) : '—';
+          return `<div class="wg-cell">
+        <span class="${br ? 'break-slot assigned' : 'text3'}" style="font-size:10px; padding:3px 8px" title="${br ? br.slot : ''}">
           ${shortCode}
         </span>
       </div>`;
-    }).join('');
-    return `<div class="wg-row" style="display:contents">
+        }).join('');
+        return `<div class="wg-row" style="display:contents">
       <div class="wg-name"><div class="n">${u.name}</div><div class="m">${u.team}</div></div>
       ${cells}
     </div>`;
-  }).join('');
+      }).join('');
 
-  // 3. Legend/Full Note for Break Slots
-  const shiftSlots = BREAK_SLOTS[currentShift] || [];
-  const legend = shiftSlots.map((time, i) => `
+      // 3. Legend/Full Note for Break Slots
+      const shiftSlots = BREAK_SLOTS[currentShift] || [];
+      const legend = shiftSlots.map((time, i) => `
     <div style="display:flex; align-items:center; gap:8px;">
-      <span class="break-slot assigned" style="font-size:10px; width:30px; text-align:center">${currentShift}${i+1}</span>
+      <span class="break-slot assigned" style="font-size:10px; width:30px; text-align:center">${currentShift}${i + 1}</span>
       <span style="color:var(--text2)">(${time})</span>
     </div>`).join('');
 
-  return `
+      return `
   <div class="page-header">
     <div>
       <div class="page-title">Break Schedule — Shift ${currentShift}</div>
@@ -862,79 +1797,79 @@ function renderSchedule(){
     </div>
   </div>
   `;
-}
+    }
 
-// ═══════════════════════════════════════════════
-//  RENDER: REQUESTS
-// ═══════════════════════════════════════════════
-function renderRequests(){
-  const myReqs = isLeader(currentUser)
-    ? state.requests
-    : state.requests.filter(r=>r.userId===currentUser.id);
+    // ═══════════════════════════════════════════════
+    //  RENDER: REQUESTS
+    // ═══════════════════════════════════════════════
+    function renderRequests() {
+      const myReqs = isLeader(currentUser)
+        ? state.requests
+        : state.requests.filter(r => r.userId === currentUser.id);
 
-  const pending = myReqs.filter(r=>r.status==='pending');
-  const rest    = myReqs.filter(r=>r.status!=='pending');
+      const pending = myReqs.filter(r => r.status === 'pending');
+      const rest = myReqs.filter(r => r.status !== 'pending');
 
-  const card = (r,idx)=>{
-    const emp = state.users.find(u=>u.id===r.userId);
-    const isOwn = r.userId===currentUser.id;
-    return `<div class="req-card ${r.status}">
+      const card = (r, idx) => {
+        const emp = state.users.find(u => u.id === r.userId);
+        const isOwn = r.userId === currentUser.id;
+        return `<div class="req-card ${r.status}">
       <div class="req-header">
         <div>
-          <div class="req-title">${emp?.name||'Unknown'}</div>
-          <div class="req-meta">${emp?.team||'—'} · ${r.day} · submitted ${timeSince(r.at)}</div>
+          <div class="req-title">${emp?.name || 'Unknown'}</div>
+          <div class="req-meta">${emp?.team || '—'} · ${r.day} · submitted ${timeSince(r.at)}</div>
         </div>
         <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
       </div>
       <div class="req-body">
         <span style="color:var(--text3)">Current:</span> <b>${r.current}</b> &nbsp;→&nbsp;
         <span style="color:var(--text3)">Requested:</span> <b style="color:var(--warn)">${r.requested}</b><br>
-        <span style="color:var(--text3)">Reason:</span> ${r.reason||'No reason given'}
-        ${r.status!=='pending'&&r.respNote?`<br><span style="color:var(--text3)">Response:</span> ${r.respNote}`:''}
+        <span style="color:var(--text3)">Reason:</span> ${r.reason || 'No reason given'}
+        ${r.status !== 'pending' && r.respNote ? `<br><span style="color:var(--text3)">Response:</span> ${r.respNote}` : ''}
       </div>
-      ${r.status==='pending' && isLeader(currentUser) && !isOwn ? `
+      ${r.status === 'pending' && isLeader(currentUser) && !isOwn ? `
         <div class="req-actions">
           <button class="btn btn-sm btn-ok" onclick="resolveRequest(${idx},'approved')">✓ Approve</button>
           <button class="btn btn-sm btn-err" onclick="resolveRequest(${idx},'rejected')">✗ Reject</button>
         </div>` : ''}
     </div>`;
-  };
+      };
 
-  return `
+      return `
   <div class="page-header">
     <div>
-      <div class="page-title">${isLeader(currentUser)?'Approval Queue':'My Requests'}</div>
-      <div class="page-sub">${isLeader(currentUser)?`${pending.length} pending approval`:'Track your break change requests'}</div>
+      <div class="page-title">${isLeader(currentUser) ? 'Approval Queue' : 'My Requests'}</div>
+      <div class="page-sub">${isLeader(currentUser) ? `${pending.length} pending approval` : 'Track your break change requests'}</div>
     </div>
-    ${!isLeader(currentUser)?`<button class="btn btn-accent" onclick="openRequestModal()">+ New request</button>`:''}
+    ${!isLeader(currentUser) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ New request</button>` : ''}
   </div>
 
-  ${pending.length>0?`
+  ${pending.length > 0 ? `
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">⏳ Pending (${pending.length})</div>
-    ${pending.map((r,i)=>card(r,state.requests.indexOf(r))).join('')}`:''}
+    ${pending.map((r, i) => card(r, state.requests.indexOf(r))).join('')}` : ''}
 
-  ${rest.length>0?`
+  ${rest.length > 0 ? `
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:16px 0 10px;font-family:'IBM Plex Mono',monospace">History</div>
-    ${rest.slice(0,20).map((r,i)=>card(r,state.requests.indexOf(r))).join('')}
-  `:''}
+    ${rest.slice(0, 20).map((r, i) => card(r, state.requests.indexOf(r))).join('')}
+  `: ''}
 
-  ${myReqs.length===0?`<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>`:''}
+  ${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>` : ''}
   `;
-}
+    }
 
-// ═══════════════════════════════════════════════
-//  RENDER: ARRANGE (leader only)
-// ═══════════════════════════════════════════════
-function renderArrange(){
-  if(!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
-  const today = todayKey();
-  const weekDates = getWeekDates();
-  
-  // Get teams that have at least one person on this shift this week
-  const shiftTeams = [...new Set(state.users.filter(u => 
-    Object.values(u.schedule).includes(currentShift)).map(u => u.team))].sort();
+    // ═══════════════════════════════════════════════
+    //  RENDER: ARRANGE (leader only)
+    // ═══════════════════════════════════════════════
+    function renderArrange() {
+      if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
+      const today = todayKey();
+      const weekDates = getWeekDates();
 
-  return `
+      // Get teams that have at least one person on this shift this week
+      const shiftTeams = [...new Set(state.users.filter(u =>
+        Object.values(u.schedule).includes(currentShift)).map(u => u.team))].sort();
+
+      return `
   <div class="page-header" style="align-items: flex-start; flex-direction: column; gap:16px;">
     <div class="page-title">Arrange Breaks</div>
     
@@ -956,7 +1891,7 @@ function renderArrange(){
           ${WEEK_DAYS.map(d => `
             <label style="display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--bg2); padding:4px; border-radius:4px; border:1px solid var(--border); min-width:40px; cursor:pointer;">
               <span style="font-size:9px; font-weight:700;">${d}</span>
-              <input type="checkbox" name="target-day" value="${d}" ${d===today?'checked':''}>
+              <input type="checkbox" name="target-day" value="${d}" ${d === today ? 'checked' : ''}>
             </label>`).join('')}
         </div>
       </div>
@@ -972,7 +1907,7 @@ function renderArrange(){
   </div>
   
   <div class="tabs" id="arrange-tabs">
-    ${WEEK_DAYS.map((d,i)=>`<div class="tab${d===today?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
+    ${WEEK_DAYS.map((d, i) => `<div class="tab${d === today ? ' on' : ''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="text-align:center; min-width:80px;">
       <div style="font-weight:600">${d}</div>
       <div style="font-size:10px; opacity:0.6">${weekDates[i]}</div>
     </div>`).join('')}
@@ -984,21 +1919,21 @@ function renderArrange(){
     </div>
     <div id="arrange-day-content">${getArrangeDayHTML(today)}</div>
   </div>`;
-}
+    }
 
-function attachPageEvents(page){
-  if(page==='arrange'){
-    // tabs already inline
-  }
-}
+    function attachPageEvents(page) {
+      if (page === 'arrange') {
+        // tabs already inline
+      }
+    }
 
-function getArrangeDayHTML(day) {
-  const mates = getShiftMates(currentShift, day); // Filters only users on the same shift
-  const slots = BREAK_SLOTS[currentShift] || [];
-  
-  // 1. Update the Bulk Group Dropdown
-  const activeTeams = [...new Set(mates.map(u => u.team))].sort();
-  const bulkBar = `
+    function getArrangeDayHTML(day) {
+      const mates = getShiftMates(currentShift, day); // Filters only users on the same shift
+      const slots = BREAK_SLOTS[currentShift] || [];
+
+      // 1. Update the Bulk Group Dropdown
+      const activeTeams = [...new Set(mates.map(u => u.team))].sort();
+      const bulkBar = `
     <div style="display:flex; gap:10px; background:var(--bg3); padding:8px 12px; border-radius:8px; border:1px solid var(--border2)">
       <select id="bulk-team" class="login-select" style="width:120px; padding:4px 8px;">
         <option value="">— Group —</option>
@@ -1006,88 +1941,88 @@ function getArrangeDayHTML(day) {
       </select>
       <select id="bulk-slot" class="login-select" style="width:100px; padding:4px 8px;">
         <option value="">— Slot —</option>
-        ${slots.map((s, i) => `<option value="${i+1}">${currentShift}${i+1}</option>`).join('')}
+        ${slots.map((s, i) => `<option value="${i + 1}">${currentShift}${i + 1}</option>`).join('')}
       </select>
       <button class="btn btn-sm btn-accent" onclick="bulkAssignGroup()">Apply to Group</button>
     </div>`;
-  
-  // Update the container in the header
-  setTimeout(() => {
-    const container = document.getElementById('bulk-action-container');
-    if (container) container.innerHTML = bulkBar;
-  }, 0);
 
-  if(!mates.length) return `<div class="empty" style="padding:60px;">No staff scheduled on Shift ${currentShift} for ${day}.</div>`;
-  
-  return `<div class="break-board" style="gap:0; background:var(--bg2);">
+      // Update the container in the header
+      setTimeout(() => {
+        const container = document.getElementById('bulk-action-container');
+        if (container) container.innerHTML = bulkBar;
+      }, 0);
+
+      if (!mates.length) return `<div class="empty" style="padding:60px;">No staff scheduled on Shift ${currentShift} for ${day}.</div>`;
+
+      return `<div class="break-board" style="gap:0; background:var(--bg2);">
     ${mates.map(u => {
-      const br = getAssigned(u.id, day);
-      return `
+        const br = getAssigned(u.id, day);
+        return `
       <div class="break-row" style="border-radius:0; border:none; border-bottom:1px solid var(--border); display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px; align-items:center; gap:16px; padding:12px 16px;">
         <div class="emp-meta">${u.team}</div>
         <div class="emp-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;">${u.name}</div>
         <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
         <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
         <div class="break-slots">
-          ${slots.map((s, idx) => `<span class="break-slot${br?.slot===s?' assigned':''}" onclick="quickAssign(${u.id},'${day}','${s}')" style="font-size:10px; padding:4px 10px;">${currentShift}${idx+1}</span>`).join('')}
+          ${slots.map((s, idx) => `<span class="break-slot${br?.slot === s ? ' assigned' : ''}" onclick="quickAssign(${u.id},'${day}','${s}')" style="font-size:10px; padding:4px 10px;">${currentShift}${idx + 1}</span>`).join('')}
         </div>
         <div style="text-align:right"><button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.5">Edit</button></div>
       </div>`;
-    }).join('')}
+      }).join('')}
   </div>`;
-}
+    }
 
-function bulkAssignMulti() {
-  // 1. Get selected teams
-  const selectedTeams = Array.from(document.querySelectorAll('input[name="target-team"]:checked')).map(el => el.value);
-  
-  // 2. Get selected days
-  const selectedDays = Array.from(document.querySelectorAll('input[name="target-day"]:checked')).map(el => el.value);
-  
-  // 3. Get selected slot index
-  const slotIdx = parseInt(document.getElementById('bulk-slot-multi').value) - 1;
+    function bulkAssignMulti() {
+      // 1. Get selected teams
+      const selectedTeams = Array.from(document.querySelectorAll('input[name="target-team"]:checked')).map(el => el.value);
 
-  if (selectedTeams.length === 0 || selectedDays.length === 0) {
-    toast('Select at least one Group and one Day.', 'err');
-    return;
-  }
+      // 2. Get selected days
+      const selectedDays = Array.from(document.querySelectorAll('input[name="target-day"]:checked')).map(el => el.value);
 
-  let totalAssigned = 0;
+      // 3. Get selected slot index
+      const slotIdx = parseInt(document.getElementById('bulk-slot-multi').value) - 1;
 
-  // Process every selected day
-  selectedDays.forEach(day => {
-    // Process every selected team
-    selectedTeams.forEach(team => {
-      // Find users in this team who are on the SAME shift for THIS day
-      const targetUsers = state.users.filter(u => u.team === team && u.schedule[day] === currentShift);
-      const actualTime = BREAK_SLOTS[currentShift][slotIdx];
-
-      if (actualTime) {
-        targetUsers.forEach(u => {
-          assign(u.id, day, actualTime, `Multi-bulk by ${currentUser.name}`);
-          totalAssigned++;
-        });
+      if (selectedTeams.length === 0 || selectedDays.length === 0) {
+        toast('Select at least one Group and one Day.', 'err');
+        return;
       }
-    });
-  });
 
-  toast(`Successfully assigned ${totalAssigned} breaks across ${selectedDays.length} days.`, 'ok');
-  
-  // Refresh current view if the active day was updated
-  const activeDay = document.querySelector('#arrange-tabs .tab.on').dataset.day;
-  switchArrangeDay(activeDay);
-}
+      let totalAssigned = 0;
 
-// ═══════════════════════════════════════════════
-//  RENDER: STAFF
-// ═══════════════════════════════════════════════
-function renderStaff() {
-  if (state.users.length === 0) return '<div class="empty">No data.</div>';
-  
-  // Get all dates available from the first user
-  const allDates = Object.keys(state.users[0].fullSchedule || {});
+      // Process every selected day
+      selectedDays.forEach(day => {
+        // Process every selected team
+        selectedTeams.forEach(team => {
+          // Find users in this team who are on the SAME shift for THIS day
+          const targetUsers = state.users.filter(u => u.team === team && u.schedule[day] === currentShift);
+          const actualTime = BREAK_SLOTS[currentShift][slotIdx];
 
-  return `
+          if (actualTime) {
+            targetUsers.forEach(u => {
+              assign(u.id, day, actualTime, `Multi-bulk by ${currentUser.name}`);
+              totalAssigned++;
+            });
+          }
+        });
+      });
+
+      toast(`Successfully assigned ${totalAssigned} breaks across ${selectedDays.length} days.`, 'ok');
+
+      // Refresh current view if the active day was updated
+      const activeDay = document.querySelector('#arrange-tabs .tab.on').dataset.day;
+      switchArrangeDay(activeDay);
+    }
+
+    // ═══════════════════════════════════════════════
+    //  RENDER: STAFF
+    // ═══════════════════════════════════════════════
+    function renderStaff() {
+      if (state.users.length === 0) return '<div class="empty">No data.</div>';
+
+      // Get all dates available from the first user
+      const allDates = Object.keys(state.users[0].fullSchedule || {});
+
+      return `
   <div class="page-header">
     <div class="page-title">Staff Directory (Full Range)</div>
   </div>
@@ -1106,34 +2041,34 @@ function renderStaff() {
             <td class="mono">${u.username}</td>
             <td>${u.role}</td>
             ${allDates.map(d => {
-              const s = u.fullSchedule[d];
-              return `<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;
-            }).join('')}
+        const s = u.fullSchedule[d];
+        return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`;
+      }).join('')}
           </tr>
         `).join('')}
       </tbody>
     </table>
   </div>`;
-}
+    }
 
-// ═══════════════════════════════════════════════
-//  ARRANGE HELPERS
-// ═══════════════════════════════════════════════
-function switchArrangeDay(day){
-  document.querySelectorAll('#arrange-tabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.day===day));
-  document.getElementById('arrange-day-content').innerHTML = getArrangeDayHTML(day);
-}
+    // ═══════════════════════════════════════════════
+    //  ARRANGE HELPERS
+    // ═══════════════════════════════════════════════
+    function switchArrangeDay(day) {
+      document.querySelectorAll('#arrange-tabs .tab').forEach(t => t.classList.toggle('on', t.dataset.day === day));
+      document.getElementById('arrange-day-content').innerHTML = getArrangeDayHTML(day);
+    }
 
-function getArrangeDayHTML(day) {
-  const mates = getShiftMates(currentShift, day);
-  const slots = BREAK_SLOTS[currentShift]||[];
-  
-  if(!mates.length) return `<div class="empty" style="background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px; padding:60px;"><div class="empty-ico">👥</div>No staff scheduled for this day.</div>`;
-  
-  return `<div class="break-board" style="gap:0; background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px;">
-    ${mates.map(u=>{
-      const br = getAssigned(u.id, day);
-      return `
+    function getArrangeDayHTML(day) {
+      const mates = getShiftMates(currentShift, day);
+      const slots = BREAK_SLOTS[currentShift] || [];
+
+      if (!mates.length) return `<div class="empty" style="background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px; padding:60px;"><div class="empty-ico">👥</div>No staff scheduled for this day.</div>`;
+
+      return `<div class="break-board" style="gap:0; background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px;">
+    ${mates.map(u => {
+        const br = getAssigned(u.id, day);
+        return `
       <div class="break-row" style="border-radius:0; border:none; border-bottom:1px solid var(--border); display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px; align-items:center; gap:16px; padding:12px 16px;">
         <div class="emp-meta" style="font-family:monospace;">${u.team}</div>
         <div class="emp-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;">${u.name}</div>
@@ -1141,219 +2076,219 @@ function getArrangeDayHTML(day) {
         <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
         <div class="break-slots">
           ${slots.map((s, idx) => {
-            const shortLabel = `${currentShift}${idx + 1}`;
-            return `<span class="break-slot${br?.slot===s?' assigned':''}" 
+          const shortLabel = `${currentShift}${idx + 1}`;
+          return `<span class="break-slot${br?.slot === s ? ' assigned' : ''}" 
                           onclick="quickAssign(${u.id},'${day}','${s}')" 
                           style="font-size:10px; padding:4px 10px;">
                       ${shortLabel}
                     </span>`;
-          }).join('')}
+        }).join('')}
         </div>
         <div style="text-align:right">
           <button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.5">Edit</button>
         </div>
       </div>`;
-    }).join('')}
+      }).join('')}
   </div>`;
-}
+    }
 
-function getShortSlot(shift, fullTime) {
-  if (!fullTime || fullTime === '—') return '';
-  const slots = BREAK_SLOTS[shift] || [];
-  const index = slots.indexOf(fullTime);
-  return index !== -1 ? `${shift}${index + 1}` : fullTime;
-}
+    function getShortSlot(shift, fullTime) {
+      if (!fullTime || fullTime === '—') return '';
+      const slots = BREAK_SLOTS[shift] || [];
+      const index = slots.indexOf(fullTime);
+      return index !== -1 ? `${shift}${index + 1}` : fullTime;
+    }
 
-function quickAssign(uid, day, slot){
-  if(!isLeader(currentUser)){toast('Only leaders can assign breaks.','err');return;}
-  assign(uid, day, slot,'');
-  toast(`Break assigned: ${slot}`);
-  switchArrangeDay(day);
-  updateBadge();
-}
+    function quickAssign(uid, day, slot) {
+      if (!isLeader(currentUser)) { toast('Only leaders can assign breaks.', 'err'); return; }
+      assign(uid, day, slot, '');
+      toast(`Break assigned: ${slot}`);
+      switchArrangeDay(day);
+      updateBadge();
+    }
 
-function autofillDay(){
-  const day=todayKey();
-  const mates=getShiftMates(currentShift,day);
-  const slots=BREAK_SLOTS[currentShift]||[];
-  mates.forEach((u,i)=>assign(u.id,day,slots[i%slots.length],'auto'));
-  toast(`Auto-filled ${mates.length} breaks for today`,'ok');
-  nav('arrange');
-}
+    function autofillDay() {
+      const day = todayKey();
+      const mates = getShiftMates(currentShift, day);
+      const slots = BREAK_SLOTS[currentShift] || [];
+      mates.forEach((u, i) => assign(u.id, day, slots[i % slots.length], 'auto'));
+      toast(`Auto-filled ${mates.length} breaks for today`, 'ok');
+      nav('arrange');
+    }
 
-function autofillWeek(){
-  let count=0;
-  WEEK_DAYS.forEach(day=>{
-    const mates=getShiftMates(currentShift,day);
-    const slots=BREAK_SLOTS[currentShift]||[];
-    mates.forEach((u,i)=>{assign(u.id,day,slots[i%slots.length],'auto');count++;});
-  });
-  toast(`Auto-filled ${count} breaks across the week`,'ok');
-  nav('arrange');
-}
+    function autofillWeek() {
+      let count = 0;
+      WEEK_DAYS.forEach(day => {
+        const mates = getShiftMates(currentShift, day);
+        const slots = BREAK_SLOTS[currentShift] || [];
+        mates.forEach((u, i) => { assign(u.id, day, slots[i % slots.length], 'auto'); count++; });
+      });
+      toast(`Auto-filled ${count} breaks across the week`, 'ok');
+      nav('arrange');
+    }
 
-// ═══════════════════════════════════════════════
-//  ASSIGN MODAL
-// ═══════════════════════════════════════════════
-function openAssignModal(uid,day){
-  assigningEmp={uid,day};
-  const u=state.users.find(x=>x.id===uid);
-  document.getElementById('assign-title').textContent=`Assign break — ${u?.name||'?'} (${day})`;
-  const slots=BREAK_SLOTS[currentShift]||[];
-  const cur=getAssigned(uid,day);
-  document.getElementById('assign-slot').innerHTML=slots.map(s=>`<option value="${s}"${cur?.slot===s?' selected':''}>${s}</option>`).join('');
-  document.getElementById('assign-note').value='';
-  document.getElementById('modal-assign').classList.add('show');
-}
-function confirmAssign(){
-  if(!assigningEmp)return;
-  const slot=document.getElementById('assign-slot').value;
-  const note=document.getElementById('assign-note').value;
-  assign(assigningEmp.uid,assigningEmp.day,slot,note);
-  closeModal('modal-assign');
-  toast('Break assigned!','ok');
-  nav(currentPage);
-}
+    // ═══════════════════════════════════════════════
+    //  ASSIGN MODAL
+    // ═══════════════════════════════════════════════
+    function openAssignModal(uid, day) {
+      assigningEmp = { uid, day };
+      const u = state.users.find(x => x.id === uid);
+      document.getElementById('assign-title').textContent = `Assign break — ${u?.name || '?'} (${day})`;
+      const slots = BREAK_SLOTS[currentShift] || [];
+      const cur = getAssigned(uid, day);
+      document.getElementById('assign-slot').innerHTML = slots.map(s => `<option value="${s}"${cur?.slot === s ? ' selected' : ''}>${s}</option>`).join('');
+      document.getElementById('assign-note').value = '';
+      document.getElementById('modal-assign').classList.add('show');
+    }
+    function confirmAssign() {
+      if (!assigningEmp) return;
+      const slot = document.getElementById('assign-slot').value;
+      const note = document.getElementById('assign-note').value;
+      assign(assigningEmp.uid, assigningEmp.day, slot, note);
+      closeModal('modal-assign');
+      toast('Break assigned!', 'ok');
+      nav(currentPage);
+    }
 
-// ═══════════════════════════════════════════════
-//  REQUEST MODAL
-// ═══════════════════════════════════════════════
-function openRequestModal(currentSlot){
-  const today=todayKey();
-  const mine=getAssigned(currentUser.id,today);
-  const cur=currentSlot||mine?.slot||'Not assigned';
-  document.getElementById('req-cur').value=cur;
-  const slots=BREAK_SLOTS[currentShift]||[];
-  document.getElementById('req-new').innerHTML=`<option value="">— pick a time —</option>`+
-    slots.filter(s=>s!==cur).map(s=>`<option value="${s}">${s}</option>`).join('');
-  document.getElementById('req-reason').value='';
-  document.getElementById('modal-request').classList.add('show');
-}
-function submitRequest(){
-  const requested=document.getElementById('req-new').value;
-  const reason=document.getElementById('req-reason').value.trim();
-  if(!requested){toast('Pick a slot first.','err');return;}
-  state.requests.unshift({
-    id:Date.now(),
-    userId:currentUser.id,
-    day:todayKey(),
-    current:document.getElementById('req-cur').value,
-    requested,reason,
-    status:'pending',
-    at:Date.now(),
-    respNote:'',
-  });
-  save();
-  closeModal('modal-request');
-  toast('Request submitted!','warn');
-  updateBadge();
-  nav('requests');
-}
-function resolveRequest(idx, status){
-  state.requests[idx].status=status;
-  state.requests[idx].resolvedBy=currentUser.id;
-  state.requests[idx].resolvedAt=Date.now();
-  if(status==='approved'){
-    const r=state.requests[idx];
-    assign(r.userId,r.day,r.requested,'approved by '+currentUser.name);
-  }
-  save();
-  toast(status==='approved'?'Request approved ✓':'Request rejected','ok');
-  updateBadge();
-  nav('requests');
-}
-
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-
-// ═══════════════════════════════════════════════
-//  IMPORT FROM GOOGLE SHEETS
-// ═══════════════════════════════════════════════
-let importedUsers = [];
-function importSheet(){
-  const id=document.getElementById('sheet-id').value.trim();
-  if(!id){document.getElementById('import-status').textContent='Enter a sheet ID.';return;}
-  const status=document.getElementById('import-status');
-  status.innerHTML='<span style="color:var(--text2)"><span class="spin" style="display:inline-block;width:14px;height:14px;border-width:2px;vertical-align:middle;margin-right:6px"></span>Fetching sheet...</span>';
-  document.getElementById('import-preview').style.display='none';
-
-  // Use Google Sheets CSV export (works if sheet is publicly readable)
-  const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Schedule%20April_26`;
-  fetch(url)
-    .then(r=>{
-      if(!r.ok) throw new Error('Sheet not accessible (make sure it is shared publicly).');
-      return r.text();
-    })
-    .then(csv=>parseSheetCSV(csv))
-    .catch(err=>{
-      status.innerHTML=`<span style="color:var(--err)">⚠ ${err.message}</span>`;
-    });
-}
-
-// Global to store date-to-day mapping
-let dateDayMap = {};
-
-function parseSheetCSV(csv) {
-  const status = document.getElementById('import-status');
-  try {
-    const lines = csv.split('\n').map(l => parseCSVLine(l));
-    
-    // Find the date row (03/04) and weekday row (Fri)
-    const dateRowIdx = lines.findIndex(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
-    const dayRowIdx = lines.findIndex(l => l.some(c => WEEK_DAYS.includes(c.trim())));
-    
-    if (dateRowIdx === -1) throw new Error("Could not find date headers (e.g. 23/04)");
-
-    const colMap = {};
-    dateDayMap = {};
-    lines[dateRowIdx].forEach((c, i) => {
-      const dateVal = c.trim();
-      if (/^\d{2}\/\d{2}$/.test(dateVal)) {
-        colMap[dateVal] = i;
-        // Map the weekday if the day row exists
-        if (dayRowIdx !== -1) dateDayMap[dateVal] = lines[dayRowIdx][i]?.trim() || '';
+    // ═══════════════════════════════════════════════
+    //  REQUEST MODAL
+    // ═══════════════════════════════════════════════
+    function openRequestModal(currentSlot) {
+      const today = todayKey();
+      const mine = getAssigned(currentUser.id, today);
+      const cur = currentSlot || mine?.slot || 'Not assigned';
+      document.getElementById('req-cur').value = cur;
+      const slots = BREAK_SLOTS[currentShift] || [];
+      document.getElementById('req-new').innerHTML = `<option value="">— pick a time —</option>` +
+        slots.filter(s => s !== cur).map(s => `<option value="${s}">${s}</option>`).join('');
+      document.getElementById('req-reason').value = '';
+      document.getElementById('modal-request').classList.add('show');
+    }
+    function submitRequest() {
+      const requested = document.getElementById('req-new').value;
+      const reason = document.getElementById('req-reason').value.trim();
+      if (!requested) { toast('Pick a slot first.', 'err'); return; }
+      state.requests.unshift({
+        id: Date.now(),
+        userId: currentUser.id,
+        day: todayKey(),
+        current: document.getElementById('req-cur').value,
+        requested, reason,
+        status: 'pending',
+        at: Date.now(),
+        respNote: '',
+      });
+      save();
+      closeModal('modal-request');
+      toast('Request submitted!', 'warn');
+      updateBadge();
+      nav('requests');
+    }
+    function resolveRequest(idx, status) {
+      state.requests[idx].status = status;
+      state.requests[idx].resolvedBy = currentUser.id;
+      state.requests[idx].resolvedAt = Date.now();
+      if (status === 'approved') {
+        const r = state.requests[idx];
+        assign(r.userId, r.day, r.requested, 'approved by ' + currentUser.name);
       }
-    });
+      save();
+      toast(status === 'approved' ? 'Request approved ✓' : 'Request rejected', 'ok');
+      updateBadge();
+      nav('requests');
+    }
 
-    importedUsers = [];
-    lines.forEach((row, idx) => {
-      const no = row[0]?.trim();
-      // Skip headers and only process rows with a numeric ID
-      if (!no || isNaN(parseInt(no)) || idx <= Math.max(dateRowIdx, dayRowIdx)) return;
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-      const schedule = {};
-      Object.keys(colMap).forEach(date => {
-        schedule[date] = row[colMap[date]]?.trim() || '0';
-      });
+    // ═══════════════════════════════════════════════
+    //  IMPORT FROM GOOGLE SHEETS
+    // ═══════════════════════════════════════════════
+    let importedUsers = [];
+    function importSheet() {
+      const id = document.getElementById('sheet-id').value.trim();
+      if (!id) { document.getElementById('import-status').textContent = 'Enter a sheet ID.'; return; }
+      const status = document.getElementById('import-status');
+      status.innerHTML = '<span style="color:var(--text2)"><span class="spin" style="display:inline-block;width:14px;height:14px;border-width:2px;vertical-align:middle;margin-right:6px"></span>Fetching sheet...</span>';
+      document.getElementById('import-preview').style.display = 'none';
 
-      importedUsers.push({
-        id: Date.now() + importedUsers.length,
-        username: row[3]?.trim() || makeUsername(row[2]),
-        name: row[2]?.trim(),
-        team: row[1]?.trim(),
-        role: row[4]?.trim() || 'Agent',
-        password: '1234',
-        schedule
-      });
-    });
+      // Use Google Sheets CSV export (works if sheet is publicly readable)
+      const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Schedule%20April_26`;
+      fetch(url)
+        .then(r => {
+          if (!r.ok) throw new Error('Sheet not accessible (make sure it is shared publicly).');
+          return r.text();
+        })
+        .then(csv => parseSheetCSV(csv))
+        .catch(err => {
+          status.innerHTML = `<span style="color:var(--err)">⚠ ${err.message}</span>`;
+        });
+    }
 
-    status.innerHTML = `<span style="color:var(--ok)">✓ Successfully parsed ${importedUsers.length} staff.</span>`;
-    renderImportPreview();
-  } catch (e) {
-    status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
-  }
-}
+    // Global to store date-to-day mapping
+    let dateDayMap = {};
 
-function renderImportPreview() {
-  const container = document.getElementById('preview-list');
-  const allDates = Object.keys(importedUsers[0]?.schedule || {});
-  // Show a wider range in the expanded view
-  const displayDates = allDates.slice(0, 15); 
+    function parseSheetCSV(csv) {
+      const status = document.getElementById('import-status');
+      try {
+        const lines = csv.split('\n').map(l => parseCSVLine(l));
 
-  document.getElementById('import-preview').style.display = 'flex';
-  document.getElementById('preview-count').textContent = importedUsers.length;
+        // Find the date row (03/04) and weekday row (Fri)
+        const dateRowIdx = lines.findIndex(l => l.some(c => /^\d{2}\/\d{2}$/.test(c.trim())));
+        const dayRowIdx = lines.findIndex(l => l.some(c => WEEK_DAYS.includes(c.trim())));
 
-  // Header with combined Date and Weekday
-  const headerHtml = `
+        if (dateRowIdx === -1) throw new Error("Could not find date headers (e.g. 23/04)");
+
+        const colMap = {};
+        dateDayMap = {};
+        lines[dateRowIdx].forEach((c, i) => {
+          const dateVal = c.trim();
+          if (/^\d{2}\/\d{2}$/.test(dateVal)) {
+            colMap[dateVal] = i;
+            // Map the weekday if the day row exists
+            if (dayRowIdx !== -1) dateDayMap[dateVal] = lines[dayRowIdx][i]?.trim() || '';
+          }
+        });
+
+        importedUsers = [];
+        lines.forEach((row, idx) => {
+          const no = row[0]?.trim();
+          // Skip headers and only process rows with a numeric ID
+          if (!no || isNaN(parseInt(no)) || idx <= Math.max(dateRowIdx, dayRowIdx)) return;
+
+          const schedule = {};
+          Object.keys(colMap).forEach(date => {
+            schedule[date] = row[colMap[date]]?.trim() || '0';
+          });
+
+          importedUsers.push({
+            id: Date.now() + importedUsers.length,
+            username: row[3]?.trim() || makeUsername(row[2]),
+            name: row[2]?.trim(),
+            team: row[1]?.trim(),
+            role: row[4]?.trim() || 'Agent',
+            password: '1234',
+            schedule
+          });
+        });
+
+        status.innerHTML = `<span style="color:var(--ok)">✓ Successfully parsed ${importedUsers.length} staff.</span>`;
+        renderImportPreview();
+      } catch (e) {
+        status.innerHTML = `<span style="color:var(--err)">Parse error: ${e.message}</span>`;
+      }
+    }
+
+    function renderImportPreview() {
+      const container = document.getElementById('preview-list');
+      const allDates = Object.keys(importedUsers[0]?.schedule || {});
+      // Show a wider range in the expanded view
+      const displayDates = allDates.slice(0, 15);
+
+      document.getElementById('import-preview').style.display = 'flex';
+      document.getElementById('preview-count').textContent = importedUsers.length;
+
+      // Header with combined Date and Weekday
+      const headerHtml = `
     <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:10px; padding:12px 20px; background:var(--bg3); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; font-family:monospace; font-size:10px;">
       <div>GROUP</div><div>FULL NAME</div><div>POSITION</div>
       <div style="display:flex; gap:8px;">
@@ -1365,73 +2300,73 @@ function renderImportPreview() {
       </div>
     </div>`;
 
-  const rowsHtml = importedUsers.map(u => `
+      const rowsHtml = importedUsers.map(u => `
     <div style="display:grid; grid-template-columns: 60px 200px 100px 1fr; gap:10px; padding:10px 20px; border-bottom: 1px solid var(--border); align-items: center; font-size: 12px;">
       <div class="mono" style="color:var(--text3)">${u.team}</div>
       <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name}</div>
       <div style="font-size:11px; color:var(--text2)">${u.role}</div>
       <div style="display:flex; gap:8px;">
-        ${displayDates.map(d => `<span class="sh sh-${u.schedule[d]}" style="width:30px; height:22px; font-size:10px;">${u.schedule[d]==='0'?'—':u.schedule[d]}</span>`).join('')}
+        ${displayDates.map(d => `<span class="sh sh-${u.schedule[d]}" style="width:30px; height:22px; font-size:10px;">${u.schedule[d] === '0' ? '—' : u.schedule[d]}</span>`).join('')}
       </div>
     </div>`).join('');
 
-  container.innerHTML = headerHtml + rowsHtml;
-}
+      container.innerHTML = headerHtml + rowsHtml;
+    }
 
-function confirmImport() {
-  // 1. Merge lists: Put imported users FIRST and default users LAST
-  state.users = [...importedUsers, ...SEED_USERS];
-  
-  // 2. Clear all old break data and requests for a clean start
-  state.imported = true;
-  state.breaks = {};
-  state.requests = [];
-  
-  // 3. Save to local storage and update UI
-  save();
-  buildDatalist();
-  
-  const status = document.getElementById('import-status') || document.getElementById('paste-status');
-  if (status) {
-    status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff imported. Default users moved to the end.</span>`;
-  }
-  
-  // Hide the preview and switch back to the sign-in tab
-  document.getElementById('import-preview').style.display = 'none';
-  setTimeout(() => setLoginMode('login'), 1500);
-}
+    function confirmImport() {
+      // 1. Merge lists: Put imported users FIRST and default users LAST
+      state.users = [...importedUsers, ...SEED_USERS];
 
-function makeUsername(name){
-  const parts=name.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/đ/g,'d').split(' ').filter(Boolean);
-  return (parts[parts.length-1]||'user')+'.'+(parts[0]||'x');
-}
+      // 2. Clear all old break data and requests for a clean start
+      state.imported = true;
+      state.breaks = {};
+      state.requests = [];
 
-function parseCSVLine(line){
-  const result=[];let cur='';let inQ=false;
-  for(let i=0;i<line.length;i++){
-    const c=line[i];
-    if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
-    else if(c===','&&!inQ){result.push(cur);cur='';}
-    else cur+=c;
-  }
-  result.push(cur);
-  return result;
-}
+      // 3. Save to local storage and update UI
+      save();
+      buildDatalist();
 
-function factoryReset() {
-  if (confirm("This will permanently erase ALL staff, breaks, and requests. Are you sure?")) {
-    // Completely wipe the storage
-    localStorage.removeItem(STORAGE);
-    
-    // Refresh to trigger the SEED_USERS reload
-    window.location.reload();
-  }
-}
+      const status = document.getElementById('import-status') || document.getElementById('paste-status');
+      if (status) {
+        status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff imported. Default users moved to the end.</span>`;
+      }
 
-function openImportPanel(){
-  document.getElementById('staff-import-panel').innerHTML=`
+      // Hide the preview and switch back to the sign-in tab
+      document.getElementById('import-preview').style.display = 'none';
+      setTimeout(() => setLoginMode('login'), 1500);
+    }
+
+    function makeUsername(name) {
+      const parts = name.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').split(' ').filter(Boolean);
+      return (parts[parts.length - 1] || 'user') + '.' + (parts[0] || 'x');
+    }
+
+    function parseCSVLine(line) {
+      const result = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { if (inQ && line[i + 1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+        else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+        else cur += c;
+      }
+      result.push(cur);
+      return result;
+    }
+
+    function factoryReset() {
+      if (confirm("This will permanently erase ALL staff, breaks, and requests. Are you sure?")) {
+        // Completely wipe the storage
+        localStorage.removeItem(STORAGE);
+
+        // Refresh to trigger the SEED_USERS reload
+        window.location.reload();
+      }
+    }
+
+    function openImportPanel() {
+      document.getElementById('staff-import-panel').innerHTML = `
     <div class="card" style="margin-top:16px">
       <div class="card-title">Re-import from Google Sheets</div>
       <div class="fg"><label>Sheet ID</label>
@@ -1440,44 +2375,45 @@ function openImportPanel(){
       </div>
       <div id="reimport-status" style="font-size:12px;min-height:18px;margin-top:6px"></div>
     </div>`;
-}
-function reimportStaff(){
-  const id=document.getElementById('staff-sheet-id').value.trim();
-  const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Schedule%20April_26`;
-  document.getElementById('reimport-status').innerHTML='<span style="color:var(--text2)">Fetching...</span>';
-  fetch(url)
-    .then(r=>{if(!r.ok)throw new Error('Not accessible');return r.text();})
-    .then(csv=>{parseSheetCSV(csv);confirmImport();document.getElementById('reimport-status').innerHTML='<span style="color:var(--ok)">✓ Reimported!</span>';nav('staff');})
-    .catch(e=>document.getElementById('reimport-status').innerHTML=`<span style="color:var(--err)">${e.message}</span>`);
-}
+    }
+    function reimportStaff() {
+      const id = document.getElementById('staff-sheet-id').value.trim();
+      const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Schedule%20April_26`;
+      document.getElementById('reimport-status').innerHTML = '<span style="color:var(--text2)">Fetching...</span>';
+      fetch(url)
+        .then(r => { if (!r.ok) throw new Error('Not accessible'); return r.text(); })
+        .then(csv => { parseSheetCSV(csv); confirmImport(); document.getElementById('reimport-status').innerHTML = '<span style="color:var(--ok)">✓ Reimported!</span>'; nav('staff'); })
+        .catch(e => document.getElementById('reimport-status').innerHTML = `<span style="color:var(--err)">${e.message}</span>`);
+    }
 
-// ═══════════════════════════════════════════════
-//  UTILS
-// ═══════════════════════════════════════════════
-function timeSince(ts){
-  const diff=Date.now()-ts;
-  if(diff<60000) return 'just now';
-  if(diff<3600000) return Math.floor(diff/60000)+'m ago';
-  if(diff<86400000) return Math.floor(diff/3600000)+'h ago';
-  return Math.floor(diff/86400000)+'d ago';
-}
+    // ═══════════════════════════════════════════════
+    //  UTILS
+    // ═══════════════════════════════════════════════
+    function timeSince(ts) {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      return Math.floor(diff / 86400000) + 'd ago';
+    }
 
-let toastTimer;
-function toast(msg,type='ok'){
-  const el=document.getElementById('toast');
-  const ico={ok:'✓',err:'✕',warn:'⚡'}[type]||'';
-  el.innerHTML=`<span>${ico}</span> ${msg}`;
-  el.className=`msg-bar show ${type}`;
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
-}
+    let toastTimer;
+    function toast(msg, type = 'ok') {
+      const el = document.getElementById('toast');
+      const ico = { ok: '✓', err: '✕', warn: '⚡' }[type] || '';
+      el.innerHTML = `<span>${ico}</span> ${msg}`;
+      el.className = `msg-bar show ${type}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+    }
 
-// Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(el=>{
-  el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');});
-});
-// Enter key on login
-document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-</script>
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+    });
+    // Enter key on login
+    document.getElementById('li-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  </script>
 </body>
+
 </html>
