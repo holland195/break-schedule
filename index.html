@@ -426,7 +426,7 @@ td.mono{font-family:'IBM Plex Mono',monospace;font-size:11px}
 //  DATA & STATE
 // ═══════════════════════════════════════════════
 const STORAGE = 'bsched_v3';
-
+const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const SEED_USERS = [
   { id: 999, username: 'admin', name: 'System Admin', team: 'HQ', role: 'Admin', password: '1234', schedule: {Mon:'E', Tue:'E', Wed:'E', Thu:'E', Fri:'E', Sat:'0', Sun:'0'} },
   
@@ -464,7 +464,7 @@ const BREAK_SLOTS = {
   D:['04:00–05:30','05:30–07:00'],
   E:['09:30–11:00','11:00–12:30'],
 };
-const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
 const ROLES = {
   'Admin':          {level:3, tag:'role-leader', label:'Admin'}, // Highest access
   'Agent Leader':   {level:2, tag:'role-leader', label:'Leader'},
