@@ -1359,8 +1359,8 @@ function renderImportPreview() {
 }
 
 function confirmImport() {
-  // 1. Merge the full SEED_USERS list (Admin, L1-L5, S1-S5) with your new imported staff
-  state.users = [...SEED_USERS, ...importedUsers];
+  // 1. Merge lists: Put imported users FIRST and default users LAST
+  state.users = [...importedUsers, ...SEED_USERS];
   
   // 2. Clear all old break data and requests for a clean start
   state.imported = true;
@@ -1373,7 +1373,7 @@ function confirmImport() {
   
   const status = document.getElementById('import-status') || document.getElementById('paste-status');
   if (status) {
-    status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff added to the system!</span>`;
+    status.innerHTML = `<span style="color:var(--ok)">✓ ${importedUsers.length} staff imported. Default users moved to the end.</span>`;
   }
   
   // Hide the preview and switch back to the sign-in tab
