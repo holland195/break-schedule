@@ -22,9 +22,15 @@ function nav(page) {
 
 function changeSidebarShift(v) {
   currentShift = v;
+  // Reset schedule week picker when shift changes
+  if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
   nav(currentPage);
 }
 
 function attachPageEvents(page) {
-  // Future event wiring per page if needed
+  // Activate first arrange tab after render
+  if (page === 'arrange') {
+    const firstTab = document.querySelector('#arrange-tabs .tab');
+    if (firstTab) firstTab.classList.add('on');
+  }
 }

@@ -29,24 +29,30 @@ function renderDashboard() {
 
 // ═══════════════════════════════════════════════
 //  RENDER: BREAK SCHEDULE
-//  Fix: show all shift members; legend inline with title
+//  Leaders/Supervisors: week picker
+//  Other roles: current week only (read-only)
 // ═══════════════════════════════════════════════
+
+// State variable for schedule page week — leaders can change it
+let scheduleMonday = null; // null = "use current real week"
+
 function renderSchedule() {
-  // FIX: Use actual date keys from user schedules so real data shows
-  const weekDates = getWeekDates();
+  const canPickWeek = isLeader(currentUser);
 
-  // Build a date→dayName map so we can look up schedule by date key
-  const dateToDayName = {};
-  WEEK_DAYS.forEach((d, i) => { dateToDayName[weekDates[i]] = d; });
+  // Determine which week dates to display
+  let weekDates;
+  if (canPickWeek && scheduleMonday) {
+    weekDates = getWeekRange(scheduleMonday);
+  } else {
+    weekDates = getWeekDates(); // always real current week
+  }
 
-  // FIX: collect users who work this shift on ANY day this week
-  const shiftUsers = state.users.filter(u =>
-    weekDates.some(dateKey => {
-      // Try date key first (imported data), fallback to day name (seed data)
-      const dayName = dateToDayName[dateKey];
-      return u.schedule[dateKey] === currentShift || u.schedule[dayName] === currentShift;
-    })
-  );
+  // Build a date→dayName map for seed-data fallback
+  const realWeekDates   = getWeekDates();
+  const dateToDayName   = {};
+  WEEK_DAYS.forEach((d, i) => { dateToDayName[realWeekDates[i]] = d; });
+  // Also map selected week dates → day names
+  weekDates.forEach((dk, i) => { if (!dateToDayName[dk]) dateToDayName[dk] = WEEK_DAYS[i]; });
 
   // Helper: get shift for a user on a date (try both key formats)
   function getUserShift(u, dateKey) {
@@ -54,62 +60,105 @@ function renderSchedule() {
     return u.schedule[dateKey] || u.schedule[dayName] || '0';
   }
 
-  const headers = `<div class="wg-header">Name</div>` + WEEK_DAYS.map((d, i) => `
-    <div class="wg-header${d === todayKey() ? ' c-accent' : ''}" style="text-align:center">
-      ${d}<br><span style="font-size:9px; opacity:0.5; font-weight:400">${weekDates[i]}</span>
-    </div>`).join('');
+  // Users who work this shift on any day in the selected week
+  const shiftUsers = state.users.filter(u =>
+    weekDates.some(dk => getUserShift(u, dk) === currentShift)
+  );
 
+  // Week picker (leaders only) — gather all available Mondays from schedule data
+  let weekPickerHTML = '';
+  if (canPickWeek) {
+    const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+    const mondays  = allDates.filter(d => getWkDay(d) === 'Mon').sort();
+    // Determine active monday label for display
+    const activeMon = scheduleMonday || weekDates[0];
+    weekPickerHTML = mondays.length > 0 ? `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:11px; color:var(--text3); font-family:'IBM Plex Mono',monospace;">WEEK:</span>
+        <select class="login-select" style="padding:4px 8px; font-size:11px;"
+          onchange="scheduleMonday=this.value; nav('schedule')">
+          ${mondays.map(m => `<option value="${m}" ${m===activeMon?'selected':''}>${m} — ${getWkDay(m)}</option>`).join('')}
+        </select>
+      </div>` : '';
+  }
+
+  // Column headers
+  const headers = `<div class="wg-header">Name / Group</div>` + weekDates.map((dk, i) => {
+    const dayName = dateToDayName[dk] || WEEK_DAYS[i];
+    const isToday = dk === getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+    return `<div class="wg-header${isToday ? ' c-accent' : ''}" style="text-align:center">
+      ${dayName}<br><span style="font-size:9px; opacity:0.5; font-weight:400">${dk}</span>
+    </div>`;
+  }).join('');
+
+  // Rows
   const rows = shiftUsers.map(u => {
     const cells = weekDates.map(dateKey => {
       const shiftVal = getUserShift(u, dateKey);
       const onShift  = shiftVal === currentShift;
-      const br       = getAssigned(u.id, dateKey) || getAssigned(u.id, dateToDayName[dateKey]);
       const dayOff   = shiftVal === '0';
+      const br       = getAssigned(u.id, dateKey) || getAssigned(u.id, dateToDayName[dateKey]);
 
-      if (dayOff)    return `<div class="wg-cell"><span class="sh sh-0">—</span></div>`;
-      if (!onShift)  return `<div class="wg-cell"><span class="sh sh-${shiftVal}">${shiftVal}</span></div>`;
+      if (dayOff)   return `<div class="wg-cell"><span class="sh sh-0">—</span></div>`;
+      if (!onShift) return `<div class="wg-cell"><span class="sh sh-${shiftVal}">${shiftVal}</span></div>`;
 
       const shortCode = br ? getShortSlot(currentShift, br.slot) : '—';
       return `<div class="wg-cell">
-        <span class="${br ? 'break-slot assigned' : ''}" style="font-size:10px; padding:3px 8px; color:${br ? '' : 'var(--text3)'}" title="${br ? br.slot : 'Not assigned'}">
+        <span class="${br ? 'break-slot assigned' : ''}"
+          style="font-size:10px; padding:3px 8px; color:${br ? '' : 'var(--text3)'}"
+          title="${br ? br.slot : 'Not assigned'}">
           ${shortCode}
         </span>
       </div>`;
     }).join('');
 
     return `<div class="wg-row" style="display:contents">
-      <div class="wg-name"><div class="n">${u.name}</div><div class="m">${u.team}</div></div>
+      <div class="wg-name">
+        <div class="n">${u.name}</div>
+        <div class="m">${u.team} · ${getRoleInfo(u.role).label}</div>
+      </div>
       ${cells}
     </div>`;
   }).join('');
 
-  // Legend items (inline with title)
-  const shiftSlots = BREAK_SLOTS[currentShift] || [];
+  // Legend inline
+  const shiftSlots  = BREAK_SLOTS[currentShift] || [];
   const legendItems = shiftSlots.map((time, i) => `
     <div style="display:flex; align-items:center; gap:6px;">
       <span class="break-slot assigned" style="font-size:10px; min-width:28px; text-align:center">${currentShift}${i + 1}</span>
       <span style="color:var(--text2); font-size:11px">${time}</span>
     </div>`).join('');
 
+  const emptyMsg = shiftUsers.length === 0
+    ? `<div class="empty" style="padding:48px;"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`
+    : '';
+
   return `
 <div class="schedule-title-row">
   <div>
     <div class="page-title">Break Schedule — Shift ${currentShift}</div>
-    <div class="page-sub">${SHIFTS[currentShift].display}</div>
+    <div class="page-sub">${SHIFTS[currentShift].display}${!canPickWeek ? ' · Current week (read-only)' : ''}</div>
   </div>
   <div class="schedule-legend-inline">
-    <span style="font-size:10px; color:var(--text3); font-family:'IBM Plex Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.06em;">Legend:</span>
+    ${weekPickerHTML}
+    <span style="font-size:10px; color:var(--text3); font-family:'IBM Plex Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-left:8px;">Legend:</span>
     ${legendItems || '<span style="color:var(--text3); font-size:11px">No slots defined</span>'}
   </div>
 </div>
 
+${emptyMsg}
+${shiftUsers.length > 0 ? `
 <div class="tbl-wrap" style="overflow:auto">
-  <div class="week-grid" style="min-width:700px">${headers}${rows}</div>
-</div>`;
+  <div class="week-grid" style="min-width:700px; grid-template-columns: 200px repeat(${weekDates.length}, 1fr)">
+    ${headers}${rows}
+  </div>
+</div>` : ''}`;
 }
 
 // ═══════════════════════════════════════════════
 //  RENDER: REQUESTS
+//  Agent/QA/Sr roles: pick day + swap partner
+//  (same shift + same role group required)
 // ═══════════════════════════════════════════════
 function renderRequests() {
   const myReqs = isLeader(currentUser)
@@ -123,6 +172,15 @@ function renderRequests() {
     const emp   = state.users.find(u => u.id === r.userId);
     const isOwn = r.userId === currentUser.id;
     const idx   = state.requests.indexOf(r);
+
+    // Show swap partner info if present
+    const partnerInfo = r.swapPartnerId
+      ? (() => {
+          const p = state.users.find(u => u.id === r.swapPartnerId);
+          return p ? `<br><span style="color:var(--text3)">Swap with:</span> <b>${p.name}</b> (${p.team}) — their slot: <b style="color:var(--B-color)">${r.partnerSlot || '?'}</b>` : '';
+        })()
+      : '';
+
     return `<div class="req-card ${r.status}">
       <div class="req-header">
         <div>
@@ -132,9 +190,10 @@ function renderRequests() {
         <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
       </div>
       <div class="req-body">
-        <span style="color:var(--text3)">Current:</span> <b>${r.current}</b> &nbsp;→&nbsp;
-        <span style="color:var(--text3)">Requested:</span> <b style="color:var(--warn)">${r.requested}</b><br>
-        <span style="color:var(--text3)">Reason:</span> ${r.reason || 'No reason given'}
+        <span style="color:var(--text3)">Current slot:</span> <b>${r.current}</b> &nbsp;→&nbsp;
+        <span style="color:var(--text3)">Requested:</span> <b style="color:var(--warn)">${r.requested}</b>
+        ${partnerInfo}
+        <br><span style="color:var(--text3)">Reason:</span> ${r.reason || 'No reason given'}
         ${r.status !== 'pending' && r.respNote ? `<br><span style="color:var(--text3)">Response:</span> ${r.respNote}` : ''}
       </div>
       ${r.status === 'pending' && isLeader(currentUser) && !isOwn ? `
@@ -249,15 +308,17 @@ function switchArrangeDay(day) {
 function getArrangeDayHTML(day) {
   const mates = getShiftMates(currentShift, day);
   const slots = BREAK_SLOTS[currentShift] || [];
+  const weekRange = getWeekRange(activeMonday);
 
-  if (!mates.length) return `<div class="empty" style="background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px; padding:60px;">
-    <div class="empty-ico">👥</div>No staff scheduled on Shift ${currentShift} for ${day}.</div>`;
-
-  return `<div class="break-board" style="gap:0; background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px;">
-    ${mates.map(u => {
-      const br = getAssigned(u.id, day);
-      return `
-      <div class="break-row" style="border-radius:0; border:none; border-bottom:1px solid var(--border); display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px; align-items:center; gap:16px; padding:12px 16px;">
+  // ── Per-member assign list ──
+  const memberRows = mates.length === 0
+    ? `<div class="empty" style="padding:48px;"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} for ${day}.</div>`
+    : mates.map(u => {
+        const br = getAssigned(u.id, day);
+        return `
+      <div class="break-row" style="border-radius:0; border:none; border-bottom:1px solid var(--border);
+            display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px;
+            align-items:center; gap:16px; padding:12px 16px;">
         <div class="emp-meta">${u.team}</div>
         <div class="emp-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;">${u.name}</div>
         <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
@@ -266,7 +327,8 @@ function getArrangeDayHTML(day) {
           ${slots.map((s, idx) => `
             <span class="break-slot${br?.slot === s ? ' assigned' : ''}"
                   onclick="quickAssign(${u.id},'${day}','${s}')"
-                  style="font-size:10px; padding:4px 10px;">
+                  style="font-size:10px; padding:4px 10px;"
+                  title="${s}">
               ${currentShift}${idx + 1}
             </span>`).join('')}
         </div>
@@ -274,8 +336,94 @@ function getArrangeDayHTML(day) {
           <button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.5">Edit</button>
         </div>
       </div>`;
-    }).join('')}
-  </div>`;
+      }).join('');
+
+  // ── Full week summary table ──
+  // Columns: member name | Mon | Tue | Wed | Thu | Fri | Sat | Sun
+  const summaryRows = mates.map(u => {
+    const dayCells = weekRange.map(d => {
+      const dayName = getWkDay(d);
+      const shiftVal = u.schedule[d] || u.schedule[dayName] || '0';
+      const onShift  = shiftVal === currentShift;
+      const br       = getAssigned(u.id, d) || getAssigned(u.id, dayName);
+      const isActive = d === day;
+
+      if (shiftVal === '0') {
+        return `<td style="text-align:center; padding:6px 4px;">
+          <span style="color:var(--text3); font-size:10px;">—</span>
+        </td>`;
+      }
+      if (!onShift) {
+        return `<td style="text-align:center; padding:6px 4px;">
+          <span class="sh sh-${shiftVal}" style="width:20px; height:20px; font-size:10px;">${shiftVal}</span>
+        </td>`;
+      }
+      const shortCode = br ? getShortSlot(currentShift, br.slot) : '?';
+      const bg        = br ? 'var(--ok)' : 'var(--warn)';
+      const textColor = br ? '#000' : '#000';
+      return `<td style="text-align:center; padding:6px 4px;">
+        <span style="display:inline-flex; align-items:center; justify-content:center;
+          width:26px; height:22px; border-radius:4px; font-size:10px; font-weight:700;
+          font-family:'IBM Plex Mono',monospace;
+          background:${br ? '#1a2a0a' : '#2a1a00'};
+          color:${br ? 'var(--ok)' : 'var(--warn)'};
+          border:1px solid ${br ? 'var(--ok)' : 'var(--warn)'};
+          ${isActive ? 'outline: 2px solid var(--accent); outline-offset:1px;' : ''}"
+          title="${br ? br.slot : 'Not assigned'}">
+          ${shortCode}
+        </span>
+      </td>`;
+    }).join('');
+
+    return `<tr>
+      <td style="padding:6px 12px; white-space:nowrap; font-size:12px; font-weight:600; border-right:1px solid var(--border);">
+        ${u.name}
+        <div style="font-size:10px; color:var(--text3); font-family:'IBM Plex Mono',monospace;">${u.team}</div>
+      </td>
+      ${dayCells}
+    </tr>`;
+  }).join('');
+
+  const summaryHeaders = weekRange.map((d, i) => {
+    const dayName  = WEEK_DAYS[i];
+    const isActive = d === day;
+    return `<th style="text-align:center; padding:6px 4px; font-size:9px; min-width:42px;
+      ${isActive ? 'color:var(--accent);' : 'color:var(--text3);'}">
+      ${dayName}<br>
+      <span style="font-weight:400; opacity:0.7">${d}</span>
+    </th>`;
+  }).join('');
+
+  const weekSummary = mates.length === 0 ? '' : `
+<div style="margin-top:16px;">
+  <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--text3); font-family:'IBM Plex Mono',monospace; margin-bottom:8px;">
+    📊 Week Overview — Shift ${currentShift}
+    <span style="color:var(--ok); margin-left:8px">■ Assigned</span>
+    <span style="color:var(--warn); margin-left:8px">■ Pending</span>
+    <span style="color:var(--accent); font-size:9px; margin-left:8px">[ highlighted = selected day ]</span>
+  </div>
+  <div class="staff-tbl-wrap" style="max-height:300px;">
+    <table style="border-collapse:collapse; width:100%;">
+      <thead>
+        <tr style="background:var(--bg3);">
+          <th style="text-align:left; padding:6px 12px; font-size:10px; color:var(--text3);
+            min-width:180px; border-right:1px solid var(--border);">MEMBER</th>
+          ${summaryHeaders}
+        </tr>
+      </thead>
+      <tbody>
+        ${summaryRows}
+      </tbody>
+    </table>
+  </div>
+</div>`;
+
+  return `
+<div class="break-board" style="gap:0; background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px;">
+  ${memberRows}
+</div>
+${weekSummary}`;
 }
 
 function quickAssign(uid, day, slot) {
@@ -462,44 +610,154 @@ function confirmAssign() {
   nav(currentPage);
 }
 
-function openRequestModal(currentSlot) {
-  const today = todayKey();
-  const mine  = getAssigned(currentUser.id, today);
-  const cur   = currentSlot || mine?.slot || 'Not assigned';
-  document.getElementById('req-cur').value = cur;
-  const slots = BREAK_SLOTS[currentShift] || [];
-  document.getElementById('req-new').innerHTML = `<option value="">— pick a time —</option>` +
-    slots.filter(s => s !== cur).map(s => `<option value="${s}">${s}</option>`).join('');
+function openRequestModal() {
+  // Collect all available dates in the schedule
+  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const weekDates = getWeekDates();
+
+  // Build list of days this user has THIS shift (try date key + day name)
+  const myShiftDays = [];
+  allDates.forEach(dk => {
+    const shiftVal = currentUser.schedule[dk];
+    if (shiftVal === currentShift) myShiftDays.push(dk);
+  });
+  // Fallback: try day-name keys
+  if (myShiftDays.length === 0) {
+    WEEK_DAYS.forEach((d, i) => {
+      if (currentUser.schedule[d] === currentShift) myShiftDays.push(weekDates[i]);
+    });
+  }
+
+  const mySlot = getAssigned(currentUser.id, myShiftDays[0]) || getAssigned(currentUser.id, todayKey());
+  const mySlotLabel = mySlot ? mySlot.slot : 'Not assigned';
+
+  document.getElementById('req-cur').value = mySlotLabel;
+
+  // Populate day selector
+  const daySelect = document.getElementById('req-day');
+  daySelect.innerHTML = myShiftDays.length > 0
+    ? myShiftDays.map(d => {
+        const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
+        const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
+        return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
+      }).join('')
+    : `<option value="">No shift days found</option>`;
+
+  // Trigger partner list update
+  _updateReqPartners();
+
   document.getElementById('req-reason').value = '';
   document.getElementById('modal-request').classList.add('show');
 }
 
+// Called when day selection changes — refreshes partner list & slot display
+function _updateReqDay() {
+  const day    = document.getElementById('req-day').value;
+  const br     = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  document.getElementById('req-cur').value = br ? br.slot : 'Not assigned';
+  _updateReqPartners();
+}
+
+// Rebuild the partner dropdown: same shift + same role category + different slot
+function _updateReqPartners() {
+  const day      = document.getElementById('req-day').value;
+  if (!day) return;
+
+  const myBr     = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  const mySlot   = myBr ? myBr.slot : null;
+
+  // "Same role group": agent-level = Agent, Sr Agent, QA, Sr QA
+  const agentRoles = new Set(['Agent', 'Sr Agent', 'QA', 'Sr QA']);
+  const myRoleGroup = agentRoles.has(currentUser.role) ? 'agent' : 'leader';
+
+  // Eligible partners: on the same shift this day, same role group, not self, has a break assigned
+  const partners = state.users.filter(u => {
+    if (u.id === currentUser.id) return false;
+    const theirRoleGroup = agentRoles.has(u.role) ? 'agent' : 'leader';
+    if (theirRoleGroup !== myRoleGroup) return false;
+    const shiftVal = u.schedule[day] || u.schedule[getWkDay(day)] || '0';
+    if (shiftVal !== currentShift) return false;
+    const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
+    if (!theirBr) return false; // must have a break assigned to swap
+    if (theirBr.slot === mySlot) return false; // no point swapping same slot
+    return true;
+  });
+
+  const partnerSelect = document.getElementById('req-partner');
+  if (partners.length === 0) {
+    partnerSelect.innerHTML = `<option value="">— No eligible partners on this day —</option>`;
+    document.getElementById('req-new').innerHTML = `<option value="">— pick partner first —</option>`;
+  } else {
+    partnerSelect.innerHTML = `<option value="">— Choose swap partner —</option>` +
+      partners.map(u => {
+        const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
+        return `<option value="${u.id}" data-slot="${theirBr.slot}">
+          ${u.name} (${u.team}) — ${getShortSlot(currentShift, theirBr.slot)} [${theirBr.slot}]
+        </option>`;
+      }).join('');
+  }
+  _updateReqSlot();
+}
+
+// When partner is chosen, show their slot as the "requested" slot
+function _updateReqSlot() {
+  const partnerSel = document.getElementById('req-partner');
+  const chosen     = partnerSel.options[partnerSel.selectedIndex];
+  const theirSlot  = chosen?.dataset?.slot || '';
+
+  const reqNew = document.getElementById('req-new');
+  if (theirSlot) {
+    reqNew.innerHTML = `<option value="${theirSlot}" selected>${theirSlot}</option>`;
+  } else {
+    reqNew.innerHTML = `<option value="">— pick partner first —</option>`;
+  }
+}
+
 function submitRequest() {
+  const day       = document.getElementById('req-day').value;
   const requested = document.getElementById('req-new').value;
   const reason    = document.getElementById('req-reason').value.trim();
-  if (!requested) { toast('Pick a slot first.', 'err'); return; }
+  const partnerSel    = document.getElementById('req-partner');
+  const partnerId     = partnerSel.value ? parseInt(partnerSel.value) : null;
+  const partnerSlot   = partnerSel.options[partnerSel.selectedIndex]?.dataset?.slot || '';
+
+  if (!day)       { toast('Select a day first.', 'err'); return; }
+  if (!partnerId) { toast('Select a swap partner.', 'err'); return; }
+  if (!requested) { toast('No swap slot available.', 'err'); return; }
+
+  const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+
   state.requests.unshift({
-    id: Date.now(), userId: currentUser.id, day: todayKey(),
-    current: document.getElementById('req-cur').value,
-    requested, reason, status: 'pending', at: Date.now(), respNote: '',
+    id: Date.now(), userId: currentUser.id, day,
+    current: myBr ? myBr.slot : 'Not assigned',
+    requested, reason,
+    swapPartnerId: partnerId,
+    partnerSlot,
+    status: 'pending', at: Date.now(), respNote: '',
   });
   save();
   closeModal('modal-request');
-  toast('Request submitted!', 'warn');
+  toast('Swap request submitted!', 'warn');
   updateBadge();
   nav('requests');
 }
 
 function resolveRequest(idx, status) {
-  state.requests[idx].status     = status;
-  state.requests[idx].resolvedBy = currentUser.id;
-  state.requests[idx].resolvedAt = Date.now();
+  const r      = state.requests[idx];
+  r.status     = status;
+  r.resolvedBy = currentUser.id;
+  r.resolvedAt = Date.now();
+
   if (status === 'approved') {
-    const r = state.requests[idx];
+    // Assign requester's new (partner's) slot
     assign(r.userId, r.day, r.requested, 'approved by ' + currentUser.name);
+    // Swap: assign partner's slot to the partner (requester's old slot)
+    if (r.swapPartnerId && r.partnerSlot && r.current && r.current !== 'Not assigned') {
+      assign(r.swapPartnerId, r.day, r.current, 'swap approved — ' + currentUser.name);
+    }
   }
   save();
-  toast(status === 'approved' ? 'Request approved ✓' : 'Request rejected', 'ok');
+  toast(status === 'approved' ? 'Swap approved ✓' : 'Request rejected', 'ok');
   updateBadge();
   nav('requests');
 }
