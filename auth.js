@@ -143,7 +143,7 @@ function parseSheetCSV(csv) {
       importedUsers.push({
         id: Date.now() + importedUsers.length,
         team: row[1]?.trim(), name: row[2]?.trim(), username: row[3]?.trim(),
-        role: row[4]?.trim(), password: '1234', schedule
+        role: row[4]?.trim(), gender: row[5]?.trim() || '', password: '1234', schedule
       });
     });
 

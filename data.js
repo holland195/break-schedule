@@ -2,25 +2,23 @@
 //  CONSTANTS & SEED DATA
 // ═══════════════════════════════════════════════
 
-const STORAGE = 'bsched_v3';
+const STORAGE = 'bsched_v4';
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const SEED_USERS = [
-  { id: 999, username: 'admin', name: 'System Admin', team: 'HQ', role: 'Admin', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-
-  // Leaders (L1 - L5)
-  { id: 1001, username: 'cuong.pham',      name: 'Phạm Minh Cường',                      team: 'L1', role: 'Agent Leader',     password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 1002, username: 'hongthuy.nguyen', name: 'Nguyễn Thị Phương Hồng Thuỷ',          team: 'L2', role: 'Agent Leader',     password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 1003, username: 'dung.tran',       name: 'Trần Quốc Dũng',                       team: 'L3', role: 'Agent Leader',     password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 1004, username: 'ngocanh.tran',    name: 'Trần Thị Ngọc Ánh',                   team: 'L4', role: 'Agent Leader',     password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 1005, username: 'tam.to',          name: 'Tô Hoài Tâm',                          team: 'L5', role: 'Agent Leader',     password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-
-  // Supervisors (S1 - S5)
-  { id: 2001, username: 'hai.nguyen',   name: 'Nguyễn Hồ Giang Hải',     team: 'S1', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 2002, username: 'thanh.nguyen', name: 'Nguyễn Đức Thanh',         team: 'S2', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 2003, username: 'duy.huynh',   name: 'Huỳnh Minh Duy',           team: 'S3', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 2004, username: 'tran.le',      name: 'Lê Nguyễn Huyền Trân',    team: 'S4', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
-  { id: 2005, username: 'hoa.nguyen',   name: 'Nguyễn Đức Hòa',           team: 'S5', role: 'Agent Supervisor', password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 999,  username: 'admin',           name: 'System Admin',                     gender: 'M', team: 'HQ', role: 'Admin',            password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  // Leaders
+  { id: 1001, username: 'cuong.pham',      name: 'Phạm Minh Cường',                  gender: 'M', team: 'L1', role: 'Agent Leader',      password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 1002, username: 'hongthuy.nguyen', name: 'Nguyễn Thị Phương Hồng Thuỷ',      gender: 'F', team: 'L2', role: 'Agent Leader',      password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 1003, username: 'dung.tran',       name: 'Trần Quốc Dũng',                   gender: 'M', team: 'L3', role: 'Agent Leader',      password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 1004, username: 'ngocanh.tran',    name: 'Trần Thị Ngọc Ánh',                gender: 'F', team: 'L4', role: 'Agent Leader',      password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 1005, username: 'tam.to',          name: 'Tô Hoài Tâm',                      gender: 'F', team: 'L5', role: 'Agent Leader',      password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  // Supervisors
+  { id: 2001, username: 'hai.nguyen',      name: 'Nguyễn Hồ Giang Hải',              gender: 'M', team: 'S1', role: 'Agent Supervisor',  password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 2002, username: 'thanh.nguyen',    name: 'Nguyễn Đức Thanh',                 gender: 'M', team: 'S2', role: 'Agent Supervisor',  password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 2003, username: 'duy.huynh',       name: 'Huỳnh Minh Duy',                   gender: 'M', team: 'S3', role: 'Agent Supervisor',  password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 2004, username: 'tran.le',         name: 'Lê Nguyễn Huyền Trân',             gender: 'F', team: 'S4', role: 'Agent Supervisor',  password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
+  { id: 2005, username: 'hoa.nguyen',      name: 'Nguyễn Đức Hòa',                   gender: 'M', team: 'S5', role: 'Agent Supervisor',  password: '1234', schedule: { Mon: 'E', Tue: 'E', Wed: 'E', Thu: 'E', Fri: 'E', Sat: '0', Sun: '0' } },
 ];
 
 const SHIFTS = {
@@ -51,24 +49,63 @@ const ROLES = {
 };
 
 // ═══════════════════════════════════════════════
-//  STATE
+//  STATE — localStorage as simple flat DB
+//  Tables: users, breaks, requests, extBreaks
+//  extBreaks: { "userId_YYYY-MM": [{ day, time, position, at }] }
+//  (position = 'before' | 'after' main break)
 // ═══════════════════════════════════════════════
 function load() {
   try {
     const d = localStorage.getItem(STORAGE);
     if (d) return JSON.parse(d);
   } catch (e) {}
-  return { users: [], breaks: {}, requests: [], imported: false };
+  return { users: [], breaks: {}, requests: [], extBreaks: {}, imported: false };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch (e) {}
 }
 
+// ── Simple DB API (wrappers over state tables) ──
+const DB = {
+  // Users
+  getUsers: ()           => state.users,
+  getUser:  id           => state.users.find(u => u.id === id),
+  upsertUser: u          => {
+    const idx = state.users.findIndex(x => x.id === u.id);
+    if (idx >= 0) state.users[idx] = { ...state.users[idx], ...u };
+    else state.users.push(u);
+    save();
+  },
+  // Breaks
+  getBreak:  (uid, day)  => state.breaks[`${uid}_${day}`],
+  setBreak:  (uid, day, data) => { state.breaks[`${uid}_${day}`] = data; save(); },
+  // Requests
+  getRequests: ()        => state.requests,
+  addRequest:  r         => { state.requests.unshift(r); save(); },
+  updateRequest: (idx,r) => { state.requests[idx] = { ...state.requests[idx], ...r }; save(); },
+  // Extended 30-min breaks
+  // key: userId_YYYY-MM  → array of { day, time, position, at }
+  getExtBreaks: (uid, monthKey) => (state.extBreaks[`${uid}_${monthKey}`] || []),
+  addExtBreak:  (uid, monthKey, entry) => {
+    const key = `${uid}_${monthKey}`;
+    if (!state.extBreaks[key]) state.extBreaks[key] = [];
+    state.extBreaks[key].push(entry);
+    save();
+  },
+  deleteExtBreak: (uid, monthKey, idx) => {
+    const key = `${uid}_${monthKey}`;
+    if (state.extBreaks[key]) {
+      state.extBreaks[key].splice(idx, 1);
+      save();
+    }
+  },
+  countExtBreaks: (uid, monthKey) => (state.extBreaks[`${uid}_${monthKey}`] || []).length,
+};
+
 let state = load();
-if (state.users.length === 0) {
-  state.users = SEED_USERS;
-  save();
-}
+// Migrate: ensure extBreaks table exists
+if (!state.extBreaks) { state.extBreaks = {}; save(); }
+if (state.users.length === 0) { state.users = SEED_USERS; save(); }
 
 let currentUser  = null;
 let currentShift = 'E';
@@ -78,7 +115,7 @@ let assigningEmp = null;
 // Staff page state
 let activeMonday  = '20/04';
 let showFullMonth = false;
-let staffFilters  = { team: '', name: '', user: '', role: '' };
+let staffFilters = { team: '', name: '', gender: '', user: '', role: '' };
 
 // Google Sheets import buffer
 let importedUsers = [];
@@ -104,10 +141,21 @@ function getShiftMates(shift, day) {
 }
 
 function getBreakKey(userId, day)    { return `${userId}_${day || todayKey()}`; }
-function getAssigned(userId, day)    { return state.breaks[getBreakKey(userId, day)]; }
+function getAssigned(userId, day)    { return DB.getBreak(userId, day || todayKey()); }
 function assign(userId, day, slot, note) {
-  state.breaks[getBreakKey(userId, day)] = { slot, note: note || '', by: currentUser.id, at: Date.now() };
-  save();
+  DB.setBreak(userId, day || todayKey(), { slot, note: note || '', by: currentUser?.id, at: Date.now() });
+}
+
+// Returns 'YYYY-MM' for the current calendar month
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}`;
+}
+
+// Returns 'YYYY-MM' from a 'DD/MM' date string (assumes year 2026)
+function monthKeyFromDate(dateStr) {
+  const [, m] = dateStr.split('/');
+  return `2026-${m.padStart(2,'0')}`;
 }
 
 function getShortSlot(shift, fullTime) {

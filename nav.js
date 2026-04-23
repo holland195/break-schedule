@@ -13,6 +13,7 @@ function nav(page) {
     schedule:  renderSchedule,
     requests:  renderRequests,
     arrange:   renderArrange,
+    extbreak:  renderExtBreak,
     staff:     renderStaff,
   };
   if (pages[page]) content.innerHTML = pages[page]();

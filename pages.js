@@ -228,14 +228,51 @@ ${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No r
 
 // ═══════════════════════════════════════════════
 //  RENDER: ARRANGE (leader only)
-//  Fix: multi-group + multi-day bulk assign
+//  Tab 1: Arrange Breaks (bulk panel + day tabs)
+//  Tab 2: Week Overview (full grid)
 // ═══════════════════════════════════════════════
+let arrangeMainTab = 'assign'; // 'assign' | 'overview'
+let arrangeActiveDay = null;   // set on first render
+
 function renderArrange() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
   const weekRange = getWeekRange(activeMonday);
-  const today     = weekRange[0];
+  if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
-  // All teams that have any member on the current shift this week
+  return `
+<div class="page-header">
+  <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
+</div>
+
+<!-- Top-level 2 tabs -->
+<div style="display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px;">
+  <button onclick="switchArrangeMainTab('assign')"
+    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+      background:none; color:${arrangeMainTab==='assign'?'var(--accent)':'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab==='assign'?'var(--accent)':'transparent'};
+      margin-bottom:-2px; transition:all .12s;">
+    ✏️ Arrange Breaks
+  </button>
+  <button onclick="switchArrangeMainTab('overview')"
+    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+      background:none; color:${arrangeMainTab==='overview'?'var(--accent)':'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab==='overview'?'var(--accent)':'transparent'};
+      margin-bottom:-2px; transition:all .12s;">
+    📊 Week Overview
+  </button>
+</div>
+
+<div id="arrange-main-content">
+  ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange) : _renderArrangeOverviewTab(weekRange)}
+</div>`;
+}
+
+function switchArrangeMainTab(tab) {
+  arrangeMainTab = tab;
+  nav('arrange');
+}
+
+function _renderArrangeAssignTab(weekRange) {
   const allShiftTeams = [...new Set(state.users.filter(u =>
     weekRange.some(d => {
       const dayName = WEEK_DAYS[weekRange.indexOf(d)];
@@ -246,184 +283,183 @@ function renderArrange() {
   const slots = BREAK_SLOTS[currentShift] || [];
 
   const bulkPanel = `
-<div class="bulk-panel">
+<div class="bulk-panel" style="margin-bottom:20px;">
   <div class="bulk-panel-section">
-    <div class="bulk-panel-label">Select Groups (multi)</div>
-    <div class="group-checkbox-list" id="bulk-groups">
+    <div class="bulk-panel-label">Groups</div>
+    <div class="group-checkbox-list">
       ${allShiftTeams.map(t => `
         <label class="group-check-item">
           <input type="checkbox" name="bulk-group" value="${t}"> ${t}
         </label>`).join('')}
     </div>
   </div>
-
   <div class="bulk-panel-section">
-    <div class="bulk-panel-label">Select Days (multi)</div>
+    <div class="bulk-panel-label">Days</div>
     <div class="day-checkbox-list">
       ${weekRange.map(d => `
         <label class="day-check-item">
-          <span style="font-weight:700; font-size:9px">${getWkDay(d)}</span>
-          <span style="font-size:9px; color:var(--text3)">${d}</span>
+          <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
+          <span style="font-size:9px;color:var(--text3)">${d}</span>
           <input type="checkbox" name="bulk-day" value="${d}">
         </label>`).join('')}
     </div>
   </div>
-
   <div class="bulk-panel-section">
-    <div class="bulk-panel-label">Break Slot</div>
+    <div class="bulk-panel-label">Slot</div>
     <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;">
-      ${slots.map((s, i) => `<option value="${i}">${currentShift}${i + 1} — ${s}</option>`).join('')}
+      ${slots.map((s, i) => `<option value="${i}">${currentShift}${i+1} — ${s}</option>`).join('')}
     </select>
   </div>
-
-  <div class="bulk-panel-section" style="justify-content:flex-end">
+  <div class="bulk-panel-section" style="justify-content:flex-end;">
     <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
   </div>
 </div>`;
 
-  return `
-<div class="page-header">
-  <div class="page-title">Arrange Breaks</div>
-</div>
-
-${bulkPanel}
-
-<div class="tabs" id="arrange-tabs">
+  // Day sub-tabs
+  const dayTabs = `
+<div class="tabs" id="arrange-day-tabs" style="margin-bottom:0;">
   ${weekRange.map(d => `
-    <div class="tab" onclick="switchArrangeDay('${d}')" data-day="${d}" style="min-width:90px; text-align:center">
-      <div style="font-weight:600; font-size:11px">${getWkDay(d)}</div>
-      <div style="font-size:9px; opacity:0.6">${d}</div>
+    <div class="tab${d===arrangeActiveDay?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="min-width:90px;text-align:center;">
+      <div style="font-weight:600;font-size:11px;">${getWkDay(d)}</div>
+      <div style="font-size:9px;opacity:0.6;">${d}</div>
     </div>`).join('')}
 </div>
-<div id="arrange-day-content" style="margin-top:0">${getArrangeDayHTML(today)}</div>`;
+<div id="arrange-day-content">${getArrangeDayMemberList(arrangeActiveDay)}</div>`;
+
+  return bulkPanel + dayTabs;
 }
 
-function switchArrangeDay(day) {
-  document.querySelectorAll('#arrange-tabs .tab').forEach(t =>
-    t.classList.toggle('on', t.dataset.day === day)
+function _renderArrangeOverviewTab(weekRange) {
+  // All users on this shift in the week
+  const shiftUsers = state.users.filter(u =>
+    weekRange.some(d => {
+      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
+    })
   );
-  document.getElementById('arrange-day-content').innerHTML = getArrangeDayHTML(day);
-}
 
-function getArrangeDayHTML(day) {
-  const mates = getShiftMates(currentShift, day);
-  const slots = BREAK_SLOTS[currentShift] || [];
-  const weekRange = getWeekRange(activeMonday);
+  if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
 
-  // ── Per-member assign list ──
-  const memberRows = mates.length === 0
-    ? `<div class="empty" style="padding:48px;"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} for ${day}.</div>`
-    : mates.map(u => {
-        const br = getAssigned(u.id, day);
-        return `
-      <div class="break-row" style="border-radius:0; border:none; border-bottom:1px solid var(--border);
-            display:grid; grid-template-columns: 70px 220px 180px 110px 1fr 80px;
-            align-items:center; gap:16px; padding:12px 16px;">
-        <div class="emp-meta">${u.team}</div>
-        <div class="emp-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;">${u.name}</div>
-        <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
-        <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
-        <div class="break-slots">
-          ${slots.map((s, idx) => `
-            <span class="break-slot${br?.slot === s ? ' assigned' : ''}"
-                  onclick="quickAssign(${u.id},'${day}','${s}')"
-                  style="font-size:10px; padding:4px 10px;"
-                  title="${s}">
-              ${currentShift}${idx + 1}
-            </span>`).join('')}
-        </div>
-        <div style="text-align:right">
-          <button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.5">Edit</button>
-        </div>
-      </div>`;
-      }).join('');
+  const summaryHeaders = weekRange.map((d, i) => `
+    <th style="text-align:center;padding:7px 4px;font-size:9px;min-width:54px;
+      color:${d===arrangeActiveDay?'var(--accent)':'var(--text3)'};">
+      ${WEEK_DAYS[i]}<br>
+      <span style="font-weight:400;opacity:0.7;">${d}</span>
+    </th>`).join('');
 
-  // ── Full week summary table ──
-  // Columns: member name | Mon | Tue | Wed | Thu | Fri | Sat | Sun
-  const summaryRows = mates.map(u => {
-    const dayCells = weekRange.map(d => {
-      const dayName = getWkDay(d);
-      const shiftVal = u.schedule[d] || u.schedule[dayName] || '0';
+  const summaryRows = shiftUsers.map(u => {
+    const dayCells = weekRange.map((d, i) => {
+      const dn       = WEEK_DAYS[i];
+      const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
       const onShift  = shiftVal === currentShift;
-      const br       = getAssigned(u.id, d) || getAssigned(u.id, dayName);
-      const isActive = d === day;
+      const br       = getAssigned(u.id, d) || getAssigned(u.id, dn);
 
-      if (shiftVal === '0') {
-        return `<td style="text-align:center; padding:6px 4px;">
-          <span style="color:var(--text3); font-size:10px;">—</span>
-        </td>`;
-      }
-      if (!onShift) {
-        return `<td style="text-align:center; padding:6px 4px;">
-          <span class="sh sh-${shiftVal}" style="width:20px; height:20px; font-size:10px;">${shiftVal}</span>
-        </td>`;
-      }
-      const shortCode = br ? getShortSlot(currentShift, br.slot) : '?';
-      const bg        = br ? 'var(--ok)' : 'var(--warn)';
-      const textColor = br ? '#000' : '#000';
-      return `<td style="text-align:center; padding:6px 4px;">
-        <span style="display:inline-flex; align-items:center; justify-content:center;
-          width:26px; height:22px; border-radius:4px; font-size:10px; font-weight:700;
-          font-family:'IBM Plex Mono',monospace;
-          background:${br ? '#1a2a0a' : '#2a1a00'};
-          color:${br ? 'var(--ok)' : 'var(--warn)'};
-          border:1px solid ${br ? 'var(--ok)' : 'var(--warn)'};
-          ${isActive ? 'outline: 2px solid var(--accent); outline-offset:1px;' : ''}"
-          title="${br ? br.slot : 'Not assigned'}">
-          ${shortCode}
-        </span>
+      if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
+      if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
+
+      const code = br ? getShortSlot(currentShift, br.slot) : '?';
+      return `<td style="text-align:center;padding:6px 4px;">
+        <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
+          style="display:inline-flex;align-items:center;justify-content:center;
+            width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
+            font-family:'IBM Plex Mono',monospace;cursor:pointer;
+            background:${br?'#1a2a0a':'#2a1a00'};
+            color:${br?'var(--ok)':'var(--warn)'};
+            border:1px solid ${br?'var(--ok)':'var(--warn)'};
+            ${d===arrangeActiveDay?'outline:2px solid var(--accent);outline-offset:1px;':''}"
+          title="${br?br.slot:'Not assigned — click to assign'}">${code}</span>
       </td>`;
     }).join('');
 
-    return `<tr>
-      <td style="padding:6px 12px; white-space:nowrap; font-size:12px; font-weight:600; border-right:1px solid var(--border);">
-        ${u.name}
-        <div style="font-size:10px; color:var(--text3); font-family:'IBM Plex Mono',monospace;">${u.team}</div>
+    const genderIcon = u.gender === 'F' ? '♀' : u.gender === 'M' ? '♂' : '';
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
+        <span style="font-weight:600;font-size:12px;">${u.name}</span>
+        ${genderIcon ? `<span style="font-size:10px;color:${u.gender==='F'?'var(--A-color)':'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
+        <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team} · ${getRoleInfo(u.role).label}</div>
       </td>
       ${dayCells}
     </tr>`;
   }).join('');
 
-  const summaryHeaders = weekRange.map((d, i) => {
-    const dayName  = WEEK_DAYS[i];
-    const isActive = d === day;
-    return `<th style="text-align:center; padding:6px 4px; font-size:9px; min-width:42px;
-      ${isActive ? 'color:var(--accent);' : 'color:var(--text3);'}">
-      ${dayName}<br>
-      <span style="font-weight:400; opacity:0.7">${d}</span>
-    </th>`;
-  }).join('');
-
-  const weekSummary = mates.length === 0 ? '' : `
-<div style="margin-top:16px;">
-  <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
-    color:var(--text3); font-family:'IBM Plex Mono',monospace; margin-bottom:8px;">
-    📊 Week Overview — Shift ${currentShift}
-    <span style="color:var(--ok); margin-left:8px">■ Assigned</span>
-    <span style="color:var(--warn); margin-left:8px">■ Pending</span>
-    <span style="color:var(--accent); font-size:9px; margin-left:8px">[ highlighted = selected day ]</span>
-  </div>
-  <div class="staff-tbl-wrap" style="max-height:300px;">
-    <table style="border-collapse:collapse; width:100%;">
-      <thead>
-        <tr style="background:var(--bg3);">
-          <th style="text-align:left; padding:6px 12px; font-size:10px; color:var(--text3);
-            min-width:180px; border-right:1px solid var(--border);">MEMBER</th>
-          ${summaryHeaders}
-        </tr>
-      </thead>
-      <tbody>
-        ${summaryRows}
-      </tbody>
-    </table>
-  </div>
-</div>`;
+  const assignedCount = shiftUsers.reduce((acc, u) =>
+    acc + weekRange.filter(d => getAssigned(u.id, d) || getAssigned(u.id, WEEK_DAYS[weekRange.indexOf(d)])).length, 0);
+  const totalSlots = shiftUsers.length * weekRange.filter(d => shiftUsers.some(u => {
+    const dn = WEEK_DAYS[weekRange.indexOf(d)];
+    return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
+  })).length;
 
   return `
-<div class="break-board" style="gap:0; background:var(--bg2); border:1px solid var(--border); border-radius:0 0 10px 10px;">
-  ${memberRows}
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+  <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">
+    ${shiftUsers.length} members · ${assignedCount} assigned
+  </span>
+  <span style="color:var(--ok);font-size:11px;">■ Assigned</span>
+  <span style="color:var(--warn);font-size:11px;">■ Pending</span>
+  <span style="color:var(--accent);font-size:10px;opacity:0.7;">Click a cell to assign</span>
 </div>
-${weekSummary}`;
+<div class="staff-tbl-wrap">
+  <table style="border-collapse:collapse;width:100%;">
+    <thead>
+      <tr style="background:var(--bg3);">
+        <th style="text-align:left;padding:7px 12px;font-size:10px;color:var(--text3);min-width:200px;border-right:1px solid var(--border);">MEMBER</th>
+        ${summaryHeaders}
+      </tr>
+    </thead>
+    <tbody>${summaryRows}</tbody>
+  </table>
+</div>`;
+}
+
+function switchArrangeDay(day) {
+  arrangeActiveDay = day;
+  document.querySelectorAll('#arrange-day-tabs .tab').forEach(t =>
+    t.classList.toggle('on', t.dataset.day === day)
+  );
+  const content = document.getElementById('arrange-day-content');
+  if (content) content.innerHTML = getArrangeDayMemberList(day);
+}
+
+// Only the per-member rows (no week summary — that's in the Overview tab now)
+function getArrangeDayMemberList(day) {
+  const mates = getShiftMates(currentShift, day);
+  const slots = BREAK_SLOTS[currentShift] || [];
+
+  if (!mates.length) return `<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;padding:60px;">
+    <div class="empty-ico">👥</div>No staff on Shift ${currentShift} for ${day}.</div>`;
+
+  return `<div class="break-board" style="gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;">
+    ${mates.map(u => {
+      const br = getAssigned(u.id, day);
+      const genderBadge = u.gender === 'F'
+        ? `<span style="font-size:9px;color:var(--A-color);margin-left:4px;">♀</span>` : '';
+      return `
+      <div class="break-row" style="border-radius:0;border:none;border-bottom:1px solid var(--border);
+            display:grid;grid-template-columns:70px 1fr 160px 110px 1fr 80px;
+            align-items:center;gap:16px;padding:11px 16px;">
+        <div class="emp-meta">${u.team}</div>
+        <div style="min-width:0;">
+          <div class="emp-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">
+            ${u.name}${genderBadge}
+          </div>
+          <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
+        </div>
+        <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
+        <div style="font-size:11px;color:var(--text2);">${u.gender==='F'?'Female':u.gender==='M'?'Male':'—'}</div>
+        <div class="break-slots">
+          ${slots.map((s, idx) => `
+            <span class="break-slot${br?.slot===s?' assigned':''}"
+                  onclick="quickAssign(${u.id},'${day}','${s}')"
+                  style="font-size:10px;padding:4px 10px;" title="${s}">
+              ${currentShift}${idx+1}
+            </span>`).join('')}
+        </div>
+        <div style="text-align:right;">
+          <button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.5">Edit</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 function quickAssign(uid, day, slot) {
@@ -499,6 +535,7 @@ function renderStaff() {
   const filteredUsers = state.users.filter(u =>
     u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.gender || '').toLowerCase().includes((staffFilters.gender||'').toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
     u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
   );
@@ -524,14 +561,15 @@ function renderStaff() {
   <table>
     <thead>
       <tr class="filter-row">
-        <td><input class="filter-input" placeholder="Group…"    value="${staffFilters.team}" oninput="staffFilters.team=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Name…"     value="${staffFilters.name}" oninput="staffFilters.name=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="User…"     value="${staffFilters.user}" oninput="staffFilters.user=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Role…"     value="${staffFilters.role}" oninput="staffFilters.role=this.value; _liveFilter()"></td>
+        <td><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}"   oninput="staffFilters.team=this.value; _liveFilter()"></td>
+        <td><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}"   oninput="staffFilters.name=this.value; _liveFilter()"></td>
+        <td><input class="filter-input" placeholder="Gender…" value="${staffFilters.gender||''}" oninput="staffFilters.gender=this.value; _liveFilter()"></td>
+        <td><input class="filter-input" placeholder="User…"   value="${staffFilters.user}"   oninput="staffFilters.user=this.value; _liveFilter()"></td>
+        <td><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}"   oninput="staffFilters.role=this.value; _liveFilter()"></td>
         <td colspan="${displayDates.length}" style="padding-left:12px; color:var(--text3); font-size:10px; font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
       </tr>
       <tr>
-        <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
+        <th>GROUP</th><th>FULL NAME</th><th>GENDER</th><th>USER</th><th>POSITION</th>
         ${displayDates.map(d => `
           <th class="c" style="min-width:42px; padding:6px 2px;">
             <div style="color:var(--accent); font-size:11px;">${d}</div>
@@ -549,17 +587,22 @@ function renderStaff() {
 }
 
 function renderStaffRows(users, displayDates) {
-  return users.map(u => `
-    <tr>
+  return users.map(u => {
+    const g = u.gender === 'F' ? `<span style="color:var(--A-color);font-weight:700;">♀ F</span>`
+            : u.gender === 'M' ? `<span style="color:var(--B-color);font-weight:700;">♂ M</span>`
+            : `<span style="color:var(--text3);">—</span>`;
+    return `<tr>
       <td class="mono" style="font-size:11px;">${u.team}</td>
       <td style="font-weight:600">${u.name}</td>
-      <td class="mono" style="color:var(--accent); font-size:11px;">${u.username || ''}</td>
-      <td style="font-size:11px; color:var(--text2)">${u.role}</td>
+      <td style="text-align:center;font-size:12px;">${g}</td>
+      <td class="mono" style="color:var(--accent);font-size:11px;">${u.username||''}</td>
+      <td style="font-size:11px;color:var(--text2)">${u.role}</td>
       ${displayDates.map(d => {
         const s = u.schedule[d] || '0';
         return `<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;
       }).join('')}
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // Live filter — updates only tbody to avoid losing focus
@@ -572,6 +615,7 @@ function _liveFilter() {
   const filtered = state.users.filter(u =>
     u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.gender || '').toLowerCase().includes((staffFilters.gender||'').toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
     u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
   );
@@ -658,28 +702,23 @@ function _updateReqDay() {
   _updateReqPartners();
 }
 
-// Rebuild the partner dropdown: same shift + same role category + different slot
+// Rebuild the partner dropdown: same shift + SAME EXACT ROLE + different slot assigned
 function _updateReqPartners() {
-  const day      = document.getElementById('req-day').value;
+  const day = document.getElementById('req-day').value;
   if (!day) return;
 
-  const myBr     = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
-  const mySlot   = myBr ? myBr.slot : null;
+  const myBr   = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  const mySlot = myBr ? myBr.slot : null;
 
-  // "Same role group": agent-level = Agent, Sr Agent, QA, Sr QA
-  const agentRoles = new Set(['Agent', 'Sr Agent', 'QA', 'Sr QA']);
-  const myRoleGroup = agentRoles.has(currentUser.role) ? 'agent' : 'leader';
-
-  // Eligible partners: on the same shift this day, same role group, not self, has a break assigned
+  // Partners must have the SAME exact role as the requester
   const partners = state.users.filter(u => {
     if (u.id === currentUser.id) return false;
-    const theirRoleGroup = agentRoles.has(u.role) ? 'agent' : 'leader';
-    if (theirRoleGroup !== myRoleGroup) return false;
+    if (u.role !== currentUser.role) return false;          // ← exact role match
     const shiftVal = u.schedule[day] || u.schedule[getWkDay(day)] || '0';
     if (shiftVal !== currentShift) return false;
     const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
-    if (!theirBr) return false; // must have a break assigned to swap
-    if (theirBr.slot === mySlot) return false; // no point swapping same slot
+    if (!theirBr) return false;                             // must have a break assigned
+    if (theirBr.slot === mySlot) return false;              // no point swapping same slot
     return true;
   });
 
@@ -761,5 +800,252 @@ function resolveRequest(idx, status) {
   updateBadge();
   nav('requests');
 }
+
+// ═══════════════════════════════════════════════
+//  RENDER: 30-MIN EXTRA BREAK (females only)
+//  All female staff can register; 3 times/month max
+//  Leaders see everyone's registrations for current shift
+// ═══════════════════════════════════════════════
+function renderExtBreak() {
+  const isFemale = currentUser.gender === 'F';
+  const mk       = currentMonthKey();  // 'YYYY-MM'
+  const [yr, mo] = mk.split('-');
+  const monthLabel = new Date(parseInt(yr), parseInt(mo)-1, 1)
+    .toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  // All female users in current shift this week
+  const weekDates  = getWeekDates();
+  const femaleShiftUsers = state.users.filter(u =>
+    u.gender === 'F' &&
+    weekDates.some(dk => {
+      const dn = WEEK_DAYS[weekDates.indexOf(dk)];
+      return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
+    })
+  );
+
+  // My registrations this month
+  const myEntries    = DB.getExtBreaks(currentUser.id, mk);
+  const myUsed       = myEntries.length;
+  const myRemaining  = Math.max(0, 3 - myUsed);
+
+  // Build registration list for current user (female) or full view (leader)
+  const viewUsers = isLeader(currentUser) ? femaleShiftUsers : (isFemale ? [currentUser] : []);
+
+  const userCards = viewUsers.map(u => {
+    const entries = DB.getExtBreaks(u.id, mk);
+    const used    = entries.length;
+    const genderIcon = '♀';
+
+    const entryRows = entries.length === 0
+      ? `<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>`
+      : entries.map((e, i) => `
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span style="font-family:'IBM Plex Mono',monospace;color:var(--accent);min-width:70px;">${e.day}</span>
+          <span style="color:var(--text2);min-width:50px;">${getWkDay(e.day)}</span>
+          <span style="background:var(--A-bg);color:var(--A-color);border:1px solid var(--A-color);
+            border-radius:4px;padding:2px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;">
+            ${e.position === 'before' ? '← Before' : 'After →'}
+          </span>
+          <span style="color:var(--text2);font-size:11px;flex:1;">${e.time}</span>
+          <span style="font-size:10px;color:var(--text3);">${timeSince(e.at)}</span>
+          ${u.id === currentUser.id || isLeader(currentUser) ? `
+            <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i})">✕</button>` : ''}
+        </div>`).join('');
+
+    return `
+<div class="card" style="margin-bottom:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div>
+      <span style="font-weight:600;font-size:14px;">${u.name}</span>
+      <span style="color:var(--A-color);margin-left:6px;font-size:13px;">${genderIcon}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:8px;">${u.team} · ${getRoleInfo(u.role).label}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <!-- Quota dots -->
+      <div style="display:flex;gap:4px;">
+        ${[0,1,2].map(i => `<span style="width:10px;height:10px;border-radius:50%;
+          background:${i < used ? 'var(--A-color)' : 'var(--border)'};
+          border:1px solid ${i < used ? 'var(--A-color)' : 'var(--border2)'};"
+          title="${i < used ? 'Used' : 'Available'}"></span>`).join('')}
+      </div>
+      <span style="font-size:11px;color:${myRemaining===0?'var(--err)':'var(--text2)'};">
+        ${used}/3 used
+      </span>
+      ${u.id === currentUser.id && isFemale && used < 3 ? `
+        <button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">+ Register</button>` : ''}
+    </div>
+  </div>
+  ${entryRows}
+</div>`;
+  }).join('');
+
+  const noAccessMsg = !isFemale && !isLeader(currentUser)
+    ? `<div class="empty"><div class="empty-ico">🌸</div>
+        <div>This menu is for female staff only.</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">Female staff can register up to 3 extra 30-min breaks per month.</div>
+      </div>` : '';
+
+  return `
+<div class="page-header">
+  <div>
+    <div class="page-title">🌸 30-Min Extra Break</div>
+    <div class="page-sub">${monthLabel} · Shift ${currentShift} · ${isFemale&&!isLeader(currentUser)?`${myRemaining} registration${myRemaining!==1?'s':''} remaining`:'All female staff'}</div>
+  </div>
+  ${isFemale && !isLeader(currentUser) && myUsed < 3 ? `
+    <button class="btn btn-accent" onclick="openExtBreakModal()">+ Register Extra Break</button>` : ''}
+</div>
+
+${noAccessMsg}
+
+${viewUsers.length === 0 && !noAccessMsg ? `<div class="empty"><div class="empty-ico">👥</div>No female staff on Shift ${currentShift} this week.</div>` : ''}
+
+${userCards}
+
+<div class="card" style="background:var(--bg3);border-color:var(--border2);">
+  <div class="card-title">Rules</div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+    ✦ Only female staff are eligible for the extra 30-min break.<br>
+    ✦ Maximum <b style="color:var(--accent);">3 registrations per calendar month</b>.<br>
+    ✦ The extra 30 min is taken immediately <b>before</b> or <b>after</b> your assigned main break window.<br>
+    ✦ You must have a main break assigned on that day before registering.<br>
+    ✦ Registration can be cancelled at any time before the break occurs.
+  </div>
+</div>`;
+}
+
+// ── ExtBreak Modal ──
+function openExtBreakModal() {
+  if (currentUser.gender !== 'F') { toast('Only female staff can register.', 'err'); return; }
+  const mk      = currentMonthKey();
+  const used    = DB.countExtBreaks(currentUser.id, mk);
+  if (used >= 3) { toast('You have used all 3 registrations this month.', 'err'); return; }
+
+  // Days where user is on shift and has a break assigned
+  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const weekDates = getWeekDates();
+  const eligibleDays = [];
+  allDates.forEach(dk => {
+    if (monthKeyFromDate(dk) !== mk) return;  // only this month
+    const shiftVal = currentUser.schedule[dk];
+    if (shiftVal !== currentShift) return;
+    const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, getWkDay(dk));
+    if (br) eligibleDays.push({ dk, slot: br.slot });
+  });
+  // Fallback to week day-names
+  if (eligibleDays.length === 0) {
+    weekDates.forEach((dk, i) => {
+      const dn = WEEK_DAYS[i];
+      if (currentUser.schedule[dn] !== currentShift) return;
+      const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, dn);
+      if (br) eligibleDays.push({ dk, slot: br.slot });
+    });
+  }
+
+  const daySelect = document.getElementById('eb-day');
+  daySelect.innerHTML = eligibleDays.length > 0
+    ? eligibleDays.map(({ dk, slot }) => `<option value="${dk}" data-slot="${slot}">${dk} ${getWkDay(dk)} — ${slot}</option>`).join('')
+    : `<option value="">No days with assigned break found</option>`;
+
+  _updateEbDayChange();
+
+  const quota = document.getElementById('eb-quota-info');
+  quota.innerHTML = `<span style="color:${used>=2?'var(--warn)':'var(--ok)'};">
+    ${3 - used} registration${3-used!==1?'s':''} remaining this month (${used}/3 used)</span>`;
+
+  document.getElementById('eb-submit-btn').disabled = eligibleDays.length === 0;
+  document.getElementById('modal-extbreak').classList.add('show');
+}
+
+function _updateEbDayChange() {
+  const sel    = document.getElementById('eb-day');
+  const chosen = sel.options[sel.selectedIndex];
+  const slot   = chosen?.dataset?.slot || '';
+  document.getElementById('eb-main-slot').value = slot || '—';
+  document.getElementById('eb-preview').style.display = 'none';
+  // Reset radio
+  document.getElementById('eb-before').checked = false;
+  document.getElementById('eb-after').checked  = false;
+}
+
+function _updateEbPreview() {
+  const sel    = document.getElementById('eb-day');
+  const chosen = sel.options[sel.selectedIndex];
+  const slot   = chosen?.dataset?.slot || '';
+  if (!slot) return;
+
+  const pos    = document.querySelector('input[name="eb-pos"]:checked')?.value;
+  if (!pos) return;
+
+  // Parse slot times like "09:30–11:00"
+  const parts = slot.split('–');
+  if (parts.length !== 2) return;
+  const [start, end] = parts.map(t => t.trim());
+
+  function addMins(timeStr, mins) {
+    const [h, m] = timeStr.split(':').map(Number);
+    const total  = h * 60 + m + mins;
+    const nh     = Math.floor(total / 60) % 24;
+    const nm     = total % 60;
+    return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  }
+  function subMins(timeStr, mins) { return addMins(timeStr, -mins); }
+
+  let extraLabel;
+  if (pos === 'before') extraLabel = `${subMins(start, 30)}–${start}`;
+  else                  extraLabel = `${end}–${addMins(end, 30)}`;
+
+  const preview = document.getElementById('eb-preview');
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    <span style="color:var(--text3);font-size:10px;">MAIN BREAK</span>
+    <span style="color:var(--accent);margin-left:8px;">${slot}</span>
+    &nbsp;+&nbsp;
+    <span style="color:var(--text3);font-size:10px;">EXTRA 30 MIN</span>
+    <span style="color:var(--A-color);margin-left:8px;">${extraLabel}</span>
+    &nbsp;=&nbsp;
+    <span style="color:var(--ok);">Total: 90 min window</span>`;
+}
+
+function submitExtBreak() {
+  const sel    = document.getElementById('eb-day');
+  const chosen = sel.options[sel.selectedIndex];
+  const day    = sel.value;
+  const slot   = chosen?.dataset?.slot || '';
+  const pos    = document.querySelector('input[name="eb-pos"]:checked')?.value;
+
+  if (!day)  { toast('Choose a day first.', 'err'); return; }
+  if (!pos)  { toast('Choose Before or After.', 'err'); return; }
+  if (!slot) { toast('No main break found on that day.', 'err'); return; }
+
+  const mk   = currentMonthKey();
+  const used = DB.countExtBreaks(currentUser.id, mk);
+  if (used >= 3) { toast('Monthly quota reached (3/3).', 'err'); return; }
+
+  // Compute time label
+  const parts = slot.split('–');
+  const [start, end] = parts.map(t => t.trim());
+  function addMins(t, m) {
+    const [h, mi] = t.split(':').map(Number);
+    const tot = h*60+mi+m;
+    return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;
+  }
+  const time = pos === 'before'
+    ? `${addMins(start,-30)}–${start}`
+    : `${end}–${addMins(end, 30)}`;
+
+  DB.addExtBreak(currentUser.id, mk, { day, time, position: pos, at: Date.now() });
+  closeModal('modal-extbreak');
+  toast('Extra 30-min break registered! 🌸', 'ok');
+  nav('extbreak');
+}
+
+function deleteExtBreak(uid, mk, idx) {
+  if (!confirm('Cancel this extra break registration?')) return;
+  DB.deleteExtBreak(uid, mk, idx);
+  toast('Registration cancelled.', 'warn');
+  nav('extbreak');
+}
+
+
 
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
