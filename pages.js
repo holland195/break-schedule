@@ -520,113 +520,212 @@ function autofillWeek() {
 }
 
 // ═══════════════════════════════════════════════
-//  RENDER: STAFF DIRECTORY
-//  Fix: instant filter (oninput), no Apply button,
-//       horizontal + vertical scroll on table
+//  RENDER: STAFF — 2 sub-tabs
+//  Tab 1: Staff Info (from Excel import)
+//  Tab 2: Staff Schedule (shift grid, no gender col)
 // ═══════════════════════════════════════════════
 function renderStaff() {
-  if (!state.users || state.users.length === 0) return '<div class="empty">No staff data.</div>';
+  return `
+<div class="page-header">
+  <div><div class="page-title">Staff</div></div>
+</div>
+<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
+  <button onclick="staffSubTab='info';nav('staff')"
+    style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
+      background:none;color:${staffSubTab==='info'?'var(--accent)':'var(--text2)'};
+      border-bottom:3px solid ${staffSubTab==='info'?'var(--accent)':'transparent'};
+      margin-bottom:-2px;transition:all .12s;">
+    👤 Staff Info
+  </button>
+  <button onclick="staffSubTab='schedule';nav('staff')"
+    style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
+      background:none;color:${staffSubTab==='schedule'?'var(--accent)':'var(--text2)'};
+      border-bottom:3px solid ${staffSubTab==='schedule'?'var(--accent)':'transparent'};
+      margin-bottom:-2px;transition:all .12s;">
+    📅 Staff Schedule
+  </button>
+</div>
+<div id="staff-subtab-content">
+  ${staffSubTab === 'info' ? _renderStaffInfo() : _renderStaffSchedule()}
+</div>`;
+}
 
-  const allDates         = Object.keys(state.users[0].schedule || {});
-  const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon');
+// ── Sub-tab 1: Staff Info ──
+function _renderStaffInfo() {
+  const all = Object.entries(state.staffInfo || {})
+    .map(([username, d]) => ({ username, ...d }))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+  const infoFilter = staffFilters._info || '';
+
+  const filtered = all.filter(u =>
+    !infoFilter ||
+    (u.name||'').toLowerCase().includes(infoFilter.toLowerCase()) ||
+    (u.username||'').toLowerCase().includes(infoFilter.toLowerCase()) ||
+    (u.empNo||'').toLowerCase().includes(infoFilter.toLowerCase()) ||
+    (u.role||'').toLowerCase().includes(infoFilter.toLowerCase())
+  );
+
+  const rows = filtered.map(u => {
+    const g = u.gender === 'F'
+      ? `<span style="color:var(--A-color);font-weight:700;">♀ Female</span>`
+      : `<span style="color:var(--B-color);font-weight:700;">♂ Male</span>`;
+    return `<tr>
+      <td class="mono" style="font-size:11px;color:var(--text3);">${u.empNo||'—'}</td>
+      <td style="font-weight:600;">${u.name||'—'}</td>
+      <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
+      <td>${g}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${u.dob||'—'}</td>
+      <td style="font-size:11px;color:var(--text2);">${u.role||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+  <input class="filter-input" style="width:260px;" placeholder="Search name, username, emp#, role…"
+    value="${infoFilter}" oninput="staffFilters._info=this.value; document.getElementById('staff-info-tbody').innerHTML=_renderStaffInfoRows(this.value)">
+  <span style="font-size:11px;color:var(--text3);">${filtered.length} records</span>
+  ${isLeader(currentUser) ? `
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;">
+      <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="font-size:11px;max-width:200px;">
+    </label>
+    <button class="btn btn-accent btn-sm" onclick="importExcelStaffInfo()">Import Excel</button>
+    <div id="excel-import-status" style="font-size:11px;min-width:160px;"></div>
+  </div>` : ''}
+</div>
+<div class="staff-tbl-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>EMP#</th><th>FULL NAME</th><th>USERNAME</th><th>GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th>
+      </tr>
+    </thead>
+    <tbody id="staff-info-tbody">${rows}</tbody>
+  </table>
+</div>`;
+}
+
+function _renderStaffInfoRows(filter) {
+  const all = Object.entries(state.staffInfo || {})
+    .map(([username, d]) => ({ username, ...d }))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  const f = (filter||'').toLowerCase();
+  return all.filter(u =>
+    !f ||
+    (u.name||'').toLowerCase().includes(f) ||
+    (u.username||'').toLowerCase().includes(f) ||
+    (u.empNo||'').toLowerCase().includes(f) ||
+    (u.role||'').toLowerCase().includes(f)
+  ).map(u => {
+    const g = u.gender==='F'
+      ? `<span style="color:var(--A-color);font-weight:700;">♀ Female</span>`
+      : `<span style="color:var(--B-color);font-weight:700;">♂ Male</span>`;
+    return `<tr>
+      <td class="mono" style="font-size:11px;color:var(--text3);">${u.empNo||'—'}</td>
+      <td style="font-weight:600;">${u.name||'—'}</td>
+      <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
+      <td>${g}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${u.dob||'—'}</td>
+      <td style="font-size:11px;color:var(--text2);">${u.role||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Sub-tab 2: Staff Schedule ──
+function _renderStaffSchedule() {
+  if (!state.users || state.users.length === 0) return '<div class="empty">No staff data. Import a schedule first.</div>';
+  const allDates         = Object.keys(state.users.find(u=>Object.keys(u.schedule).some(k=>/\d{2}\/\d{2}/.test(k)))?.schedule || state.users[0]?.schedule || {});
+  const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
   const weekRange        = getWeekRange(activeMonday);
   const displayDates     = showFullMonth ? allDates : weekRange;
 
   const filteredUsers = state.users.filter(u =>
-    u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.gender || '').toLowerCase().includes((staffFilters.gender||'').toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
+    (u.team||'').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+    (u.name||'').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.username||'').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+    (u.role||'').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
 
   return `
-<div class="page-header">
-  <div>
-    <div class="page-title">Staff Directory</div>
-    <div class="page-sub">Week: ${activeMonday} · ${filteredUsers.length} staff shown</div>
-  </div>
-  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-    <label style="font-size:11px; opacity:0.7">Jump to Week:</label>
-    <select class="login-select" style="width:130px; padding:4px;" onchange="activeMonday=this.value; nav('staff')">
-      ${availableMondays.map(m => `<option value="${m}" ${m===activeMonday?'selected':''}>Week ${m}</option>`).join('')}
-    </select>
-    <button class="toggle-btn ${showFullMonth?'active':''}" onclick="showFullMonth=!showFullMonth; nav('staff')">
-      ${showFullMonth ? '📂 Hide Others' : '📂 Show Full Month'}
-    </button>
-  </div>
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+  <label style="font-size:11px;opacity:.7;">Week:</label>
+  <select class="login-select" style="width:130px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
+    ${availableMondays.map(m=>`<option value="${m}" ${m===activeMonday?'selected':''}>Week ${m}</option>`).join('')}
+  </select>
+  <button class="toggle-btn ${showFullMonth?'active':''}" onclick="showFullMonth=!showFullMonth;nav('staff')">
+    ${showFullMonth?'📂 Week only':'📂 Full month'}
+  </button>
+  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
 </div>
+
+${isLeader(currentUser) ? `
+<div class="card" style="margin-bottom:16px;padding:14px 16px;">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;">Import Schedule (Paste from Sheets)</div>
+  <textarea id="paste-area" style="width:100%;min-height:80px;font-family:monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;resize:vertical;" placeholder="Copy from Google Sheets and paste here (tab-separated)…"></textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+    <button class="btn btn-accent btn-sm" onclick="importFromPaste()">Parse</button>
+    <div id="paste-status" style="font-size:11px;flex:1;"></div>
+  </div>
+  <div id="sched-preview-section" style="display:none;margin-top:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:12px;">Preview: <b id="sched-preview-count">0</b> staff</span>
+      <button class="btn btn-ok btn-sm" onclick="confirmScheduleImport()">✓ Confirm & Apply</button>
+    </div>
+    <div id="sched-preview-list" style="max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
+  </div>
+</div>` : ''}
 
 <div class="staff-tbl-wrap">
   <table>
     <thead>
       <tr class="filter-row">
-        <td><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}"   oninput="staffFilters.team=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}"   oninput="staffFilters.name=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Gender…" value="${staffFilters.gender||''}" oninput="staffFilters.gender=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="User…"   value="${staffFilters.user}"   oninput="staffFilters.user=this.value; _liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}"   oninput="staffFilters.role=this.value; _liveFilter()"></td>
-        <td colspan="${displayDates.length}" style="padding-left:12px; color:var(--text3); font-size:10px; font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
+        <td><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
+        <td><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
+        <td><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
+        <td><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
+        <td colspan="${displayDates.length}" style="padding-left:12px;color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
       </tr>
       <tr>
-        <th>GROUP</th><th>FULL NAME</th><th>GENDER</th><th>USER</th><th>POSITION</th>
-        ${displayDates.map(d => `
-          <th class="c" style="min-width:42px; padding:6px 2px;">
-            <div style="color:var(--accent); font-size:11px;">${d}</div>
-            <div style="font-size:8px; font-weight:400; opacity:0.5; margin-top:2px;">${getWkDay(d)}</div>
-          </th>`).join('')}
+        <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
+        ${displayDates.map(d=>`<th class="c" style="min-width:42px;padding:6px 2px;">
+          <div style="color:var(--accent);font-size:11px;">${d}</div>
+          <div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">${getWkDay(d)}</div>
+        </th>`).join('')}
       </tr>
     </thead>
-    <tbody id="staff-tbody">
-      ${renderStaffRows(filteredUsers, displayDates)}
-    </tbody>
+    <tbody id="staff-tbody">${renderStaffRows(filteredUsers, displayDates)}</tbody>
   </table>
-</div>
-
-<div id="staff-import-panel"></div>`;
+</div>`;
 }
 
 function renderStaffRows(users, displayDates) {
-  return users.map(u => {
-    const g = u.gender === 'F' ? `<span style="color:var(--A-color);font-weight:700;">♀ F</span>`
-            : u.gender === 'M' ? `<span style="color:var(--B-color);font-weight:700;">♂ M</span>`
-            : `<span style="color:var(--text3);">—</span>`;
-    return `<tr>
-      <td class="mono" style="font-size:11px;">${u.team}</td>
-      <td style="font-weight:600">${u.name}</td>
-      <td style="text-align:center;font-size:12px;">${g}</td>
-      <td class="mono" style="color:var(--accent);font-size:11px;">${u.username||''}</td>
-      <td style="font-size:11px;color:var(--text2)">${u.role}</td>
-      ${displayDates.map(d => {
-        const s = u.schedule[d] || '0';
-        return `<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;
-      }).join('')}
-    </tr>`;
-  }).join('');
+  return users.map(u => `<tr>
+    <td class="mono" style="font-size:11px;">${u.team||'—'}</td>
+    <td style="font-weight:600">${u.name}</td>
+    <td class="mono" style="color:var(--accent);font-size:11px;">${u.username||''}</td>
+    <td style="font-size:11px;color:var(--text2)">${u.role}</td>
+    ${displayDates.map(d=>{const s=u.schedule[d]||'0';return`<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;}).join('')}
+  </tr>`).join('');
 }
 
-// Live filter — updates only tbody to avoid losing focus
 function _liveFilter() {
-  // Recalculate displayDates
-  const allDates     = Object.keys(state.users[0]?.schedule || {});
+  const allDates     = Object.keys(state.users[0]?.schedule||{});
   const weekRange    = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
-
-  const filtered = state.users.filter(u =>
-    u.team.toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    u.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.gender || '').toLowerCase().includes((staffFilters.gender||'').toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    u.role.toLowerCase().includes(staffFilters.role.toLowerCase())
+  const filtered     = state.users.filter(u =>
+    (u.team||'').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+    (u.name||'').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.username||'').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+    (u.role||'').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
-
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
-
-  // Update sub-title count
-  const sub = document.querySelector('.page-sub');
-  if (sub) sub.textContent = `Week: ${activeMonday} · ${filtered.length} staff shown`;
+  const sub = document.querySelector('#staff-subtab-content .page-sub');
+  if (sub) sub.textContent = `${filtered.length} staff`;
 }
+
+// (renderStaffRows and _liveFilter defined above in renderStaff block)
 
 // ═══════════════════════════════════════════════
 //  MODALS: ASSIGN & REQUEST

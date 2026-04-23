@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <!-- SheetJS for Excel import -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -14,73 +16,46 @@
 <div id="screen-login" class="screen active">
   <div class="login-card">
     <div class="login-logo">BREAK//SCHED</div>
-    <div class="login-sub">Shift Break Manager v2.0</div>
+    <div class="login-sub">Shift Break Manager v3.0</div>
 
-    <div id="login-mode-tabs" style="display:flex;gap:6px;margin-bottom:20px">
-      <button class="btn" id="tab-login-btn"  onclick="setLoginMode('login')"  style="flex:1">Sign in</button>
-      <button class="btn" id="tab-import-btn" onclick="setLoginMode('import')" style="flex:1.2">Sheets Link</button>
-      <button class="btn btn-accent" id="tab-paste-btn" onclick="setLoginMode('paste')" style="flex:1.2">Direct Paste</button>
-    </div>
+    <label class="login-label">Username</label>
+    <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
+    <datalist id="user-list"></datalist>
 
-    <!-- Sign-in form -->
-    <div id="login-form">
-      <label class="login-label">Username</label>
-      <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
-      <datalist id="user-list"></datalist>
-      <label class="login-label">Password</label>
-      <input class="login-input" id="li-pass" type="password" placeholder="••••••">
-      <label class="login-label" style="margin-top:12px">Your current shift</label>
-      <select class="login-select" id="li-shift">
-        <option value="">— Select shift —</option>
-        <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
-        <option value="B">Shift B — 7:00 PM → 4:00 AM</option>
-        <option value="C">Shift C — 9:00 PM → 6:00 AM</option>
-        <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
-        <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
-      </select>
-      <div class="login-actions">
-        <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
-        <div class="login-divider">or</div>
-        <button class="btn btn-err"    onclick="factoryReset()"      style="width:100%; margin-bottom:10px;">⚠ Clear All Data (Reset)</button>
-        <button class="btn"            onclick="demoLogin('leader')"  style="width:100%">Demo as Leader (AT1)</button>
-        <button class="btn"            onclick="demoLogin('agent')"   style="width:100%">Demo as Agent</button>
+    <label class="login-label">Password</label>
+    <input class="login-input" id="li-pass" type="password" placeholder="••••••">
+
+    <label class="login-label" style="margin-top:12px">Your current shift</label>
+    <select class="login-select" id="li-shift">
+      <option value="">— Select shift —</option>
+      <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
+      <option value="B">Shift B — 7:00 PM → 4:00 AM</option>
+      <option value="C">Shift C — 9:00 PM → 6:00 AM</option>
+      <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
+      <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
+    </select>
+
+    <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0;color:var(--text3);font-size:11px;">
+        <div style="flex:1;height:1px;background:var(--border)"></div>or<div style="flex:1;height:1px;background:var(--border)"></div>
       </div>
+      <button class="btn btn-err" onclick="factoryReset()" style="width:100%;">⚠ Clear All Data (Reset)</button>
     </div>
 
-    <!-- Sheets link form -->
-    <div id="import-form" style="display:none">
-      <label class="login-label">Google Sheet ID</label>
-      <div class="import-row">
-        <input class="login-input" id="sheet-id" placeholder="19YqrS2ls7..." value="19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs">
-        <button class="btn btn-accent" onclick="importSheet()">Import</button>
-      </div>
+    <!-- Theme toggle on login -->
+    <div style="margin-top:20px;text-align:center;">
+      <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn">
+        ☀ Light theme
+      </button>
     </div>
 
-    <!-- Direct paste form -->
-    <div id="paste-form" style="display:none">
-      <label class="login-label">Paste from Google Sheets</label>
-      <textarea id="paste-area" class="login-input"
-        style="min-height:120px; font-family:monospace; font-size:10px; margin-bottom:12px;"
-        placeholder="Copy cells in Sheets (including headers) and paste here..."></textarea>
-      <button class="btn btn-accent" onclick="importFromPaste()" style="width:100%">Parse Paste Data →</button>
-      <div id="paste-status" style="margin-top:10px; font-size:12px; min-height:18px"></div>
-    </div>
-
-    <div id="import-status" style="margin-top:12px; font-size:12px; min-height:18px"></div>
-    <div id="login-err" style="font-size:12px;color:var(--err);margin-top:12px;min-height:18px;text-align:center"></div>
-  </div>
-
-  <!-- Import data preview panel -->
-  <div id="import-preview">
-    <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:14px; font-weight:600;">Data Preview (<span id="preview-count">0</span> staff)</div>
-      <button class="btn btn-accent btn-sm" onclick="confirmImport()">Confirm & Use Data →</button>
-    </div>
-    <div id="preview-list" style="flex:1; overflow:auto;"></div>
+    <div id="import-status" style="margin-top:12px;font-size:12px;min-height:18px;"></div>
+    <div id="login-err"    style="font-size:12px;color:var(--err);margin-top:8px;min-height:18px;text-align:center;"></div>
   </div>
 </div>
 
-<!-- ─── MAIN APP SCREEN ──────────────────────────────────── -->
+<!-- ─── MAIN APP ──────────────────────────────────────────── -->
 <div id="screen-app" class="screen">
   <div class="topbar">
     <div class="topbar-brand">BREAK//SCHED</div>
@@ -89,7 +64,10 @@
         <div class="user-avatar" id="top-avatar">?</div>
         <span id="top-name">—</span>
         <span class="role-tag" id="top-role-tag">—</span>
+        <span id="top-gender" style="font-size:14px;margin-left:2px;"></span>
       </div>
+      <!-- Theme toggle -->
+      <button class="theme-toggle" onclick="toggleTheme();updateAppThemeBtn()" id="theme-toggle-btn">☀ Light</button>
       <button class="btn btn-sm" onclick="logout()">Sign out</button>
     </div>
   </div>
@@ -118,58 +96,35 @@
         </select>
       </div>
     </nav>
-
-    <main class="content" id="main-content">
-      <!-- dynamic content rendered by JS -->
-    </main>
+    <main class="content" id="main-content"></main>
   </div>
 </div>
 
-<!-- ─── MODALS ───────────────────────────────────────────── -->
+<!-- ─── MODAL: REQUEST ────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-request">
   <div class="modal" style="width:540px;">
     <div class="modal-title">🔄 Request Break Swap</div>
-    <p style="font-size:12px; color:var(--text2); margin-bottom:16px; line-height:1.6;">
-      Choose a day and a colleague on the same shift &amp; role group who you want to swap breaks with.
-      A leader must approve the swap before slots are exchanged.
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+      Choose a day and a colleague on the same shift &amp; same role to swap breaks with.
+      A leader must approve before slots are exchanged.
     </p>
-
-    <!-- Step 1: Day -->
-    <div class="fg">
-      <label>① Select Day</label>
-      <select id="req-day" onchange="_updateReqDay()">
-        <option value="">— loading... —</option>
-      </select>
+    <div class="fg"><label>① Select Day</label>
+      <select id="req-day" onchange="_updateReqDay()"><option value="">— loading… —</option></select>
     </div>
-
-    <!-- Step 2: My current slot (auto-filled) -->
-    <div class="fg">
-      <label>Your current break slot on that day</label>
-      <input id="req-cur" readonly style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--accent);">
+    <div class="fg"><label>Your current break on that day</label>
+      <input id="req-cur" readonly style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
     </div>
-
-    <!-- Step 3: Partner -->
-    <div class="fg">
-      <label>② Swap partner (same shift · same role group · different slot)</label>
-      <select id="req-partner" onchange="_updateReqSlot()">
-        <option value="">— choose day first —</option>
-      </select>
+    <div class="fg"><label>② Swap partner (same shift · same exact role · different slot)</label>
+      <select id="req-partner" onchange="_updateReqSlot()"><option value="">— choose day first —</option></select>
     </div>
-
-    <!-- Step 4: Their slot (auto-filled) -->
-    <div class="fg">
-      <label>You will receive their slot</label>
-      <select id="req-new" style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--warn);">
+    <div class="fg"><label>You will receive their slot</label>
+      <select id="req-new" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warn);">
         <option value="">— pick partner first —</option>
       </select>
     </div>
-
-    <!-- Reason -->
-    <div class="fg">
-      <label>③ Reason</label>
+    <div class="fg"><label>③ Reason</label>
       <textarea id="req-reason" placeholder="Please explain why you need to swap…"></textarea>
     </div>
-
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-request')">Cancel</button>
       <button class="btn btn-warn" onclick="submitRequest()">Submit swap request</button>
@@ -177,58 +132,48 @@
   </div>
 </div>
 
+<!-- ─── MODAL: ASSIGN ─────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-assign">
   <div class="modal">
     <div class="modal-title" id="assign-title">Assign Break</div>
     <div class="fg"><label>Break slot</label><select id="assign-slot"></select></div>
     <div class="fg"><label>Note (optional)</label>
-      <textarea id="assign-note" placeholder="Any notes for this assignment..."></textarea>
+      <textarea id="assign-note" placeholder="Any notes for this assignment…"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn"          onclick="closeModal('modal-assign')">Cancel</button>
+      <button class="btn"           onclick="closeModal('modal-assign')">Cancel</button>
       <button class="btn btn-accent" onclick="confirmAssign()">Assign →</button>
     </div>
   </div>
 </div>
 
+<!-- ─── MODAL: EXTBREAK ───────────────────────────────────── -->
 <div class="modal-overlay" id="modal-extbreak">
   <div class="modal" style="width:480px;">
     <div class="modal-title">🌸 Register Extra 30-min Break</div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
       Female staff may register up to <b style="color:var(--accent);">3 times per month</b>.
-      The extra 30 min is added immediately before or after your assigned main break slot on that day.
+      The extra 30 min is added immediately before or after your main break slot.
     </p>
-    <div class="fg">
-      <label>Day</label>
-      <select id="eb-day" onchange="_updateEbDayChange()">
-        <option value="">— choose day —</option>
-      </select>
+    <div class="fg"><label>Day</label>
+      <select id="eb-day" onchange="_updateEbDayChange()"><option value="">— choose day —</option></select>
     </div>
-    <div class="fg">
-      <label>Your main break on that day</label>
+    <div class="fg"><label>Your main break on that day</label>
       <input id="eb-main-slot" readonly style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
     </div>
-    <div class="fg">
-      <label>Extra 30-min position</label>
+    <div class="fg"><label>Extra 30-min position</label>
       <div style="display:flex;gap:8px;margin-top:4px;">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;
-          background:var(--bg3);border:1px solid var(--border);padding:7px 14px;border-radius:6px;flex:1;"
-          id="eb-lbl-before">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:7px 14px;border-radius:6px;flex:1;" id="eb-lbl-before">
           <input type="radio" name="eb-pos" value="before" id="eb-before" onchange="_updateEbPreview()">
           <span>Before break</span>
         </label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;
-          background:var(--bg3);border:1px solid var(--border);padding:7px 14px;border-radius:6px;flex:1;"
-          id="eb-lbl-after">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:7px 14px;border-radius:6px;flex:1;" id="eb-lbl-after">
           <input type="radio" name="eb-pos" value="after" id="eb-after" onchange="_updateEbPreview()">
           <span>After break</span>
         </label>
       </div>
     </div>
-    <div id="eb-preview" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;
-      padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);
-      min-height:38px;margin-bottom:12px;display:none;">
-    </div>
+    <div id="eb-preview" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);min-height:38px;margin-bottom:12px;display:none;"></div>
     <div id="eb-quota-info" style="font-size:11px;margin-bottom:12px;"></div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-extbreak')">Cancel</button>
@@ -240,23 +185,37 @@
 <!-- ─── TOAST ─────────────────────────────────────────────── -->
 <div class="msg-bar" id="toast"></div>
 
-<!-- ─── SCRIPTS (load order matters) ──────────────────────── -->
-<script src="data.js"></script>   <!-- constants, state, helpers -->
-<script src="auth.js"></script>   <!-- login, import -->
-<script src="pages.js"></script>  <!-- render functions -->
-<script src="nav.js"></script>    <!-- navigation -->
+<!-- ─── SCRIPTS ───────────────────────────────────────────── -->
+<script src="data.js"></script>
+<script src="auth.js"></script>
+<script src="pages.js"></script>
+<script src="nav.js"></script>
 
 <script>
-  // ── Init ──
-  // Close modals on overlay click
+  // Close modal on overlay click
   document.querySelectorAll('.modal-overlay').forEach(el => {
-    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+    el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
   });
-  // Enter key on password field
-  document.getElementById('li-pass').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-</script>
+  // Enter to login
+  document.getElementById('li-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
+  // Theme button labels
+  function updateLoginThemeBtn() {
+    const btn = document.getElementById('login-theme-btn');
+    if (btn) btn.textContent = currentTheme === 'dark' ? '☀ Light theme' : '☾ Dark theme';
+  }
+  function updateAppThemeBtn() {
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = currentTheme === 'dark' ? '☀ Light' : '☾ Dark';
+  }
+  // Init button labels
+  updateLoginThemeBtn();
+  updateAppThemeBtn();
+
+  // Restore session — if already logged in, skip login screen
+  if (!restoreSession()) {
+    document.getElementById('screen-login').classList.add('active');
+  }
+</script>
 </body>
 </html>
