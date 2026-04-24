@@ -526,6 +526,7 @@ function autofillWeek() {
 //  Tab 2: Staff Schedule (shift grid, no gender col)
 // ═══════════════════════════════════════════════
 function renderStaff() {
+  const list = STAFF_INFO_DB.filter(u => u.role !== 'admin');
   return `
 <div class="page-header">
   <div><div class="page-title">Staff</div></div>

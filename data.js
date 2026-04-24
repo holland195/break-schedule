@@ -22,6 +22,16 @@ const STAFF_INFO_DB = [{"id": 5000, "empNo": "AGM0003", "name": "Phạm Minh Cư
 //   { id:2005, username:'hoa.nguyen',      name:'Nguyễn Đức Hòa',                 gender:'M', team:'S5', role:'Agent Supervisor',password:'1234', schedule:{Mon:'E',Tue:'E',Wed:'E',Thu:'E',Fri:'E',Sat:'0',Sun:'0'} },
 // ];
 
+const DEFAULT_ADMIN = {
+  username: 'admin',
+  name: 'System Admin',
+  role: 'admin',
+  team: 'SYSTEM',
+
+  password: '1234',
+  mustChangePw: true
+};
+
 const SHIFTS = {
   A:{label:'Shift A',start:'15:00',end:'00:00',display:'3:00 PM → 12:00 AM',color:'var(--A-color)',bg:'var(--A-bg)'},
   B:{label:'Shift B',start:'19:00',end:'04:00',display:'7:00 PM → 4:00 AM', color:'var(--B-color)',bg:'var(--B-bg)'},
@@ -206,6 +216,7 @@ function parseCSVLine(line) {
   }
   r.push(c); return r;
 }
+
 function renderPage(p){nav(p);}
 buildDatalist();
 
@@ -272,6 +283,7 @@ function importStaffFromExcel(file) {
       }
     });
 
+    ensureSystemAdmin();
     DB.save();
 
     toast('Staff imported successfully','ok');
@@ -321,5 +333,37 @@ function normalizeStaffPasswords() {
   });
 }
 
+function ensureSystemAdmin() {
+  const existing = STAFF_INFO_DB.find(u => u.username === DEFAULT_ADMIN.username);
+
+  if (!existing) {
+    // Add admin if missing
+    STAFF_INFO_DB.push({ ...DEFAULT_ADMIN });
+    return;
+  }
+
+  // 🔐 Enforce policy even if admin already exists
+  if (!existing.password) {
+    existing.password = '1234';
+  }
+
+  if (existing.password === '1234') {
+    existing.mustChangePw = true;
+  }
+
+  if (typeof existing.mustChangePw !== 'boolean') {
+    existing.mustChangePw = true;
+  }
+}
+
+function isSystemAdmin(username) {
+  return username === 'admin';
+}
+
+if (isSystemAdmin(user.username)) {
+  toast('Cannot delete system admin','err');
+  return;
+}
 // CALL THIS ON INIT
 normalizeStaffPasswords();
+ensureSystemAdmin();
