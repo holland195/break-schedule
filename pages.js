@@ -725,7 +725,90 @@ function _liveFilter() {
   if (sub) sub.textContent = `${filtered.length} staff`;
 }
 
-// (renderStaffRows and _liveFilter defined above in renderStaff block)
+// ═══════════════════════════════════════════════
+//  EXCEL IMPORT — Staff Info (SheetJS)
+// ═══════════════════════════════════════════════
+function importExcelStaffInfo() {
+  const fileInput = document.getElementById('excel-file-input');
+  const statusEl  = document.getElementById('excel-import-status');
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Please choose a file first.</span>';
+    return;
+  }
+  const file = fileInput.files[0];
+  statusEl.innerHTML = '<span style="color:var(--text2);">Reading file…</span>';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      if (typeof XLSX === 'undefined') {
+        statusEl.innerHTML = '<span style="color:var(--err);">SheetJS not loaded. Check internet connection.</span>';
+        return;
+      }
+      const wb   = XLSX.read(e.target.result, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) {
+        statusEl.innerHTML = '<span style="color:var(--err);">⚠ No rows found in sheet.</span>';
+        return;
+      }
+
+      // Detect column names flexibly (first row keys)
+      const firstRow = rows[0];
+      const keys     = Object.keys(firstRow);
+
+      // Helper: find key containing substring (case-insensitive)
+      function col(sub) {
+        return keys.find(k => k.toLowerCase().replace(/\s+/g,'').replace(/\n/g,'').includes(sub.toLowerCase())) || null;
+      }
+
+      const nameCol   = col('name');
+      const userCol   = col('username');
+      const genderCol = col('gender');
+      const dobCol    = col('birth') || col('dob');
+      const posCol    = col('position') || col('role');
+      const empCol    = col('employee') || col('empno') || col('number');
+
+      if (!nameCol || !userCol) {
+        statusEl.innerHTML = `<span style="color:var(--err);">⚠ Could not find Name/Username columns. Found: ${keys.slice(0,6).join(', ')}</span>`;
+        return;
+      }
+
+      let count = 0;
+      rows.forEach(row => {
+        const username = String(row[userCol] || '').trim();
+        const name     = String(row[nameCol]  || '').trim();
+        if (!username || !name) return;
+
+        const gRaw  = String(row[genderCol] || '').trim().toLowerCase();
+        const gender = gRaw.includes('female') || gRaw === 'f' ? 'F'
+                     : gRaw.includes('male')   || gRaw === 'm' ? 'M' : '';
+
+        const dob  = String(row[dobCol]  || '').trim();
+        const role = String(row[posCol]  || '').trim();
+        const empNo= String(row[empCol]  || '').trim();
+
+        DB.setStaffInfo(username, { empNo, name, gender, dob, role });
+
+        // Also patch gender onto matching user in schedule DB (for extbreak eligibility)
+        const schedUser = state.users.find(u => u.username === username);
+        if (schedUser && gender) { schedUser.gender = gender; }
+
+        count++;
+      });
+      save();
+      buildDatalist();
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ Imported ${count} records.</span>`;
+      // Refresh table
+      const tbody = document.getElementById('staff-info-tbody');
+      if (tbody) tbody.innerHTML = _renderStaffInfoRows('');
+    } catch (err) {
+      statusEl.innerHTML = `<span style="color:var(--err);">Parse error: ${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
 
 // ═══════════════════════════════════════════════
 //  MODALS: ASSIGN & REQUEST

@@ -12,6 +12,27 @@
 </head>
 <body>
 
+<!-- ─── CHANGE PASSWORD SCREEN ─────────────────────────────── -->
+<div id="screen-changepw" class="screen" style="display:none;align-items:center;justify-content:center;padding:40px;background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);">
+  <div class="login-card" style="max-width:420px;">
+    <div class="login-logo" style="font-size:18px;">🔐 Change Password</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.6;">
+      This is your first login. Please create a new password for
+      <b id="chpw-username" style="color:var(--accent)"></b>.
+      Your new password must be at least 6 characters.
+    </div>
+    <label class="login-label">New Password</label>
+    <input class="login-input" id="chpw-new" type="password" placeholder="at least 6 characters">
+    <label class="login-label" style="margin-top:12px;">Confirm Password</label>
+    <input class="login-input" id="chpw-confirm" type="password" placeholder="repeat new password">
+    <div id="chpw-err" style="font-size:12px;color:var(--err);min-height:18px;margin-top:8px;"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn" onclick="cancelChangePassword()" style="flex:1">← Back</button>
+      <button class="btn btn-accent" onclick="submitChangePassword()" style="flex:2">Set Password & Enter →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ─── LOGIN SCREEN ──────────────────────────────────────── -->
 <div id="screen-login" class="screen active">
   <div class="login-card">
@@ -68,6 +89,7 @@
       </div>
       <!-- Theme toggle -->
       <button class="theme-toggle" onclick="toggleTheme();updateAppThemeBtn()" id="theme-toggle-btn">☀ Light</button>
+      <span id="sync-badge" style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none;"></span>
       <button class="btn btn-sm" onclick="logout()">Sign out</button>
     </div>
   </div>
@@ -84,6 +106,7 @@
       <div class="nav-item"        onclick="nav('extbreak')"  data-page="extbreak"><span class="nav-ico">🌸</span> 30-min Break</div>
       <div class="nav-item leader-only" onclick="nav('arrange')" data-page="arrange"><span class="nav-ico">✏️</span> Arrange Breaks</div>
       <div class="nav-item leader-only" onclick="nav('staff')"   data-page="staff"><span class="nav-ico">👥</span> Staff</div>
+      <div class="nav-item admin-only"  onclick="nav('sync')"    data-page="sync"><span class="nav-ico">☁</span> Cloud Sync</div>
 
       <div class="sidebar-label" style="margin-top:8px">Shift</div>
       <div style="padding:0 12px">
@@ -187,6 +210,7 @@
 
 <!-- ─── SCRIPTS ───────────────────────────────────────────── -->
 <script src="data.js"></script>
+<script src="sync.js"></script>
 <script src="auth.js"></script>
 <script src="pages.js"></script>
 <script src="nav.js"></script>
