@@ -190,6 +190,7 @@ function renderRequests() {
         <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
       </div>
       <div class="req-body">
+      ${renderSwapPreview(r)}
         <span style="color:var(--text3)">Current slot:</span> <b>${r.current}</b> &nbsp;→&nbsp;
         <span style="color:var(--text3)">Requested:</span> <b style="color:var(--warn)">${r.requested}</b>
         ${partnerInfo}
@@ -839,45 +840,125 @@ function _updateReqPartners() {
 
 // When partner is chosen, show their slot as the "requested" slot
 function _updateReqSlot() {
-  const partnerSel = document.getElementById('req-partner');
-  const chosen     = partnerSel.options[partnerSel.selectedIndex];
-  const theirSlot  = chosen?.dataset?.slot || '';
+  const partnerId = +document.getElementById('req-partner').value;
+  if (!partnerId) return;
 
-  const reqNew = document.getElementById('req-new');
-  if (theirSlot) {
-    reqNew.innerHTML = `<option value="${theirSlot}" selected>${theirSlot}</option>`;
-  } else {
-    reqNew.innerHTML = `<option value="">— pick partner first —</option>`;
+  const type = document.querySelector('input[name="req-type"]:checked').value;
+  const sel  = document.getElementById('req-new');
+
+  if (type === 'day') {
+    const day = document.getElementById('req-day').value;
+    const br  = getAssigned(partnerId, day);
+
+    sel.innerHTML = br
+      ? `<option value="${br.slot}">${br.slot}</option>`
+      : `<option value="">No slot</option>`;
+    return;
   }
+
+  const days = _getCurrentWeekDates();
+
+  const slots = days.map(d => {
+    const br = getAssigned(partnerId, d);
+    return `${d}: ${br ? br.slot : '—'}`;
+  });
+
+  sel.innerHTML = `
+    <option value="week">
+      Full week swap:
+      ${slots.join(' | ')}
+    </option>
+  `;
 }
 
 function submitRequest() {
-  const day       = document.getElementById('req-day').value;
-  const requested = document.getElementById('req-new').value;
-  const reason    = document.getElementById('req-reason').value.trim();
-  const partnerSel    = document.getElementById('req-partner');
-  const partnerId     = partnerSel.value ? parseInt(partnerSel.value) : null;
-  const partnerSlot   = partnerSel.options[partnerSel.selectedIndex]?.dataset?.slot || '';
+  const type = document.querySelector('input[name="req-type"]:checked').value;
+  const partnerId = +document.getElementById('req-partner').value;
+  const reason = document.getElementById('req-reason').value.trim();
 
-  if (!day)       { toast('Select a day first.', 'err'); return; }
-  if (!partnerId) { toast('Select a swap partner.', 'err'); return; }
-  if (!requested) { toast('No swap slot available.', 'err'); return; }
+  if (!partnerId) return toast('Select partner','err');
 
-  const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  let days = [];
 
-  state.requests.unshift({
-    id: Date.now(), userId: currentUser.id, day,
-    current: myBr ? myBr.slot : 'Not assigned',
-    requested, reason,
+  if (type === 'day') {
+    const d = document.getElementById('req-day').value;
+    if (!d) return toast('Select a day','err');
+    days = [d];
+  } else {
+    days = _getCurrentWeekDates();
+  }
+
+  for (const d of days) {
+    const myBr = getAssigned(currentUser.id, d);
+    const theirBr = getAssigned(partnerId, d);
+
+    if (!myBr || !theirBr) return toast(`Invalid swap on ${d}`,'err');
+    if (myBr.slot === theirBr.slot) return toast(`Same slot on ${d}`,'err');
+  }
+
+  state.requests.push({
+    userId: currentUser.id,
     swapPartnerId: partnerId,
-    partnerSlot,
-    status: 'pending', at: Date.now(), respNote: '',
+    days,
+    type,
+    reason,
+    createdAt: Date.now(),
+    status: 'pending'
   });
-  save();
+
+  _commitAndSync();
+
   closeModal('modal-request');
-  toast('Swap request submitted!', 'warn');
-  updateBadge();
+  toast('Request submitted','ok');
   nav('requests');
+}
+
+function renderSwapPreview(r) {
+  const user = state.users.find(u => u.id === r.userId);
+  const partner = state.users.find(u => u.id === r.swapPartnerId);
+  if (!user || !partner) return '';
+
+  const days = r.days || [];
+
+  const rows = days.map(d => {
+    const uBr = getAssigned(user.id, d);
+    const pBr = getAssigned(partner.id, d);
+
+    const uSlot = uBr?.slot || '—';
+    const pSlot = pBr?.slot || '—';
+
+    const invalid = !uBr || !pBr || uSlot === pSlot;
+
+    return `
+      <tr style="${invalid ? 'background:rgba(255,0,0,0.08);' : ''}">
+        <td style="padding:4px 6px;font-size:10px;">${d}</td>
+        <td style="text-align:center;color:var(--accent)">${uSlot}</td>
+        <td style="text-align:center;">→</td>
+        <td style="text-align:center;color:var(--ok)">${pSlot}</td>
+
+        <td style="text-align:center;color:var(--B-color)">${pSlot}</td>
+        <td style="text-align:center;">→</td>
+        <td style="text-align:center;color:var(--ok)">${uSlot}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+  <details style="margin-top:10px;">
+    <summary style="cursor:pointer;font-size:11px;color:var(--accent);">
+      View swap impact (${r.type})
+    </summary>
+    <table style="width:100%;font-size:11px;margin-top:6px;">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th colspan="3">${user.name}</th>
+          <th colspan="3">${partner.name}</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </details>`;
 }
 
 function resolveRequest(idx, status) {
@@ -900,6 +981,52 @@ function resolveRequest(idx, status) {
   nav('requests');
 }
 
+function onReqTypeChange() {
+  const type = document.querySelector('input[name="req-type"]:checked').value;
+  const dayWrap = document.getElementById('req-day-wrapper');
+
+  if (type === 'week') {
+    dayWrap.style.display = 'none';
+    _updateReqWeek();
+  } else {
+    dayWrap.style.display = '';
+  }
+
+  document.getElementById('req-partner').innerHTML = '<option value="">— choose —</option>';
+  document.getElementById('req-new').innerHTML = '<option value="">— pick partner first —</option>';
+}
+
+function _getCurrentWeekDates() {
+  return getWeekDates();
+}
+
+function _updateReqWeek() {
+  const days = _getCurrentWeekDates();
+
+  const partners = state.users.filter(u => {
+    if (u.id === currentUser.id) return false;
+    if (u.role !== currentUser.role) return false;
+
+    return days.every(d => {
+      const myBr = getAssigned(currentUser.id, d);
+      const theirBr = getAssigned(u.id, d);
+      return myBr && theirBr && myBr.slot !== theirBr.slot;
+    });
+  });
+
+  const sel = document.getElementById('req-partner');
+
+  if (!partners.length) {
+    sel.innerHTML = '<option value="">No valid partner for full week</option>';
+    return;
+  }
+
+  sel.innerHTML = partners.map(p =>
+    `<option value="${p.id}">${p.name} (${p.team})</option>`
+  ).join('');
+
+  _updateReqSlot();
+}
 // ═══════════════════════════════════════════════
 //  RENDER: 30-MIN EXTRA BREAK (females only)
 //  All female staff can register; 3 times/month max

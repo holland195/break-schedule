@@ -207,3 +207,32 @@ function parseCSVLine(line) {
 }
 function renderPage(p){nav(p);}
 buildDatalist();
+
+// 1. override DB.save (global safety)
+const _originalSave = DB.save;
+
+DB.save = function() {
+  _originalSave.apply(DB, arguments);
+
+  try {
+    if (typeof syncEnabled === 'function' && syncEnabled()) {
+      syncPush();
+    }
+  } catch (e) {
+    console.warn('Sync push failed:', e);
+  }
+};
+
+let __isSyncing = false;
+
+function _commitAndSync() {
+  if (__isSyncing) return;
+  DB.save();
+}
+
+function syncPullWrapper() {
+  __isSyncing = true;
+  return syncPull().finally(() => {
+    __isSyncing = false;
+  });
+}

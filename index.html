@@ -108,9 +108,26 @@
       Choose a day and a colleague on the same shift &amp; same role to swap breaks with.
       A leader must approve before slots are exchanged.
     </p>
-    <div class="fg"><label>① Select Day</label>
-      <select id="req-day" onchange="_updateReqDay()"><option value="">— loading… —</option></select>
-    </div>
+    <div class="fg">
+  <label>① Swap type</label>
+  <div style="display:flex;gap:8px;margin-top:4px;">
+    <label class="btn" style="flex:1;display:flex;align-items:center;gap:6px;">
+      <input type="radio" name="req-type" value="day" checked onchange="onReqTypeChange()">
+      Single day
+    </label>
+    <label class="btn" style="flex:1;display:flex;align-items:center;gap:6px;">
+      <input type="radio" name="req-type" value="week" onchange="onReqTypeChange()">
+      Full week
+    </label>
+  </div>
+</div>
+
+<div class="fg" id="req-day-wrapper">
+  <label>② Select Day</label>
+  <select id="req-day" onchange="_updateReqDay()">
+    <option value="">— loading… —</option>
+  </select>
+</div>
     <div class="fg"><label>Your current break on that day</label>
       <input id="req-cur" readonly style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
     </div>
