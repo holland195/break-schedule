@@ -22,20 +22,66 @@ function autoDetectShift() {
   }
 }
 
-function doLogin() {
-  const u   = document.getElementById('li-user').value.trim();
-  const p   = document.getElementById('li-pass').value.trim();
-  const s   = document.getElementById('li-shift').value;
+async function doLogin() {
+  const u = document.getElementById('li-user').value.trim();
+  const p = document.getElementById('li-pass').value.trim();
+  const shift = document.getElementById('li-shift').value;
   const err = document.getElementById('login-err');
-  if (!u || !p) { err.textContent = 'Enter username and password.'; return; }
-  const user = state.users.find(x => x.username === u && x.password === p);
-  if (!user)  { err.textContent = 'Invalid credentials.'; return; }
-  if (user.role !== 'Admin' && !s) { err.textContent = 'Please select your current shift.'; return; }
-  currentUser  = user;
-  currentShift = s || 'E';
+
   err.textContent = '';
-  DB.saveSession({ userId: user.id, shift: currentShift });
-  enterApp(false);
+
+  if (!u || !p || !shift) {
+    err.textContent = 'Please fill all fields.';
+    return;
+  }
+
+  const staff = DB.getStaffInfo(u);
+
+  if (!staff) {
+    err.textContent = 'Username not found.';
+    return;
+  }
+
+  const expectedPw = staff.password || '1234';
+
+  if (p !== expectedPw) {
+    err.textContent = 'Invalid password.';
+    return;
+  }
+
+  currentUser = staff;
+  currentShift = shift;
+
+  await _afterLogin()
+  if (DB.mustChangePw(currentUser.username)) {
+  _showChangePwPrompt();
+  return;
+}
+}
+
+function submitChangePassword() {
+  const pw1 = document.getElementById('chpw-new').value;
+  const pw2 = document.getElementById('chpw-confirm').value;
+  const err = document.getElementById('chpw-err');
+
+  err.textContent = '';
+
+  if (pw1.length < 6) {
+    err.textContent = 'Password must be at least 6 characters.';
+    return;
+  }
+
+  if (pw1 !== pw2) {
+    err.textContent = 'Passwords do not match.';
+    return;
+  }
+
+  DB.setPassword(currentUser.username, pw1);
+
+  document.getElementById('screen-changepw').classList.remove('active');
+  document.getElementById('screen-app').classList.add('active');
+
+  nav('dashboard');
 }
 
 function enterApp(fromSession) {

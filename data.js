@@ -237,3 +237,89 @@ function syncPullWrapper() {
     __isSyncing = false;
   });
 }
+
+function importStaffFromExcel(file) {
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type: 'array' });
+
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    // Clear old data
+    STAFF_INFO_DB.length = 0;
+
+    rows.forEach(r => {
+      const user = {
+        username: (r.Username || '').trim(),
+        name: (r.Name || '').trim(),
+        gender: (r.Gender || '').trim(),
+        dob: r['Date of birth'] || '',
+        role: normalizeRole(r.Position),
+
+        // ❗ No team in Excel → set default
+        team: 'NA',
+
+        // 🔐 Enforced policy (ignore Excel values)
+        password: '1234',
+        mustChangePw: true
+      };
+
+      if (user.username) {
+        STAFF_INFO_DB.push(user);
+      }
+    });
+
+    DB.save();
+
+    toast('Staff imported successfully','ok');
+    console.log('STAFF_INFO_DB:', STAFF_INFO_DB);
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function normalizeRole(pos) {
+  if (!pos) return 'agent';
+
+  pos = pos.toLowerCase();
+
+  if (pos.includes('leader')) return 'leader';
+  if (pos.includes('supervisor')) return 'supervisor';
+  if (pos.includes('sr qa')) return 'sr_qa';
+  if (pos.includes('qa')) return 'qa';
+
+  return 'agent';
+}
+
+function parseMustChange(val) {
+  if (val === true) return true;
+
+  const v = String(val).toLowerCase();
+
+  return v === 'true' || v === '1' || v.includes('✔');
+}
+
+function normalizeStaffPasswords() {
+  STAFF_INFO_DB.forEach(u => {
+    // Force default password if missing
+    if (!u.password) {
+      u.password = '1234';
+    }
+
+    // Force first-time change
+    if (u.password === '1234') {
+      u.mustChangePw = true;
+    }
+
+    // Ensure flag exists
+    if (typeof u.mustChangePw !== 'boolean') {
+      u.mustChangePw = true;
+    }
+  });
+}
+
+// CALL THIS ON INIT
+normalizeStaffPasswords();
