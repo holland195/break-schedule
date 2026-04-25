@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════
 //  CONSTANTS & SEED DATA
 // ═══════════════════════════════════════════════
-const STORAGE  = 'bsched_v5';
+const STORAGE  = 'bsched_v6';
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const STAFF_INFO_DB = [
@@ -86,21 +86,24 @@ if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 // No more SEED_USERS — users come only from schedule import
 
+// Always ensure system admin exists with password '1234' and NO forced change
+// This runs on every page load — admin is always accessible after any reset
+state.staffInfo['admin'] = {
+  ...(state.staffInfo['admin'] || {}),
+  empNo: 'SYS0001', name: 'System Admin', gender: 'M', dob: '', role: 'Admin',
+  password: state.staffInfo['admin']?.password || '1234',
+  mustChangePassword: false,  // admin never forced to change
+};
+
 // Seed staffInfo from STAFF_INFO_DB on first load (password '1234', mustChangePassword:true)
-if (Object.keys(state.staffInfo).length === 0) {
+if (Object.keys(state.staffInfo).length <= 1) {  // only admin exists = first load
   STAFF_INFO_DB.forEach(r => {
+    if (r.username === 'admin') return; // skip — already set above
     state.staffInfo[r.username] = {
       empNo: r.empNo, dob: r.dob, gender: r.gender, name: r.name, role: r.role,
       password: '1234', mustChangePassword: true,
     };
   });
-}
-// Always ensure system admin exists (survives factory reset, cannot be removed)
-if (!state.staffInfo['admin']) {
-  state.staffInfo['admin'] = {
-    empNo: 'SYS0001', name: 'System Admin', gender: 'M', dob: '', role: 'Admin',
-    password: '1234', mustChangePassword: true,
-  };
 }
 save();
 

@@ -65,7 +65,9 @@ function doLogin() {
 
 function _showChangePwPrompt(username) {
   document.getElementById('screen-login').classList.remove('active');
-  document.getElementById('screen-changepw').classList.add('active');
+  const cpw = document.getElementById('screen-changepw');
+  cpw.classList.add('active');
+  cpw.style.display = ''; // clear any inline override
   document.getElementById('chpw-username').textContent = username;
   document.getElementById('chpw-err').textContent = '';
   document.getElementById('chpw-new').value = '';
