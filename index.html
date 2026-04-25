@@ -13,7 +13,7 @@
 <body>
 
 <!-- ─── CHANGE PASSWORD SCREEN ─────────────────────────────── -->
-<div id="screen-changepw" class="screen" style="display:none;align-items:center;justify-content:center;padding:40px;background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);">
+<div id="screen-changepw" class="screen" style="align-items:center;justify-content:center;padding:40px;background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);">
   <div class="login-card" style="max-width:420px;">
     <div class="login-logo" style="font-size:18px;">🔐 Change Password</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.6;">
@@ -58,10 +58,6 @@
 
     <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px;">
       <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
-      <div style="display:flex;align-items:center;gap:10px;margin:4px 0;color:var(--text3);font-size:11px;">
-        <div style="flex:1;height:1px;background:var(--border)"></div>or<div style="flex:1;height:1px;background:var(--border)"></div>
-      </div>
-      <button class="btn btn-err" onclick="factoryReset()" style="width:100%;">⚠ Clear All Data (Reset)</button>
     </div>
 
     <!-- Theme toggle on login -->
