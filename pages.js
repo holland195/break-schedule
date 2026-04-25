@@ -684,7 +684,41 @@ function _renderStaffInfoRows(filter) {
 
 // ── Sub-tab 2: Staff Schedule ──
 function _renderStaffSchedule() {
-  if (!state.users || state.users.length === 0) return '<div class="empty">No staff data. Import a schedule first.</div>';
+  const hasUsers = state.users && state.users.length > 0;
+
+  const importPanel = `
+<div class="card" style="margin-bottom:16px;padding:14px 16px;">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;">Import Schedule (Paste from Sheets)</div>
+  <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.7;">
+    Copy the schedule table from Google Sheets (select all cells including date headers) → <b>Ctrl+C</b> → paste below → <b>Parse</b>.<br>
+    <span style="color:var(--text3);">Required columns: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">Row# | Group | Name | Username | Role | DD/MM dates…</code></span>
+  </div>
+  <textarea id="paste-area" style="width:100%;min-height:100px;font-family:monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;resize:vertical;" placeholder="Paste tab-separated data from Google Sheets here…"></textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+    <button class="btn btn-accent btn-sm" onclick="importFromPaste()">⚡ Parse</button>
+    <div id="paste-status" style="font-size:11px;flex:1;"></div>
+  </div>
+  <div id="sched-preview-section" style="display:none;margin-top:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:12px;">Preview: <b id="sched-preview-count">0</b> staff</span>
+      <button class="btn btn-ok btn-sm" onclick="confirmScheduleImport()">✓ Confirm & Apply</button>
+    </div>
+    <div id="sched-preview-list" style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
+  </div>
+</div>`;
+
+  // If no users yet, show only the import panel
+  if (!hasUsers) {
+    return `
+<div style="margin-bottom:16px;">
+  <div class="empty" style="padding:24px 0 16px;">
+    <div class="empty-ico">📋</div>
+    <div>No schedule data yet. Paste your Google Sheets schedule below to get started.</div>
+  </div>
+  ${importPanel}
+</div>`;
+  }
+
   const allDates         = Object.keys(state.users.find(u=>Object.keys(u.schedule).some(k=>/\d{2}\/\d{2}/.test(k)))?.schedule || state.users[0]?.schedule || {});
   const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
   const weekRange        = getWeekRange(activeMonday);
@@ -709,22 +743,7 @@ function _renderStaffSchedule() {
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
 </div>
 
-${isLeader(currentUser) ? `
-<div class="card" style="margin-bottom:16px;padding:14px 16px;">
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;">Import Schedule (Paste from Sheets)</div>
-  <textarea id="paste-area" style="width:100%;min-height:80px;font-family:monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;resize:vertical;" placeholder="Copy from Google Sheets and paste here (tab-separated)…"></textarea>
-  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-    <button class="btn btn-accent btn-sm" onclick="importFromPaste()">Parse</button>
-    <div id="paste-status" style="font-size:11px;flex:1;"></div>
-  </div>
-  <div id="sched-preview-section" style="display:none;margin-top:12px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <span style="font-size:12px;">Preview: <b id="sched-preview-count">0</b> staff</span>
-      <button class="btn btn-ok btn-sm" onclick="confirmScheduleImport()">✓ Confirm & Apply</button>
-    </div>
-    <div id="sched-preview-list" style="max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
-  </div>
-</div>` : ''}
+${importPanel}
 
 <div class="staff-tbl-wrap">
   <table>

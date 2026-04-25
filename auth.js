@@ -64,14 +64,15 @@ function doLogin() {
 }
 
 function _showChangePwPrompt(username) {
-  document.getElementById('screen-login').classList.remove('active');
-  const cpw = document.getElementById('screen-changepw');
-  cpw.classList.add('active');
-  cpw.style.display = ''; // clear any inline override
-  document.getElementById('chpw-username').textContent = username;
-  document.getElementById('chpw-err').textContent = '';
-  document.getElementById('chpw-new').value = '';
-  document.getElementById('chpw-confirm').value = '';
+  // Swap views inside the same login card — no screen change
+  document.getElementById('login-view').style.display    = 'none';
+  document.getElementById('changepw-view').style.display = '';
+  document.getElementById('login-err').textContent       = '';
+  document.getElementById('chpw-username').textContent   = username;
+  document.getElementById('chpw-err').textContent        = '';
+  document.getElementById('chpw-new').value              = '';
+  document.getElementById('chpw-confirm').value          = '';
+  setTimeout(() => document.getElementById('chpw-new').focus(), 50);
 }
 
 function submitChangePassword() {
@@ -84,25 +85,34 @@ function submitChangePassword() {
   if (np1==='1234')    { err.textContent='Please choose a different password from the default.'; return; }
   DB.setPassword(username, np1);
   DB.saveSession({ username, userId:currentUser.id, shift:currentShift });
-  document.getElementById('screen-changepw').classList.remove('active');
+  // Hide change-password view, restore login view
+  document.getElementById('changepw-view').style.display = 'none';
+  document.getElementById('login-view').style.display    = '';
   toast('Password changed! Welcome 👋','ok');
+  // Push immediately so change is live on ALL devices via cloud
+  if (typeof syncWrite === 'function') syncWrite();
   _afterLogin();
 }
 
 function cancelChangePassword() {
   currentUser = null;
-  document.getElementById('screen-changepw').classList.remove('active');
-  document.getElementById('screen-login').classList.add('active');
+  document.getElementById('changepw-view').style.display = 'none';
+  document.getElementById('login-view').style.display    = '';
+  document.getElementById('login-err').textContent       = '';
 }
 
 async function _afterLogin() {
-  if (typeof syncEnabled==='function' && syncEnabled()) {
+  // If sync not configured locally but we have a stored key, try to auto-recover
+  if (!syncEnabled()) {
+    await syncTryAutoConnect();
+  }
+  if (syncEnabled()) {
     updateSyncBadge('busy');
     await syncPull();
     updateSyncBadge('ok');
   }
   enterApp(false);
-  if (typeof startSyncPolling==='function') startSyncPolling();
+  startSyncPolling && startSyncPolling();
 }
 
 function enterApp(fromSession) {

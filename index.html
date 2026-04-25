@@ -13,62 +13,60 @@
 <body>
 
 <!-- ─── CHANGE PASSWORD SCREEN ─────────────────────────────── -->
-<div id="screen-changepw" class="screen" style="align-items:center;justify-content:center;padding:40px;background:var(--bg);background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--border) 39px,var(--border) 40px);">
-  <div class="login-card" style="max-width:420px;">
-    <div class="login-logo" style="font-size:18px;">🔐 Change Password</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.6;">
-      This is your first login. Please create a new password for
-      <b id="chpw-username" style="color:var(--accent)"></b>.
-      Your new password must be at least 6 characters.
-    </div>
-    <label class="login-label">New Password</label>
-    <input class="login-input" id="chpw-new" type="password" placeholder="at least 6 characters">
-    <label class="login-label" style="margin-top:12px;">Confirm Password</label>
-    <input class="login-input" id="chpw-confirm" type="password" placeholder="repeat new password">
-    <div id="chpw-err" style="font-size:12px;color:var(--err);min-height:18px;margin-top:8px;"></div>
-    <div style="display:flex;gap:10px;margin-top:20px;">
-      <button class="btn" onclick="cancelChangePassword()" style="flex:1">← Back</button>
-      <button class="btn btn-accent" onclick="submitChangePassword()" style="flex:2">Set Password & Enter →</button>
-    </div>
-  </div>
-</div>
-
-<!-- ─── LOGIN SCREEN ──────────────────────────────────────── -->
+<!-- ─── LOGIN SCREEN (contains both login + first-login password change) ── -->
 <div id="screen-login" class="screen active">
   <div class="login-card">
-    <div class="login-logo">BREAK//SCHED</div>
-    <div class="login-sub">Shift Break Manager v3.0</div>
 
-    <label class="login-label">Username</label>
-    <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
-    <datalist id="user-list"></datalist>
+    <!-- ── Normal login view ── -->
+    <div id="login-view">
+      <div class="login-logo">BREAK//SCHED</div>
+      <div class="login-sub">Shift Break Manager v3.0</div>
 
-    <label class="login-label">Password</label>
-    <input class="login-input" id="li-pass" type="password" placeholder="••••••">
+      <label class="login-label">Username</label>
+      <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
+      <datalist id="user-list"></datalist>
 
-    <label class="login-label" style="margin-top:12px">Your current shift</label>
-    <select class="login-select" id="li-shift">
-      <option value="">— Select shift —</option>
-      <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
-      <option value="B">Shift B — 7:00 PM → 4:00 AM</option>
-      <option value="C">Shift C — 9:00 PM → 6:00 AM</option>
-      <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
-      <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
-    </select>
+      <label class="login-label">Password</label>
+      <input class="login-input" id="li-pass" type="password" placeholder="••••••">
 
-    <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
+      <label class="login-label" style="margin-top:12px">Your current shift</label>
+      <select class="login-select" id="li-shift">
+        <option value="">— Select shift —</option>
+        <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
+        <option value="B">Shift B — 7:00 PM → 4:00 AM</option>
+        <option value="C">Shift C — 9:00 PM → 6:00 AM</option>
+        <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
+        <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
+      </select>
+
+      <div style="margin-top:24px;">
+        <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
+      </div>
+      <div style="margin-top:16px;text-align:center;">
+        <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn">☀ Light theme</button>
+      </div>
     </div>
 
-    <!-- Theme toggle on login -->
-    <div style="margin-top:20px;text-align:center;">
-      <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn">
-        ☀ Light theme
-      </button>
+    <!-- ── First-login password change view (same card, swaps in-place) ── -->
+    <div id="changepw-view" style="display:none;">
+      <div class="login-logo" style="font-size:17px;">🔐 Set New Password</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.7;">
+        First login for <b id="chpw-username" style="color:var(--accent)"></b>.
+        Choose a new password — at least 6 characters, cannot be <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">1234</code>.
+      </div>
+      <label class="login-label">New Password</label>
+      <input class="login-input" id="chpw-new" type="password" placeholder="at least 6 characters">
+      <label class="login-label" style="margin-top:12px;">Confirm Password</label>
+      <input class="login-input" id="chpw-confirm" type="password" placeholder="repeat new password">
+      <div id="chpw-err" style="font-size:12px;color:var(--err);min-height:18px;margin-top:8px;"></div>
+      <div style="display:flex;gap:10px;margin-top:20px;">
+        <button class="btn" onclick="cancelChangePassword()" style="flex:1">← Back</button>
+        <button class="btn btn-accent" onclick="submitChangePassword()" style="flex:2">Set Password & Enter →</button>
+      </div>
     </div>
 
     <div id="import-status" style="margin-top:12px;font-size:12px;min-height:18px;"></div>
-    <div id="login-err"    style="font-size:12px;color:var(--err);margin-top:8px;min-height:18px;text-align:center;"></div>
+    <div id="login-err" style="font-size:12px;color:var(--err);margin-top:8px;min-height:18px;text-align:center;"></div>
   </div>
 </div>
 
@@ -251,6 +249,9 @@
   // Restore session — if already logged in, skip login screen
   if (!restoreSession()) {
     document.getElementById('screen-login').classList.add('active');
+    // If no session, still try to auto-connect sync in background
+    // so password changes made elsewhere are available before login
+    syncTryAutoConnect && syncTryAutoConnect();
   }
 </script>
 </body>
