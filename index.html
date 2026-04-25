@@ -125,19 +125,35 @@
 
 <!-- ─── MODAL: REQUEST ────────────────────────────────────── -->
 <div class="modal-overlay" id="modal-request">
-  <div class="modal" style="width:540px;">
+  <div class="modal" style="width:560px;">
     <div class="modal-title">🔄 Request Break Swap</div>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
-      Choose a day and a colleague on the same shift &amp; same role to swap breaks with.
-      A leader must approve before slots are exchanged.
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+      Choose a partner with the <b>same exact role</b> on the same shift. A leader must approve before slots are swapped.
     </p>
-    <div class="fg"><label>① Select Day</label>
+    <!-- Scope -->
+    <div class="fg" style="margin-bottom:12px;">
+      <label>① Swap scope</label>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:6px 14px;border-radius:6px;flex:1;">
+          <input type="radio" name="req-scope" id="req-scope-day" value="day" onchange="_toggleReqScope()" checked>
+          <span>Single day</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:6px 14px;border-radius:6px;flex:1;">
+          <input type="radio" name="req-scope" id="req-scope-week" value="week" onchange="_toggleReqScope()">
+          <span>Whole week</span>
+        </label>
+      </div>
+      <div id="req-week-note" style="font-size:11px;color:var(--B-color);margin-top:6px;display:none;">
+        📅 Week swap applies to <b>all days both of you share the same shift</b> this week.
+      </div>
+    </div>
+    <div class="fg"><label>② Reference day</label>
       <select id="req-day" onchange="_updateReqDay()"><option value="">— loading… —</option></select>
     </div>
-    <div class="fg"><label>Your current break on that day</label>
+    <div class="fg"><label>Your break on that day</label>
       <input id="req-cur" readonly style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
     </div>
-    <div class="fg"><label>② Swap partner (same shift · same exact role · different slot)</label>
+    <div class="fg"><label>③ Swap partner (same shift · same role · different slot)</label>
       <select id="req-partner" onchange="_updateReqSlot()"><option value="">— choose day first —</option></select>
     </div>
     <div class="fg"><label>You will receive their slot</label>
@@ -145,7 +161,7 @@
         <option value="">— pick partner first —</option>
       </select>
     </div>
-    <div class="fg"><label>③ Reason</label>
+    <div class="fg"><label>④ Reason</label>
       <textarea id="req-reason" placeholder="Please explain why you need to swap…"></textarea>
     </div>
     <div class="modal-actions">

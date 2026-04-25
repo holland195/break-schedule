@@ -157,8 +157,9 @@ ${shiftUsers.length > 0 ? `
 
 // ═══════════════════════════════════════════════
 //  RENDER: REQUESTS
-//  Agent/QA/Sr roles: pick day + swap partner
-//  (same shift + same role group required)
+//  Agent/QA/Sr roles: pick day OR whole-week swap
+//  Conflict detection: 2nd request for same partner
+//  Visual impact preview before approval
 // ═══════════════════════════════════════════════
 function renderRequests() {
   const myReqs = isLeader(currentUser)
@@ -169,33 +170,82 @@ function renderRequests() {
   const rest    = myReqs.filter(r => r.status !== 'pending');
 
   const card = (r) => {
-    const emp   = state.users.find(u => u.id === r.userId);
-    const isOwn = r.userId === currentUser.id;
-    const idx   = state.requests.indexOf(r);
+    const emp      = state.users.find(u => u.id === r.userId);
+    const partner  = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
+    const approver = r.resolvedBy
+      ? (state.users.find(u => u.id === r.resolvedBy) ||
+         (() => {
+           // fallback: search staffInfo by stable ID
+           const uname = Object.keys(state.staffInfo||{}).find(k => {
+             let h=0; for(let i=0;i<k.length;i++) h=(Math.imul(31,h)+k.charCodeAt(i))|0; return Math.abs(h)===r.resolvedBy;
+           });
+           return uname ? { name: state.staffInfo[uname].name } : null;
+         })())
+      : null;
+    const isOwn    = r.userId === currentUser.id;
+    const idx      = state.requests.indexOf(r);
+    const isWeek   = r.swapWeek === true;
 
-    // Show swap partner info if present
-    const partnerInfo = r.swapPartnerId
-      ? (() => {
-          const p = state.users.find(u => u.id === r.swapPartnerId);
-          return p ? `<br><span style="color:var(--text3)">Swap with:</span> <b>${p.name}</b> (${p.team}) — their slot: <b style="color:var(--B-color)">${r.partnerSlot || '?'}</b>` : '';
-        })()
+    // Build week-swap impact table for pending leader view
+    let impactHTML = '';
+    if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
+      const days = r.swapDays || [];
+      const rows = days.map(d => {
+        const myBr    = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
+        const ptBr    = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
+        const myCode  = myBr  ? getShortSlot(currentShift, myBr.slot)  : '—';
+        const ptCode  = ptBr  ? getShortSlot(currentShift, ptBr.slot)  : '—';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:4px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;">${d} <span style="color:var(--text3)">${getWkDay(d)}</span></td>
+          <td style="padding:4px 10px;text-align:center;"><span class="break-slot assigned" style="font-size:10px;">${myCode}</span> → <span class="break-slot" style="font-size:10px;color:var(--warn);">${ptCode}</span></td>
+          <td style="padding:4px 10px;text-align:center;"><span class="break-slot assigned" style="font-size:10px;">${ptCode}</span> → <span class="break-slot" style="font-size:10px;color:var(--warn);">${myCode}</span></td>
+        </tr>`;
+      }).join('');
+      impactHTML = rows ? `
+        <div style="margin:10px 0 4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+          <div style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg4);">
+            📊 Swap Impact — ${days.length} day${days.length>1?'s':''}
+          </div>
+          <table style="border-collapse:collapse;width:100%;">
+            <thead><tr style="background:var(--bg4);">
+              <th style="padding:5px 10px;font-size:10px;color:var(--text3);text-align:left;">Day</th>
+              <th style="padding:5px 10px;font-size:10px;color:var(--accent);">${emp?.name?.split(' ').slice(-1)[0]||'Req.'}</th>
+              <th style="padding:5px 10px;font-size:10px;color:var(--warn);">${partner?.name?.split(' ').slice(-1)[0]||'Partner'}</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>` : '';
+    }
+
+    const scopeTag = isWeek
+      ? `<span style="background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);font-size:9px;padding:1px 7px;border-radius:99px;font-family:'IBM Plex Mono',monospace;font-weight:700;">WEEK</span>`
+      : `<span style="background:var(--bg4);color:var(--text3);border:1px solid var(--border);font-size:9px;padding:1px 7px;border-radius:99px;font-family:'IBM Plex Mono',monospace;">DAY</span>`;
+
+    const partnerLine = partner
+      ? `<br><span style="color:var(--text3)">Swap with:</span> <b>${partner.name}</b> (${partner.team}) — their slot: <b style="color:var(--B-color)">${r.partnerSlot || '?'}</b>`
+      : '';
+
+    const approverLine = approver && r.status !== 'pending'
+      ? `<br><span style="color:var(--text3)">${r.status==='approved'?'Approved':'Rejected'} by:</span> <b style="color:${r.status==='approved'?'var(--ok)':'var(--err)'};">${approver.name}</b> · <span style="color:var(--text3);font-size:10px;">${timeSince(r.resolvedAt)}</span>`
       : '';
 
     return `<div class="req-card ${r.status}">
       <div class="req-header">
         <div>
-          <div class="req-title">${emp?.name || 'Unknown'}</div>
-          <div class="req-meta">${emp?.team || '—'} · ${r.day} · submitted ${timeSince(r.at)}</div>
+          <div class="req-title">${emp?.name || 'Unknown'} ${scopeTag}</div>
+          <div class="req-meta">${emp?.team || '—'} · ${isWeek ? (r.swapDays||[]).join(', ') : r.day} · submitted ${timeSince(r.at)}</div>
         </div>
         <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
       </div>
       <div class="req-body">
         <span style="color:var(--text3)">Current slot:</span> <b>${r.current}</b> &nbsp;→&nbsp;
         <span style="color:var(--text3)">Requested:</span> <b style="color:var(--warn)">${r.requested}</b>
-        ${partnerInfo}
+        ${partnerLine}
         <br><span style="color:var(--text3)">Reason:</span> ${r.reason || 'No reason given'}
-        ${r.status !== 'pending' && r.respNote ? `<br><span style="color:var(--text3)">Response:</span> ${r.respNote}` : ''}
+        ${approverLine}
+        ${r.status !== 'pending' && r.respNote ? `<br><span style="color:var(--text3)">Note:</span> ${r.respNote}` : ''}
       </div>
+      ${impactHTML}
       ${r.status === 'pending' && isLeader(currentUser) && !isOwn ? `
         <div class="req-actions">
           <button class="btn btn-sm btn-ok"  onclick="resolveRequest(${idx},'approved')">✓ Approve</button>
@@ -837,76 +887,71 @@ function confirmAssign() {
 }
 
 function openRequestModal() {
-  // Collect all available dates in the schedule
-  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const allDates  = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
   const weekDates = getWeekDates();
 
-  // Build list of days this user has THIS shift (try date key + day name)
+  // Build list of days this user is on THIS shift
   const myShiftDays = [];
-  allDates.forEach(dk => {
-    const shiftVal = currentUser.schedule[dk];
-    if (shiftVal === currentShift) myShiftDays.push(dk);
-  });
-  // Fallback: try day-name keys
+  allDates.forEach(dk => { if (currentUser.schedule[dk] === currentShift) myShiftDays.push(dk); });
   if (myShiftDays.length === 0) {
-    WEEK_DAYS.forEach((d, i) => {
-      if (currentUser.schedule[d] === currentShift) myShiftDays.push(weekDates[i]);
-    });
+    WEEK_DAYS.forEach((d, i) => { if (currentUser.schedule[d] === currentShift) myShiftDays.push(weekDates[i]); });
   }
 
-  const mySlot = getAssigned(currentUser.id, myShiftDays[0]) || getAssigned(currentUser.id, todayKey());
-  const mySlotLabel = mySlot ? mySlot.slot : 'Not assigned';
-
-  document.getElementById('req-cur').value = mySlotLabel;
-
-  // Populate day selector
   const daySelect = document.getElementById('req-day');
   daySelect.innerHTML = myShiftDays.length > 0
     ? myShiftDays.map(d => {
-        const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
+        const br   = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
         const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
         return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
       }).join('')
     : `<option value="">No shift days found</option>`;
 
-  // Trigger partner list update
-  _updateReqPartners();
+  // Reset scope toggle to 'day'
+  document.getElementById('req-scope-day').checked  = true;
+  document.getElementById('req-scope-week').checked = false;
+  document.getElementById('req-week-note').style.display = 'none';
 
+  _updateReqDay();
   document.getElementById('req-reason').value = '';
   document.getElementById('modal-request').classList.add('show');
 }
 
-// Called when day selection changes — refreshes partner list & slot display
+function _toggleReqScope() {
+  const isWeek = document.getElementById('req-scope-week').checked;
+  document.getElementById('req-week-note').style.display = isWeek ? '' : 'none';
+  _updateReqPartners();
+}
+
 function _updateReqDay() {
-  const day    = document.getElementById('req-day').value;
-  const br     = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  const day = document.getElementById('req-day').value;
+  const br  = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   document.getElementById('req-cur').value = br ? br.slot : 'Not assigned';
   _updateReqPartners();
 }
 
-// Rebuild the partner dropdown: same shift + SAME EXACT ROLE + different slot assigned
 function _updateReqPartners() {
-  const day = document.getElementById('req-day').value;
+  const day    = document.getElementById('req-day').value;
+  const isWeek = document.getElementById('req-scope-week')?.checked;
   if (!day) return;
 
   const myBr   = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   const mySlot = myBr ? myBr.slot : null;
 
-  // Partners must have the SAME exact role as the requester
+  // If week swap: partner must have same slot mismatch on ALL days they share this shift
   const partners = state.users.filter(u => {
     if (u.id === currentUser.id) return false;
-    if (u.role !== currentUser.role) return false;          // ← exact role match
+    if (u.role !== currentUser.role) return false;
     const shiftVal = u.schedule[day] || u.schedule[getWkDay(day)] || '0';
     if (shiftVal !== currentShift) return false;
     const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
-    if (!theirBr) return false;                             // must have a break assigned
-    if (theirBr.slot === mySlot) return false;              // no point swapping same slot
+    if (!theirBr) return false;
+    if (theirBr.slot === mySlot) return false;
     return true;
   });
 
   const partnerSelect = document.getElementById('req-partner');
   if (partners.length === 0) {
-    partnerSelect.innerHTML = `<option value="">— No eligible partners on this day —</option>`;
+    partnerSelect.innerHTML = `<option value="">— No eligible partners —</option>`;
     document.getElementById('req-new').innerHTML = `<option value="">— pick partner first —</option>`;
   } else {
     partnerSelect.innerHTML = `<option value="">— Choose swap partner —</option>` +
@@ -920,43 +965,75 @@ function _updateReqPartners() {
   _updateReqSlot();
 }
 
-// When partner is chosen, show their slot as the "requested" slot
 function _updateReqSlot() {
   const partnerSel = document.getElementById('req-partner');
   const chosen     = partnerSel.options[partnerSel.selectedIndex];
   const theirSlot  = chosen?.dataset?.slot || '';
-
-  const reqNew = document.getElementById('req-new');
-  if (theirSlot) {
-    reqNew.innerHTML = `<option value="${theirSlot}" selected>${theirSlot}</option>`;
-  } else {
-    reqNew.innerHTML = `<option value="">— pick partner first —</option>`;
-  }
+  const reqNew     = document.getElementById('req-new');
+  reqNew.innerHTML = theirSlot
+    ? `<option value="${theirSlot}" selected>${theirSlot}</option>`
+    : `<option value="">— pick partner first —</option>`;
 }
 
 function submitRequest() {
   const day       = document.getElementById('req-day').value;
   const requested = document.getElementById('req-new').value;
   const reason    = document.getElementById('req-reason').value.trim();
-  const partnerSel    = document.getElementById('req-partner');
-  const partnerId     = partnerSel.value ? parseInt(partnerSel.value) : null;
-  const partnerSlot   = partnerSel.options[partnerSel.selectedIndex]?.dataset?.slot || '';
+  const partnerSel= document.getElementById('req-partner');
+  const partnerId = partnerSel.value ? parseInt(partnerSel.value) : null;
+  const partnerSlot = partnerSel.options[partnerSel.selectedIndex]?.dataset?.slot || '';
+  const isWeek    = document.getElementById('req-scope-week')?.checked || false;
 
   if (!day)       { toast('Select a day first.', 'err'); return; }
   if (!partnerId) { toast('Select a swap partner.', 'err'); return; }
   if (!requested) { toast('No swap slot available.', 'err'); return; }
 
-  const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  // ── Conflict detection: check if partner already has a PENDING request for the same day(s) ──
+  const allDates   = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  let swapDays     = [day];
+  if (isWeek) {
+    // Collect all dates where BOTH users are on this shift
+    const partner = state.users.find(u => u.id === partnerId);
+    swapDays = allDates.filter(dk => {
+      const myShift = currentUser.schedule[dk] || currentUser.schedule[getWkDay(dk)] || '0';
+      const ptShift = partner?.schedule[dk]   || partner?.schedule[getWkDay(dk)]   || '0';
+      return myShift === currentShift && ptShift === currentShift;
+    });
+    if (swapDays.length === 0) { toast('No matching shift days found for week swap.', 'err'); return; }
+  }
 
+  // Check for conflicting pending requests involving this partner
+  const conflicts = state.requests.filter(r =>
+    r.status === 'pending' &&
+    r.swapPartnerId === partnerId &&
+    (isWeek ? (r.swapDays||[r.day]).some(d => swapDays.includes(d)) : swapDays.includes(r.day))
+  );
+  if (conflicts.length > 0) {
+    toast('⚠ A pending request already involves this partner on those days. Yours will be auto-denied.', 'warn');
+    // Auto-create the request but mark it denied immediately
+    const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+    state.requests.unshift({
+      id: Date.now(), userId: currentUser.id, day, swapDays, swapWeek: isWeek,
+      current: myBr ? myBr.slot : 'Not assigned', requested, reason,
+      swapPartnerId: partnerId, partnerSlot,
+      status: 'rejected', respNote: 'Auto-denied: partner already has a prior pending request for these days.',
+      at: Date.now(), resolvedAt: Date.now(), resolvedBy: null,
+    });
+    if (typeof syncWrite === 'function') syncWrite(); else save();
+    closeModal('modal-request');
+    updateBadge();
+    nav('requests');
+    return;
+  }
+
+  const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   state.requests.unshift({
-    id: Date.now(), userId: currentUser.id, day,
-    current: myBr ? myBr.slot : 'Not assigned',
-    requested, reason,
-    swapPartnerId: partnerId,
-    partnerSlot,
+    id: Date.now(), userId: currentUser.id, day, swapDays, swapWeek: isWeek,
+    current: myBr ? myBr.slot : 'Not assigned', requested, reason,
+    swapPartnerId: partnerId, partnerSlot,
     status: 'pending', at: Date.now(), respNote: '',
   });
-  save();
+  if (typeof syncWrite === 'function') syncWrite(); else save();
   closeModal('modal-request');
   toast('Swap request submitted!', 'warn');
   updateBadge();
@@ -964,20 +1041,40 @@ function submitRequest() {
 }
 
 function resolveRequest(idx, status) {
-  const r      = state.requests[idx];
+  const r = state.requests[idx];
   r.status     = status;
   r.resolvedBy = currentUser.id;
   r.resolvedAt = Date.now();
 
   if (status === 'approved') {
-    // Assign requester's new (partner's) slot
-    assign(r.userId, r.day, r.requested, 'approved by ' + currentUser.name);
-    // Swap: assign partner's slot to the partner (requester's old slot)
-    if (r.swapPartnerId && r.partnerSlot && r.current && r.current !== 'Not assigned') {
-      assign(r.swapPartnerId, r.day, r.current, 'swap approved — ' + currentUser.name);
-    }
+    const days = r.swapDays || [r.day];
+    days.forEach(d => {
+      // Give requester the partner's slot
+      assign(r.userId, d, r.requested, 'approved by ' + currentUser.name);
+      // Give partner the requester's original slot on that day
+      if (r.swapPartnerId && r.current && r.current !== 'Not assigned') {
+        const mySlotOnDay = getAssigned(r.userId, d)?.slot || r.current;
+        assign(r.swapPartnerId, d, r.current, 'swap approved — ' + currentUser.name);
+      }
+    });
+
+    // Auto-deny any other pending requests that conflict with the same partner + days
+    state.requests.forEach((other, i) => {
+      if (i === idx) return;
+      if (other.status !== 'pending') return;
+      if (other.swapPartnerId !== r.swapPartnerId) return;
+      const otherDays = other.swapDays || [other.day];
+      const days2 = r.swapDays || [r.day];
+      if (otherDays.some(d => days2.includes(d))) {
+        other.status     = 'rejected';
+        other.respNote   = `Auto-denied: swap partner's break was already committed to another approved request.`;
+        other.resolvedBy = currentUser.id;
+        other.resolvedAt = Date.now();
+      }
+    });
   }
-  save();
+
+  if (typeof syncWrite === 'function') syncWrite(); else save();
   toast(status === 'approved' ? 'Swap approved ✓' : 'Request rejected', 'ok');
   updateBadge();
   nav('requests');
@@ -1020,19 +1117,30 @@ function renderExtBreak() {
 
     const entryRows = entries.length === 0
       ? `<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>`
-      : entries.map((e, i) => `
-        <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
-          <span style="font-family:'IBM Plex Mono',monospace;color:var(--accent);min-width:70px;">${e.day}</span>
-          <span style="color:var(--text2);min-width:50px;">${getWkDay(e.day)}</span>
-          <span style="background:var(--A-bg);color:var(--A-color);border:1px solid var(--A-color);
-            border-radius:4px;padding:2px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;">
-            ${e.position === 'before' ? '← Before' : 'After →'}
-          </span>
-          <span style="color:var(--text2);font-size:11px;flex:1;">${e.time}</span>
-          <span style="font-size:10px;color:var(--text3);">${timeSince(e.at)}</span>
-          ${u.id === currentUser.id || isLeader(currentUser) ? `
-            <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i})">✕</button>` : ''}
-        </div>`).join('');
+      : entries.map((e, i) => {
+          // Who registered this entry?
+          const registrar = e.registeredBy ? (state.users.find(x=>x.id===e.registeredBy) || (() => { const si=DB.getStaffInfo(Object.keys(state.staffInfo||{}).find(k=>state.staffInfo[k] && _stableId && _stableId(k)===e.registeredBy)); return si?{name:si.name}:null; })()) : null;
+          const isSelfReg  = !registrar || registrar.id === u.id;
+          const regByLine  = !isSelfReg && registrar
+            ? `<span style="font-size:10px;background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);border-radius:4px;padding:1px 7px;margin-left:6px;">Reg. by ${registrar.name}</span>`
+            : '';
+          // Who approved (leaders can only view/cancel; registration itself IS the approval for female staff)
+          // For now show reg. source clearly
+          return `
+          <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap;">
+            <span style="font-family:'IBM Plex Mono',monospace;color:var(--accent);min-width:70px;">${e.day}</span>
+            <span style="color:var(--text2);min-width:50px;">${getWkDay(e.day)}</span>
+            <span style="background:var(--A-bg);color:var(--A-color);border:1px solid var(--A-color);
+              border-radius:4px;padding:2px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;">
+              ${e.position === 'before' ? '← Before' : 'After →'}
+            </span>
+            <span style="color:var(--text2);font-size:11px;">${e.time}</span>
+            ${regByLine}
+            <span style="font-size:10px;color:var(--text3);margin-left:auto;">${timeSince(e.at)}</span>
+            ${u.id === currentUser.id || isLeader(currentUser) ? `
+              <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i},${currentUser.id})">✕</button>` : ''}
+          </div>`;
+        }).join('');
 
     return `
 <div class="card" style="margin-bottom:14px;">
@@ -1215,15 +1323,26 @@ function submitExtBreak() {
     ? `${addMins(start,-30)}–${start}`
     : `${end}–${addMins(end, 30)}`;
 
-  DB.addExtBreak(currentUser.id, mk, { day, time, position: pos, at: Date.now() });
+  DB.addExtBreak(currentUser.id, mk, { day, time, position: pos, at: Date.now(), registeredBy: currentUser.id });
+  if (typeof syncWrite === 'function') syncWrite(); else save();
   closeModal('modal-extbreak');
   toast('Extra 30-min break registered! 🌸', 'ok');
   nav('extbreak');
 }
 
-function deleteExtBreak(uid, mk, idx) {
-  if (!confirm('Cancel this extra break registration?')) return;
+function deleteExtBreak(uid, mk, idx, cancelledById) {
+  const entry = DB.getExtBreaks(uid, mk)[idx];
+  if (!entry) return;
+  const u = state.users.find(x => x.id === uid);
+  const cancelledBy = cancelledById && cancelledById !== uid
+    ? state.users.find(x => x.id === cancelledById)
+    : null;
+  const msg = cancelledBy
+    ? `Cancel this extra break for ${u?.name || '?'} (cancelled by ${cancelledBy.name})?`
+    : 'Cancel this extra break registration?';
+  if (!confirm(msg)) return;
   DB.deleteExtBreak(uid, mk, idx);
+  if (typeof syncWrite === 'function') syncWrite(); else save();
   toast('Registration cancelled.', 'warn');
   nav('extbreak');
 }
