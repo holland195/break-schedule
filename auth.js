@@ -36,41 +36,54 @@ function autoDetectShift() {
   if (user) { const sch=user.schedule[todayKey()]; if(sch&&sch!=='0') document.getElementById('li-shift').value=sch; }
 }
 
-async function doLogin() {
+function doLogin() {
   const u   = document.getElementById('li-user').value.trim();
   const p   = document.getElementById('li-pass').value.trim();
   const s   = document.getElementById('li-shift').value;
   const err = document.getElementById('login-err');
   if (!u || !p) { err.textContent = 'Enter username and password.'; return; }
 
-  // Pull latest passwords from cloud BEFORE checking — so cross-browser
-  // password changes are always respected on any device
-  if (typeof syncTryAutoConnect === 'function') await syncTryAutoConnect();
-  if (typeof syncEnabled === 'function' && syncEnabled()) {
-    err.textContent = '';
-    const btnEl = document.querySelector('#login-view .btn-accent');
-    if (btnEl) { btnEl.textContent = 'Checking…'; btnEl.disabled = true; }
-    await syncPull();
-    if (btnEl) { btnEl.textContent = 'Sign in →'; btnEl.disabled = false; }
+  // Passwords were pulled from cloud at page load (bootApp).
+  // If check still fails, offer a manual re-pull once (slow network fallback).
+  const expectedPw = DB.getPassword(u);
+  if (p !== expectedPw) {
+    if (typeof syncEnabled === 'function' && syncEnabled()) {
+      err.style.color = 'var(--text3)';
+      err.textContent = '☁ Re-checking password from cloud…';
+      document.getElementById('signin-btn').disabled = true;
+      syncPull().then(() => {
+        document.getElementById('signin-btn').disabled = false;
+        err.style.color = '';
+        if (p === DB.getPassword(u)) {
+          err.textContent = '';
+          _doLoginCore(u, p, s, err);
+        } else {
+          err.textContent = 'Incorrect password.';
+        }
+      });
+      return;
+    }
+    err.style.color = '';
+    err.textContent = 'Incorrect password.';
+    return;
   }
 
-  const expectedPw = DB.getPassword(u);
-  if (p !== expectedPw) { err.textContent = 'Invalid credentials.'; return; }
+  err.style.color = '';
+  _doLoginCore(u, p, s, err);
+}
 
+function _doLoginCore(u, p, s, err) {
   const si = DB.getStaffInfo(u);
   if (!si && state.users.findIndex(x => x.username === u) < 0) {
     err.textContent = 'Username not found. Ask admin to import staff data.'; return;
   }
   const user = _resolveUser(u);
   if (!user) { err.textContent = 'User profile not found.'; return; }
-
   const isAdminUser = (ROLES[user.role]?.level || 0) >= 3;
   if (!isAdminUser && !s) { err.textContent = 'Please select your current shift.'; return; }
-
   currentUser  = user;
   currentShift = s || 'E';
   err.textContent = '';
-
   if (DB.mustChangePw(u)) { _showChangePwPrompt(u); return; }
   DB.saveSession({ username: u, userId: user.id, shift: currentShift });
   _afterLogin();

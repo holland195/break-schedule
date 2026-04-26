@@ -40,26 +40,10 @@
       </select>
 
       <div style="margin-top:24px;">
-        <button class="btn btn-accent" onclick="doLogin()" style="width:100%">Sign in →</button>
+        <button class="btn btn-accent" id="signin-btn" onclick="doLogin()" style="width:100%">Sign in →</button>
       </div>
 
-      <!-- Quick sync connect — shown only when sync not yet configured on this browser -->
-      <div id="login-sync-hint" style="margin-top:16px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text3);">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <span>☁ Sync not connected on this browser</span>
-          <button class="btn btn-sm" onclick="toggleLoginSyncPanel()" id="login-sync-toggle-btn" style="font-size:10px;padding:3px 8px;">Connect</button>
-        </div>
-        <div id="login-sync-panel" style="display:none;margin-top:10px;">
-          <div style="margin-bottom:6px;color:var(--text2);font-size:11px;">Paste your JSONBin Master Key to sync passwords across devices:</div>
-          <div style="display:flex;gap:6px;">
-            <input id="login-sync-key" class="login-input" type="password" placeholder="$2b$10$…" style="flex:1;font-size:11px;padding:6px 10px;">
-            <button class="btn btn-accent btn-sm" onclick="loginConnectSync()">Go</button>
-          </div>
-          <div id="login-sync-status" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
-        </div>
-      </div>
-
-      <div style="margin-top:12px;text-align:center;">
+      <div style="margin-top:16px;text-align:center;">
         <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn">☀ Light theme</button>
       </div>
     </div>
@@ -243,14 +227,14 @@
 <script src="nav.js"></script>
 
 <script>
-  // Close modal on overlay click
+  // Modal overlay click to close
   document.querySelectorAll('.modal-overlay').forEach(el => {
     el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
   });
-  // Enter to login
+  // Enter key on password field
   document.getElementById('li-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
-  // Theme button labels
+  // Theme labels
   function updateLoginThemeBtn() {
     const btn = document.getElementById('login-theme-btn');
     if (btn) btn.textContent = currentTheme === 'dark' ? '☀ Light theme' : '☾ Dark theme';
@@ -262,82 +246,27 @@
   updateLoginThemeBtn();
   updateAppThemeBtn();
 
-  // ── Login-page sync panel ──
-  function toggleLoginSyncPanel() {
-    const panel = document.getElementById('login-sync-panel');
-    const btn   = document.getElementById('login-sync-toggle-btn');
-    if (!panel) return;
-    const open = panel.style.display === 'none';
-    panel.style.display = open ? '' : 'none';
-    btn.textContent     = open ? 'Close' : 'Connect';
-    if (open) document.getElementById('login-sync-key').focus();
-  }
-
-  async function loginConnectSync() {
-    const apiKey = document.getElementById('login-sync-key').value.trim();
-    const status = document.getElementById('login-sync-status');
-    if (!apiKey) { status.textContent = 'Paste your Master Key first.'; return; }
-    if (!apiKey.startsWith('$2')) { status.textContent = '⚠ Looks wrong — key should start with $2b$10$'; return; }
-    status.style.color = 'var(--text3)';
-    status.textContent = '⏳ Connecting…';
-
-    // Find existing bin
-    let binId = await syncFindBin(apiKey);
-    if (!binId) {
-      // Create new bin
-      try { binId = await syncCreateBin(apiKey); } catch(e) {
-        status.style.color = 'var(--err)'; status.textContent = '⚠ ' + e.message; return;
-      }
-    }
-    syncSaveCfg({ binId, apiKey });
-    const ok = await syncPull();
-    if (ok) {
-      status.style.color = 'var(--ok)';
-      status.textContent = '✓ Connected! Passwords synced. You can now sign in.';
-      document.getElementById('login-sync-hint').style.background = 'var(--C-bg)';
-      document.getElementById('login-sync-hint').style.borderColor = 'var(--C-color)';
-      // Update hint text
-      const hintSpan = document.querySelector('#login-sync-hint > div > span');
-      if (hintSpan) hintSpan.textContent = '☁ Sync connected — passwords up to date';
-      const toggleBtn = document.getElementById('login-sync-toggle-btn');
-      if (toggleBtn) toggleBtn.style.display = 'none';
-    } else {
-      syncSaveCfg({});
-      status.style.color = 'var(--err)';
-      status.textContent = '⚠ Failed — check your key and try again.';
-    }
-  }
-
-  // ── Boot sequence ──
+  // ── Boot: pull cloud passwords before login is usable ──
+  // Users never touch sync settings. Admin configures JSONBin once.
+  // Every browser silently pulls the latest passwords at page load.
   async function bootApp() {
-    const hasSession = restoreSession();
-    if (hasSession) return;
+    if (restoreSession()) return; // already logged in — skip login screen
 
-    // Hide sync hint if already configured
-    const hint = document.getElementById('login-sync-hint');
+    const btn = document.getElementById('signin-btn');
+    const err = document.getElementById('login-err');
 
-    // Disable login button while syncing
-    const signInBtn = document.querySelector('#login-view .btn-accent');
-    const loginErr  = document.getElementById('login-err');
-
-    if (signInBtn) signInBtn.disabled = true;
-    if (loginErr) { loginErr.style.color = 'var(--text3)'; loginErr.textContent = '☁ Loading…'; }
+    // Block Sign In briefly while pulling latest passwords from cloud
+    if (btn) btn.disabled = true;
+    if (err) { err.style.color = 'var(--text3)'; err.textContent = '☁ Loading…'; }
 
     try {
+      // syncTryAutoConnect: uses stored local key (saved from admin's first-time setup)
+      // to pull latest passwords. Completes silently — user sees nothing but the button.
       await syncTryAutoConnect();
-    } catch(e) { console.warn('[boot]', e); }
+    } catch(e) { /* network unavailable — continue with local data */ }
 
-    // Re-enable login
-    if (signInBtn) signInBtn.disabled = false;
-    if (loginErr) { loginErr.style.color = ''; loginErr.textContent = ''; }
-
-    // Update hint based on final sync state
-    if (hint) {
-      if (syncEnabled()) {
-        hint.style.display = 'none'; // already synced — hide the hint
-      }
-      // else: hint stays visible prompting user to connect
-    }
+    if (btn) btn.disabled = false;
+    if (err) { err.style.color = ''; err.textContent = ''; }
   }
 
   bootApp();
