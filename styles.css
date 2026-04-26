@@ -84,6 +84,11 @@ body {
 /* ── SCREENS ── */
 .screen { display: none; min-height: 100vh }
 .screen.active { display: block }
+/* Prevent scrolling past the active screen */
+body.app-active { overflow: hidden; height: 100vh }
+body.app-active #screen-app { height: 100vh; overflow: hidden }
+body.app-active #screen-login { display: none !important }
+body.login-active #screen-app { display: none !important }
 
 /* ── TOPBAR ── */
 .topbar {
@@ -352,6 +357,18 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 .break-slot:hover { border-color: var(--accent); color: var(--accent) }
 .break-slot.assigned { background: #1a2a0a; color: #86efac; border-color: #4ade80 }
 .break-slot.mine { background: #1a1f0a; color: var(--accent); border-color: var(--accent); font-weight: 600 }
+/* Per-shift break slot colors */
+.break-slot.slot-1 { background: #0d2236; color: #7dd3fc; border-color: #38bdf8 }  /* slot 1 — blue */
+.break-slot.slot-2 { background: #1a1a0d; color: #fbbf24; border-color: #f59e0b }  /* slot 2 — amber */
+.break-slot.slot-1.assigned { background: #0d2236; color: #7dd3fc; border-color: #38bdf8 }
+.break-slot.slot-2.assigned { background: #271a0a; color: #fb923c; border-color: #f97316 }
+/* Female 30-min highlight on break schedule grid */
+.cell-female-ext { position: relative }
+.cell-female-ext::after {
+  content: '🌸';
+  position: absolute; top: -2px; right: -2px;
+  font-size: 8px; line-height: 1;
+}
 .break-slot.locked { cursor: default; opacity: .7 }
 .break-slot.locked:hover { border-color: var(--border2); color: var(--text2) }
 .time-label { font-size: 10px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; white-space: nowrap }
@@ -362,10 +379,10 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden
 }
 .wg-header {
-  background: var(--bg3); padding: 8px 10px;
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--text3); font-family: 'IBM Plex Mono', monospace;
-  border-bottom: 1px solid var(--border); border-right: 1px solid var(--border)
+  background: var(--bg3); padding: 9px 12px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--text2); font-family: 'IBM Plex Mono', monospace;
+  border-bottom: 2px solid var(--border2); border-right: 1px solid var(--border)
 }
 .wg-header:last-child { border-right: none }
 .wg-name {
@@ -571,10 +588,11 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 /* ── THEME TOGGLE ── */
 .theme-toggle {
   background: var(--bg3); border: 1px solid var(--border2);
-  border-radius: 99px; padding: 4px 12px;
-  cursor: pointer; font-size: 12px; color: var(--text2);
-  display: flex; align-items: center; gap: 6px; transition: all .15s;
-  white-space: nowrap;
+  border-radius: 99px; padding: 5px 9px;
+  cursor: pointer; font-size: 16px; color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  transition: all .15s; white-space: nowrap;
 }
 .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -588,6 +606,13 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 [data-theme="light"] .nav-item.active { background: var(--E-bg); color: var(--accent); }
 [data-theme="light"] .break-slot.assigned { background: #dcfce7; color: #15803d; border-color: #16a34a; }
 [data-theme="light"] .break-slot.mine { background: var(--E-bg); color: var(--accent); border-color: var(--accent); }
+[data-theme="light"] .break-slot.slot-1 { background: #dbeafe; color: #1d4ed8; border-color: #3b82f6; }
+[data-theme="light"] .break-slot.slot-2 { background: #fef3c7; color: #b45309; border-color: #f59e0b; }
+[data-theme="light"] .break-slot.slot-1.assigned { background: #dbeafe; color: #1d4ed8; border-color: #3b82f6; }
+[data-theme="light"] .break-slot.slot-2.assigned { background: #ffedd5; color: #c2410c; border-color: #f97316; }
+/* Week overview cells — light theme readable */
+[data-theme="light"] .overview-cell-assigned { background:#dcfce7 !important; color:#15803d !important; border-color:#16a34a !important; }
+[data-theme="light"] .overview-cell-pending  { background:#fef3c7 !important; color:#92400e !important; border-color:#f59e0b !important; }
 [data-theme="light"] .sh-0 { background: var(--bg4); color: var(--text3); border-color: var(--border); }
 [data-theme="light"] .role-leader { background: #fef3c7; color: #b45309; border-color: #f59e0b; }
 [data-theme="light"] .role-agent  { background: #dbeafe; color: #1d4ed8; border-color: #3b82f6; }

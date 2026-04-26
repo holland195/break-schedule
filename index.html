@@ -44,7 +44,7 @@
       </div>
 
       <div style="margin-top:16px;text-align:center;">
-        <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn">☀ Light theme</button>
+        <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn" title="Toggle theme">☀</button>
       </div>
     </div>
 
@@ -83,7 +83,7 @@
         <span id="top-gender" style="font-size:14px;margin-left:2px;"></span>
       </div>
       <!-- Theme toggle -->
-      <button class="theme-toggle" onclick="toggleTheme();updateAppThemeBtn()" id="theme-toggle-btn">☀ Light</button>
+      <button class="theme-toggle" onclick="toggleTheme();updateAppThemeBtn()" id="theme-toggle-btn" title="Toggle theme">☀</button>
       <span id="sync-badge" style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none;"></span>
       <button class="btn btn-sm" onclick="logout()">Sign out</button>
     </div>
@@ -237,11 +237,11 @@
   // Theme labels
   function updateLoginThemeBtn() {
     const btn = document.getElementById('login-theme-btn');
-    if (btn) btn.textContent = currentTheme === 'dark' ? '☀ Light theme' : '☾ Dark theme';
+    if (btn) { btn.textContent = currentTheme === 'dark' ? '☀' : '☾'; btn.title = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'; }
   }
   function updateAppThemeBtn() {
     const btn = document.getElementById('theme-toggle-btn');
-    if (btn) btn.textContent = currentTheme === 'dark' ? '☀ Light' : '☾ Dark';
+    if (btn) { btn.textContent = currentTheme === 'dark' ? '☀' : '☾'; btn.title = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'; }
   }
   updateLoginThemeBtn();
   updateAppThemeBtn();

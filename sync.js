@@ -186,7 +186,12 @@ function startSyncPolling() {
   if (!syncCfg.binId) return; // need at least a binId to poll (public or authenticated)
   _syncInterval = setInterval(async () => {
     const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
-    if (ok && typeof currentPage !== 'undefined') { nav(currentPage); updateBadge(); }
+    // Never re-render arrange or staff pages mid-use — user may have unsaved checkbox/paste state
+    const noRerenderPages = new Set(['arrange', 'staff']);
+    if (ok && typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
+      nav(currentPage);
+      updateBadge();
+    }
     updateSyncBadge(ok ? 'ok' : 'err');
   }, 30000);
 }

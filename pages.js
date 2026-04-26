@@ -83,11 +83,13 @@ function renderSchedule() {
   }
 
   // Column headers
-  const headers = `<div class="wg-header">Name / Group</div>` + weekDates.map((dk, i) => {
+  const todayDk   = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const headers = `<div class="wg-header" style="background:var(--bg4);">Name / Group</div>` + weekDates.map((dk, i) => {
     const dayName = dateToDayName[dk] || WEEK_DAYS[i];
-    const isToday = dk === getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-    return `<div class="wg-header${isToday ? ' c-accent' : ''}" style="text-align:center">
-      ${dayName}<br><span style="font-size:9px; opacity:0.5; font-weight:400">${dk}</span>
+    const isToday = dk === todayDk;
+    return `<div class="wg-header" style="text-align:center;${isToday?'background:var(--accent);color:#000;border-bottom:2px solid var(--accent2);':''}">
+      <span style="font-size:11px;font-weight:800;">${dayName}</span><br>
+      <span style="font-size:9px;font-weight:400;opacity:${isToday?'0.7':'0.6'}">${dk}</span>
     </div>`;
   }).join('');
 
@@ -103,11 +105,18 @@ function renderSchedule() {
       if (!onShift) return `<div class="wg-cell"><span class="sh sh-${shiftVal}">${shiftVal}</span></div>`;
 
       const shortCode = br ? getShortSlot(currentShift, br.slot) : '—';
-      return `<div class="wg-cell">
-        <span class="${br ? 'break-slot assigned' : ''}"
-          style="font-size:10px; padding:3px 8px; color:${br ? '' : 'var(--text3)'}"
-          title="${br ? br.slot : 'Not assigned'}">
-          ${shortCode}
+      // Slot index (0-based) for color differentiation
+      const slotIdx   = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
+      const slotClass = slotIdx === 0 ? 'slot-1' : slotIdx === 1 ? 'slot-2' : '';
+      // Female 30-min extra break registered?
+      const mk        = currentMonthKey();
+      const hasExt    = br && u.gender === 'F' && DB.countExtBreaks(u.id, mk) > 0
+                        && DB.getExtBreaks(u.id, mk).some(e => e.day === dateKey);
+      return `<div class="wg-cell${hasExt ? ' cell-female-ext' : ''}" style="position:relative;">
+        <span class="${br ? `break-slot assigned ${slotClass}` : ''}"
+          style="font-size:10px; padding:3px 8px; ${br ? '' : 'color:var(--text3)'}"
+          title="${br ? br.slot + (hasExt?' 🌸+30min':'') : 'Not assigned'}">
+          ${shortCode}${hasExt ? ' 🌸' : ''}
         </span>
       </div>`;
     }).join('');
@@ -283,6 +292,12 @@ ${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No r
 // ═══════════════════════════════════════════════
 let arrangeMainTab = 'assign'; // 'assign' | 'overview'
 let arrangeActiveDay = null;   // set on first render
+// Persisted bulk-panel state — survives re-renders and sync polls
+let _bulkGroups   = new Set(); // selected group checkboxes
+let _bulkDays     = new Set(); // selected day checkboxes
+let _bulkSlotIdx  = 0;         // slot dropdown index
+// Persisted paste area content — survives re-renders
+let _pasteContent = '';
 
 function renderArrange() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
@@ -339,7 +354,8 @@ function _renderArrangeAssignTab(weekRange) {
     <div class="group-checkbox-list">
       ${allShiftTeams.map(t => `
         <label class="group-check-item">
-          <input type="checkbox" name="bulk-group" value="${t}"> ${t}
+          <input type="checkbox" name="bulk-group" value="${t}"
+            ${_bulkGroups.has(t)?'checked':''} onchange="_saveBulkGroups()"> ${t}
         </label>`).join('')}
     </div>
   </div>
@@ -350,14 +366,16 @@ function _renderArrangeAssignTab(weekRange) {
         <label class="day-check-item">
           <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
           <span style="font-size:9px;color:var(--text3)">${d}</span>
-          <input type="checkbox" name="bulk-day" value="${d}">
+          <input type="checkbox" name="bulk-day" value="${d}"
+            ${_bulkDays.has(d)?'checked':''} onchange="_saveBulkDays()">
         </label>`).join('')}
     </div>
   </div>
   <div class="bulk-panel-section">
     <div class="bulk-panel-label">Slot</div>
-    <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;">
-      ${slots.map((s, i) => `<option value="${i}">${currentShift}${i+1} — ${s}</option>`).join('')}
+    <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
+      onchange="_bulkSlotIdx=parseInt(this.value)">
+      ${slots.map((s, i) => `<option value="${i}" ${i===_bulkSlotIdx?'selected':''}>${currentShift}${i+1} — ${s}</option>`).join('')}
     </select>
   </div>
   <div class="bulk-panel-section" style="justify-content:flex-end;">
@@ -407,15 +425,17 @@ function _renderArrangeOverviewTab(weekRange) {
       if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
       if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
 
-      const code = br ? getShortSlot(currentShift, br.slot) : '?';
+      const code     = br ? getShortSlot(currentShift, br.slot) : '?';
+      const ov_si    = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
+      const ov_class = br
+        ? (ov_si===0?'break-slot slot-1 assigned overview-cell-assigned':'break-slot slot-2 assigned overview-cell-assigned')
+        : 'break-slot overview-cell-pending';
       return `<td style="text-align:center;padding:6px 4px;">
         <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
+          class="${ov_class}"
           style="display:inline-flex;align-items:center;justify-content:center;
             width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
             font-family:'IBM Plex Mono',monospace;cursor:pointer;
-            background:${br?'#1a2a0a':'#2a1a00'};
-            color:${br?'var(--ok)':'var(--warn)'};
-            border:1px solid ${br?'var(--ok)':'var(--warn)'};
             ${d===arrangeActiveDay?'outline:2px solid var(--accent);outline-offset:1px;':''}"
           title="${br?br.slot:'Not assigned — click to assign'}">${code}</span>
       </td>`;
@@ -498,7 +518,7 @@ function getArrangeDayMemberList(day) {
         <div style="font-size:11px;color:var(--text2);">${u.gender==='F'?'Female':u.gender==='M'?'Male':'—'}</div>
         <div class="break-slots">
           ${slots.map((s, idx) => `
-            <span class="break-slot${br?.slot===s?' assigned':''}"
+            <span class="break-slot${br?.slot===s?' assigned':''} slot-${idx+1}"
                   onclick="quickAssign(${u.id},'${day}','${s}')"
                   style="font-size:10px;padding:4px 10px;" title="${s}">
               ${currentShift}${idx+1}
@@ -520,10 +540,18 @@ function quickAssign(uid, day, slot) {
   updateBadge();
 }
 
+function _saveBulkGroups() {
+  _bulkGroups = new Set(Array.from(document.querySelectorAll('input[name="bulk-group"]:checked')).map(el=>el.value));
+}
+function _saveBulkDays() {
+  _bulkDays = new Set(Array.from(document.querySelectorAll('input[name="bulk-day"]:checked')).map(el=>el.value));
+}
 function bulkAssignMulti() {
-  const selectedGroups = Array.from(document.querySelectorAll('input[name="bulk-group"]:checked')).map(el => el.value);
-  const selectedDays   = Array.from(document.querySelectorAll('input[name="bulk-day"]:checked')).map(el => el.value);
-  const slotIdx        = parseInt(document.getElementById('bulk-slot-multi').value);
+  // Read from DOM (current state) and also persist
+  _saveBulkGroups(); _saveBulkDays();
+  const selectedGroups = [..._bulkGroups];
+  const selectedDays   = [..._bulkDays];
+  const slotIdx        = _bulkSlotIdx;
 
   if (selectedGroups.length === 0) { toast('Select at least one Group.', 'err'); return; }
   if (selectedDays.length === 0)   { toast('Select at least one Day.', 'err'); return; }
@@ -693,7 +721,7 @@ function _renderStaffSchedule() {
     Copy the schedule table from Google Sheets (select all cells including date headers) → <b>Ctrl+C</b> → paste below → <b>Parse</b>.<br>
     <span style="color:var(--text3);">Required columns: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">Row# | Group | Name | Username | Role | DD/MM dates…</code></span>
   </div>
-  <textarea id="paste-area" style="width:100%;min-height:100px;font-family:monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;resize:vertical;" placeholder="Paste tab-separated data from Google Sheets here…"></textarea>
+  <textarea id="paste-area" style="width:100%;min-height:100px;font-family:monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;resize:vertical;" placeholder="Paste tab-separated data from Google Sheets here…" oninput="_pasteContent=this.value">${_pasteContent}</textarea>
   <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
     <button class="btn btn-accent btn-sm" onclick="importFromPaste()">⚡ Parse</button>
     <div id="paste-status" style="font-size:11px;flex:1;"></div>

@@ -144,6 +144,8 @@ async function _afterLogin() {
 function enterApp(fromSession) {
   document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-app').classList.add('active');
+  document.body.classList.add('app-active');
+  document.body.classList.remove('login-active');
   const ri = getRoleInfo(currentUser.role);
   document.getElementById('top-avatar').textContent   = currentUser.name.charAt(0);
   document.getElementById('top-name').textContent     = currentUser.name.split(' ').slice(-1)[0];
@@ -172,6 +174,8 @@ function logout() {
   currentUser=null;
   document.getElementById('screen-app').classList.remove('active');
   document.getElementById('screen-login').classList.add('active');
+  document.body.classList.remove('app-active');
+  document.body.classList.add('login-active');
 }
 
 function toggleTheme() {
