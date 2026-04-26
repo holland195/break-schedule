@@ -143,14 +143,29 @@ async function syncAutoRestore(apiKey) {
   return await syncPull();
 }
 
-// ── Try silent auto-connect on page load using stored local key ──
+// ── Try to auto-restore sync config + pull passwords on any browser ──
+// Called before login so passwords are up-to-date from cloud
 async function syncTryAutoConnect() {
-  if (syncEnabled()) return; // already configured
-  // If we have a stored apiKey but no binId (e.g. after device reset), try to recover
-  const stored = (() => { try { return JSON.parse(localStorage.getItem(SYNC_CFG_KEY)) || {}; } catch(e){ return {}; }})();
-  if (stored.apiKey && !stored.binId) {
-    const binId = await syncFindBin(stored.apiKey);
-    if (binId) { syncSaveCfg({ binId, apiKey: stored.apiKey }); }
+  if (syncEnabled()) {
+    // Already configured — just pull to get latest passwords
+    await syncPull();
+    return;
+  }
+  // Check if we have a stored key but lost the binId (e.g. after device reset)
+  const stored = (() => {
+    try { return JSON.parse(localStorage.getItem(SYNC_CFG_KEY)) || {}; } catch(e) { return {}; }
+  })();
+  if (!stored.apiKey) return; // no key at all — nothing to do
+
+  // Have a key but no binId — try to find the bin
+  let binId = stored.binId || null;
+  if (!binId) {
+    binId = await syncFindBin(stored.apiKey);
+    if (binId) syncSaveCfg({ binId, apiKey: stored.apiKey });
+  }
+  if (binId && stored.apiKey) {
+    // Now pull — this updates staffPasswords in localStorage
+    await syncPull();
   }
 }
 
