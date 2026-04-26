@@ -1,6 +1,13 @@
 // ═══════════════════════════════════════════════
 //  CONSTANTS & SEED DATA
 // ═══════════════════════════════════════════════
+// ── Public Bin ID (set by admin after first Cloud Sync connect) ──
+// This is the JSONBin bin ID where passwords are stored publicly.
+// It is safe to embed here — it only allows reading, not writing.
+// After connecting Cloud Sync for the first time, copy the Bin ID
+// shown on the Cloud Sync page and paste it here, then redeploy.
+// Example: const BSCHED_PUBLIC_BIN_ID = '6631abc123def456789012ab';
+const BSCHED_PUBLIC_BIN_ID = '69ece1f1856a682189704e0b';
 const STORAGE  = 'bsched_v6';
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -86,25 +93,28 @@ if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 // No more SEED_USERS — users come only from schedule import
 
-// Always ensure system admin exists with password '1234' and NO forced change
-// This runs on every page load — admin is always accessible after any reset
+// Always ensure system admin exists — password '1234', never forced to change
+// Preserve any existing password the admin may have set
 state.staffInfo['admin'] = {
-  ...(state.staffInfo['admin'] || {}),
   empNo: 'SYS0001', name: 'System Admin', gender: 'M', dob: '', role: 'Admin',
-  password: state.staffInfo['admin']?.password || '1234',
-  mustChangePassword: false,  // admin never forced to change
+  ...(state.staffInfo['admin'] || {}),   // spread AFTER defaults so existing values win
+  mustChangePassword: false,             // admin never forced to change
 };
+if (!state.staffInfo['admin'].password) state.staffInfo['admin'].password = '1234';
 
-// Seed staffInfo from STAFF_INFO_DB on first load (password '1234', mustChangePassword:true)
-if (Object.keys(state.staffInfo).length <= 1) {  // only admin exists = first load
-  STAFF_INFO_DB.forEach(r => {
-    if (r.username === 'admin') return; // skip — already set above
+// Seed STAFF_INFO_DB entries — only fill in users that don't exist in localStorage yet.
+// NEVER overwrite an existing entry — that would wipe passwords changed on other browsers.
+STAFF_INFO_DB.forEach(r => {
+  if (r.username === 'admin') return; // handled above
+  if (!state.staffInfo[r.username]) {
+    // Brand new device — set defaults; cloud pull will overwrite with real passwords
     state.staffInfo[r.username] = {
       empNo: r.empNo, dob: r.dob, gender: r.gender, name: r.name, role: r.role,
       password: '1234', mustChangePassword: true,
     };
-  });
-}
+  }
+  // If entry already exists (returning browser or post-cloud-pull), leave it untouched
+});
 save();
 
 // ── Runtime state ──
