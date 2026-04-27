@@ -515,18 +515,8 @@ function _renderArrangeAssignTab(weekRange) {
   </div>
 </div>`;
 
-  // Day sub-tabs
-  const dayTabs = `
-<div class="tabs" id="arrange-day-tabs" style="margin-bottom:0;">
-  ${weekRange.map(d => `
-    <div class="tab${d===arrangeActiveDay?' on':''}" onclick="switchArrangeDay('${d}')" data-day="${d}" style="min-width:90px;text-align:center;">
-      <div style="font-weight:600;font-size:11px;">${getWkDay(d)}</div>
-      <div style="font-size:9px;opacity:0.6;">${d}</div>
-    </div>`).join('')}
-</div>
-<div id="arrange-day-content">${getArrangeDayMemberList(arrangeActiveDay)}</div>`;
-
-  return bulkPanel + dayTabs;
+  const weekTable = getArrangeDayMemberList(null);
+  return bulkPanel + weekTable;
 }
 
 function _renderArrangeOverviewTab(weekRange) {
@@ -548,7 +538,7 @@ function _renderArrangeOverviewTab(weekRange) {
       font-weight:700;
       position:sticky;top:0;z-index:10;
       background:${isToday?'var(--accent)':isActive?'var(--bg4)':'var(--bg3)'};
-      color:${isToday?'#000':isActive?'var(--accent)':'var(--text2)'};
+      color:${isToday?'#fff':isActive?'var(--accent)':'var(--text2)'};
       border-bottom:2px solid ${isToday?'var(--accent2)':'var(--border)'};
       ">
       ${WEEK_DAYS[i]}<br>
@@ -625,57 +615,100 @@ function _renderArrangeOverviewTab(weekRange) {
 
 function switchArrangeDay(day) {
   arrangeActiveDay = day;
-  document.querySelectorAll('#arrange-day-tabs .tab').forEach(t =>
-    t.classList.toggle('on', t.dataset.day === day)
-  );
-  const content = document.getElementById('arrange-day-content');
-  if (content) content.innerHTML = getArrangeDayMemberList(day);
+  // Table is full-week now; clicking from overview just switches to assign tab
+  // The table re-renders with the new active day highlighted
+  const wrap = document.querySelector('.arr-table-wrap');
+  if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
 }
 
-// Only the per-member rows (no week summary — that's in the Overview tab now)
-function getArrangeDayMemberList(day) {
-  const mates = getShiftMates(currentShift, day);
-  const slots = BREAK_SLOTS[currentShift] || [];
+// Full-week assign table — all days as columns, no gender col, clear slot states
+function getArrangeDayMemberList(_unused) {
+  const weekRange = getWeekRange(activeMonday);
+  const slots     = BREAK_SLOTS[currentShift] || [];
+  const todayDk   = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
-  if (!mates.length) return `<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;padding:60px;">
-    <div class="empty-ico">👥</div>No staff on Shift ${currentShift} for ${day}.</div>`;
+  // All users on this shift in ANY day this week
+  const allMates = state.users.filter(u =>
+    weekRange.some(d => {
+      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
+    })
+  );
 
-  const colGrid = '70px 1fr 160px 110px 1fr 80px';
+  if (!allMates.length) return `<div class="empty" style="padding:60px;">
+    <div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
+
+  // Table header — day columns
+  const thDays = weekRange.map(d => {
+    const isToday  = d === todayDk;
+    const dayLabel = getWkDay(d);
+    return `<th class="arr-th-day${isToday?' arr-th-today':''}" style="min-width:90px;text-align:center;">
+      <div style="font-size:11px;font-weight:700;">${dayLabel}</div>
+      <div style="font-size:9px;opacity:0.6;font-weight:400;">${d}</div>
+    </th>`;
+  }).join('');
+
+  // Table rows — one per member
+  const tbRows = allMates.map(u => {
+    const dayCells = weekRange.map(d => {
+      const dn       = WEEK_DAYS[weekRange.indexOf(d)];
+      const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
+      const onShift  = shiftVal === currentShift;
+      const isToday  = d === todayDk;
+
+      // Day off or different shift — show nothing
+      if (!onShift) {
+        return `<td class="arr-cell arr-cell-off${isToday?' arr-cell-today':''}">
+          <span style="color:var(--text3);font-size:12px;">—</span>
+        </td>`;
+      }
+
+      const br     = getAssigned(u.id, d) || getAssigned(u.id, dn);
+      const br_idx = br ? (slots.indexOf(br.slot)) : -1;
+
+      const slotBtns = slots.map((s, idx) => {
+        const isAssigned = br?.slot === s;
+        return `<span
+          class="arr-slot arr-slot-${idx+1}${isAssigned?' arr-slot-on':' arr-slot-off'}"
+          onclick="quickAssign(${u.id},'${d}','${s}')"
+          title="${s}">
+          ${currentShift}${idx+1}
+        </span>`;
+      }).join('');
+
+      return `<td class="arr-cell${isToday?' arr-cell-today':''}">
+        <div style="display:flex;gap:4px;justify-content:center;align-items:center;">
+          ${slotBtns}
+        </div>
+      </td>`;
+    }).join('');
+
+    const genderBadge = u.gender === 'F'
+      ? `<span style="font-size:9px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
+
+    return `<tr class="arr-row">
+      <td class="arr-name-col">
+        <div style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:1px;">${u.team}</div>
+        <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${u.name}${genderBadge}
+        </div>
+        <span class="role-tag ${getRoleInfo(u.role).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role).label}</span>
+      </td>
+      ${dayCells}
+    </tr>`;
+  }).join('');
+
   return `
-  <div class="arrange-member-header" style="grid-template-columns:${colGrid};border-radius:0;">
-    <div>GROUP</div><div>NAME</div><div>ROLE</div><div>GENDER</div><div>BREAK SLOTS</div><div></div>
-  </div>
-  <div class="arrange-member-wrap">
-    ${mates.map(u => {
-      const br = getAssigned(u.id, day);
-      const genderBadge = u.gender === 'F'
-        ? `<span style="font-size:9px;color:var(--A-color);margin-left:4px;">♀</span>` : '';
-      return `
-      <div style="display:grid;grid-template-columns:${colGrid};
-            align-items:center;gap:16px;padding:11px 16px;
-            background:var(--bg2);border-bottom:1px solid var(--border);">
-        <div class="emp-meta">${u.team}</div>
-        <div style="min-width:0;">
-          <div class="emp-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">
-            ${u.name}${genderBadge}
-          </div>
-          <div class="emp-meta" style="color:var(--accent)">${u.username}</div>
-        </div>
-        <div><span class="role-tag ${getRoleInfo(u.role).tag}">${getRoleInfo(u.role).label}</span></div>
-        <div style="font-size:11px;color:var(--text2);">${u.gender==='F'?'Female':u.gender==='M'?'Male':'—'}</div>
-        <div class="break-slots">
-          ${slots.map((s, idx) => `
-            <span class="break-slot${br?.slot===s?' assigned':''} slot-${idx+1}"
-                  onclick="quickAssign(${u.id},'${day}','${s}')"
-                  style="font-size:10px;padding:4px 10px;" title="${s}">
-              ${currentShift}${idx+1}
-            </span>`).join('')}
-        </div>
-        <div style="text-align:right;">
-          <button class="btn btn-xs" onclick="openAssignModal(${u.id},'${day}')" style="opacity:0.5">Edit</button>
-        </div>
-      </div>`;
-    }).join('')}
+  <div class="arr-table-wrap">
+    <table class="arr-table">
+      <thead>
+        <tr>
+          <th class="arr-th-name">Member</th>
+          ${thDays}
+        </tr>
+      </thead>
+      <tbody>${tbRows}</tbody>
+    </table>
   </div>`;
 }
 
@@ -683,7 +716,10 @@ function quickAssign(uid, day, slot) {
   if (!isLeader(currentUser)) { toast('Only leaders can assign breaks.', 'err'); return; }
   assign(uid, day, slot, '');
   toast(`Break assigned: ${slot}`);
-  switchArrangeDay(day);
+  // Re-render just the table body (no full nav re-render = keeps bulk panel state)
+  const wrap = document.querySelector('.arr-table-wrap');
+  if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
+  else { const c = document.getElementById('arrange-day-content'); if(c) c.innerHTML = getArrangeDayMemberList(null); }
   updateBadge();
 }
 

@@ -830,35 +830,166 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   letter-spacing: .04em;
 }
 
-/* ── ARRANGE MEMBER TABLE ── */
-.arrange-member-header {
-  display: grid;
-  align-items: center;
-  gap: 16px;
-  padding: 9px 16px;
+/* ── ARRANGE BREAKS FULL-WEEK TABLE ── */
+.arr-table-wrap {
+  overflow: auto;
+  max-height: 65vh;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+.arr-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Header row — sticky top */
+.arr-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   background: var(--bg3);
   border-bottom: 2px solid var(--border2);
+  border-right: 1px solid var(--border);
+  padding: 10px 8px;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: .05em;
   color: var(--text2);
-  font-family: 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+}
+
+/* Name column — sticky left */
+.arr-th-name {
+  position: sticky !important;
+  left: 0;
+  z-index: 40 !important;
+  min-width: 200px;
+  text-align: left !important;
+  background: var(--bg3) !important;
+  border-right: 2px solid var(--border2) !important;
+}
+.arr-name-col {
   position: sticky;
-  top: 0;
-  z-index: 15;
+  left: 0;
+  z-index: 10;
+  background: var(--bg2);
+  border-right: 2px solid var(--border2);
+  min-width: 200px;
+  max-width: 220px;
+  padding: 9px 14px;
+  vertical-align: middle;
+  box-shadow: 3px 0 8px rgba(0,0,0,.1);
 }
-.arrange-member-wrap {
-  overflow-y: auto;
-  max-height: 55vh;
-  scroll-behavior: smooth;
+
+/* Today column header */
+.arr-th-today {
+  background: var(--accent) !important;
+  color: #fff !important;
 }
-.arrange-member-wrap::-webkit-scrollbar { width: 5px }
-.arrange-member-wrap::-webkit-scrollbar-track { background: transparent }
-.arrange-member-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px }
-.arrange-member-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent) }
-/* Light theme overrides */
-[data-theme="light"] .arrange-member-header { background: var(--bg4); color: var(--text); }
+.arr-th-day { min-width: 90px; }
+
+/* Body rows */
+.arr-row { border-bottom: 1px solid var(--border); transition: background .07s; }
+.arr-row:last-child { border-bottom: none; }
+.arr-row:hover .arr-name-col,
+.arr-row:hover .arr-cell { background: var(--bg3); }
+
+/* Body cells */
+.arr-cell {
+  padding: 8px 6px;
+  border-right: 1px solid var(--border);
+  vertical-align: middle;
+  background: var(--bg2);
+}
+.arr-cell:last-child { border-right: none; }
+.arr-cell-off {
+  background: var(--bg);      /* slightly darker = visually off */
+  opacity: 0.5;
+}
+.arr-cell-today { background: rgba(31,102,241,.04) !important; }
+[data-theme="light"] .arr-cell-today { background: rgba(31,102,241,.03) !important; }
+
+/* ── SLOT BUTTONS — the key visual fix ──
+   ON  (assigned) : solid color, full opacity, checkmark-feel
+   OFF (inactive) : grey, dashed border, muted — clearly unselected
+*/
+.arr-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s;
+  border: 1.5px solid;
+  line-height: 1;
+}
+
+/* INACTIVE slot — grey, dashed, muted */
+.arr-slot-off {
+  background: transparent;
+  border-color: var(--border2);
+  border-style: dashed;
+  color: var(--text3);
+  opacity: 0.55;
+}
+.arr-slot-off:hover {
+  opacity: 1;
+  border-style: solid;
+  border-color: var(--border2);
+  color: var(--text2);
+  background: var(--bg4);
+}
+
+/* ACTIVE slot 1 — Blue (Pave brand) */
+.arr-slot-1.arr-slot-on {
+  background: rgba(31,102,241,.15);
+  border-color: #1F66F1;
+  color: #1F66F1;
+  border-style: solid;
+  box-shadow: 0 0 0 1px rgba(31,102,241,.2);
+}
+.arr-slot-1.arr-slot-off:hover { border-color: #1F66F1; color: #1F66F1; }
+
+/* ACTIVE slot 2 — Amber/orange */
+.arr-slot-2.arr-slot-on {
+  background: rgba(245,158,11,.15);
+  border-color: #f59e0b;
+  color: #d97706;
+  border-style: solid;
+  box-shadow: 0 0 0 1px rgba(245,158,11,.2);
+}
+.arr-slot-2.arr-slot-off:hover { border-color: #f59e0b; color: #d97706; }
+
+/* Light theme slot states */
+[data-theme="light"] .arr-slot-off { color: var(--text3); border-color: var(--border2); background: transparent; }
+[data-theme="light"] .arr-slot-off:hover { background: var(--bg4); color: var(--text2); }
+[data-theme="light"] .arr-slot-1.arr-slot-on { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+[data-theme="light"] .arr-slot-2.arr-slot-on { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+[data-theme="light"] .arr-th-today { background: var(--accent) !important; color: #fff !important; }
+[data-theme="light"] .arr-name-col { background: var(--bg2); box-shadow: 3px 0 6px rgba(13,42,118,.06); }
+[data-theme="light"] .arr-th-name { background: var(--bg3) !important; }
+[data-theme="light"] .arr-table thead th { background: var(--bg3); color: var(--text2); }
+[data-theme="light"] .arr-cell { background: var(--bg2); }
+[data-theme="light"] .arr-cell-off { background: var(--bg3); }
+[data-theme="light"] .arr-row:hover .arr-name-col,
+[data-theme="light"] .arr-row:hover .arr-cell { background: var(--bg4); }
+
+/* Scrollbars */
+.arr-table-wrap::-webkit-scrollbar { width: 7px; height: 7px; }
+.arr-table-wrap::-webkit-scrollbar-track { background: var(--bg2); border-radius: 10px; }
+.arr-table-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; border: 2px solid var(--bg2); }
+.arr-table-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.arr-table-wrap::-webkit-scrollbar-corner { background: var(--bg2); }
 
 /* ── WEEK OVERVIEW ACTIVE DAY COLUMN ── */
 /* The active-day column gets a subtle tint; slot badges use muted colors */
