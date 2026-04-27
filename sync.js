@@ -119,29 +119,44 @@ async function syncPull() {
 }
 
 function _applyRemoteData(remote) {
-  // ── Option B: per-entry timestamp merge for breaks ──
-  // Only overwrite a local break entry if the cloud version is NEWER.
-  // This prevents a slow/delayed pull from wiping freshly auto-assigned
-  // or manually assigned breaks that haven't finished pushing yet.
+  // ── Breaks merge: compare collection-level timestamps first ──
+  // state._breaksUpdatedAt = when we last wrote breaks locally (set on every assign/import)
+  // remote._breaksUpdatedAt = when the cloud breaks were last pushed
+  //
+  // Cases:
+  //  A. remote newer than local → cloud wins, replace entirely (normal sync from another device)
+  //  B. local newer than remote → local wins, keep entirely (our push is in-flight or just landed)
+  //  C. equal or no timestamp   → fall back to per-entry merge (safe default)
+  //  D. local is empty          → always take cloud (fresh browser, no local data yet)
   if (remote.breaks) {
-    Object.entries(remote.breaks).forEach(([key, remoteEntry]) => {
-      const localEntry = state.breaks[key];
-      if (!localEntry) {
-        // No local entry — take cloud's
-        state.breaks[key] = remoteEntry;
-      } else {
-        const localAt  = localEntry.at  || 0;
-        const remoteAt = remoteEntry.at || 0;
-        if (remoteAt > localAt) {
-          // Cloud is genuinely newer (e.g. another user assigned a break)
+    const localBAt  = state._breaksUpdatedAt  || 0;
+    const remoteBAt = remote._breaksUpdatedAt || 0;
+    const localIsEmpty = Object.keys(state.breaks).length === 0;
+
+    if (localIsEmpty) {
+      // Case D: fresh browser — take everything from cloud
+      state.breaks = remote.breaks;
+    } else if (remoteBAt > localBAt) {
+      // Case A: cloud is genuinely newer — replace entirely
+      state.breaks = remote.breaks;
+    } else if (localBAt > remoteBAt) {
+      // Case B: local is newer (e.g. push in-flight) — keep local entirely
+      // Do nothing — our local data wins
+    } else {
+      // Case C: same timestamp or no timestamp — per-entry merge
+      Object.entries(remote.breaks).forEach(([key, remoteEntry]) => {
+        const localEntry = state.breaks[key];
+        if (!localEntry) {
           state.breaks[key] = remoteEntry;
+        } else {
+          const localAt  = localEntry.at  || 0;
+          const remoteAt = remoteEntry.at || 0;
+          if (remoteAt > localAt) {
+            state.breaks[key] = remoteEntry;
+          }
         }
-        // else: local is newer or same — keep local (our just-assigned data wins)
-      }
-    });
-    // Remove local entries that cloud has explicitly deleted
-    // (cloud entry missing = intentional delete on another device)
-    // We skip this for safety — deletions are rare and re-import fixes any orphans
+      });
+    }
   }
   if (remote.requests)  state.requests  = remote.requests;
   if (remote.extBreaks) state.extBreaks = remote.extBreaks;
@@ -186,12 +201,15 @@ async function syncPush() {
       schedule: u.schedule,
     }));
     const payload = {
-      breaks:         state.breaks,
-      requests:       state.requests,
-      extBreaks:      state.extBreaks,
-      users:          usersCompact,
+      breaks:           state.breaks,
+      requests:         state.requests,
+      extBreaks:        state.extBreaks,
+      users:            usersCompact,
       staffPasswords,
-      _updated:       Date.now(),
+      _updated:         Date.now(),
+      // Breaks-specific update timestamp — used by receiving browsers to
+      // decide whether cloud breaks are newer than their local copy
+      _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
     };
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}`, {
       method:  'PUT',

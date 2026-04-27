@@ -235,6 +235,10 @@ function autoAssignBreaks(importedUsers) {
   // Persist the updated rotation state
   _saveRotation(rot);
 
+  // Mark when breaks were last written so the merge logic in _applyRemoteData
+  // can detect that our local data is newer than anything currently in the cloud
+  state._breaksUpdatedAt = RUN_TIMESTAMP;
+
   // Note: syncWrite() is called by confirmScheduleImport() with await
   // Do not call it here — caller handles the push after this returns
 

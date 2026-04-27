@@ -44,7 +44,7 @@ const ROLES = {
 // ═══════════════════════════════════════════════
 function load() {
   try { const d = localStorage.getItem(STORAGE); if (d) return JSON.parse(d); } catch(e){}
-  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false };
+  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false, _breaksUpdatedAt:0 };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -157,7 +157,9 @@ function getShiftMates(shift,day) {
 function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
 function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
 function assign(uid,day,slot,note) {
-  DB.setBreak(uid, day||todayKey(), {slot, note:note||'', by:currentUser?.id, at:Date.now()});
+  const now = Date.now();
+  DB.setBreak(uid, day||todayKey(), {slot, note:note||'', by:currentUser?.id, at:now});
+  state._breaksUpdatedAt = now; // mark when breaks were last written locally
   if (typeof syncWrite === 'function') syncWrite(); else save();
 }
 function currentMonthKey() {
