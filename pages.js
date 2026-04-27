@@ -192,60 +192,58 @@ function renderSchedule() {
       </div>` : '';
   }
 
-  // Column headers
-  const todayDk   = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-  const headers = `<div class="wg-header" style="background:var(--bg4);">Name / Group</div>` + weekDates.map((dk, i) => {
+  // ── Convert to <table> so position:sticky works for both header row + first column ──
+  const todayDk = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+
+  const theadCells = weekDates.map((dk, i) => {
     const dayName = dateToDayName[dk] || WEEK_DAYS[i];
     const isToday = dk === todayDk;
-    return `<div class="wg-header" style="text-align:center;${isToday?'background:var(--accent);color:#000;border-bottom:2px solid var(--accent2);':''}">
-      <span style="font-size:11px;font-weight:800;">${dayName}</span><br>
-      <span style="font-size:9px;font-weight:400;opacity:${isToday?'0.7':'0.6'}">${dk}</span>
-    </div>`;
+    return `<th class="sched-th-day${isToday ? ' sched-th-today' : ''}" style="min-width:80px;text-align:center;">
+      <div style="font-size:11px;font-weight:800;">${dayName}</div>
+      <div style="font-size:9px;font-weight:400;opacity:${isToday?'0.75':'0.55'};margin-top:1px;">${dk}</div>
+    </th>`;
   }).join('');
 
-  // Rows
-  const rows = shiftUsers.map(u => {
+  const tbodyRows = shiftUsers.map(u => {
     const cells = weekDates.map(dateKey => {
       const shiftVal = getUserShift(u, dateKey);
       const onShift  = shiftVal === currentShift;
       const dayOff   = shiftVal === '0';
       const br       = getAssigned(u.id, dateKey) || getAssigned(u.id, dateToDayName[dateKey]);
 
-      if (dayOff)   return `<div class="wg-cell"><span class="sh sh-0">—</span></div>`;
-      if (!onShift) return `<div class="wg-cell"><span class="sh sh-${shiftVal}">${shiftVal}</span></div>`;
+      if (dayOff)   return `<td style="text-align:center;"><span class="sh sh-0" style="font-size:10px;">—</span></td>`;
+      if (!onShift) return `<td style="text-align:center;"><span class="sh sh-${shiftVal}" style="font-size:10px;">${shiftVal}</span></td>`;
 
       const shortCode = br ? getShortSlot(currentShift, br.slot) : '—';
-      // Slot index (0-based) for color differentiation
       const slotIdx   = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
       const slotClass = slotIdx === 0 ? 'slot-1' : slotIdx === 1 ? 'slot-2' : '';
-      // Female 30-min extra break registered?
       const mk        = currentMonthKey();
       const hasExt    = br && u.gender === 'F' && DB.countExtBreaks(u.id, mk) > 0
                         && DB.getExtBreaks(u.id, mk).some(e => e.day === dateKey);
-      return `<div class="wg-cell${hasExt ? ' cell-female-ext' : ''}" style="position:relative;">
+      return `<td style="text-align:center;position:relative;${hasExt?'':''}" ${hasExt?'class="cell-female-ext"':''}>
         <span class="${br ? `break-slot assigned ${slotClass}` : ''}"
-          style="font-size:10px; padding:3px 8px; ${br ? '' : 'color:var(--text3)'}"
+          style="font-size:10px;padding:3px 8px;${br?'':'color:var(--text3)'}"
           title="${br ? br.slot + (hasExt?' 🌸+30min':'') : 'Not assigned'}">
           ${shortCode}${hasExt ? ' 🌸' : ''}
         </span>
-      </div>`;
+      </td>`;
     }).join('');
 
-    return `<div class="wg-row" style="display:contents">
-      <div class="wg-name">
-        <div class="n">${u.name}</div>
-        <div class="m">${u.team} · ${getRoleInfo(u.role).label}</div>
-      </div>
+    return `<tr>
+      <td class="sched-name-col">
+        <div class="sched-name">${u.name}</div>
+        <div class="sched-meta">${u.team} · ${getRoleInfo(u.role).label}</div>
+      </td>
       ${cells}
-    </div>`;
+    </tr>`;
   }).join('');
 
-  // Legend inline
+  // Legend
   const shiftSlots  = BREAK_SLOTS[currentShift] || [];
   const legendItems = shiftSlots.map((time, i) => `
-    <div style="display:flex; align-items:center; gap:6px;">
-      <span class="break-slot assigned slot-${i+1}" style="font-size:10px; min-width:28px; text-align:center">${currentShift}${i + 1}</span>
-      <span style="color:var(--text2); font-size:11px">${time}</span>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span class="break-slot assigned slot-${i+1}" style="font-size:10px;min-width:28px;text-align:center;">${currentShift}${i+1}</span>
+      <span style="color:var(--text2);font-size:11px;">${time}</span>
     </div>`).join('');
 
   const emptyMsg = shiftUsers.length === 0
@@ -260,17 +258,23 @@ function renderSchedule() {
   </div>
   <div class="schedule-legend-inline">
     ${weekPickerHTML}
-    <span style="font-size:10px; color:var(--text3); font-family:'IBM Plex Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-left:8px;">Legend:</span>
-    ${legendItems || '<span style="color:var(--text3); font-size:11px">No slots defined</span>'}
+    <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;">Legend:</span>
+    ${legendItems || '<span style="color:var(--text3);font-size:11px">No slots defined</span>'}
   </div>
 </div>
 
 ${emptyMsg}
 ${shiftUsers.length > 0 ? `
-<div class="week-grid-wrap">
-  <div class="week-grid" style="min-width:700px; grid-template-columns: 200px repeat(${weekDates.length}, 1fr)">
-    ${headers}${rows}
-  </div>
+<div class="sched-table-wrap">
+  <table class="sched-table">
+    <thead>
+      <tr>
+        <th class="sched-th-name">Name / Group</th>
+        ${theadCells}
+      </tr>
+    </thead>
+    <tbody>${tbodyRows}</tbody>
+  </table>
 </div>` : ''}`;
 }
 

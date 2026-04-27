@@ -333,21 +333,103 @@ body.login-active #screen-app { display: none !important }
   border: 1px solid var(--border);
   position: relative;
 }
-/* Frozen header for week-grid (CSS grid used in Break Schedule) */
-.week-grid-wrap {
-  overflow: auto;
+/* ── BREAK SCHEDULE TABLE (replaces CSS grid) ──
+   Uses a real <table> so both thead and first-column sticky work correctly.
+   CSS grid sticky on display:contents rows is unreliable across browsers.
+*/
+.sched-table-wrap {
+  overflow: auto;           /* scroll both axes */
   max-height: 72vh;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
+  position: relative;       /* stacking context for sticky children */
 }
-/* CSS grid sticky: must explicitly set bg on each header cell */
-.week-grid-wrap .wg-header {
+
+.sched-table {
+  border-collapse: separate;  /* required — collapse disables sticky */
+  border-spacing: 0;
+  width: max-content;         /* expand to full column width, scroll wrapper clips */
+  min-width: 100%;
+}
+
+/* ── Frozen header row ── */
+.sched-table thead th {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;              /* above body cells */
   background: var(--bg3);
-  box-shadow: 0 2px 0 var(--border);
+  border-bottom: 2px solid var(--border2);
+  border-right: 1px solid var(--border);
+  padding: 10px 8px;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text2);
 }
+
+/* ── Frozen first column (Name) ── */
+.sched-th-name {
+  position: sticky !important;
+  left: 0;
+  z-index: 40 !important;   /* highest: corner cell (frozen header + frozen col) */
+  min-width: 200px;
+  text-align: left !important;
+  background: var(--bg3) !important;
+}
+
+.sched-name-col {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: var(--bg2);
+  border-right: 2px solid var(--border2);  /* stronger divider line after frozen col */
+  min-width: 200px;
+  padding: 9px 14px;
+  vertical-align: middle;
+  /* Shadow to show content is scrolling behind */
+  box-shadow: 3px 0 8px rgba(0,0,0,.12);
+}
+.sched-name { font-weight: 600; font-size: 12px; }
+.sched-meta { font-size: 10px; color: var(--text2); font-family: 'IBM Plex Mono', monospace; margin-top: 1px; }
+
+/* ── Today column header highlight ── */
+.sched-th-today {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+[data-theme="light"] .sched-th-today { color: #fff !important; }
+
+/* ── Day header cells (non-name cols) ── */
+.sched-th-day { min-width: 82px; }
+
+/* ── Body cells ── */
+.sched-table tbody tr { border-bottom: 1px solid var(--border); transition: background .08s; }
+.sched-table tbody tr:last-child { border-bottom: none; }
+.sched-table tbody tr:hover .sched-name-col,
+.sched-table tbody tr:hover td { background: var(--bg3); }
+.sched-table tbody td {
+  padding: 8px 6px;
+  border-right: 1px solid var(--border);
+  text-align: center;
+  vertical-align: middle;
+}
+.sched-table tbody td:last-child { border-right: none; }
+
+/* Light theme */
+[data-theme="light"] .sched-table thead th { background: var(--bg3); color: var(--text2); }
+[data-theme="light"] .sched-th-name { background: var(--bg3) !important; }
+[data-theme="light"] .sched-name-col { background: var(--bg2); box-shadow: 3px 0 8px rgba(13,42,118,.07); }
+[data-theme="light"] .sched-table-wrap { border-color: var(--border); }
+
+/* Scrollbar styling */
+.sched-table-wrap::-webkit-scrollbar { width: 7px; height: 7px; }
+.sched-table-wrap::-webkit-scrollbar-track { background: var(--bg2); border-radius: 10px; }
+.sched-table-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; border: 2px solid var(--bg2); }
+.sched-table-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.sched-table-wrap::-webkit-scrollbar-corner { background: var(--bg2); }
 table { width: 100%; border-collapse: collapse }
 thead th {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
