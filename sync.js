@@ -284,8 +284,13 @@ async function syncFindBin(apiKey) {
     if (!res.ok) return null;
     const json = await res.json();
     const bins = Array.isArray(json.metadata) ? json.metadata : [];
-    const match = bins.find(b => b.name === 'bsched-data');
-    return match?.id || (bins.length === 1 ? bins[0].id : null);
+    // Find all bins named 'bsched-data', sort by creation time (newest first)
+    const matches = bins
+      .filter(b => b.name === 'bsched-data')
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    if (matches.length > 0) return matches[0].id;
+    // No named match — only use a bin if there's exactly one (avoid wrong pick)
+    return bins.length === 1 ? bins[0].id : null;
   } catch(e) { return null; }
 }
 
@@ -408,7 +413,7 @@ ${binId ? `
   <button class="btn btn-err btn-sm" onclick="factoryReset()">⚠ Reset This Device</button>
 </div>
 
-\${typeof renderRotationPanel === 'function' ? renderRotationPanel() : ''}`;
+${typeof renderRotationPanel === 'function' ? renderRotationPanel() : ''}` ;
 }
 
 async function saveSyncCfg() {
@@ -419,12 +424,15 @@ async function saveSyncCfg() {
     status.innerHTML = '<span style="color:var(--err)">⚠ Key should start with <code>$2b$10$</code></span>'; return;
   }
   status.innerHTML = '<span style="color:var(--text3)">⏳ Looking for existing bin…</span>';
+  // Always search for existing bin first — never create a duplicate
+  status.innerHTML = '<span style="color:var(--text3)">⏳ Searching for existing bin…</span>';
   let binId = syncCfg.binId || _cachedBinId || await syncFindBin(apiKey);
   if (!binId) {
-    status.innerHTML = '<span style="color:var(--text3)">⏳ Creating public bin…</span>';
+    status.innerHTML = '<span style="color:var(--text3)">⏳ No existing bin found — creating one…</span>';
     try { binId = await syncCreateBin(apiKey); }
     catch(e) { status.innerHTML = `<span style="color:var(--err)">⚠ ${e.message}</span>`; return; }
   } else {
+    // Ensure the found bin is public so all browsers can read it without a key
     await syncMakeBinPublic(binId, apiKey);
   }
   _cachedBinId = binId;
