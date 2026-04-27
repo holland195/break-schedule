@@ -179,25 +179,51 @@ function autoAssignBreaks(importedUsers) {
         // Sort by group name (natural: AT1 < AT9 < AT10)
         members.sort((a, b) => _naturalSort(a.team || '', b.team || ''));
 
-        // Resolve phase using Option C logic
+        // ── Option D: check per-member per-day before assigning ──
+        // Count how many members in this tier already have ALL their working
+        // days assigned this week — used to decide rotation phase recording.
+        const fullyAssigned = members.filter(u =>
+          weekDates.every(d => {
+            if (u.schedule[d] !== shift) return true; // not on shift this day → not relevant
+            return !!DB.getBreak(u.id, d);            // has a break → counts as assigned
+          })
+        );
+        const allAlreadyAssigned = fullyAssigned.length === members.length;
+
+        // Resolve phase using Option C logic.
+        // IMPORTANT: we resolve the phase even if everyone is already assigned,
+        // so that the rotation state is updated correctly for future weeks.
         const phase      = _resolvePhase(rot, shift, tier, monday);
         const firstCount = Math.ceil(members.length / 2);
 
+        // If all members are already fully assigned this week, skip writing
+        // but keep the resolved phase (recorded above) for rotation continuity.
+        if (allAlreadyAssigned) {
+          console.log(`[autoassign] ${shift}/${tier}/${monday}: all assigned, skipping (phase=${phase} recorded)`);
+          return;
+        }
+
         members.forEach((u, idx) => {
           const inFirst      = idx < firstCount;
-          // phase=0: first→slot1, second→slot2
-          // phase=1: first→slot2, second→slot1
           const assignedSlot = phase === 0
             ? (inFirst ? slot1 : slot2)
             : (inFirst ? slot2 : slot1);
 
           weekDates.forEach(d => {
-            if (u.schedule[d] !== shift) return;
+            if (u.schedule[d] !== shift) return; // off or different shift
+
+            // ── Option D: skip this specific member+day if already assigned ──
+            const existing = DB.getBreak(u.id, d);
+            if (existing) {
+              console.log(`[autoassign] Skip ${u.username} on ${d} — already has ${existing.slot}`);
+              return; // preserve existing break (manual or prior auto-assign)
+            }
+
             DB.setBreak(u.id, d, {
               slot: assignedSlot,
               note: 'auto',
               by:   null,
-              at:   RUN_TIMESTAMP, // consistent timestamp for this import run
+              at:   RUN_TIMESTAMP,
             });
             totalAssigned++;
           });
