@@ -1,13 +1,8 @@
 // ═══════════════════════════════════════════════
 //  CONSTANTS & SEED DATA
 // ═══════════════════════════════════════════════
-// ── Public Bin ID (set by admin after first Cloud Sync connect) ──
-// This is the JSONBin bin ID where passwords are stored publicly.
-// It is safe to embed here — it only allows reading, not writing.
-// After connecting Cloud Sync for the first time, copy the Bin ID
-// shown on the Cloud Sync page and paste it here, then redeploy.
-// Example: const BSCHED_PUBLIC_BIN_ID = '6631abc123def456789012ab';
-const BSCHED_PUBLIC_BIN_ID = '';
+// ── Bin ID is now discovered automatically from sync-config.json ──
+// No manual edits to data.js needed. See Cloud Sync page for setup.
 const STORAGE  = 'bsched_v6';
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 

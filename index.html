@@ -59,9 +59,7 @@
         <button class="btn btn-accent" id="signin-btn" onclick="doLogin()" style="width:100%">Sign in →</button>
       </div>
 
-      <div style="margin-top:16px;text-align:center;">
-        <button class="theme-toggle" onclick="toggleTheme();updateLoginThemeBtn()" id="login-theme-btn" title="Toggle theme">☀</button>
-      </div>
+
     </div>
 
     <!-- ── First-login password change view (same card, swaps in-place) ── -->
@@ -269,15 +267,11 @@
   document.getElementById('li-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
   // Theme labels
-  function updateLoginThemeBtn() {
-    const btn = document.getElementById('login-theme-btn');
-    if (btn) { btn.textContent = currentTheme === 'dark' ? '☀' : '☾'; btn.title = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'; }
-  }
+  function updateLoginThemeBtn() { /* removed */ }
   function updateAppThemeBtn() {
     const btn = document.getElementById('theme-toggle-btn');
     if (btn) { btn.textContent = currentTheme === 'dark' ? '☀' : '☾'; btn.title = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'; }
   }
-  updateLoginThemeBtn();
   updateAppThemeBtn();
 
   // ── Boot: pull cloud passwords before login is usable ──
