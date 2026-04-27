@@ -624,6 +624,8 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 [data-theme="light"] .login-input, [data-theme="light"] .login-select { background: var(--bg3); }
 [data-theme="light"] .fg input, [data-theme="light"] .fg select, [data-theme="light"] .fg textarea { background: var(--bg3); }
 [data-theme="light"] .filter-input { background: var(--bg3); }
+[data-theme="light"] .btn-sm { color: var(--text); background: var(--bg2); border-color: var(--border2); }
+[data-theme="light"] .btn-sm:hover { background: var(--bg4); }
 [data-theme="light"] .slot-select { background: var(--bg3); }
 [data-theme="light"] .wg-cell { background: var(--bg2); }
 [data-theme="light"] .wg-name { background: var(--bg2); }
@@ -634,3 +636,11 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 [data-theme="light"] .stat { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 [data-theme="light"] .bulk-panel { background: var(--bg4); }
 [data-theme="light"] .group-check-item, [data-theme="light"] .day-check-item { background: var(--bg2); }
+/* Light theme: ensure accent buttons have readable dark text */
+[data-theme="light"] .btn-accent { color: #fff; background: var(--accent); border-color: var(--accent); }
+[data-theme="light"] .btn-accent:hover { color: #fff; background: var(--accent2); }
+/* Light theme: today header text override */
+[data-theme="light"] .wg-header[style*="background:var(--accent)"] { color: #fff !important; }
+/* Light theme: break slot text more readable */
+[data-theme="light"] .break-slot.slot-1 { background: #dbeafe; color: #1e40af; border-color: #3b82f6; }
+[data-theme="light"] .break-slot.slot-2 { background: #fef3c7; color: #92400e; border-color: #d97706; }

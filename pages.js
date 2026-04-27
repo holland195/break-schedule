@@ -2,29 +2,139 @@
 //  RENDER: DASHBOARD
 // ═══════════════════════════════════════════════
 function renderDashboard() {
-  const weekRange = getWeekRange(activeMonday);
-  const mates     = state.users.filter(u => u.team === currentUser.team);
+  const weekDates  = getWeekDates(); // always real current week
+  const todayDk    = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const si         = DB.getStaffInfo(currentUser.username);
+  const gender     = si?.gender || currentUser.gender || '';
+  const mk         = currentMonthKey();
+  const extUsed    = DB.countExtBreaks(currentUser.id, mk);
+
+  // My break today
+  const myBr       = getAssigned(currentUser.id, todayDk)
+                  || getAssigned(currentUser.id, getWkDay(todayDk));
+  const myShift    = currentUser.schedule?.[todayDk]
+                  || currentUser.schedule?.[getWkDay(todayDk)] || '0';
+  const onShift    = myShift === currentShift;
+
+  // Pending requests
+  const myPending  = state.requests.filter(r =>
+    r.userId === currentUser.id && r.status === 'pending'
+  ).length;
+  const allPending = state.requests.filter(r => r.status === 'pending').length;
+
+  // Team breaks today (same shift)
+  const shiftMates = getShiftMates(currentShift, todayDk);
+  const assigned   = shiftMates.filter(u => getAssigned(u.id, todayDk)).length;
+
+  const greetHour  = new Date().getHours();
+  const greet      = greetHour < 12 ? 'Good morning' : greetHour < 17 ? 'Good afternoon' : 'Good evening';
+
+  // My break card
+  const myBreakCard = `
+<div class="card" style="margin-bottom:0;">
+  <div class="card-title">🕐 My Break Today</div>
+  ${!onShift
+    ? `<div style="color:var(--text3);font-size:13px;">Not on Shift ${currentShift} today.</div>`
+    : myBr
+      ? `<div style="display:flex;align-items:center;gap:12px;">
+          <span class="break-slot assigned slot-${(BREAK_SLOTS[currentShift]||[]).indexOf(myBr.slot)+1||1}"
+            style="font-size:14px;padding:8px 18px;font-weight:700;">
+            ${getShortSlot(currentShift, myBr.slot)}
+          </span>
+          <div>
+            <div style="font-size:16px;font-weight:700;">${myBr.slot}</div>
+            <div style="font-size:11px;color:var(--text3);">${SHIFTS[currentShift].display}</div>
+          </div>
+        </div>`
+      : `<div style="color:var(--warn);font-size:13px;">⏳ Not assigned yet for today.</div>`}
+  ${gender === 'F' ? `<div style="margin-top:10px;font-size:11px;color:var(--A-color);">🌸 Extra 30-min breaks used this month: <b>${extUsed}/3</b></div>` : ''}
+</div>`;
+
+  // Stats row
+  const statsRow = `
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label">Shift Today</div>
+    <div class="stat-num" style="font-size:20px;">${onShift ? `<span class="sh sh-${currentShift}" style="width:36px;height:36px;font-size:18px;">${currentShift}</span>` : '—'}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Team on shift</div>
+    <div class="stat-num">${shiftMates.length}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Breaks assigned</div>
+    <div class="stat-num" style="color:${assigned===shiftMates.length&&shiftMates.length>0?'var(--ok)':'var(--warn)'}">${assigned}<span style="font-size:14px;color:var(--text3)">/${shiftMates.length}</span></div>
+  </div>
+  ${isLeader(currentUser)
+    ? `<div class="stat">
+        <div class="stat-label">Pending requests</div>
+        <div class="stat-num" style="color:${allPending>0?'var(--warn)':'var(--ok)'}">${allPending}</div>
+      </div>`
+    : `<div class="stat">
+        <div class="stat-label">My requests</div>
+        <div class="stat-num" style="color:${myPending>0?'var(--warn)':'var(--ok)'}">${myPending}</div>
+      </div>`}
+</div>`;
+
+  // Team breaks today grid
+  const teamGrid = shiftMates.length === 0 ? '' : `
+<div class="card" style="margin-top:16px;">
+  <div class="card-title">👥 Team Breaks Today — Shift ${currentShift} · ${todayDk}</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px;">
+    ${shiftMates.map(u => {
+      const br  = getAssigned(u.id, todayDk);
+      const idx = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
+      const isSelf = u.id === currentUser.id;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+        background:${isSelf?'var(--bg4)':'var(--bg3)'};border-radius:7px;
+        border:1px solid ${isSelf?'var(--accent)':'var(--border)'};">
+        <span class="break-slot ${br?`assigned slot-${idx+1}`:''}" style="font-size:10px;padding:3px 8px;min-width:28px;text-align:center;">
+          ${br ? getShortSlot(currentShift, br.slot) : '?'}
+        </span>
+        <div style="min-width:0;">
+          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${u.name}${isSelf?' <span style="font-size:10px;color:var(--accent);">(you)</span>':''}
+            ${u.gender==='F'?'<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>':''}
+          </div>
+          <div style="font-size:10px;color:var(--text3);">${u.team} · ${getRoleInfo(u.role).label}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+</div>`;
+
+  // No schedule imported yet
+  const noSchedule = state.users.length === 0 ? `
+<div class="card" style="border-color:var(--warn);background:var(--D-bg);">
+  <div style="font-size:13px;color:var(--warn);font-weight:600;">⚠ No schedule imported on this browser</div>
+  <div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.8;">
+    Break assignments are synced from cloud ✓<br>
+    To see the full schedule, go to <b>Staff → Staff Schedule</b> and paste your Google Sheets data.
+  </div>
+</div>` : '';
 
   return `
 <div class="page-header">
   <div>
-    <div class="page-title">Team Dashboard: ${currentUser.team}</div>
-    <div class="page-sub">Week of ${activeMonday}</div>
+    <div class="page-title">${greet}, ${currentUser.name.split(' ').slice(-1)[0]} 👋</div>
+    <div class="page-sub">${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · Shift ${currentShift}</div>
   </div>
 </div>
-<div class="week-grid">
-  <div class="wg-header">Member</div>
-  ${weekRange.map(d => `<div class="wg-header" style="text-align:center">${d}</div>`).join('')}
-  ${mates.map(u => `
-    <div class="wg-row" style="display:contents">
-      <div class="wg-name">${u.name}</div>
-      ${weekRange.map(d => {
-        const br        = getAssigned(u.id, d);
-        const shortSlot = br ? getShortSlot(u.schedule[d], br.slot) : '—';
-        return `<div class="wg-cell" style="text-align:center; font-weight:700; color:var(--accent)">${shortSlot}</div>`;
-      }).join('')}
-    </div>`).join('')}
-</div>`;
+${noSchedule}
+${statsRow}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+  ${myBreakCard}
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-title">📋 Quick Links</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+      <button class="btn" onclick="nav('schedule')" style="text-align:left;justify-content:flex-start;">📅 View Break Schedule</button>
+      ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending>0?`<span class="nav-badge" style="display:inline;">${myPending}</span>`:''}</button>` : ''}
+      ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending>0?`<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>`:''}</button>` : ''}
+      ${currentUser.gender==='F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
+    </div>
+  </div>
+</div>
+${teamGrid}`;
 }
 
 // ═══════════════════════════════════════════════
@@ -134,7 +244,7 @@ function renderSchedule() {
   const shiftSlots  = BREAK_SLOTS[currentShift] || [];
   const legendItems = shiftSlots.map((time, i) => `
     <div style="display:flex; align-items:center; gap:6px;">
-      <span class="break-slot assigned" style="font-size:10px; min-width:28px; text-align:center">${currentShift}${i + 1}</span>
+      <span class="break-slot assigned slot-${i+1}" style="font-size:10px; min-width:28px; text-align:center">${currentShift}${i + 1}</span>
       <span style="color:var(--text2); font-size:11px">${time}</span>
     </div>`).join('');
 
@@ -304,9 +414,25 @@ function renderArrange() {
   const weekRange = getWeekRange(activeMonday);
   if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
+  // Build week picker from available schedule dates
+  const allDates  = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const mondays   = allDates.filter(d => getWkDay(d) === 'Mon').sort((a,b) => {
+    const [da,ma] = a.split('/'); const [db,mb] = b.split('/');
+    return new Date(2026,parseInt(ma)-1,parseInt(da)) - new Date(2026,parseInt(mb)-1,parseInt(db));
+  });
+  const weekPickerHTML = mondays.length > 0 ? `
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
+      <select class="login-select" style="padding:4px 8px;font-size:11px;"
+        onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
+        ${mondays.map(m=>`<option value="${m}" ${m===activeMonday?'selected':''}>${m} — ${getWkDay(m)}</option>`).join('')}
+      </select>
+    </div>` : '';
+
   return `
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
+  <div style="display:flex;align-items:center;gap:12px;">${weekPickerHTML}</div>
 </div>
 
 <!-- Top-level 2 tabs -->
@@ -343,7 +469,9 @@ function _renderArrangeAssignTab(weekRange) {
       const dayName = WEEK_DAYS[weekRange.indexOf(d)];
       return u.schedule[d] === currentShift || u.schedule[dayName] === currentShift;
     })
-  ).map(u => u.team))].sort();
+  ).map(u => u.team))].sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  );
 
   const slots = BREAK_SLOTS[currentShift] || [];
 
@@ -408,12 +536,21 @@ function _renderArrangeOverviewTab(weekRange) {
 
   if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
 
-  const summaryHeaders = weekRange.map((d, i) => `
-    <th style="text-align:center;padding:7px 4px;font-size:9px;min-width:54px;
-      color:${d===arrangeActiveDay?'var(--accent)':'var(--text3)'};">
+  const todayDkOv = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const summaryHeaders = weekRange.map((d, i) => {
+    const isToday = d === todayDkOv;
+    const isActive = d === arrangeActiveDay;
+    return `<th style="text-align:center;padding:7px 4px;font-size:10px;min-width:54px;
+      font-weight:700;
+      position:sticky;top:0;z-index:10;
+      background:${isToday?'var(--accent)':isActive?'var(--bg4)':'var(--bg3)'};
+      color:${isToday?'#000':isActive?'var(--accent)':'var(--text2)'};
+      border-bottom:2px solid ${isToday?'var(--accent2)':'var(--border)'};
+      ">
       ${WEEK_DAYS[i]}<br>
-      <span style="font-weight:400;opacity:0.7;">${d}</span>
-    </th>`).join('');
+      <span style="font-weight:400;font-size:9px;opacity:0.7;">${d}</span>
+    </th>`;
+  }).join('');
 
   const summaryRows = shiftUsers.map(u => {
     const dayCells = weekRange.map((d, i) => {
@@ -468,11 +605,11 @@ function _renderArrangeOverviewTab(weekRange) {
   <span style="color:var(--warn);font-size:11px;">■ Pending</span>
   <span style="color:var(--accent);font-size:10px;opacity:0.7;">Click a cell to assign</span>
 </div>
-<div class="staff-tbl-wrap">
+<div class="staff-tbl-wrap" style="max-height:70vh;">
   <table style="border-collapse:collapse;width:100%;">
     <thead>
       <tr style="background:var(--bg3);">
-        <th style="text-align:left;padding:7px 12px;font-size:10px;color:var(--text3);min-width:200px;border-right:1px solid var(--border);">MEMBER</th>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text2);min-width:200px;border-right:1px solid var(--border);position:sticky;top:0;z-index:10;background:var(--bg3);">MEMBER</th>
         ${summaryHeaders}
       </tr>
     </thead>

@@ -7,7 +7,7 @@
 // After connecting Cloud Sync for the first time, copy the Bin ID
 // shown on the Cloud Sync page and paste it here, then redeploy.
 // Example: const BSCHED_PUBLIC_BIN_ID = '6631abc123def456789012ab';
-const BSCHED_PUBLIC_BIN_ID = '69ece1f1856a682189704e0b';
+const BSCHED_PUBLIC_BIN_ID = '';
 const STORAGE  = 'bsched_v6';
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -122,7 +122,13 @@ let currentUser  = null;
 let currentShift = 'E';
 let currentPage  = 'dashboard';
 let assigningEmp = null;
-let activeMonday  = '20/04';
+// Default to current real week's Monday
+let activeMonday = (() => {
+  const now = new Date(); const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const mon = new Date(now.setDate(diff));
+  return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+})();
 let showFullMonth = false;
 let staffFilters  = { team:'', name:'', user:'', role:'' };
 let staffSubTab   = 'info'; // 'info' | 'schedule'
