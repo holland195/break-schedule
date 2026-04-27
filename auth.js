@@ -291,15 +291,25 @@ function renderScheduleImportPreview(pureDates) {
 }
 
 function confirmScheduleImport() {
-  const incoming=new Map(importedUsers.map(u=>[u.username,u]));
-  const kept=state.users.filter(u=>!incoming.has(u.username));
-  state.users=[...kept,...importedUsers];
-  save(); buildDatalist();
-  document.getElementById('sched-preview-section').style.display='none';
-  document.getElementById('paste-area').value='';
-  document.getElementById('paste-status').innerHTML=`<span style="color:var(--ok)">✓ ${importedUsers.length} schedules imported.</span>`;
-  toast(`${importedUsers.length} schedules loaded!`,'ok');
-  nav('staff');
+  const incoming = new Map(importedUsers.map(u => [u.username, u]));
+  const kept     = state.users.filter(u => !incoming.has(u.username));
+  state.users    = [...kept, ...importedUsers];
+  save();
+  buildDatalist();
+
+  // ── Auto-assign breaks for all imported weeks ──
+  const result = autoAssignBreaks(importedUsers);
+
+  document.getElementById('sched-preview-section').style.display = 'none';
+  document.getElementById('paste-area').value = '';
+  document.getElementById('paste-status').innerHTML =
+    `<span style="color:var(--ok)">✓ ${importedUsers.length} schedules imported.</span>`;
+
+  const breakMsg = result.assigned > 0
+    ? ` Auto-assigned ${result.assigned} break slots across ${result.weekCount} week${result.weekCount > 1 ? 's' : ''}.`
+    : '';
+  toast(`${importedUsers.length} schedules loaded!${breakMsg}`, 'ok');
+  nav('arrange');  // go straight to Arrange Breaks so leader can review
 }
 
 function factoryReset() {
