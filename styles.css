@@ -187,10 +187,12 @@ body.login-active #screen-app { display: none !important }
 #screen-login {
   display: flex; align-items: center; justify-content: center;
   padding: 40px; gap: 30px;
-  background: var(--bg);
+  /* Always Pave Navy — independent of light/dark theme toggle */
+  background: #0D2A76;
   background-image:
-    repeating-linear-gradient(0deg, transparent, transparent 39px, var(--login-grid) 39px, var(--login-grid) 40px),
-    repeating-linear-gradient(90deg, transparent, transparent 39px, var(--login-grid) 39px, var(--login-grid) 40px);
+    radial-gradient(ellipse at 20% 50%, rgba(31,102,241,.45) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(31,102,241,.28) 0%, transparent 50%),
+    radial-gradient(ellipse at 55% 85%, rgba(6,12,40,.9) 0%, transparent 60%);
 }
 .login-card {
   background: var(--bg2); border: 1px solid var(--border);
@@ -659,7 +661,7 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── LIGHT THEME OVERRIDES ── */
-[data-theme="light"] .login-card { box-shadow: var(--shadow); }
+/* login-card-dark handles login styling regardless of theme */
 [data-theme="light"] .card { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 [data-theme="light"] .modal { box-shadow: var(--shadow); }
 /* Topbar is always Navy — no override needed */
@@ -667,7 +669,7 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 [data-theme="light"] .btn[onclick="logout()"] { color: #fff; border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.1); }
 [data-theme="light"] tbody tr:hover { background: var(--bg3); }
 [data-theme="light"] .nav-item:hover { background: var(--bg4); }
-[data-theme="light"] .nav-item.active { background: var(--E-bg); color: var(--accent); }
+[data-theme="light"] .nav-item.active { background: rgba(31,102,241,.08); color: #1F66F1; }
 [data-theme="light"] .break-slot.assigned { background: #dcfce7; color: #15803d; border-color: #16a34a; }
 [data-theme="light"] .break-slot.mine { background: var(--E-bg); color: var(--accent); border-color: var(--accent); }
 [data-theme="light"] .break-slot.slot-1 { background: #dbeafe; color: #1d4ed8; border-color: #3b82f6; }
@@ -689,7 +691,7 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 [data-theme="light"] .req-status.approved { background:#dcfce7; color:#15803d; border-color:#16a34a; }
 [data-theme="light"] .req-status.rejected { background:#fee2e2; color:#b91c1c; border-color:#f87171; }
 [data-theme="light"] .msg-bar { background: var(--bg2); }
-[data-theme="light"] .login-input, [data-theme="light"] .login-select { background: var(--bg3); }
+/* login-input styling handled by .login-card-dark for login screen */
 [data-theme="light"] .fg input, [data-theme="light"] .fg select, [data-theme="light"] .fg textarea { background: var(--bg3); }
 [data-theme="light"] .filter-input { background: var(--bg3); }
 [data-theme="light"] .btn-sm { color: var(--text); background: var(--bg2); border-color: var(--border2); }
@@ -825,4 +827,19 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   color: rgba(255,255,255,.6);
   border-color: rgba(255,255,255,.15);
   background: rgba(255,255,255,.06);
+}
+
+/* Login select options readable on dark card */
+.login-card-dark .login-select option {
+  background: #0D2A76;
+  color: #e8eeff;
+}
+/* login-sub text white on dark */
+.login-card-dark .login-sub { color: rgba(255,255,255,.45) !important; }
+/* chpw-username highlight */
+.login-card-dark #chpw-username { color: #7dd3fc !important; }
+/* Code tag in changepw */
+.login-card-dark code {
+  background: rgba(255,255,255,.1) !important;
+  color: rgba(255,255,255,.7) !important;
 }
