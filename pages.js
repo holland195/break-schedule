@@ -600,7 +600,7 @@ function _renderArrangeOverviewTab(weekRange) {
   <span style="color:var(--warn);font-size:11px;">■ Pending</span>
   <span style="color:var(--accent);font-size:10px;opacity:0.7;">Click a cell to assign</span>
 </div>
-<div class="staff-tbl-wrap" style="max-height:70vh;">
+<div class="staff-tbl-wrap">
   <table style="border-collapse:collapse;width:100%;">
     <thead>
       <tr style="background:var(--bg3);">

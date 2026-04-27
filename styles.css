@@ -95,10 +95,21 @@ body {
 .screen { display: none; min-height: 100vh }
 .screen.active { display: block }
 /* Prevent scrolling past the active screen */
-body.app-active { overflow: hidden; height: 100vh }
-body.app-active #screen-app { height: 100vh; overflow: hidden }
-body.app-active #screen-login { display: none !important }
-body.login-active #screen-app { display: none !important }
+/* Scroll lock: prevent scrolling to login page while app is active */
+body.app-active { overflow: hidden; height: 100vh; }
+body.app-active #screen-login { display: none !important; }
+/* screen-app itself does NOT get overflow:hidden — let .content scroll instead */
+body.app-active #screen-app {
+  height: 100vh;
+  overflow: hidden;    /* clip at the app level */
+  display: grid;
+  grid-template-rows: 52px 1fr; /* topbar + layout */
+}
+body.app-active .layout {
+  overflow: hidden;   /* clip at layout level */
+  height: calc(100vh - 52px);
+}
+body.login-active #screen-app { display: none !important; }
 
 /* ── TOPBAR ── */
 .topbar {
@@ -275,7 +286,13 @@ body.login-active #screen-app { display: none !important }
   font-size: 9px; font-weight: 700; padding: 2px 5px;
   border-radius: 99px; min-width: 16px; text-align: center
 }
-.content { padding: 24px; overflow-y: auto }
+.content {
+  padding: 24px;
+  overflow-y: auto;
+  /* Explicit height so child max-height: Xvh calculations are reliable */
+  height: calc(100vh - 52px);
+  box-sizing: border-box;
+}
 
 /* ── SHIFT SELECTOR ── */
 .shift-selector {
@@ -338,11 +355,13 @@ body.login-active #screen-app { display: none !important }
    CSS grid sticky on display:contents rows is unreliable across browsers.
 */
 .sched-table-wrap {
-  overflow: auto;           /* scroll both axes */
-  max-height: 72vh;
+  overflow: auto;
+  /* viewport - topbar(52px) - content-padding(48px) - page-header(80px) - legend-row(48px) */
+  max-height: calc(100vh - 52px - 48px - 80px - 48px);
+  min-height: 200px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  position: relative;       /* stacking context for sticky children */
+  position: relative;
 }
 
 .sched-table {
@@ -679,7 +698,8 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 /* Staff table scrollable wrapper */
 .staff-tbl-wrap {
   overflow: auto;
-  max-height: 72vh;
+  max-height: calc(100vh - 52px - 48px - 80px - 60px);
+  min-height: 200px;
   border-radius: 8px;
   border: 1px solid var(--border);
 }
@@ -833,7 +853,10 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 /* ── ARRANGE BREAKS FULL-WEEK TABLE ── */
 .arr-table-wrap {
   overflow: auto;
-  max-height: 65vh;
+  /* Fill remaining height: viewport - topbar(52px) - content padding(48px)
+     - page-header(60px) - bulk-panel(~138px) - main-tabs(44px) - gap(16px) */
+  max-height: calc(100vh - 52px - 48px - 60px - 138px - 44px - 16px);
+  min-height: 200px; /* always show at least a few rows */
   border-radius: 10px;
   border: 1px solid var(--border);
   margin-top: 4px;
