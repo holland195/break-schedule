@@ -41,22 +41,24 @@ function _mondayToDate(monStr) {
   return new Date(2026, parseInt(m) - 1, parseInt(d));
 }
 
-// Get the Monday of the current real calendar week
+// Get the Monday of the current real calendar week — in schedule year (2026)
 function _currentWeekMonday() {
   const now  = new Date();
   const day  = now.getDay(); // 0=Sun,1=Mon,...6=Sat
   const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const mon  = new Date(now);
-  mon.setDate(diff);
+  // Use same year as the schedule (2026) so date comparison is consistent
+  // getWeekDates() and getWeekRange() both use year 2026
+  const mon  = new Date(2026, now.getMonth(), diff);
   mon.setHours(0, 0, 0, 0);
   return mon;
 }
 
 // Is a given Monday string strictly in the future (starts after current week)?
+// Both dates use year 2026 so comparison is consistent with getWeekRange()
 function _isFutureWeek(monStr) {
-  const monDate    = _mondayToDate(monStr);
-  const thisMonday = _currentWeekMonday();
-  // Future = the Monday is after this week's Monday
+  const monDate    = _mondayToDate(monStr);   // year 2026
+  const thisMonday = _currentWeekMonday();    // year 2026, real month/day
+  // Strictly after = starts on a later Monday than the current one
   return monDate > thisMonday;
 }
 
