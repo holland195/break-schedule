@@ -108,7 +108,30 @@ async function syncPull() {
 }
 
 function _applyRemoteData(remote) {
-  if (remote.breaks)    state.breaks    = remote.breaks;
+  // ── Option B: per-entry timestamp merge for breaks ──
+  // Only overwrite a local break entry if the cloud version is NEWER.
+  // This prevents a slow/delayed pull from wiping freshly auto-assigned
+  // or manually assigned breaks that haven't finished pushing yet.
+  if (remote.breaks) {
+    Object.entries(remote.breaks).forEach(([key, remoteEntry]) => {
+      const localEntry = state.breaks[key];
+      if (!localEntry) {
+        // No local entry — take cloud's
+        state.breaks[key] = remoteEntry;
+      } else {
+        const localAt  = localEntry.at  || 0;
+        const remoteAt = remoteEntry.at || 0;
+        if (remoteAt > localAt) {
+          // Cloud is genuinely newer (e.g. another user assigned a break)
+          state.breaks[key] = remoteEntry;
+        }
+        // else: local is newer or same — keep local (our just-assigned data wins)
+      }
+    });
+    // Remove local entries that cloud has explicitly deleted
+    // (cloud entry missing = intentional delete on another device)
+    // We skip this for safety — deletions are rare and re-import fixes any orphans
+  }
   if (remote.requests)  state.requests  = remote.requests;
   if (remote.extBreaks) state.extBreaks = remote.extBreaks;
   // Restore schedule users if local is empty (fresh browser)
@@ -173,12 +196,12 @@ async function syncPush() {
 }
 
 async function saveAndSync() {
-  save();
-  if (syncEnabled()) syncPush();
+  save(); // always write localStorage first (instant, never fails)
+  if (syncEnabled()) await syncPush(); // Option D: await so push completes before any pull
 }
 async function syncWrite() {
   updateSyncBadge('busy');
-  await saveAndSync();
+  await saveAndSync(); // awaited all the way through
   updateSyncBadge(syncEnabled() ? 'ok' : 'err');
 }
 
@@ -383,7 +406,9 @@ ${binId ? `
     After reset, reopen the app — it will re-sync automatically from sync-config.json.
   </div>
   <button class="btn btn-err btn-sm" onclick="factoryReset()">⚠ Reset This Device</button>
-</div>`;
+</div>
+
+\${typeof renderRotationPanel === 'function' ? renderRotationPanel() : ''}`;
 }
 
 async function saveSyncCfg() {

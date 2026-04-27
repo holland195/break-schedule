@@ -121,6 +121,12 @@ function autoAssignBreaks(importedUsers) {
     return { assigned: 0, weekCount: 0 };
   }
 
+  // Single timestamp for the entire run — all auto-assigned breaks
+  // in this import get the same `at` value. This is important for
+  // Option B's merge logic: any manual override done AFTER this import
+  // will have a higher timestamp and always wins on pull.
+  const RUN_TIMESTAMP = Date.now();
+
   // Collect all DD/MM dates from imported schedules
   const allDates = new Set();
   importedUsers.forEach(u => {
@@ -191,7 +197,7 @@ function autoAssignBreaks(importedUsers) {
               slot: assignedSlot,
               note: 'auto',
               by:   null,
-              at:   Date.now(),
+              at:   RUN_TIMESTAMP, // consistent timestamp for this import run
             });
             totalAssigned++;
           });
@@ -203,8 +209,8 @@ function autoAssignBreaks(importedUsers) {
   // Persist the updated rotation state
   _saveRotation(rot);
 
-  // Push everything to cloud
-  if (typeof syncWrite === 'function') syncWrite();
+  // Note: syncWrite() is called by confirmScheduleImport() with await
+  // Do not call it here — caller handles the push after this returns
 
   return { assigned: totalAssigned, weekCount: mondays.length };
 }

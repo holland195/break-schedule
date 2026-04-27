@@ -290,7 +290,7 @@ function renderScheduleImportPreview(pureDates) {
   </div>`).join('')}`;
 }
 
-function confirmScheduleImport() {
+async function confirmScheduleImport() {
   const incoming = new Map(importedUsers.map(u => [u.username, u]));
   const kept     = state.users.filter(u => !incoming.has(u.username));
   state.users    = [...kept, ...importedUsers];
@@ -308,8 +308,15 @@ function confirmScheduleImport() {
   const breakMsg = result.assigned > 0
     ? ` Auto-assigned ${result.assigned} break slots across ${result.weekCount} week${result.weekCount > 1 ? 's' : ''}.`
     : '';
+
+  // ── Option D: push fully completes before nav() so no pull can race it ──
+  if (typeof syncWrite === 'function') {
+    toast(`${importedUsers.length} schedules loaded!${breakMsg} Syncing…`, 'ok');
+    await syncWrite(); // wait for push to finish writing to JSONBin
+  }
+
   toast(`${importedUsers.length} schedules loaded!${breakMsg}`, 'ok');
-  nav('arrange');  // go straight to Arrange Breaks so leader can review
+  nav('arrange'); // only navigate AFTER the push is confirmed complete
 }
 
 function factoryReset() {
