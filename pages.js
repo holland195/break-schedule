@@ -436,7 +436,15 @@ function renderArrange() {
   return `
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
-  <div style="display:flex;align-items:center;gap:12px;">${weekPickerHTML}</div>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    ${weekPickerHTML}
+    <button id="save-breaks-btn" class="btn btn-accent"
+      onclick="saveBreaksToCloud()"
+      style="display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 16px;">
+      <span id="save-breaks-ico">☁</span>
+      <span id="save-breaks-lbl">Save Breaks</span>
+    </button>
+  </div>
 </div>
 
 <!-- Top-level 2 tabs -->
@@ -460,6 +468,57 @@ function renderArrange() {
 <div id="arrange-main-content">
   ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange) : _renderArrangeOverviewTab(weekRange)}
 </div>`;
+}
+
+// ── Save Breaks button handler ──
+async function saveBreaksToCloud() {
+  const btn   = document.getElementById('save-breaks-btn');
+  const ico   = document.getElementById('save-breaks-ico');
+  const lbl   = document.getElementById('save-breaks-lbl');
+  if (!btn) return;
+
+  // ── Saving state ──
+  btn.disabled = true;
+  btn.style.opacity = '0.75';
+  if (ico) ico.textContent = '⏳';
+  if (lbl) lbl.textContent = 'Saving…';
+
+  // Stamp current time as the authoritative breaks timestamp
+  // This ensures other browsers' merge logic (Case A) will take our data
+  const now = Date.now();
+  state._breaksUpdatedAt = now;
+  save(); // write to localStorage immediately
+
+  let ok = false;
+  if (typeof syncEnabled === 'function' && syncEnabled()) {
+    // Push only breaks + _breaksUpdatedAt (full payload for consistency)
+    ok = await syncPush();
+  } else {
+    // Sync not configured — data is saved locally only
+    ok = true;
+  }
+
+  // ── Result state ──
+  btn.disabled = false;
+  btn.style.opacity = '';
+  if (ok) {
+    if (ico) ico.textContent = '✓';
+    if (lbl) lbl.textContent = 'Saved!';
+    // Reset button after 2.5 seconds
+    setTimeout(() => {
+      if (ico) ico.textContent = '☁';
+      if (lbl) lbl.textContent = 'Save Breaks';
+    }, 2500);
+  } else {
+    if (ico) ico.textContent = '⚠';
+    if (lbl) lbl.textContent = 'Failed — retry?';
+    btn.style.background = 'var(--err)';
+    setTimeout(() => {
+      if (ico) ico.textContent = '☁';
+      if (lbl) lbl.textContent = 'Save Breaks';
+      btn.style.background = '';
+    }, 3000);
+  }
 }
 
 function switchArrangeMainTab(tab) {

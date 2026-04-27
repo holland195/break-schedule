@@ -158,6 +158,15 @@ function _applyRemoteData(remote) {
       });
     }
   }
+  // After any successful breaks merge, sync the local timestamp to match
+  // what we just received. This prevents the 30-second poll from re-applying
+  // Case A on the next tick (which would be correct but wastes a merge).
+  if (remote.breaks && remote._breaksUpdatedAt) {
+    // Only update if remote is newer — never go backwards
+    if ((remote._breaksUpdatedAt || 0) > (state._breaksUpdatedAt || 0)) {
+      state._breaksUpdatedAt = remote._breaksUpdatedAt;
+    }
+  }
   if (remote.requests)  state.requests  = remote.requests;
   if (remote.extBreaks) state.extBreaks = remote.extBreaks;
   // Restore schedule users if local is empty (fresh browser)
