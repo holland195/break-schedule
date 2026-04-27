@@ -1585,47 +1585,64 @@ function deleteExtBreak(uid, mk, idx, cancelledById) {
 //  Shown inside Cloud Sync page
 // ═══════════════════════════════════════════════
 function renderRotationPanel() {
-  const summary = typeof getRotationSummary === 'function' ? getRotationSummary() : [];
+  const summary    = typeof getRotationSummary === 'function' ? getRotationSummary() : [];
   const tierLabels = { agent: 'Agent + Sr Agent', qa: 'QA', sr_qa: 'Sr QA' };
-  const shiftList = Object.keys(BREAK_SLOTS);
 
   if (summary.length === 0) {
-    return `<div class="card" style="max-width:620px;margin-top:0;">
-      <div class="card-title">🔄 Break Rotation Status</div>
-      <div style="font-size:12px;color:var(--text3);">No rotation history yet. Import a schedule to start auto-assignment.</div>
+    return `<div class="card" style="max-width:740px;margin-top:0;">
+      <div class="card-title">🔄 Break Auto-Assign Rotation</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.8;">
+        No rotation history yet. Import a schedule to start auto-assignment.<br>
+        <b>How the rotation works:</b><br>
+        ✦ <b>Current/past week re-import</b> → keeps existing phase (idempotent, no flip)<br>
+        ✦ <b>Future week import</b> → flips phase once per new future Monday found<br>
+        ✦ Importing this week + next week in one paste → this week keeps phase, next week flips
+      </div>
     </div>`;
   }
 
   const rows = summary.map(s => {
     const phaseLabel = s.phase === 0
-      ? '<span style="color:var(--ok);">Phase 0 — First half → Slot 1</span>'
-      : '<span style="color:var(--B-color);">Phase 1 — First half → Slot 2</span>';
-    return `<tr>
-      <td style="padding:8px 12px;font-weight:600;">Shift ${s.shift}</td>
-      <td style="padding:8px 12px;color:var(--text2);">${tierLabels[s.tier] || s.tier}</td>
-      <td style="padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;">${s.lastWeek}</td>
-      <td style="padding:8px 12px;">${phaseLabel}</td>
-      <td style="padding:8px 12px;">
-        <button class="btn btn-xs btn-warn" onclick="resetRotation('${s.shift}','${s.tier}');nav('sync');"
-          title="Reset to Phase 0 for next import">↺ Reset</button>
+      ? `<span style="color:var(--ok);font-weight:600;">Phase 0</span> <span style="color:var(--text3);font-size:10px;">first half → Slot 1</span>`
+      : `<span style="color:var(--B-color);font-weight:600;">Phase 1</span> <span style="color:var(--text3);font-size:10px;">first half → Slot 2</span>`;
+    const weekBadge = s.isFuture
+      ? `<span style="background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);border-radius:4px;padding:1px 6px;font-size:9px;font-family:'IBM Plex Mono',monospace;margin-left:6px;">future</span>`
+      : `<span style="background:var(--bg4);color:var(--text3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:9px;font-family:'IBM Plex Mono',monospace;margin-left:6px;">current</span>`;
+    const nextPhase = s.phase === 0 ? 'Phase 1 (first half → Slot 2)' : 'Phase 0 (first half → Slot 1)';
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:9px 12px;font-weight:700;font-size:12px;">Shift ${s.shift}</td>
+      <td style="padding:9px 12px;color:var(--text2);font-size:12px;">${tierLabels[s.tier] || s.tier}</td>
+      <td style="padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;">
+        ${s.lastWeek}${weekBadge}
+      </td>
+      <td style="padding:9px 12px;font-size:12px;">${phaseLabel}</td>
+      <td style="padding:9px 12px;font-size:11px;color:var(--text3);">→ ${nextPhase}</td>
+      <td style="padding:9px 12px;">
+        <button class="btn btn-xs btn-warn"
+          onclick="resetRotation('${s.shift}','${s.tier}');nav('sync');"
+          title="Delete history — next import will restart at Phase 0">↺ Reset</button>
       </td>
     </tr>`;
   }).join('');
 
-  return `<div class="card" style="max-width:740px;margin-top:0;">
-    <div class="card-title">🔄 Break Rotation Status</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
-      The rotation flips automatically each time a new week is imported.
-      Reset a row to force Phase 0 on the next import.
+  return `<div class="card" style="max-width:860px;margin-top:0;">
+    <div class="card-title">🔄 Break Auto-Assign Rotation</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.9;">
+      <b>Rotation rule (Option C):</b><br>
+      ✦ <b>Current or past week re-imported</b> → phase unchanged (safe to re-import corrections)<br>
+      ✦ <b>New future week imported</b> → phase flips exactly once per new future Monday<br>
+      ✦ Importing this week + next week together → this week keeps phase, next week gets flipped phase<br>
+      ✦ "Next phase" shown below is what the <b>next new future import</b> will use for that tier
     </div>
     <div style="overflow-x:auto;">
       <table style="border-collapse:collapse;width:100%;font-size:12px;">
         <thead>
           <tr style="background:var(--bg3);">
-            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);">SHIFT</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);">ROLE TIER</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);">LAST WEEK</th>
-            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);">CURRENT PHASE</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">SHIFT</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">ROLE TIER</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">LAST IMPORTED WEEK</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">CURRENT PHASE</th>
+            <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">NEXT FUTURE IMPORT</th>
             <th style="padding:8px 12px;"></th>
           </tr>
         </thead>
