@@ -15,22 +15,28 @@
 <!-- ─── CHANGE PASSWORD SCREEN ─────────────────────────────── -->
 <!-- ─── LOGIN SCREEN (contains both login + first-login password change) ── -->
 <div id="screen-login" class="screen active">
-  <div class="login-card">
+  <div class="login-card login-card-dark">
 
     <!-- ── Normal login view ── -->
     <div id="login-view">
-      <!-- LOGO: swap src with your actual logo file path -->
-      <div style="margin-bottom:16px;">
-        <img id="login-logo" src="assets/pave_logo.png"
-             class="login-logo-img"
-             alt="Pave"
-             onerror="this.style.display='none'">
+      <div class="login-logo-wrap" style="margin-bottom:12px;">
+        <div id="login-logo-svg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 614 170" height="38" style="display:block;margin-bottom:10px;"><path fill="#ffffff" d="M105.1,3.8H23.2C10.4,3.8,0,14.2,0,27v94l27.8,0l0-33.1h77.4c20,0,37.5-14.1,41.3-33.8
+	C151.5,27.4,131,3.8,105.1,3.8z M118.7,50.4c-1.8,5.8-7.3,9.7-13.4,9.7H27.7l0-28.5h77.5C114.5,31.6,121.8,40.6,118.7,50.4z"/>
+<path fill="#ffffff" d="M498.4,30h70.5V3.5h-70.5c-32.4,0-58.6,26.3-58.6,58.6s26.3,58.6,58.6,58.6h70.5V94.2h-70.5
+	c-13.3,0-24.7-8.1-29.6-19.5h86.9V49.2h-86.8C473.9,37.9,485.2,30,498.4,30z"/>
+<path fill="#ffffff" d="M386.5,108.5l0.1-0.2L439,4.3c0,0,0-0.1-0.1-0.1h-31c0,0-0.1,0-0.1,0l-45.1,89.5c-0.8,1.6-2.3,2.6-4.1,2.7
+	c-0.1,0-0.1,0-0.2,0c-0.1,0-0.1,0-0.2,0c-1.7-0.1-3.3-1.1-4.1-2.7L309.2,4.3c0,0,0,0-0.1,0h-31c-0.1,0-0.1,0.1-0.1,0.1l52.2,103.5
+	l0.3,0.6l0.3,0.6c5.7,9.1,15.3,14.7,25.9,15.2C368.8,124.8,380.1,118.6,386.5,108.5z"/>
+<path fill="#ffffff" d="M268.7,120.8h31.1L247.1,16.4l-0.7-1.2C240.4,5.7,230.1,0,218.8,0c-11.3,0-21.7,5.7-27.7,15.3
+	c-0.2,0.4-0.5,0.8-0.7,1.2l-52.7,104.4h31.1l45.6-90.4c0.8-1.6,2.4-2.6,4.1-2.7c0.1,0,0.1,0,0.2,0s0.1,0,0.2,0
+	c1.7,0.1,3.3,1.1,4.1,2.7L268.7,120.8z"/>
+<path fill="#ffffff" d="M505.3,144.1H338.2v25.4h167.1V144.1z"/>
+<path fill="#ffffff" d="M588.6,107.6c0,7.1,5.7,12.6,12.6,12.6c7,0,12.7-5.5,12.7-12.7c0-7.1-5.7-12.6-12.7-12.6
+	C594.3,94.9,588.6,100.4,588.6,107.6z M610.8,107.6c0,5.5-4.2,9.7-9.5,9.7c-5.3,0-9.4-4.2-9.4-9.7c0-5.6,4.1-9.9,9.4-9.9
+	C606.6,97.8,610.8,102.1,610.8,107.6z M596.5,114.2h3.2V110h1.5l2.2,4.2h3.6l-2.6-5c1.5-0.8,2.5-2.1,2.5-3.9c0-2.7-2-4.5-5.2-4.5
+	h-5.2V114.2z M601.6,103.6c1.3,0,2,0.7,2,1.8c0,1.1-0.8,1.8-2,1.8h-1.8v-3.7L601.6,103.6L601.6,103.6z"/></svg></div>
       </div>
-      <div style="margin-bottom:8px;"><svg width="90" height="30" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-bottom:4px;">
-  <text x="0" y="24" font-family="IBM Plex Sans,Arial,sans-serif" font-weight="700" font-size="26" letter-spacing="2" fill="#c8d400">PAVE</text>
-</svg></div>
-<div class="login-logo" style="font-size:16px;letter-spacing:.08em;color:var(--text2);margin-bottom:2px;">BREAK//SCHED</div>
-      <div class="login-sub">Shift Break Manager v3.0</div>
+      <div class="login-sub" style="font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.5);margin-bottom:2px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;">Break Schedule</div>
 
       <label class="login-label">Username</label>
       <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
@@ -84,15 +90,24 @@
 <!-- ─── MAIN APP ──────────────────────────────────────────── -->
 <div id="screen-app" class="screen">
   <div class="topbar">
-    <div class="topbar-brand" style="display:flex;align-items:center;gap:10px;">
-      <!-- LOGO: swap src with your actual logo file path e.g. "assets/pave_logo.png" -->
-      <img id="topbar-logo" src="assets/pave_logo.png"
-           class="topbar-logo-img"
-           alt="Pave"
-           onerror="this.style.display='none';document.getElementById('topbar-logo-text').style.display=''">
-      <span id="topbar-logo-text" class="topbar-logo-text" style="display:none;">PAVE</span>
-      <span style="color:var(--border2);font-size:14px;opacity:0.5;">|</span>
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.04em;">BREAK SCHED</span>
+    <div class="topbar-brand">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 614 170" height="24" style="display:block;"><path fill="#ffffff" d="M105.1,3.8H23.2C10.4,3.8,0,14.2,0,27v94l27.8,0l0-33.1h77.4c20,0,37.5-14.1,41.3-33.8
+	C151.5,27.4,131,3.8,105.1,3.8z M118.7,50.4c-1.8,5.8-7.3,9.7-13.4,9.7H27.7l0-28.5h77.5C114.5,31.6,121.8,40.6,118.7,50.4z"/>
+<path fill="#ffffff" d="M498.4,30h70.5V3.5h-70.5c-32.4,0-58.6,26.3-58.6,58.6s26.3,58.6,58.6,58.6h70.5V94.2h-70.5
+	c-13.3,0-24.7-8.1-29.6-19.5h86.9V49.2h-86.8C473.9,37.9,485.2,30,498.4,30z"/>
+<path fill="#ffffff" d="M386.5,108.5l0.1-0.2L439,4.3c0,0,0-0.1-0.1-0.1h-31c0,0-0.1,0-0.1,0l-45.1,89.5c-0.8,1.6-2.3,2.6-4.1,2.7
+	c-0.1,0-0.1,0-0.2,0c-0.1,0-0.1,0-0.2,0c-1.7-0.1-3.3-1.1-4.1-2.7L309.2,4.3c0,0,0,0-0.1,0h-31c-0.1,0-0.1,0.1-0.1,0.1l52.2,103.5
+	l0.3,0.6l0.3,0.6c5.7,9.1,15.3,14.7,25.9,15.2C368.8,124.8,380.1,118.6,386.5,108.5z"/>
+<path fill="#ffffff" d="M268.7,120.8h31.1L247.1,16.4l-0.7-1.2C240.4,5.7,230.1,0,218.8,0c-11.3,0-21.7,5.7-27.7,15.3
+	c-0.2,0.4-0.5,0.8-0.7,1.2l-52.7,104.4h31.1l45.6-90.4c0.8-1.6,2.4-2.6,4.1-2.7c0.1,0,0.1,0,0.2,0s0.1,0,0.2,0
+	c1.7,0.1,3.3,1.1,4.1,2.7L268.7,120.8z"/>
+<path fill="#ffffff" d="M505.3,144.1H338.2v25.4h167.1V144.1z"/>
+<path fill="#ffffff" d="M588.6,107.6c0,7.1,5.7,12.6,12.6,12.6c7,0,12.7-5.5,12.7-12.7c0-7.1-5.7-12.6-12.7-12.6
+	C594.3,94.9,588.6,100.4,588.6,107.6z M610.8,107.6c0,5.5-4.2,9.7-9.5,9.7c-5.3,0-9.4-4.2-9.4-9.7c0-5.6,4.1-9.9,9.4-9.9
+	C606.6,97.8,610.8,102.1,610.8,107.6z M596.5,114.2h3.2V110h1.5l2.2,4.2h3.6l-2.6-5c1.5-0.8,2.5-2.1,2.5-3.9c0-2.7-2-4.5-5.2-4.5
+	h-5.2V114.2z M601.6,103.6c1.3,0,2,0.7,2,1.8c0,1.1-0.8,1.8-2,1.8h-1.8v-3.7L601.6,103.6L601.6,103.6z"/></svg>
+      <span class="topbar-divider"></span>
+      <span class="topbar-app-name">BREAK SCHED</span>
     </div>
     <div class="topbar-right">
       <div class="user-chip">
