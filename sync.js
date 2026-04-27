@@ -79,11 +79,15 @@ function _applyRemoteData(remote) {
   if (remote.breaks)    state.breaks    = remote.breaks;
   if (remote.requests)  state.requests  = remote.requests;
   if (remote.extBreaks) state.extBreaks = remote.extBreaks;
-  // Store binId for public pulls if we got it from the record
   if (remote._dataBinId && !syncCfg.binId) {
     syncSaveCfg({ ...syncCfg, binId: remote._dataBinId });
   }
-  // Sync passwords — create shell entry if user not in local staffInfo yet
+  // Sync schedule users — only fill if local is empty (local import wins)
+  if (remote.users && remote.users.length > 0 && state.users.length === 0) {
+    state.users = remote.users;
+    if (typeof buildDatalist === 'function') buildDatalist();
+  }
+  // Sync passwords
   if (remote.staffPasswords) {
     Object.entries(remote.staffPasswords).forEach(([uname, p]) => {
       if (!state.staffInfo[uname]) {
@@ -106,12 +110,21 @@ async function syncPush() {
         mustChangePassword: si.mustChangePassword ?? true,
       };
     });
+    // Compact users: strip heavy fields to keep payload small
+    // Only keep: id, username, name, team, role, gender, schedule
+    const usersCompact = (state.users || []).map(u => ({
+      id: u.id, username: u.username, name: u.name,
+      team: u.team || '', role: u.role || '', gender: u.gender || '',
+      schedule: u.schedule || {},
+    }));
+
     const payload = {
       breaks: state.breaks,
       requests: state.requests,
       extBreaks: state.extBreaks,
       staffPasswords,
-      _dataBinId: syncCfg.binId,  // store binId in the record so public readers can chain to it
+      users: usersCompact,     // schedule grid — synced so all browsers see data
+      _dataBinId: syncCfg.binId,
       _updated: Date.now(),
     };
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}`, {

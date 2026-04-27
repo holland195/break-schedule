@@ -19,7 +19,17 @@
 
     <!-- ── Normal login view ── -->
     <div id="login-view">
-      <div class="login-logo">BREAK//SCHED</div>
+      <!-- LOGO: swap src with your actual logo file path -->
+      <div style="margin-bottom:16px;">
+        <img id="login-logo" src="assets/pave_logo.png"
+             class="login-logo-img"
+             alt="Pave"
+             onerror="this.style.display='none'">
+      </div>
+      <div style="margin-bottom:8px;"><svg width="90" height="30" viewBox="0 0 90 30" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-bottom:4px;">
+  <text x="0" y="24" font-family="IBM Plex Sans,Arial,sans-serif" font-weight="700" font-size="26" letter-spacing="2" fill="#c8d400">PAVE</text>
+</svg></div>
+<div class="login-logo" style="font-size:16px;letter-spacing:.08em;color:var(--text2);margin-bottom:2px;">BREAK//SCHED</div>
       <div class="login-sub">Shift Break Manager v3.0</div>
 
       <label class="login-label">Username</label>
@@ -74,7 +84,16 @@
 <!-- ─── MAIN APP ──────────────────────────────────────────── -->
 <div id="screen-app" class="screen">
   <div class="topbar">
-    <div class="topbar-brand">BREAK//SCHED</div>
+    <div class="topbar-brand" style="display:flex;align-items:center;gap:10px;">
+      <!-- LOGO: swap src with your actual logo file path e.g. "assets/pave_logo.png" -->
+      <img id="topbar-logo" src="assets/pave_logo.png"
+           class="topbar-logo-img"
+           alt="Pave"
+           onerror="this.style.display='none';document.getElementById('topbar-logo-text').style.display=''">
+      <span id="topbar-logo-text" class="topbar-logo-text" style="display:none;">PAVE</span>
+      <span style="color:var(--border2);font-size:14px;opacity:0.5;">|</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.04em;">BREAK SCHED</span>
+    </div>
     <div class="topbar-right">
       <div class="user-chip">
         <div class="user-avatar" id="top-avatar">?</div>

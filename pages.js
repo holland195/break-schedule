@@ -267,7 +267,7 @@ function renderSchedule() {
 
 ${emptyMsg}
 ${shiftUsers.length > 0 ? `
-<div class="tbl-wrap" style="overflow:auto">
+<div class="week-grid-wrap">
   <div class="week-grid" style="min-width:700px; grid-template-columns: 200px repeat(${weekDates.length}, 1fr)">
     ${headers}${rows}
   </div>
@@ -564,16 +564,17 @@ function _renderArrangeOverviewTab(weekRange) {
 
       const code     = br ? getShortSlot(currentShift, br.slot) : '?';
       const ov_si    = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
+      const isActive = d === arrangeActiveDay;
       const ov_class = br
-        ? (ov_si===0?'break-slot slot-1 assigned overview-cell-assigned':'break-slot slot-2 assigned overview-cell-assigned')
-        : 'break-slot overview-cell-pending';
-      return `<td style="text-align:center;padding:6px 4px;">
+        ? `break-slot slot-${ov_si===0?1:2} assigned overview-cell-assigned${isActive?' overview-cell-active':''}`
+        : `break-slot overview-cell-pending${isActive?' overview-cell-active':''}`;
+      return `<td style="text-align:center;padding:6px 4px;background:${isActive?'rgba(200,212,0,0.06)':''};">
         <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
           class="${ov_class}"
           style="display:inline-flex;align-items:center;justify-content:center;
             width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
             font-family:'IBM Plex Mono',monospace;cursor:pointer;
-            ${d===arrangeActiveDay?'outline:2px solid var(--accent);outline-offset:1px;':''}"
+            ${isActive?'outline:2px solid var(--accent);outline-offset:2px;':''}"
           title="${br?br.slot:'Not assigned — click to assign'}">${code}</span>
       </td>`;
     }).join('');
@@ -635,15 +636,20 @@ function getArrangeDayMemberList(day) {
   if (!mates.length) return `<div class="empty" style="background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;padding:60px;">
     <div class="empty-ico">👥</div>No staff on Shift ${currentShift} for ${day}.</div>`;
 
-  return `<div class="break-board" style="gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:0 0 10px 10px;">
+  const colGrid = '70px 1fr 160px 110px 1fr 80px';
+  return `
+  <div class="arrange-member-header" style="grid-template-columns:${colGrid};border-radius:0;">
+    <div>GROUP</div><div>NAME</div><div>ROLE</div><div>GENDER</div><div>BREAK SLOTS</div><div></div>
+  </div>
+  <div class="arrange-member-wrap">
     ${mates.map(u => {
       const br = getAssigned(u.id, day);
       const genderBadge = u.gender === 'F'
         ? `<span style="font-size:9px;color:var(--A-color);margin-left:4px;">♀</span>` : '';
       return `
-      <div class="break-row" style="border-radius:0;border:none;border-bottom:1px solid var(--border);
-            display:grid;grid-template-columns:70px 1fr 160px 110px 1fr 80px;
-            align-items:center;gap:16px;padding:11px 16px;">
+      <div style="display:grid;grid-template-columns:${colGrid};
+            align-items:center;gap:16px;padding:11px 16px;
+            background:var(--bg2);border-bottom:1px solid var(--border);">
         <div class="emp-meta">${u.team}</div>
         <div style="min-width:0;">
           <div class="emp-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;">
