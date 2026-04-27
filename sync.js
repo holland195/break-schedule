@@ -75,6 +75,17 @@ async function syncPublicPull() {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
       cache: 'no-store'
     });
+    if (res.status === 401 || res.status === 404) {
+      // Bin was deleted or made private — clear stale cached ID so next
+      // attempt re-reads sync-config.json for the current valid binId
+      console.warn(`[sync] bin ${binId} returned ${res.status} — clearing stale ID`);
+      _cachedBinId = null;
+      // Only clear from localStorage if it came from there (not from admin apiKey config)
+      if (!syncCfg.apiKey) {
+        syncSaveCfg({ ...syncCfg, binId: null });
+      }
+      return 'stale'; // special return value so bootApp can show a useful message
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json   = await res.json();
     const remote = json.record || {};
@@ -207,12 +218,14 @@ async function syncWrite() {
 
 // ── Boot: discover binId + pull passwords BEFORE login ──
 // Called from bootApp() — blocks login until done (with 5s timeout)
+// Returns: true=synced, false=no config, 'stale'=bad binId, 'error'=network fail
 async function syncTryAutoConnect() {
-  // Always try a pull — either authenticated (admin) or public (everyone else)
   if (syncEnabled()) {
-    await syncPull();
+    const ok = await syncPull();
+    return ok ? true : 'error';
   } else {
-    await syncPublicPull();
+    const result = await syncPublicPull();
+    return result; // true, false, or 'stale'
   }
 }
 
