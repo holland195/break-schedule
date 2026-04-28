@@ -353,8 +353,12 @@ async function syncCreateBin(apiKey) {
   // Make it public so anyone can read without a key
   await fetch(`https://api.jsonbin.io/v3/b/${binId}/meta/privacy`, {
     method:  'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
-    body:    JSON.stringify({ private: false }),
+    headers: {
+      'Content-Type':  'application/json',
+      'X-Master-Key':  apiKey,
+      'X-Bin-Private': 'false',
+    },
+    body: JSON.stringify({ private: false }),
   });
   return binId;
 }
@@ -381,8 +385,12 @@ async function syncMakeBinPublic(binId, apiKey) {
   try {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/meta/privacy`, {
       method:  'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
-      body:    JSON.stringify({ private: false }),
+      headers: {
+        'Content-Type':  'application/json',
+        'X-Master-Key':  apiKey,
+        'X-Bin-Private': 'false',
+      },
+      body: JSON.stringify({ private: false }),
     });
     if (res.ok) {
       console.log('[sync] bin set to public OK');
