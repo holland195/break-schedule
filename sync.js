@@ -216,7 +216,6 @@ async function syncPush() {
         mustChangePassword: si.mustChangePassword ?? true,
       };
     });
-    // Compact users for cloud (only fields needed for display + schedule)
     const usersCompact = state.users.map(u => ({
       id: u.id, username: u.username, name: u.name,
       team: u.team, role: u.role, gender: u.gender || '',
@@ -230,8 +229,6 @@ async function syncPush() {
       staffPasswords,
       _updated:         Date.now(),
       _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
-      // Track when users/schedule was last imported so browsers don't
-      // restore old schedule data over a newer local import
       _usersUpdatedAt:  state._usersUpdatedAt  || 0,
     };
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}`, {
@@ -239,6 +236,19 @@ async function syncPush() {
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': syncCfg.apiKey },
       body:    JSON.stringify(payload),
     });
+    if (res.status === 403 || res.status === 404) {
+      // Bin deleted, private, or wrong — clear stale config so
+      // next reconnect from Cloud Sync page starts fresh
+      console.warn(`[sync] push: bin returned ${res.status} — clearing stale binId`);
+      syncSaveCfg({ ...syncCfg, binId: null });
+      _cachedBinId = null;
+      updateSyncBadge('err');
+      // Show admin a toast if available
+      if (typeof toast === 'function') {
+        toast('☁ Sync bin not found (403). Go to Cloud Sync → Reconnect.', 'err');
+      }
+      return false;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return true;
   } catch(e) {
@@ -276,6 +286,12 @@ function startSyncPolling() {
   if (_syncInterval) clearInterval(_syncInterval);
   _syncInterval = setInterval(async () => {
     const noRerenderPages = new Set(['arrange', 'staff']);
+    // If binId was cleared (403/404), stop polling until admin reconnects
+    if (!syncCfg.binId && !_cachedBinId) {
+      stopSyncPolling();
+      updateSyncBadge('err');
+      return;
+    }
     const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
     if (ok && typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
       nav(currentPage);

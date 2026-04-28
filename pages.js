@@ -504,20 +504,21 @@ async function saveBreaksToCloud() {
   if (ok) {
     if (ico) ico.textContent = '✓';
     if (lbl) lbl.textContent = 'Saved!';
-    // Reset button after 2.5 seconds
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
       if (lbl) lbl.textContent = 'Save Breaks';
     }, 2500);
   } else {
     if (ico) ico.textContent = '⚠';
-    if (lbl) lbl.textContent = 'Failed — retry?';
+    // Check if bin was cleared (403) — guide admin to fix it
+    const binGone = typeof syncEnabled === 'function' && !syncEnabled() && typeof syncCfg !== 'undefined' && !syncCfg.binId;
+    if (lbl) lbl.textContent = binGone ? 'Reconnect sync!' : 'Failed — retry?';
     btn.style.background = 'var(--err)';
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
       if (lbl) lbl.textContent = 'Save Breaks';
       btn.style.background = '';
-    }, 3000);
+    }, 4000);
   }
 }
 
