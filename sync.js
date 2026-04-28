@@ -186,16 +186,16 @@ function syncRenderPage() {
     </div>` : ''}
 
     ${!connected ? `
-    <label class="form-label">JSONBin Master API Key</label>
-    <input id="sync-key-input" type="password" class="form-input" placeholder="$2a$10$…" value="${apiKey}" style="margin-bottom:12px;" />
-    <button class="btn btn-primary" onclick="syncInit(document.getElementById('sync-key-input').value.trim())">
+    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px;">JSONBin Master API Key</label>
+    <input id="sync-key-input" type="password" class="login-input" placeholder="$2a$10$…" value="${apiKey}" style="width:100%;margin-bottom:12px;box-sizing:border-box;" />
+    <button class="btn btn-accent" onclick="syncInit(document.getElementById('sync-key-input').value.trim())">
       ${hasBin ? 'Reconnect' : 'Connect & Create Bin'}
     </button>
     ` : `
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="syncRead()">↓ Pull from Cloud</button>
-      <button class="btn btn-primary" onclick="syncWrite()">↑ Push to Cloud</button>
-      <button class="btn" onclick="syncDisconnect()" style="background:var(--danger-bg,#3a1a1a);color:var(--danger,#e05252);">Disconnect</button>
+      <button class="btn btn-accent" onclick="syncRead()">↓ Pull from Cloud</button>
+      <button class="btn btn-accent" onclick="syncWrite()">↑ Push to Cloud</button>
+      <button class="btn btn-err" onclick="syncDisconnect()">Disconnect</button>
     </div>
     `}
 
