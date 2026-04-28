@@ -372,7 +372,7 @@ function renderSyncSettings() {
   <div class="fg">
     <label>Firebase Database URL</label>
     <input id="sync-db-url" class="login-input" type="text"
-      placeholder="https://your-project-default-rtdb.firebaseio.com"
+      placeholder="https://your-project-default-rtdb.firebaseio.com (or .firebasedatabase.app)"
       value="${dbUrl}"
       style="font-family:'IBM Plex Mono',monospace;font-size:11px;">
   </div>
@@ -438,8 +438,8 @@ async function saveSyncCfg() {
   const status = document.getElementById('sync-test-status');
   if (!dbUrl)  { status.innerHTML = '<span style="color:var(--err)">Paste your Firebase Database URL.</span>'; return; }
   if (!apiKey) { status.innerHTML = '<span style="color:var(--err)">Paste your Database Secret.</span>'; return; }
-  if (!dbUrl.includes('firebaseio.com')) {
-    status.innerHTML = '<span style="color:var(--err)">⚠ URL should end with <code>firebaseio.com</code></span>'; return;
+  if (!dbUrl.includes('firebaseio.com') && !dbUrl.includes('firebasedatabase.app')) {
+    status.innerHTML = '<span style="color:var(--err)">⚠ URL should contain <code>firebaseio.com</code> or <code>firebasedatabase.app</code></span>'; return;
   }
   status.innerHTML = '<span style="color:var(--text3)">⏳ Connecting to Firebase…</span>';
   _cachedDbUrl = dbUrl;
