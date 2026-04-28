@@ -44,7 +44,7 @@ const ROLES = {
 // ═══════════════════════════════════════════════
 function load() {
   try { const d = localStorage.getItem(STORAGE); if (d) return JSON.parse(d); } catch(e){}
-  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false, _breaksUpdatedAt:0 };
+  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false, _breaksUpdatedAt:0, _usersUpdatedAt:0 };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}

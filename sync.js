@@ -169,15 +169,28 @@ function _applyRemoteData(remote) {
   }
   if (remote.requests)  state.requests  = remote.requests;
   if (remote.extBreaks) state.extBreaks = remote.extBreaks;
-  // Restore schedule users if local is empty (fresh browser)
+  // Restore schedule users from cloud using timestamp comparison
+  // This prevents an old cloud schedule from overwriting a newer local import
   if (remote.users && remote.users.length > 0) {
+    const localUAt  = state._usersUpdatedAt  || 0;
+    const remoteUAt = remote._usersUpdatedAt || 0;
     if (state.users.length === 0) {
+      // Fresh browser — take cloud users unconditionally
       state.users = remote.users;
-    } else if (remote.users.length > state.users.length) {
-      const localNames = new Set(state.users.map(u => u.username));
-      const newUsers   = remote.users.filter(u => !localNames.has(u.username));
-      state.users      = [...state.users, ...newUsers];
+      state._usersUpdatedAt = remoteUAt;
+      // Reset activeMonday to current week so we don't land on an old week
+      if (typeof activeMonday !== 'undefined') {
+        const now = new Date(); const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(now.getFullYear(), now.getMonth(), diff);
+        activeMonday = `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+      }
+    } else if (remoteUAt > localUAt) {
+      // Cloud has a newer import — replace local schedule
+      state.users = remote.users;
+      state._usersUpdatedAt = remoteUAt;
     }
+    // else: local is newer or same — keep local schedule (don't restore old weeks)
   }
   // Sync passwords — authoritative from cloud
   // Works even if user not in local staffInfo yet (fresh browser)
@@ -216,9 +229,10 @@ async function syncPush() {
       users:            usersCompact,
       staffPasswords,
       _updated:         Date.now(),
-      // Breaks-specific update timestamp — used by receiving browsers to
-      // decide whether cloud breaks are newer than their local copy
       _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
+      // Track when users/schedule was last imported so browsers don't
+      // restore old schedule data over a newer local import
+      _usersUpdatedAt:  state._usersUpdatedAt  || 0,
     };
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}`, {
       method:  'PUT',

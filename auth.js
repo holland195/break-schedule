@@ -294,6 +294,9 @@ async function confirmScheduleImport() {
   const incoming = new Map(importedUsers.map(u => [u.username, u]));
   const kept     = state.users.filter(u => !incoming.has(u.username));
   state.users    = [...kept, ...importedUsers];
+  // Stamp when this schedule import happened — cloud merge uses this to
+  // avoid restoring older schedule data over a newer local import
+  state._usersUpdatedAt = Date.now();
   save();
   buildDatalist();
 
