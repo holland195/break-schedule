@@ -7,11 +7,36 @@
 
 // ── Helpers ──
 
-// Parse "HH:MM" → minutes since midnight (handles overnight: end < start means next day)
+// Parse many time formats → minutes since midnight
+// Accepts: "12:00:03 AM", "12:00 AM", "00:15", "0:15", "15:00:03"
 function _parseTime(str) {
   if (!str) return null;
-  const [h, m] = str.split(':').map(Number);
-  return h * 60 + (m || 0);
+  const s = str.trim();
+  // Try 12-hour format with AM/PM (e.g. "12:00:03 AM", "1:30 PM")
+  const ampm = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (ampm) {
+    let h = parseInt(ampm[1]), m = parseInt(ampm[2]);
+    const period = ampm[3].toUpperCase();
+    if (period === 'AM' && h === 12) h = 0;
+    if (period === 'PM' && h !== 12) h += 12;
+    return h * 60 + m;
+  }
+  // Try 24-hour format (e.g. "00:15", "15:00", "15:00:03")
+  const h24 = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (h24) {
+    return parseInt(h24[1]) * 60 + parseInt(h24[2]);
+  }
+  return null;
+}
+
+// Normalize any time string → "HH:MM" for storage
+function _normalizeTime(str) {
+  if (!str) return '';
+  const mins = _parseTime(str);
+  if (mins === null) return str.trim(); // store as-is if unrecognized
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
 }
 
 // Format minute diff → "+HH:MM" string
@@ -268,8 +293,8 @@ function openAttendanceModal(uid, dateKey) {
 }
 
 function previewAttendance() {
-  const start = document.getElementById('attend-start').value.trim();
-  const end   = document.getElementById('attend-end').value.trim();
+  const start = _normalizeTime(document.getElementById('attend-start').value.trim());
+  const end   = _normalizeTime(document.getElementById('attend-end').value.trim());
   const {uid, dateKey} = _attendModal;
   const u = state.users.find(x => x.id === uid);
   const shift = _getUserShiftOnDate(u, dateKey);
@@ -293,8 +318,10 @@ function previewAttendance() {
 }
 
 async function saveAttendance() {
-  const start = document.getElementById('attend-start').value.trim();
-  const end   = document.getElementById('attend-end').value.trim();
+  const startRaw = document.getElementById('attend-start').value.trim();
+  const endRaw   = document.getElementById('attend-end').value.trim();
+  const start = _normalizeTime(startRaw);
+  const end   = _normalizeTime(endRaw);
   const note  = document.getElementById('attend-note').value.trim();
   const {uid, dateKey} = _attendModal;
   if (!start && !end && !note) {

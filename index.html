@@ -157,14 +157,26 @@
     <div class="modal-title">⏱ Fill Attendance</div>
     <div id="attend-modal-title" style="font-size:13px;font-weight:600;margin-bottom:4px;"></div>
     <div id="attend-modal-default" style="font-size:11px;color:var(--text3);margin-bottom:14px;"></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;padding:6px 10px;background:var(--bg3);border-radius:6px;line-height:1.8;">
+      Paste directly from the Action Log — any format works:<br>
+      <code style="color:var(--accent);">12:00:03 AM</code> &nbsp;·&nbsp;
+      <code style="color:var(--accent);">09:00:52 AM</code> &nbsp;·&nbsp;
+      <code style="color:var(--accent);">15:00</code>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
       <div class="fg">
-        <label>Actual Start</label>
-        <input id="attend-start" class="login-input" type="time" oninput="previewAttendance()" style="font-family:'IBM Plex Mono',monospace;">
+        <label>Login time (Start)</label>
+        <input id="attend-start" class="login-input" type="text"
+          placeholder="e.g. 12:00:03 AM"
+          oninput="previewAttendance()"
+          style="font-family:'IBM Plex Mono',monospace;font-size:12px;">
       </div>
       <div class="fg">
-        <label>Actual End</label>
-        <input id="attend-end" class="login-input" type="time" oninput="previewAttendance()" style="font-family:'IBM Plex Mono',monospace;">
+        <label>Logout time (End)</label>
+        <input id="attend-end" class="login-input" type="text"
+          placeholder="e.g. 09:00:52 AM"
+          oninput="previewAttendance()"
+          style="font-family:'IBM Plex Mono',monospace;font-size:12px;">
       </div>
     </div>
     <div class="fg" style="margin-bottom:12px;">
