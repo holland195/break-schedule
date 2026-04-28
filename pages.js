@@ -526,11 +526,11 @@ async function saveBreaksToCloud() {
     }, 2500);
   } else {
     if (ico) ico.textContent = '⚠';
-    const binGone = typeof syncCfg !== 'undefined' && !syncCfg.binId;
+    const binGone = typeof syncCfg !== 'undefined' && !syncCfg.binId && isAdmin(currentUser);
     if (lbl) lbl.textContent = binGone ? 'Reconnect Cloud Sync!' : 'Failed — retry?';
     btn.style.background = 'var(--err)';
-    if (binGone && typeof nav === 'function') {
-      setTimeout(() => nav('sync'), 1500); // auto-redirect to Cloud Sync page
+    if (binGone && typeof nav === 'function' && isAdmin(currentUser)) {
+      setTimeout(() => nav('sync'), 1500); // auto-redirect to Cloud Sync page (admin only)
     }
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
