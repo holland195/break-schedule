@@ -15,7 +15,7 @@ function nav(page) {
     arrange:   renderArrange,
     extbreak:  renderExtBreak,
     staff:     renderStaff,
-    sync:      syncRenderPage,
+    sync:      renderSyncSettings,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';
@@ -24,15 +24,13 @@ function nav(page) {
 
 function changeSidebarShift(v) {
   currentShift = v;
-  // Reset schedule week picker when shift changes
   if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
   nav(currentPage);
 }
 
 function attachPageEvents(page) {
-  // Activate first arrange tab after render
   if (page === 'arrange') {
-    const firstTab = document.querySelector('#arrange-tabs .tab');
+    const firstTab = document.querySelector('#arrange-day-tabs .tab');
     if (firstTab) firstTab.classList.add('on');
   }
 }

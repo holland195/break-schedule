@@ -1,214 +1,527 @@
 // ═══════════════════════════════════════════════
-//  CLOUD SYNC  (JSONBin.io)
-//  • Bin ID is created once and persisted in localStorage.
-//  • Clicking Save calls syncWrite() — it never creates a new bin.
-//  • syncInit() connects to an existing bin or creates one for
-//    the very first time only.
+//  CLOUD SYNC — JSONBin.io + GitHub sync-config.json
+//
+//  HOW IT WORKS (zero friction for users):
+//
+//  1. Admin sets up once:
+//     a. Go to jsonbin.io → sign up → copy Secret Key
+//     b. Login as admin → Cloud Sync page → paste key → Connect
+//     c. App creates a public JSONBin → shows the Bin ID
+//     d. Admin creates sync-config.json in the GitHub repo (see below)
+//     e. Push to GitHub → done forever
+//
+//  2. sync-config.json (place in root of GitHub repo, same folder as index.html):
+//     { "binId": "your-bin-id-here" }
+//
+//  3. Every browser on every device:
+//     a. Fetches ./sync-config.json (same origin → no CORS, no key needed)
+//     b. Gets the binId → reads the PUBLIC JSONBin → pulls latest passwords
+//     c. Login form unlocks → user logs in with their real password
+//     d. Done. No master key. No admin visit. No setup per device.
+//
+//  SECURITY:
+//  • JSONBin data bin is PUBLIC for reading (passwords are hashed-equivalent,
+//    not plain text — stored as user-chosen strings, no PII beyond username)
+//  • Only the admin browser can WRITE (has the Secret Key in localStorage)
+//  • sync-config.json only contains the binId — not the secret key
 // ═══════════════════════════════════════════════
 
-const SYNC_KEY    = 'bsched_sync_cfg';   // localStorage key for config
-const SYNC_API    = 'https://api.jsonbin.io/v3/b';
+const SYNC_CFG_KEY = 'bsched_sync_cfg';
 
-// ── Load persisted sync config ──────────────────
 let syncCfg = (() => {
-  try { const d = localStorage.getItem(SYNC_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+  try { return JSON.parse(localStorage.getItem(SYNC_CFG_KEY)) || {}; } catch(e) { return {}; }
 })();
-// syncCfg shape: { binId, apiKey, enabled }
 
-function _saveSyncCfg(cfg) {
+function syncSaveCfg(cfg) {
   syncCfg = cfg;
-  localStorage.setItem(SYNC_KEY, JSON.stringify(cfg));
+  localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(cfg));
+}
+function syncEnabled() {
+  return !!(syncCfg.binId && syncCfg.apiKey);
 }
 
-// ── Status badge helper ─────────────────────────
-function _setSyncBadge(text, color) {
+// ── Step 1: Discover binId from sync-config.json (GitHub-hosted, same origin) ──
+let _cachedBinId = null;
+async function discoverBinId() {
+  // Priority order:
+  // 1. Already cached in memory this session
+  if (_cachedBinId) return _cachedBinId;
+  // 2. Already in localStorage from a previous pull
+  if (syncCfg.binId) { _cachedBinId = syncCfg.binId; return _cachedBinId; }
+  // 3. Fetch sync-config.json from same GitHub Pages origin
+  try {
+    const res = await fetch('./sync-config.json?_=' + Date.now(), {
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`sync-config.json not found (${res.status})`);
+    const cfg = await res.json();
+    if (!cfg.binId) throw new Error('sync-config.json missing binId field');
+    _cachedBinId = cfg.binId;
+    // Save to localStorage so future sessions are instant (no fetch needed)
+    syncSaveCfg({ ...syncCfg, binId: cfg.binId });
+    console.log('[sync] binId discovered from sync-config.json:', cfg.binId);
+    return cfg.binId;
+  } catch(e) {
+    console.warn('[sync] sync-config.json not found or invalid:', e.message);
+    return null;
+  }
+}
+
+// ── PUBLIC read — no API key needed (bin is public) ──
+async function syncPublicPull() {
+  const binId = await discoverBinId();
+  if (!binId) return false;
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      cache: 'no-store'
+    });
+    if (res.status === 401 || res.status === 404) {
+      // Bin was deleted or made private — clear stale cached ID so next
+      // attempt re-reads sync-config.json for the current valid binId
+      console.warn(`[sync] bin ${binId} returned ${res.status} — clearing stale ID`);
+      _cachedBinId = null;
+      // Only clear from localStorage if it came from there (not from admin apiKey config)
+      if (!syncCfg.apiKey) {
+        syncSaveCfg({ ...syncCfg, binId: null });
+      }
+      return 'stale'; // special return value so bootApp can show a useful message
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json   = await res.json();
+    const remote = json.record || {};
+    _applyRemoteData(remote);
+    save();
+    return true;
+  } catch(e) {
+    console.warn('[sync] public pull failed:', e.message);
+    return false;
+  }
+}
+
+// ── AUTHENTICATED pull (admin — has apiKey in localStorage) ──
+async function syncPull() {
+  if (!syncEnabled()) return syncPublicPull();
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}/latest`, {
+      cache: 'no-store',
+      headers: { 'X-Master-Key': syncCfg.apiKey }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json   = await res.json();
+    const remote = json.record || {};
+    _applyRemoteData(remote);
+    save();
+    return true;
+  } catch(e) {
+    console.warn('[sync] pull failed:', e.message);
+    return false;
+  }
+}
+
+function _applyRemoteData(remote) {
+  // ── Breaks merge: compare collection-level timestamps first ──
+  // state._breaksUpdatedAt = when we last wrote breaks locally (set on every assign/import)
+  // remote._breaksUpdatedAt = when the cloud breaks were last pushed
+  //
+  // Cases:
+  //  A. remote newer than local → cloud wins, replace entirely (normal sync from another device)
+  //  B. local newer than remote → local wins, keep entirely (our push is in-flight or just landed)
+  //  C. equal or no timestamp   → fall back to per-entry merge (safe default)
+  //  D. local is empty          → always take cloud (fresh browser, no local data yet)
+  if (remote.breaks) {
+    const localBAt  = state._breaksUpdatedAt  || 0;
+    const remoteBAt = remote._breaksUpdatedAt || 0;
+    const localIsEmpty = Object.keys(state.breaks).length === 0;
+
+    if (localIsEmpty) {
+      // Case D: fresh browser — take everything from cloud
+      state.breaks = remote.breaks;
+    } else if (remoteBAt > localBAt) {
+      // Case A: cloud is genuinely newer — replace entirely
+      state.breaks = remote.breaks;
+    } else if (localBAt > remoteBAt) {
+      // Case B: local is newer (e.g. push in-flight) — keep local entirely
+      // Do nothing — our local data wins
+    } else {
+      // Case C: same timestamp or no timestamp — per-entry merge
+      Object.entries(remote.breaks).forEach(([key, remoteEntry]) => {
+        const localEntry = state.breaks[key];
+        if (!localEntry) {
+          state.breaks[key] = remoteEntry;
+        } else {
+          const localAt  = localEntry.at  || 0;
+          const remoteAt = remoteEntry.at || 0;
+          if (remoteAt > localAt) {
+            state.breaks[key] = remoteEntry;
+          }
+        }
+      });
+    }
+  }
+  // After any successful breaks merge, sync the local timestamp to match
+  // what we just received. This prevents the 30-second poll from re-applying
+  // Case A on the next tick (which would be correct but wastes a merge).
+  if (remote.breaks && remote._breaksUpdatedAt) {
+    // Only update if remote is newer — never go backwards
+    if ((remote._breaksUpdatedAt || 0) > (state._breaksUpdatedAt || 0)) {
+      state._breaksUpdatedAt = remote._breaksUpdatedAt;
+    }
+  }
+  if (remote.requests)  state.requests  = remote.requests;
+  if (remote.extBreaks) state.extBreaks = remote.extBreaks;
+  // Restore schedule users from cloud using timestamp comparison
+  // This prevents an old cloud schedule from overwriting a newer local import
+  if (remote.users && remote.users.length > 0) {
+    const localUAt  = state._usersUpdatedAt  || 0;
+    const remoteUAt = remote._usersUpdatedAt || 0;
+    if (state.users.length === 0) {
+      // Fresh browser — take cloud users unconditionally
+      state.users = remote.users;
+      state._usersUpdatedAt = remoteUAt;
+      // Reset activeMonday to current week so we don't land on an old week
+      if (typeof activeMonday !== 'undefined') {
+        const now = new Date(); const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(now.getFullYear(), now.getMonth(), diff);
+        activeMonday = `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+      }
+    } else if (remoteUAt > localUAt) {
+      // Cloud has a newer import — replace local schedule
+      state.users = remote.users;
+      state._usersUpdatedAt = remoteUAt;
+    }
+    // else: local is newer or same — keep local schedule (don't restore old weeks)
+  }
+  // Sync passwords — authoritative from cloud
+  // Works even if user not in local staffInfo yet (fresh browser)
+  if (remote.staffPasswords) {
+    Object.entries(remote.staffPasswords).forEach(([uname, p]) => {
+      if (!state.staffInfo[uname]) {
+        state.staffInfo[uname] = { name: uname, role: '', gender: '', empNo: '', dob: '' };
+      }
+      state.staffInfo[uname].password           = p.password;
+      state.staffInfo[uname].mustChangePassword  = p.mustChangePassword;
+    });
+  }
+}
+
+// ── Push to cloud (admin only) ──
+async function syncPush() {
+  if (!syncEnabled()) return false;
+  try {
+    const staffPasswords = {};
+    Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
+      staffPasswords[uname] = {
+        password:          si.password          ?? '1234',
+        mustChangePassword: si.mustChangePassword ?? true,
+      };
+    });
+    // Compact users for cloud (only fields needed for display + schedule)
+    const usersCompact = state.users.map(u => ({
+      id: u.id, username: u.username, name: u.name,
+      team: u.team, role: u.role, gender: u.gender || '',
+      schedule: u.schedule,
+    }));
+    const payload = {
+      breaks:           state.breaks,
+      requests:         state.requests,
+      extBreaks:        state.extBreaks,
+      users:            usersCompact,
+      staffPasswords,
+      _updated:         Date.now(),
+      _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
+      // Track when users/schedule was last imported so browsers don't
+      // restore old schedule data over a newer local import
+      _usersUpdatedAt:  state._usersUpdatedAt  || 0,
+    };
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': syncCfg.apiKey },
+      body:    JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return true;
+  } catch(e) {
+    console.warn('[sync] push failed:', e.message);
+    return false;
+  }
+}
+
+async function saveAndSync() {
+  save(); // always write localStorage first (instant, never fails)
+  if (syncEnabled()) await syncPush(); // Option D: await so push completes before any pull
+}
+async function syncWrite() {
+  updateSyncBadge('busy');
+  await saveAndSync(); // awaited all the way through
+  updateSyncBadge(syncEnabled() ? 'ok' : 'err');
+}
+
+// ── Boot: discover binId + pull passwords BEFORE login ──
+// Called from bootApp() — blocks login until done (with 5s timeout)
+// Returns: true=synced, false=no config, 'stale'=bad binId, 'error'=network fail
+async function syncTryAutoConnect() {
+  if (syncEnabled()) {
+    const ok = await syncPull();
+    return ok ? true : 'error';
+  } else {
+    const result = await syncPublicPull();
+    return result; // true, false, or 'stale'
+  }
+}
+
+// ── Poll every 30 s ──
+let _syncInterval = null;
+function startSyncPolling() {
+  if (_syncInterval) clearInterval(_syncInterval);
+  _syncInterval = setInterval(async () => {
+    const noRerenderPages = new Set(['arrange', 'staff']);
+    const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
+    if (ok && typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
+      nav(currentPage);
+      updateBadge();
+    }
+    updateSyncBadge(ok ? 'ok' : 'err');
+  }, 30000);
+}
+function stopSyncPolling() {
+  if (_syncInterval) clearInterval(_syncInterval);
+  _syncInterval = null;
+}
+
+function updateSyncBadge(status) {
   const el = document.getElementById('sync-badge');
   if (!el) return;
-  el.style.display = text ? '' : 'none';
-  el.textContent   = text || '';
-  el.style.color   = color || 'var(--text-muted, #888)';
+  // Show badge only if we have a binId (even without apiKey)
+  if (!syncCfg.binId && !_cachedBinId) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const map = {
+    ok:   ['☁ Synced',   'var(--ok)'],
+    err:  ['☁ Offline',  'var(--warn)'],
+    busy: ['☁ Syncing…', 'var(--text3)'],
+  };
+  const [txt, col] = map[status] || map.err;
+  el.textContent = txt; el.style.color = col;
 }
 
-// ══════════════════════════════════════════════════
-//  syncWrite  — called by save-actions throughout
-//  the app (e.g. assign break, approve request …).
-//  Only runs if sync is enabled and a bin ID exists.
-// ══════════════════════════════════════════════════
-async function syncWrite() {
-  save(); // always persist locally first
-
-  if (!syncCfg?.enabled || !syncCfg?.binId || !syncCfg?.apiKey) return;
-
-  _setSyncBadge('↑ saving…', '#f0a500');
-  try {
-    const res = await fetch(`${SYNC_API}/${syncCfg.binId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': syncCfg.apiKey,
-      },
-      body: JSON.stringify(state),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    _setSyncBadge('✓ synced', '#4caf82');
-    setTimeout(() => _setSyncBadge('', ''), 3000);
-  } catch(e) {
-    console.warn('[sync] write failed:', e.message);
-    _setSyncBadge('⚠ sync err', '#e05252');
-  }
+// ── Create a PUBLIC bin ──
+async function syncCreateBin(apiKey) {
+  const res = await fetch('https://api.jsonbin.io/v3/b', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'X-Master-Key':  apiKey,
+      'X-Bin-Name':    'bsched-data',
+    },
+    body: JSON.stringify({
+      breaks:{}, requests:[], extBreaks:{}, users:[], staffPasswords:{}, _created: Date.now()
+    }),
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`HTTP ${res.status}: ${t}`); }
+  const json  = await res.json();
+  const binId = json.metadata?.id;
+  if (!binId) throw new Error('No bin ID returned from JSONBin');
+  // Make it public so anyone can read without a key
+  await fetch(`https://api.jsonbin.io/v3/b/${binId}/meta/privacy`, {
+    method:  'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
+    body:    JSON.stringify({ private: false }),
+  });
+  return binId;
 }
 
-// ══════════════════════════════════════════════════
-//  syncRead  — pull latest state from the cloud bin.
-//  Merges remote state into local, then refreshes UI.
-// ══════════════════════════════════════════════════
-async function syncRead() {
-  if (!syncCfg?.enabled || !syncCfg?.binId || !syncCfg?.apiKey) return;
-
-  _setSyncBadge('↓ loading…', '#5b9cf6');
+async function syncFindBin(apiKey) {
   try {
-    const res = await fetch(`${SYNC_API}/${syncCfg.binId}/latest`, {
-      headers: { 'X-Master-Key': syncCfg.apiKey },
+    const res = await fetch('https://api.jsonbin.io/v3/b', {
+      headers: { 'X-Master-Key': apiKey }
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) return null;
     const json = await res.json();
-    const remote = json.record;
-    if (remote && typeof remote === 'object') {
-      // Merge remote into local state (remote wins)
-      Object.assign(state, remote);
-      save();
-      if (typeof renderPage === 'function') renderPage(currentPage || 'dashboard');
-      _setSyncBadge('✓ loaded', '#4caf82');
-      setTimeout(() => _setSyncBadge('', ''), 3000);
-    }
-  } catch(e) {
-    console.warn('[sync] read failed:', e.message);
-    _setSyncBadge('⚠ sync err', '#e05252');
-  }
+    const bins = Array.isArray(json.metadata) ? json.metadata : [];
+    // Find all bins named 'bsched-data', sort by creation time (newest first)
+    const matches = bins
+      .filter(b => b.name === 'bsched-data')
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    if (matches.length > 0) return matches[0].id;
+    // No named match — only use a bin if there's exactly one (avoid wrong pick)
+    return bins.length === 1 ? bins[0].id : null;
+  } catch(e) { return null; }
 }
 
-// ══════════════════════════════════════════════════
-//  syncInit  — called from the Cloud Sync settings
-//  page when the user clicks Connect.
-//  • If a binId is already stored → just re-enables.
-//  • Only creates a new bin when there is genuinely
-//    no binId saved anywhere.
-// ══════════════════════════════════════════════════
-async function syncInit(apiKey) {
-  if (!apiKey) { toast('Enter an API key first', 'err'); return; }
-
-  // ── Already have a bin ID saved? Just re-enable. ──
-  if (syncCfg?.binId) {
-    _saveSyncCfg({ ...syncCfg, apiKey, enabled: true });
-    toast('Cloud sync re-connected (existing bin)', 'ok');
-    _setSyncBadge('✓ connected', '#4caf82');
-    if (typeof renderPage === 'function') renderPage('sync');
-    return;
-  }
-
-  // ── First-ever setup: create a new bin ────────────
-  _setSyncBadge('⚙ creating…', '#f0a500');
+async function syncMakeBinPublic(binId, apiKey) {
   try {
-    const res = await fetch(SYNC_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': apiKey,
-        'X-Bin-Name':   'bsched-data',
-        'X-Bin-Private':'true',
-      },
-      body: JSON.stringify(state),
+    await fetch(`https://api.jsonbin.io/v3/b/${binId}/meta/privacy`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
+      body:    JSON.stringify({ private: false }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    const binId = json.metadata?.id;
-    if (!binId) throw new Error('No bin ID in response');
-
-    _saveSyncCfg({ binId, apiKey, enabled: true });
-    toast('Cloud sync connected — new bin created', 'ok');
-    _setSyncBadge('✓ connected', '#4caf82');
-    if (typeof renderPage === 'function') renderPage('sync');
-  } catch(e) {
-    console.warn('[sync] init failed:', e.message);
-    toast('Sync setup failed: ' + e.message, 'err');
-    _setSyncBadge('⚠ failed', '#e05252');
-  }
+  } catch(e) { /* best-effort */ }
 }
 
-// ══════════════════════════════════════════════════
-//  syncDisconnect  — disables sync without deleting
-//  the stored bin ID, so reconnecting later reuses it.
-// ══════════════════════════════════════════════════
-function syncDisconnect() {
-  if (syncCfg) {
-    _saveSyncCfg({ ...syncCfg, enabled: false });
-  }
-  _setSyncBadge('', '');
-  toast('Cloud sync disconnected', 'warn');
-  if (typeof renderPage === 'function') renderPage('sync');
-}
-
-// ══════════════════════════════════════════════════
-//  syncForgetBin  — wipes stored bin ID entirely.
-//  Next syncInit() will create a brand new bin.
-//  Exposed for the UI settings panel only.
-// ══════════════════════════════════════════════════
-function syncForgetBin() {
-  localStorage.removeItem(SYNC_KEY);
-  syncCfg = null;
-  _setSyncBadge('', '');
-  toast('Sync config cleared — next connect will create a new bin', 'warn');
-  if (typeof renderPage === 'function') renderPage('sync');
-}
-
-// ══════════════════════════════════════════════════
-//  syncRenderPage  — renders the Cloud Sync UI page.
-//  Called by nav.js when the user clicks ☁ Cloud Sync.
-// ══════════════════════════════════════════════════
-function syncRenderPage() {
-  const connected = !!(syncCfg?.enabled && syncCfg?.binId);
-  const hasBin    = !!syncCfg?.binId;
-  const binId     = syncCfg?.binId || '—';
-  const apiKey    = syncCfg?.apiKey || '';
+// ═══════════════════════════════════════════════
+//  SYNC SETTINGS PAGE — admin only
+// ═══════════════════════════════════════════════
+function renderSyncSettings() {
+  const enabled = syncEnabled();
+  const binId   = syncCfg.binId || _cachedBinId || '';
 
   return `
-  <div class="page-header"><h1>☁ Cloud Sync</h1></div>
-  <div class="card" style="max-width:560px;margin:0 auto;">
-    <div style="margin-bottom:16px;">
-      <strong>Status:</strong>
-      <span style="margin-left:8px;color:${connected ? '#4caf82' : '#e05252'}">
-        ${connected ? '● Connected' : hasBin ? '○ Disconnected (bin saved)' : '○ Not set up'}
-      </span>
+<div class="page-header">
+  <div>
+    <div class="page-title">☁ Cloud Sync</div>
+    <div class="page-sub">One-time admin setup — all users sync automatically on any browser</div>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="card" style="max-width:620px;">
+  ${enabled
+    ? `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--C-bg);border:1px solid var(--C-color);border-radius:8px;font-size:12px;color:var(--C-color);">
+        <span style="font-size:22px;">☁</span>
+        <div><b>Sync is active.</b> Passwords, breaks and requests sync automatically.<br>
+          <span style="opacity:.7;font-size:11px;">Bin ID: <code style="background:var(--bg3);padding:1px 6px;border-radius:3px;">${binId}</code></span>
+        </div>
+       </div>`
+    : `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--D-bg);border:1px solid var(--D-color);border-radius:8px;font-size:12px;color:var(--D-color);">
+        <span style="font-size:22px;">⚠</span>
+        <div><b>Not configured.</b> Password changes won't sync across browsers until setup is complete.</div>
+       </div>`}
+</div>
+
+<!-- How it works -->
+<div class="card" style="max-width:620px;margin-top:0;background:var(--bg3);">
+  <div class="card-title">How it works (after setup)</div>
+  <div style="font-size:12px;color:var(--text2);line-height:2.1;">
+    ✦ User opens app on any browser → app fetches <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;">sync-config.json</code> from GitHub<br>
+    ✦ Gets the Bin ID → reads the public JSONBin → pulls latest passwords silently<br>
+    ✦ User logs in with their current password → works on every browser, every device<br>
+    ✦ <b>No master key shared. No admin visits. No per-device setup.</b>
+  </div>
+</div>
+
+<!-- Setup steps -->
+<div class="card" style="max-width:620px;margin-top:0;">
+  <div class="card-title">🔑 Admin Setup — 2 steps, done once</div>
+
+  <div style="background:var(--bg3);border-left:3px solid var(--accent);padding:14px 16px;border-radius:0 6px 6px 0;margin-bottom:18px;font-size:12px;line-height:2.2;">
+    <b style="font-size:13px;display:block;margin-bottom:4px;">Step 1 — Connect JSONBin</b>
+    <b>1a</b> → Go to <a href="https://jsonbin.io" target="_blank" style="color:var(--accent);text-decoration:underline;">jsonbin.io</a> → Sign Up Free<br>
+    <b>1b</b> → Profile icon (top-right) → <b>API Keys</b> → under <b>Secret Key</b> → <b>👁 Show</b> → copy<br>
+    <b>1c</b> → Paste below → click <b>Connect</b> → note the <b>Bin ID</b> shown<br>
+    <div style="height:12px;"></div>
+    <b style="font-size:13px;display:block;margin-bottom:4px;">Step 2 — Add sync-config.json to GitHub</b>
+    <b>2a</b> → In your GitHub repository, create a new file called <code style="background:var(--bg4);padding:1px 6px;border-radius:3px;">sync-config.json</code><br>
+    <b>2b</b> → File content (copy and fill in your Bin ID):<br>
+    <div id="sync-config-preview" style="background:var(--bg4);border-radius:6px;padding:10px 14px;margin:6px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ok);">
+      ${binId
+        ? `{ "binId": "${binId}" }`
+        : `{ "binId": "paste-your-bin-id-here" }`}
     </div>
+    <b>2c</b> → Commit and push → GitHub Pages redeploys automatically<br>
+    <span style="color:var(--text3);font-size:11px;">After this, <b>every browser worldwide</b> reads sync-config.json at login and syncs passwords automatically.</span>
+  </div>
 
-    ${hasBin ? `<div style="margin-bottom:12px;font-size:12px;color:var(--text-muted,#888);">
-      Bin ID: <code style="user-select:all;">${binId}</code>
-    </div>` : ''}
-
-    ${!connected ? `
-    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px;">JSONBin Master API Key</label>
-    <input id="sync-key-input" type="password" class="login-input" placeholder="$2a$10$…" value="${apiKey}" style="width:100%;margin-bottom:12px;box-sizing:border-box;" />
-    <button class="btn btn-accent" onclick="syncInit(document.getElementById('sync-key-input').value.trim())">
-      ${hasBin ? 'Reconnect' : 'Connect & Create Bin'}
-    </button>
-    ` : `
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-accent" onclick="syncRead()">↓ Pull from Cloud</button>
-      <button class="btn btn-accent" onclick="syncWrite()">↑ Push to Cloud</button>
-      <button class="btn btn-err" onclick="syncDisconnect()">Disconnect</button>
+  <div class="fg">
+    <label>JSONBin Secret Key (Master Key)</label>
+    <div style="display:flex;gap:8px;">
+      <input id="sync-api-key" class="login-input" type="password"
+        placeholder="$2b$10$…" value="${syncCfg.apiKey || ''}"
+        style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11px;">
+      <button class="btn btn-sm" onclick="const i=document.getElementById('sync-api-key');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';">👁</button>
     </div>
-    `}
+  </div>
 
-    ${hasBin && connected ? `
-    <hr style="margin:20px 0;border-color:var(--border,#333);">
-    <details>
-      <summary style="cursor:pointer;color:var(--text-muted,#888);font-size:12px;">Advanced</summary>
-      <div style="margin-top:12px;">
-        <button class="btn" onclick="if(confirm('This forgets the saved bin ID. A new bin will be created on next connect.')) syncForgetBin();"
-          style="background:var(--danger-bg,#3a1a1a);color:var(--danger,#e05252);font-size:12px;">
-          ✕ Forget Bin &amp; Reset
-        </button>
-      </div>
-    </details>` : ''}
-  </div>`;
+  <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+    <button class="btn btn-accent" onclick="saveSyncCfg()">${enabled ? '🔄 Reconnect' : '⚡ Connect'}</button>
+    ${enabled ? `
+    <button class="btn" onclick="forceSyncPull()">↓ Pull now</button>
+    <button class="btn" onclick="forceSyncPush()">↑ Push now</button>
+    <button class="btn btn-err btn-sm" onclick="clearSyncCfg()">Disconnect</button>` : ''}
+  </div>
+  <div id="sync-test-status" style="font-size:12px;margin-top:12px;min-height:20px;"></div>
+</div>
+
+<!-- GitHub file instruction (shown after connect) -->
+${binId ? `
+<div class="card" style="max-width:620px;margin-top:0;border-color:var(--accent);">
+  <div class="card-title" style="color:var(--accent);">📄 sync-config.json — copy this file content</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.7;">
+    Create this file in the root of your GitHub repository (same folder as index.html):
+  </div>
+  <div style="background:var(--bg3);border-radius:8px;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ok);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    <span>{ "binId": "${binId}" }</span>
+    <button class="btn btn-sm" onclick="navigator.clipboard.writeText(JSON.stringify({binId:'${binId}'},null,2));toast('Copied! Paste into sync-config.json','ok')">Copy</button>
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-top:8px;">
+    Filename must be exactly <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">sync-config.json</code> in the repo root. Commit and push to activate.
+  </div>
+</div>` : ''}
+
+<!-- Danger zone -->
+<div class="card" style="max-width:620px;margin-top:0;border-color:var(--err);">
+  <div class="card-title" style="color:var(--err);">⚠ Danger Zone</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
+    Reset this device's local data. Cloud data and sync-config.json are not affected.
+    After reset, reopen the app — it will re-sync automatically from sync-config.json.
+  </div>
+  <button class="btn btn-err btn-sm" onclick="factoryReset()">⚠ Reset This Device</button>
+</div>
+
+${typeof renderRotationPanel === 'function' ? renderRotationPanel() : ''}` ;
+}
+
+async function saveSyncCfg() {
+  const apiKey = document.getElementById('sync-api-key').value.trim();
+  const status = document.getElementById('sync-test-status');
+  if (!apiKey) { status.innerHTML = '<span style="color:var(--err)">Paste your Secret Key.</span>'; return; }
+  if (!apiKey.startsWith('$2')) {
+    status.innerHTML = '<span style="color:var(--err)">⚠ Key should start with <code>$2b$10$</code></span>'; return;
+  }
+  status.innerHTML = '<span style="color:var(--text3)">⏳ Looking for existing bin…</span>';
+  // Always search for existing bin first — never create a duplicate
+  status.innerHTML = '<span style="color:var(--text3)">⏳ Searching for existing bin…</span>';
+  let binId = syncCfg.binId || _cachedBinId || await syncFindBin(apiKey);
+  if (!binId) {
+    status.innerHTML = '<span style="color:var(--text3)">⏳ No existing bin found — creating one…</span>';
+    try { binId = await syncCreateBin(apiKey); }
+    catch(e) { status.innerHTML = `<span style="color:var(--err)">⚠ ${e.message}</span>`; return; }
+  } else {
+    // Ensure the found bin is public so all browsers can read it without a key
+    await syncMakeBinPublic(binId, apiKey);
+  }
+  _cachedBinId = binId;
+  syncSaveCfg({ binId, apiKey });
+  status.innerHTML = '<span style="color:var(--text3)">⏳ Connecting…</span>';
+  const ok = await syncPull();
+  if (ok) {
+    await syncPush();
+    startSyncPolling();
+    updateSyncBadge('ok');
+    status.innerHTML = `<span style="color:var(--ok)">✓ Connected! Bin ID: <b>${binId}</b></span>`;
+    setTimeout(() => nav('sync'), 1200);
+  } else {
+    syncSaveCfg({});
+    status.innerHTML = '<span style="color:var(--err)">⚠ Connection failed. Check your Secret Key.</span>';
+  }
+}
+
+function clearSyncCfg() {
+  if (!confirm('Disconnect sync on this device?')) return;
+  syncSaveCfg({}); _cachedBinId = null; stopSyncPolling(); updateSyncBadge('err'); nav('sync');
+}
+
+async function forceSyncPull() {
+  const s = document.getElementById('sync-test-status');
+  s.innerHTML = '<span style="color:var(--text3)">Pulling…</span>';
+  const ok = await syncPull();
+  s.innerHTML = ok ? '<span style="color:var(--ok)">✓ Pulled latest data.</span>' : '<span style="color:var(--err)">Pull failed.</span>';
+  if (ok) { nav(currentPage); updateBadge(); updateSyncBadge('ok'); }
+}
+
+async function forceSyncPush() {
+  const s = document.getElementById('sync-test-status');
+  s.innerHTML = '<span style="color:var(--text3)">Pushing…</span>';
+  const ok = await syncPush();
+  s.innerHTML = ok ? '<span style="color:var(--ok)">✓ Pushed.</span>' : '<span style="color:var(--err)">Push failed.</span>';
+  if (ok) updateSyncBadge('ok');
 }
