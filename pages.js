@@ -94,7 +94,7 @@ function renderDashboard() {
         <div style="min-width:0;">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${u.name}${isSelf?' <span style="font-size:10px;color:var(--accent);">(you)</span>':''}
-            ${u.gender==='F'?'<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>':''}
+            ${u.gender==='F'?'<span style="font-size:13px;color:var(--A-color);margin-left:3px;">♀</span>':''}
           </div>
           <div style="font-size:10px;color:var(--text3);">${u.team} · ${getRoleInfo(u.role).label}</div>
         </div>
@@ -526,11 +526,11 @@ async function saveBreaksToCloud() {
     }, 2500);
   } else {
     if (ico) ico.textContent = '⚠';
-    const binGone = typeof syncCfg !== 'undefined' && !syncCfg.binId && isAdmin(currentUser);
+    const binGone = typeof syncCfg !== 'undefined' && !syncCfg.binId;
     if (lbl) lbl.textContent = binGone ? 'Reconnect Cloud Sync!' : 'Failed — retry?';
     btn.style.background = 'var(--err)';
-    if (binGone && typeof nav === 'function' && isAdmin(currentUser)) {
-      setTimeout(() => nav('sync'), 1500); // auto-redirect to Cloud Sync page (admin only)
+    if (binGone && typeof nav === 'function') {
+      setTimeout(() => nav('sync'), 1500); // auto-redirect to Cloud Sync page
     }
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
@@ -655,7 +655,7 @@ function _renderArrangeOverviewTab(weekRange) {
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
         <span style="font-weight:600;font-size:12px;">${u.name}</span>
-        ${genderIcon ? `<span style="font-size:10px;color:${u.gender==='F'?'var(--A-color)':'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
+        ${genderIcon ? `<span style="font-size:13px;color:${u.gender==='F'?'var(--A-color)':'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
         <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team} · ${getRoleInfo(u.role).label}</div>
       </td>
       ${dayCells}
@@ -762,7 +762,7 @@ function getArrangeDayMemberList(_unused) {
     }).join('');
 
     const genderBadge = u.gender === 'F'
-      ? `<span style="font-size:9px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
+      ? `<span style="font-size:13px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
 
     return `<tr class="arr-row">
       <td class="arr-name-col">
