@@ -82,6 +82,40 @@ async function discoverDbUrl() {
 //                PUT  /path.json?auth=SECRET  → write (replace)
 const FB_PATH = '/bsched.json';
 
+// Firebase key sanitization — keys cannot contain . # $ [ ] /
+// We encode these chars so data round-trips safely
+function _fbEncodeKey(key) {
+  return key
+    .replace(/%/g, '%25')  // escape % first
+    .replace(/\./g, '%2E')
+    .replace(/#/g, '%23')
+    .replace(/\$/g, '%24')
+    .replace(/\[/g, '%5B')
+    .replace(/\]/g, '%5D')
+    .replace(/\//g, '%2F');
+}
+function _fbDecodeKey(key) {
+  return decodeURIComponent(key);
+}
+function _fbEncodeObj(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const out = {};
+  Object.entries(obj).forEach(([k, v]) => {
+    out[_fbEncodeKey(k)] = (v && typeof v === 'object' && !Array.isArray(v))
+      ? _fbEncodeObj(v) : v;
+  });
+  return out;
+}
+function _fbDecodeObj(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const out = {};
+  Object.entries(obj).forEach(([k, v]) => {
+    out[_fbDecodeKey(k)] = (v && typeof v === 'object' && !Array.isArray(v))
+      ? _fbDecodeObj(v) : v;
+  });
+  return out;
+}
+
 function _fbUrl(dbUrl, secret) {
   return `${dbUrl}${FB_PATH}${secret ? '?auth=' + encodeURIComponent(secret) : ''}`;
 }
@@ -90,8 +124,8 @@ async function _fbGet(dbUrl, secret) {
   const res = await fetch(_fbUrl(dbUrl, secret), { cache: 'no-store' });
   if (res.status === 401 || res.status === 403) throw new Error('HTTP ' + res.status);
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  const data = await res.json();
-  return data || {};
+  const raw = await res.json();
+  return _fbDecodeObj(raw) || {};
 }
 
 async function _fbPut(dbUrl, secret, data) {
@@ -233,7 +267,7 @@ async function syncPush() {
     };
     const kb = (JSON.stringify(payload).length / 1024).toFixed(1);
     console.log(`[sync] push payload: ${kb}kb`);
-    await _fbPut(syncCfg.dbUrl, syncCfg.apiKey, payload);
+    await _fbPut(syncCfg.dbUrl, syncCfg.apiKey, _fbEncodeObj(payload));
     return true;
   } catch(e) {
     console.warn('[sync] push failed:', e.message);
