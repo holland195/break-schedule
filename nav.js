@@ -8,20 +8,28 @@ function nav(page) {
     el.classList.toggle('active', el.dataset.page === page);
   });
   const content = document.getElementById('main-content');
-  const pages = {
-    dashboard: renderDashboard,
-    schedule:  renderSchedule,
-    requests:  renderRequests,
-    arrange:   renderArrange,
-    extbreak:  renderExtBreak,
-    staff:     renderStaff,
-    sync:      renderSyncSettings,
-  };
+
+  // Guard: attendance page is leader-only
+  if (page === 'attendance' && !isLeader(currentUser)) {
+    content.innerHTML = '<div class="empty">Access denied.</div>';
+    return;
+  }
   // Guard: sync page is admin-only
   if (page === 'sync' && !isAdmin(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;
   }
+
+  const pages = {
+    dashboard:  renderDashboard,
+    schedule:   renderSchedule,
+    requests:   renderRequests,
+    arrange:    renderArrange,
+    extbreak:   renderExtBreak,
+    attendance: renderAttendance,
+    staff:      renderStaff,
+    sync:       renderSyncSettings,
+  };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';
   attachPageEvents(page);

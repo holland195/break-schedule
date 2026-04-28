@@ -94,7 +94,7 @@ function renderDashboard() {
         <div style="min-width:0;">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${u.name}${isSelf?' <span style="font-size:10px;color:var(--accent);">(you)</span>':''}
-            ${u.gender==='F'?'<span style="font-size:13px;color:var(--A-color);margin-left:3px;">♀</span>':''}
+            ${u.gender==='F'?'<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>':''}
           </div>
           <div style="font-size:10px;color:var(--text3);">${u.team} · ${getRoleInfo(u.role).label}</div>
         </div>
@@ -131,9 +131,21 @@ ${statsRow}
       ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending>0?`<span class="nav-badge" style="display:inline;">${myPending}</span>`:''}</button>` : ''}
       ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending>0?`<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>`:''}</button>` : ''}
       ${currentUser.gender==='F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
+      ${isLeader(currentUser) ? `<button class="btn" onclick="nav('attendance')" style="text-align:left;justify-content:flex-start;">⏱ Attendance Log</button>` : ''}
     </div>
   </div>
 </div>
+
+<!-- Attendance today widget (leaders only) -->
+${isLeader(currentUser) ? `
+<div class="card" style="margin-top:0;padding:14px 16px;">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>⏱ ATTENDANCE TODAY — Shift ${currentShift}</span>
+    <span style="font-size:10px;color:var(--text3);font-weight:400;">${typeof _todayDateKey==='function'?_todayDateKey():''}</span>
+  </div>
+  ${typeof renderAttendanceWidget === 'function' ? renderAttendanceWidget() : ''}
+</div>` : ''}
+
 ${teamGrid}`;
 }
 
@@ -655,7 +667,7 @@ function _renderArrangeOverviewTab(weekRange) {
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
         <span style="font-weight:600;font-size:12px;">${u.name}</span>
-        ${genderIcon ? `<span style="font-size:13px;color:${u.gender==='F'?'var(--A-color)':'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
+        ${genderIcon ? `<span style="font-size:10px;color:${u.gender==='F'?'var(--A-color)':'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
         <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team} · ${getRoleInfo(u.role).label}</div>
       </td>
       ${dayCells}
@@ -762,7 +774,7 @@ function getArrangeDayMemberList(_unused) {
     }).join('');
 
     const genderBadge = u.gender === 'F'
-      ? `<span style="font-size:13px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
+      ? `<span style="font-size:9px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
 
     return `<tr class="arr-row">
       <td class="arr-name-col">

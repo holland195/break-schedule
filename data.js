@@ -28,6 +28,36 @@ const BREAK_SLOTS = {
   E:['09:30–11:00','11:00–12:30'],
 };
 
+// Default start/end times per shift code (used for late/early calculation)
+// Covers standard (A-E), X variants, split shifts (A1/A2…), U variants
+const SHIFT_DEFAULTS = {
+  A:{start:'15:00',end:'00:00'}, B:{start:'19:00',end:'04:00'},
+  C:{start:'21:00',end:'06:00'}, D:{start:'00:00',end:'09:00'},
+  E:{start:'06:00',end:'15:00'},
+  XA:{start:'15:00',end:'00:00'}, XB:{start:'19:00',end:'04:00'},
+  XC:{start:'21:00',end:'06:00'}, XD:{start:'00:00',end:'09:00'},
+  XE:{start:'06:00',end:'15:00'},
+  X4A:{start:'15:00',end:'00:00'}, X4B:{start:'19:00',end:'04:00'},
+  X4C:{start:'21:00',end:'06:00'}, X4D:{start:'00:00',end:'09:00'},
+  X4E:{start:'06:00',end:'15:00'},
+  X3A:{start:'15:00',end:'00:00'}, X3B:{start:'19:00',end:'04:00'},
+  X3C:{start:'21:00',end:'06:00'}, X3D:{start:'00:00',end:'09:00'},
+  X3E:{start:'06:00',end:'15:00'},
+  X2A:{start:'15:00',end:'00:00'}, X2B:{start:'19:00',end:'04:00'},
+  X2C:{start:'21:00',end:'06:00'}, X2D:{start:'00:00',end:'09:00'},
+  X2E:{start:'06:00',end:'15:00'},
+  A1:{start:'15:00',end:'19:00'}, A2:{start:'20:00',end:'00:00'},
+  B1:{start:'19:00',end:'23:00'}, B2:{start:'00:00',end:'04:00'},
+  C1:{start:'21:00',end:'01:00'}, C2:{start:'02:00',end:'06:00'},
+  D1:{start:'00:00',end:'04:00'}, D2:{start:'05:00',end:'09:00'},
+  E1:{start:'06:00',end:'10:00'}, E2:{start:'11:00',end:'15:00'},
+  UA1:{start:'15:00',end:'19:00'}, UA2:{start:'20:00',end:'00:00'},
+  UB1:{start:'19:00',end:'23:00'}, UB2:{start:'00:00',end:'04:00'},
+  UC1:{start:'21:00',end:'01:00'}, UC2:{start:'02:00',end:'06:00'},
+  UD1:{start:'00:00',end:'04:00'}, UD2:{start:'05:00',end:'09:00'},
+  UE1:{start:'06:00',end:'10:00'}, UE2:{start:'11:00',end:'15:00'},
+};
+
 const ROLES = {
   'Admin':            {level:3,tag:'role-leader',label:'Admin'},
   'Agent Leader':     {level:2,tag:'role-leader',label:'Leader'},
@@ -44,7 +74,7 @@ const ROLES = {
 // ═══════════════════════════════════════════════
 function load() {
   try { const d = localStorage.getItem(STORAGE); if (d) return JSON.parse(d); } catch(e){}
-  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false, _breaksUpdatedAt:0, _usersUpdatedAt:0 };
+  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false, _breaksUpdatedAt:0, _usersUpdatedAt:0, attendance:{} };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -63,6 +93,10 @@ const DB = {
   addExtBreak:   (uid,mk,e)   => { const k=`${uid}_${mk}`; if(!state.extBreaks[k]) state.extBreaks[k]=[]; state.extBreaks[k].push(e); },
   deleteExtBreak:(uid,mk,i)   => { const k=`${uid}_${mk}`; if(state.extBreaks[k]) state.extBreaks[k].splice(i,1); },
   countExtBreaks:(uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]).length,
+  // attendance: key = `${uid}_${dateKey}` → { start, end, note, by, at }
+  getAttendance: (uid,day)   => state.attendance[`${uid}_${day}`] || null,
+  setAttendance: (uid,day,d) => { state.attendance[`${uid}_${day}`] = d; },
+  delAttendance: (uid,day)   => { delete state.attendance[`${uid}_${day}`]; },
   // staffInfo: username → { empNo, dob, gender, name, role, password, mustChangePassword }
   getStaffInfo:  username     => state.staffInfo[username] || null,
   setStaffInfo:  (username,d) => { state.staffInfo[username]=d; save(); },
@@ -84,6 +118,7 @@ const DB = {
 let state = load();
 // Migrations
 if (!state.extBreaks)  state.extBreaks  = {};
+if (!state.attendance) state.attendance = {};
 if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 // No more SEED_USERS — users come only from schedule import

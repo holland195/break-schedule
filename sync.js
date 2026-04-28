@@ -197,6 +197,15 @@ function _applyRemoteData(remote) {
       state._usersUpdatedAt = remoteUAt;
     }
   }
+  if (remote.attendance) {
+    // Merge attendance — remote wins per entry if newer
+    Object.entries(remote.attendance).forEach(([key, remoteEntry]) => {
+      const localEntry = state.attendance[key];
+      if (!localEntry || (remoteEntry.at || 0) >= (localEntry.at || 0)) {
+        state.attendance[key] = remoteEntry;
+      }
+    });
+  }
   if (remote.staffPasswords) {
     Object.entries(remote.staffPasswords).forEach(([uname, p]) => {
       if (!state.staffInfo[uname]) {
@@ -229,6 +238,7 @@ async function syncPush() {
       breaks:           state.breaks,
       requests:         state.requests,
       extBreaks:        state.extBreaks,
+      attendance:       state.attendance || {},
       users:            usersCompact,
       staffPasswords,
       _updated:         Date.now(),
