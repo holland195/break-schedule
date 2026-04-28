@@ -478,6 +478,10 @@ async function saveBreaksToCloud() {
   if (!btn) return;
 
   // ── Check: do we have the API key needed to push? ──
+  // First try to reload sync-config.json in case it was updated since page load
+  if (!syncEnabled() && typeof loadSyncConfig === 'function') {
+    await loadSyncConfig();
+  }
   const hasKey = typeof syncEnabled === 'function' && syncEnabled();
   const hasBin = typeof syncCfg !== 'undefined' && !!syncCfg.binId;
 
@@ -525,6 +529,9 @@ async function saveBreaksToCloud() {
     const binGone = typeof syncCfg !== 'undefined' && !syncCfg.binId;
     if (lbl) lbl.textContent = binGone ? 'Reconnect Cloud Sync!' : 'Failed — retry?';
     btn.style.background = 'var(--err)';
+    if (binGone && typeof nav === 'function') {
+      setTimeout(() => nav('sync'), 1500); // auto-redirect to Cloud Sync page
+    }
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
       if (lbl) lbl.textContent = 'Save Breaks';
