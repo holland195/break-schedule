@@ -17,6 +17,11 @@ function nav(page) {
     staff:     renderStaff,
     sync:      renderSyncSettings,
   };
+  // Guard: sync page is admin-only
+  if (page === 'sync' && !isAdmin(currentUser)) {
+    content.innerHTML = '<div class="empty">Access denied.</div>';
+    return;
+  }
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';
   attachPageEvents(page);

@@ -400,6 +400,7 @@ async function syncMakeBinPublic(binId, apiKey) {
 //  SYNC SETTINGS PAGE — admin only
 // ═══════════════════════════════════════════════
 function renderSyncSettings() {
+  if (!isAdmin(currentUser)) return '<div class="empty">Access denied.</div>';
   const enabled = syncEnabled();
   const binId   = syncCfg.binId || _cachedBinId || '';
 
