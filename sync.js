@@ -42,49 +42,57 @@ function syncEnabled() {
 
 // ── Step 1: Discover binId from sync-config.json (GitHub-hosted, same origin) ──
 let _cachedBinId = null;
-async function discoverBinId() {
-  // Priority order:
-  // 1. Already cached in memory this session
-  if (_cachedBinId) return _cachedBinId;
-  // 2. Already in localStorage from a previous pull
-  if (syncCfg.binId) { _cachedBinId = syncCfg.binId; return _cachedBinId; }
-  // 3. Fetch sync-config.json from same GitHub Pages origin
+
+// Load full sync config from sync-config.json (binId + apiKey for private repo)
+async function loadSyncConfig() {
   try {
-    const res = await fetch('./sync-config.json?_=' + Date.now(), {
-      cache: 'no-store'
-    });
-    if (!res.ok) throw new Error(`sync-config.json not found (${res.status})`);
+    const res = await fetch('./sync-config.json?_=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return null;
     const cfg = await res.json();
-    if (!cfg.binId) throw new Error('sync-config.json missing binId field');
+    if (!cfg.binId) return null;
+    // Save both binId and apiKey to localStorage
+    syncSaveCfg({
+      binId:  cfg.binId,
+      apiKey: cfg.apiKey || syncCfg.apiKey || '',
+    });
     _cachedBinId = cfg.binId;
-    // Save to localStorage so future sessions are instant (no fetch needed)
-    syncSaveCfg({ ...syncCfg, binId: cfg.binId });
-    console.log('[sync] binId discovered from sync-config.json:', cfg.binId);
-    return cfg.binId;
+    console.log('[sync] config loaded from sync-config.json, binId:', cfg.binId);
+    return cfg;
   } catch(e) {
-    console.warn('[sync] sync-config.json not found or invalid:', e.message);
+    console.warn('[sync] sync-config.json error:', e.message);
     return null;
   }
 }
 
-// ── PUBLIC read — no API key needed (bin is public) ──
+async function discoverBinId() {
+  // 1. Already cached in memory
+  if (_cachedBinId) return _cachedBinId;
+  // 2. Already in localStorage
+  if (syncCfg.binId) { _cachedBinId = syncCfg.binId; return _cachedBinId; }
+  // 3. Fetch sync-config.json
+  const cfg = await loadSyncConfig();
+  return cfg ? cfg.binId : null;
+}
+
+// ── Pull for non-admin browsers ──
+// Uses apiKey from sync-config.json if available (private repo).
+// Falls back to unauthenticated read for public bins.
 async function syncPublicPull() {
   const binId = await discoverBinId();
   if (!binId) return false;
+  // Use apiKey if available (loaded from sync-config.json or localStorage)
+  const headers = {};
+  if (syncCfg.apiKey) headers['X-Master-Key'] = syncCfg.apiKey;
   try {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-      cache: 'no-store'
+      cache: 'no-store',
+      headers,
     });
-    if (res.status === 401 || res.status === 404) {
-      // Bin was deleted or made private — clear stale cached ID so next
-      // attempt re-reads sync-config.json for the current valid binId
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
       console.warn(`[sync] bin ${binId} returned ${res.status} — clearing stale ID`);
       _cachedBinId = null;
-      // Only clear from localStorage if it came from there (not from admin apiKey config)
-      if (!syncCfg.apiKey) {
-        syncSaveCfg({ ...syncCfg, binId: null });
-      }
-      return 'stale'; // special return value so bootApp can show a useful message
+      syncSaveCfg({ ...syncCfg, binId: null });
+      return 'stale';
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json   = await res.json();
@@ -93,7 +101,7 @@ async function syncPublicPull() {
     save();
     return true;
   } catch(e) {
-    console.warn('[sync] public pull failed:', e.message);
+    console.warn('[sync] pull failed:', e.message);
     return false;
   }
 }
@@ -267,17 +275,23 @@ async function syncWrite() {
   updateSyncBadge(syncEnabled() ? 'ok' : 'err');
 }
 
-// ── Boot: discover binId + pull passwords BEFORE login ──
-// Called from bootApp() — blocks login until done (with 5s timeout)
+// ── Boot: load sync-config.json + pull passwords BEFORE login ──
 // Returns: true=synced, false=no config, 'stale'=bad binId, 'error'=network fail
 async function syncTryAutoConnect() {
+  // Always try to load sync-config.json first — it may have been updated
+  // with a new binId/apiKey since last visit
+  if (!syncCfg.binId || !syncCfg.apiKey) {
+    await loadSyncConfig(); // updates syncCfg in-place via syncSaveCfg
+  }
   if (syncEnabled()) {
     const ok = await syncPull();
     return ok ? true : 'error';
-  } else {
+  } else if (syncCfg.binId) {
+    // Have binId but no apiKey — try pull anyway (may work if bin is public)
     const result = await syncPublicPull();
-    return result; // true, false, or 'stale'
+    return result;
   }
+  return false; // no config at all
 }
 
 // ── Poll every 30 s ──
@@ -417,10 +431,11 @@ function renderSyncSettings() {
 <div class="card" style="max-width:620px;margin-top:0;background:var(--bg3);">
   <div class="card-title">How it works (after setup)</div>
   <div style="font-size:12px;color:var(--text2);line-height:2.1;">
-    ✦ User opens app on any browser → app fetches <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;">sync-config.json</code> from GitHub<br>
-    ✦ Gets the Bin ID → reads the public JSONBin → pulls latest passwords silently<br>
-    ✦ User logs in with their current password → works on every browser, every device<br>
-    ✦ <b>No master key shared. No admin visits. No per-device setup.</b>
+    ✦ <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;">sync-config.json</code> in your <b>private</b> GitHub repo contains both <b>binId</b> and <b>apiKey</b><br>
+    ✦ Every browser fetches this file at page load → gets both values → can read + write to JSONBin<br>
+    ✦ Passwords and break data sync automatically across all browsers<br>
+    ✦ <b>Safe because the repo is private</b> — only team members with repo access can see the key<br>
+    ✦ No manual key entry on any device. No admin visits.
   </div>
 </div>
 
@@ -435,15 +450,10 @@ function renderSyncSettings() {
     <b>1c</b> → Paste below → click <b>Connect</b> → note the <b>Bin ID</b> shown<br>
     <div style="height:12px;"></div>
     <b style="font-size:13px;display:block;margin-bottom:4px;">Step 2 — Add sync-config.json to GitHub</b>
-    <b>2a</b> → In your GitHub repository, create a new file called <code style="background:var(--bg4);padding:1px 6px;border-radius:3px;">sync-config.json</code><br>
-    <b>2b</b> → File content (copy and fill in your Bin ID):<br>
-    <div id="sync-config-preview" style="background:var(--bg4);border-radius:6px;padding:10px 14px;margin:6px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ok);">
-      ${binId
-        ? `{ "binId": "${binId}" }`
-        : `{ "binId": "paste-your-bin-id-here" }`}
-    </div>
-    <b>2c</b> → Commit and push → GitHub Pages redeploys automatically<br>
-    <span style="color:var(--text3);font-size:11px;">After this, <b>every browser worldwide</b> reads sync-config.json at login and syncs passwords automatically.</span>
+    <b>2a</b> → In your GitHub repository, open (or create) <code style="background:var(--bg4);padding:1px 6px;border-radius:3px;">sync-config.json</code><br>
+    <b>2b</b> → File must contain both <b>binId</b> AND <b>apiKey</b> (see card below for exact content)<br>
+    <b>2c</b> → Commit and push → all browsers will auto-connect on next page load<br>
+    <span style="color:var(--text3);font-size:11px;">✦ Safe because your GitHub repo is <b>Private</b> — the key is not visible publicly</span>
   </div>
 
   <div class="fg">
@@ -469,16 +479,22 @@ function renderSyncSettings() {
 <!-- GitHub file instruction (shown after connect) -->
 ${binId ? `
 <div class="card" style="max-width:620px;margin-top:0;border-color:var(--accent);">
-  <div class="card-title" style="color:var(--accent);">📄 sync-config.json — copy this file content</div>
+  <div class="card-title" style="color:var(--accent);">📄 sync-config.json — copy exact content</div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.7;">
-    Create this file in the root of your GitHub repository (same folder as index.html):
+    Create or update <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">sync-config.json</code>
+    in your GitHub repo root (same folder as <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">index.html</code>).<br>
+    <b style="color:var(--warn);">⚠ Keep your repo Private — this file contains your API key.</b>
   </div>
-  <div style="background:var(--bg3);border-radius:8px;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ok);display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    <span>{ "binId": "${binId}" }</span>
-    <button class="btn btn-sm" onclick="navigator.clipboard.writeText(JSON.stringify({binId:'${binId}'},null,2));toast('Copied! Paste into sync-config.json','ok')">Copy</button>
+  <div style="background:var(--bg3);border-radius:8px;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ok);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+    <pre style="margin:0;white-space:pre-wrap;word-break:break-all;">{
+  "binId": "${binId}",
+  "apiKey": "${syncCfg.apiKey || ''}"
+}</pre>
+    <button class="btn btn-sm" style="flex-shrink:0;"
+      onclick="navigator.clipboard.writeText(JSON.stringify({binId:'${binId}',apiKey:'${syncCfg.apiKey||''}'},null,2));toast('Copied! Paste into sync-config.json','ok')">Copy</button>
   </div>
   <div style="font-size:11px;color:var(--text3);margin-top:8px;">
-    Filename must be exactly <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">sync-config.json</code> in the repo root. Commit and push to activate.
+    Commit and push to GitHub → GitHub Pages redeploys → all browsers auto-connect within 1–2 minutes.
   </div>
 </div>` : ''}
 
