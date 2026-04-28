@@ -224,10 +224,12 @@ async function syncPush() {
         mustChangePassword: si.mustChangePassword ?? true,
       };
     });
+    // Strip schedules from cloud payload — full schedules can exceed 100kb (JSONBin free limit).
+    // Schedules are imported locally on each device; only breaks/passwords/requests need cloud sync.
     const usersCompact = state.users.map(u => ({
       id: u.id, username: u.username, name: u.name,
       team: u.team, role: u.role, gender: u.gender || '',
-      schedule: u.schedule,
+      schedule: {},  // excluded — too large for JSONBin free tier
     }));
     const payload = {
       breaks:           state.breaks,
@@ -239,19 +241,37 @@ async function syncPush() {
       _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
       _usersUpdatedAt:  state._usersUpdatedAt  || 0,
     };
+    // Log payload size for debugging
+    const _payloadSize = JSON.stringify(payload).length;
+    console.log(`[sync] push payload: ${(_payloadSize/1024).toFixed(1)}kb`);
     const res = await fetch(`https://api.jsonbin.io/v3/b/${syncCfg.binId}`, {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': syncCfg.apiKey },
       body:    JSON.stringify(payload),
     });
     if (res.status === 403 || res.status === 404) {
-      // Bin deleted, private, or wrong — clear stale config so
-      // next reconnect from Cloud Sync page starts fresh
+      // Distinguish payload-too-large (free tier) from bin-not-found/wrong-key
+      let errBody = '';
+      try { const j = await res.clone().json(); errBody = j.message || ''; } catch(e) {}
+      const isTooLarge    = errBody.toLowerCase().includes('100kb') || errBody.toLowerCase().includes('record over');
+      const isExhausted   = errBody.toLowerCase().includes('exhausted');
+      if (isTooLarge) {
+        console.warn('[sync] push: payload too large for JSONBin free tier');
+        if (typeof toast === 'function') toast('☁ Sync payload too large. Schedule data excluded, breaks/passwords still syncing.', 'warn');
+        updateSyncBadge('err');
+        return false;
+      }
+      if (isExhausted) {
+        console.warn('[sync] push: JSONBin requests exhausted');
+        if (typeof toast === 'function') toast('☁ JSONBin request limit reached. Upgrade plan or wait until reset.', 'warn');
+        updateSyncBadge('err');
+        return false;
+      }
+      // Bin deleted, private, or wrong key — clear stale config
       console.warn(`[sync] push: bin returned ${res.status} — clearing stale binId`);
       syncSaveCfg({ ...syncCfg, binId: null });
       _cachedBinId = null;
       updateSyncBadge('err');
-      // Show admin a toast if available
       if (typeof toast === 'function') {
         toast('☁ Sync bin not found (403). Go to Cloud Sync → Reconnect.', 'err');
       }
