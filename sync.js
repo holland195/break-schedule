@@ -245,12 +245,12 @@ async function syncPush() {
         mustChangePassword: si.mustChangePassword ?? true,
       };
     });
-    // Include users but strip schedule — schedules are imported locally per device
-    // and can be very large. Breaks/passwords/requests are what need cloud sync.
+    // GitHub Gist has no size limit — include full schedule so all browsers
+    // stay in sync without needing a manual CSV import on each device.
     const usersCompact = state.users.map(u => ({
       id: u.id, username: u.username, name: u.name,
       team: u.team, role: u.role, gender: u.gender || '',
-      schedule: {},
+      schedule: u.schedule || {},
     }));
     const payload = {
       breaks:           state.breaks,
