@@ -366,12 +366,21 @@ async function syncFindBin(apiKey) {
 
 async function syncMakeBinPublic(binId, apiKey) {
   try {
-    await fetch(`https://api.jsonbin.io/v3/b/${binId}/meta/privacy`, {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/meta/privacy`, {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
       body:    JSON.stringify({ private: false }),
     });
-  } catch(e) { /* best-effort */ }
+    if (res.ok) {
+      console.log('[sync] bin set to public OK');
+      return true;
+    }
+    console.warn('[sync] syncMakeBinPublic failed:', res.status);
+    return false;
+  } catch(e) {
+    console.warn('[sync] syncMakeBinPublic error:', e.message);
+    return false;
+  }
 }
 
 // ═══════════════════════════════════════════════

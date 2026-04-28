@@ -477,42 +477,53 @@ async function saveBreaksToCloud() {
   const lbl   = document.getElementById('save-breaks-lbl');
   if (!btn) return;
 
+  // ── Check: do we have the API key needed to push? ──
+  const hasKey = typeof syncEnabled === 'function' && syncEnabled();
+  const hasBin = typeof syncCfg !== 'undefined' && !!syncCfg.binId;
+
+  if (!hasKey) {
+    // No API key stored — push is impossible
+    // Guide the admin to Cloud Sync settings
+    if (ico) ico.textContent = '⚠';
+    if (lbl) lbl.textContent = hasBin ? 'Need API key — go to Cloud Sync' : 'Sync not configured';
+    btn.style.background = 'var(--warn)';
+    btn.style.color = '#000';
+    setTimeout(() => {
+      if (ico) ico.textContent = '☁';
+      if (lbl) lbl.textContent = 'Save Breaks';
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 4000);
+    toast('☁ Sync key missing. Go to Cloud Sync page → enter your Secret Key → Connect.', 'warn');
+    return;
+  }
+
   // ── Saving state ──
   btn.disabled = true;
   btn.style.opacity = '0.75';
   if (ico) ico.textContent = '⏳';
   if (lbl) lbl.textContent = 'Saving…';
 
-  // Stamp current time as the authoritative breaks timestamp
-  // This ensures other browsers' merge logic (Case A) will take our data
   const now = Date.now();
   state._breaksUpdatedAt = now;
-  save(); // write to localStorage immediately
+  save(); // write localStorage immediately
 
-  let ok = false;
-  if (typeof syncEnabled === 'function' && syncEnabled()) {
-    // Push only breaks + _breaksUpdatedAt (full payload for consistency)
-    ok = await syncPush();
-  } else {
-    // Sync not configured — data is saved locally only
-    ok = true;
-  }
+  const ok = await syncPush();
 
-  // ── Result state ──
   btn.disabled = false;
   btn.style.opacity = '';
   if (ok) {
     if (ico) ico.textContent = '✓';
     if (lbl) lbl.textContent = 'Saved!';
+    updateSyncBadge('ok');
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
       if (lbl) lbl.textContent = 'Save Breaks';
     }, 2500);
   } else {
     if (ico) ico.textContent = '⚠';
-    // Check if bin was cleared (403) — guide admin to fix it
-    const binGone = typeof syncEnabled === 'function' && !syncEnabled() && typeof syncCfg !== 'undefined' && !syncCfg.binId;
-    if (lbl) lbl.textContent = binGone ? 'Reconnect sync!' : 'Failed — retry?';
+    const binGone = typeof syncCfg !== 'undefined' && !syncCfg.binId;
+    if (lbl) lbl.textContent = binGone ? 'Reconnect Cloud Sync!' : 'Failed — retry?';
     btn.style.background = 'var(--err)';
     setTimeout(() => {
       if (ico) ico.textContent = '☁';
