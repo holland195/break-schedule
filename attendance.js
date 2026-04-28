@@ -214,10 +214,15 @@ function renderAttendance() {
     ].filter(Boolean).join(' ');
 
     const roleInfo = getRoleInfo(u.role);
+    const stickyName = 'position:sticky;left:0;z-index:2;background:var(--bg);';
+    const stickyUser = 'position:sticky;left:170px;z-index:2;background:var(--bg);border-right:2px solid var(--border);';
     return `<tr>
-      <td style="padding:5px 8px;white-space:nowrap;">
+      <td style="padding:5px 8px;white-space:nowrap;${stickyName}">
         <div style="font-weight:600;font-size:12px;">${u.name}</div>
         <div style="font-size:10px;color:var(--text3);">${u.team||'—'} · <span class="role-tag ${roleInfo.tag}" style="font-size:9px;">${roleInfo.label}</span></div>
+      </td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyUser}">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);">${u.username}</div>
       </td>
       ${cells}
       <td style="text-align:center;padding:4px;">${summary || '<span style="color:var(--ok);font-size:10px;">✓</span>'}</td>
@@ -256,13 +261,14 @@ function renderAttendance() {
 </div>
 
 <!-- Table -->
-<div style="overflow-x:auto;">
+<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
   <table style="border-collapse:collapse;width:100%;font-size:12px;">
     <thead>
       <tr>
-        <th style="text-align:left;padding:6px 8px;background:var(--bg4);font-size:11px;min-width:150px;">NAME</th>
-        ${dayHeaders}
-        <th style="text-align:center;padding:4px 6px;background:var(--bg4);font-size:11px;min-width:40px;">TOTAL</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--bg4);font-size:11px;min-width:170px;position:sticky;top:0;left:0;z-index:4;">NAME</th>
+        <th style="text-align:left;padding:6px 8px;background:var(--bg4);font-size:11px;min-width:130px;position:sticky;top:0;left:170px;z-index:4;border-right:2px solid var(--border);">USERNAME</th>
+        ${dayHeaders.replace(/position:sticky/g, 'position:sticky').replace(/<th style="/g, '<th style="position:sticky;top:0;z-index:3;')}
+        <th style="text-align:center;padding:4px 6px;background:var(--bg4);font-size:11px;min-width:50px;position:sticky;top:0;z-index:3;">TOTAL</th>
       </tr>
     </thead>
     <tbody>${rows || '<tr><td colspan="9" class="empty">No staff on Shift ' + currentShift + ' this week.</td></tr>'}</tbody>
