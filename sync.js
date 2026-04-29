@@ -208,38 +208,28 @@ function _applyRemoteData(remote) {
   }
   // Restore full staff profiles (name, role, gender, empNo, dob) from cloud
   if (remote.staffInfo) {
-    Object.entries(remote.staffInfo).forEach(([uname, si]) => {
-      if (!state.staffInfo[uname]) state.staffInfo[uname] = {};
-      // Only overwrite non-password fields — passwords handled separately below
-      state.staffInfo[uname].name   = si.name   || state.staffInfo[uname].name   || '';
-      state.staffInfo[uname].role   = si.role   || state.staffInfo[uname].role   || '';
-      state.staffInfo[uname].gender = si.gender || state.staffInfo[uname].gender || '';
-      state.staffInfo[uname].empNo  = si.empNo  || state.staffInfo[uname].empNo  || '';
-      state.staffInfo[uname].dob    = si.dob    || state.staffInfo[uname].dob    || '';
-    });
-  }
-  if (remote.staffPasswords) {
-    Object.entries(remote.staffPasswords).forEach(([uname, p]) => {
-      if (!state.staffInfo[uname]) {
-        state.staffInfo[uname] = { name: uname, role: '', gender: '', empNo: '', dob: '' };
-      }
-      state.staffInfo[uname].password           = p.password;
-      state.staffInfo[uname].mustChangePassword  = p.mustChangePassword;
-    });
-  }
+   Object.entries(remote.staffInfo).forEach(([uname, si]) => {
+     if (!state.staffInfo[uname]) state.staffInfo[uname] = {};
+     state.staffInfo[uname].name   = si.name   || state.staffInfo[uname].name   || '';
+     state.staffInfo[uname].role   = si.role   || state.staffInfo[uname].role   || '';
+     state.staffInfo[uname].gender = si.gender || state.staffInfo[uname].gender || '';
+     state.staffInfo[uname].empNo  = si.empNo  || state.staffInfo[uname].empNo  || '';
+     state.staffInfo[uname].dob    = si.dob    || state.staffInfo[uname].dob    || '';
+     if (si.mustChangePassword !== undefined) {
+       state.staffInfo[uname].mustChangePassword = si.mustChangePassword;
+     }
+   });
+ }
+  
 }
 
 // ── Push to Firebase ──
 async function syncPush() {
   if (!syncEnabled()) return false;
   try {
-    const staffPasswords = {};
+    
     const staffInfoCloud = {};
-    Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
-      staffPasswords[uname] = {
-        password:           si.password           ?? '1234',
-        mustChangePassword: si.mustChangePassword ?? true,
-      };
+    
       // Include full staff profile so all browsers get name/role/gender/empNo/dob
       staffInfoCloud[uname] = {
         name:   si.name   || '',
@@ -247,6 +237,7 @@ async function syncPush() {
         gender: si.gender || '',
         empNo:  si.empNo  || '',
         dob:    si.dob    || '',
+        mustChangePassword: si.mustChangePassword ?? true,
       };
     });
     // Include full schedule — Firebase has no size limits
@@ -261,7 +252,7 @@ async function syncPush() {
       extBreaks:        state.extBreaks,
       attendance:       state.attendance || {},
       users:            usersCompact,
-      staffPasswords,
+      
       staffInfo:        staffInfoCloud,
       _updated:         Date.now(),
       _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
@@ -291,6 +282,34 @@ async function syncWrite() {
   updateSyncBadge('busy');
   await saveAndSync();
   updateSyncBadge(syncEnabled() ? 'ok' : 'err');
+}
+
+async function wipeStaffPasswords() {
+  if (!syncEnabled()) { toast('Sync not connected.', 'err'); return; }
+  const status = document.getElementById('wipe-status');
+  if (status) status.innerHTML = '<span style="color:var(--text3)">⏳ Wiping old passwords…</span>';
+ 
+  try {
+    const remote = await _fbGet(syncCfg.dbUrl, syncCfg.apiKey);
+ 
+    // Remove staffPasswords node entirely
+    delete remote.staffPasswords;
+ 
+    // Remove password field from each staffInfo entry
+    if (remote.staffInfo) {
+      Object.values(remote.staffInfo).forEach(si => {
+        delete si.password;
+      });
+    }
+ 
+    await _fbPut(syncCfg.dbUrl, syncCfg.apiKey, { data: JSON.stringify(remote) });
+ 
+    if (status) status.innerHTML = '<span style="color:var(--ok)">✓ Done — old passwords removed from database.</span>';
+    toast('✓ Old passwords wiped from Firebase DB.', 'ok');
+  } catch(e) {
+    if (status) status.innerHTML = `<span style="color:var(--err)">Failed: ${e.message}</span>`;
+    toast('Failed: ' + e.message, 'err');
+  }
 }
 
 // ── Boot ──
@@ -456,6 +475,17 @@ ${dbUrl ? `
     Commit and push to GitHub → all browsers auto-connect within 1–2 minutes.
   </div>
 </div>` : ''}
+
+<!-- Firebase Auth — Password Cleanup (add BEFORE Danger Zone card) -->
+<div class="card" style="max-width:620px;margin-top:0;border-color:var(--warn);">
+  <div class="card-title" style="color:var(--warn);">🔐 Firebase Auth — Password Cleanup</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
+    Removes old plaintext passwords from Firebase Realtime Database.<br>
+    Run this <b>once</b> after deploying Firebase Auth.
+  </div>
+  <button class="btn btn-warn btn-sm" onclick="wipeStaffPasswords()">🗑 Wipe Old Passwords from DB</button>
+  <div id="wipe-status" style="font-size:11px;color:var(--text3);margin-top:8px;min-height:16px;"></div>
+</div>
 
 <!-- Danger zone -->
 <div class="card" style="max-width:620px;margin-top:0;border-color:var(--err);">
