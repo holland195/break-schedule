@@ -69,11 +69,10 @@ async function doLogin() {
 
   try {
     // ── Firebase Auth: verify credentials on Google's servers ──
-    // Legacy mapping: staff who haven't changed password yet still type "1234"
-    // but Firebase account was created with "Pave@1234" (Firebase rejects weak passwords)
-    const firebasePassword = (p === '1234') ? 'Pave@1234' : p;
-    const credential = await firebaseSignIn(_toEmail(u), firebasePassword);
-    const firebaseUid = credential.user.uid;
+    // Password is used exactly as typed — no mapping.
+    // First-time password is "Pave@1234" (set during migration).
+    // Staff must change it on first login via the change-password prompt.
+    const credential = await firebaseSignIn(_toEmail(u), p);
 
     // Resolve staff profile from local/cloud data
     const si   = DB.getStaffInfo(u);
