@@ -63,6 +63,15 @@
       <div style="margin-top:24px;">
         <button class="btn btn-accent" id="signin-btn" onclick="doLogin()" style="width:100%">Sign in →</button>
       </div>
+      <div style="text-align:center;margin-top:14px;">
+        <span onclick="forgotPassword()"
+          style="font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;font-family:'IBM Plex Mono',monospace;
+                 letter-spacing:.04em;transition:color .15s;"
+          onmouseover="this.style.color='rgba(255,255,255,.75)'"
+          onmouseout="this.style.color='rgba(255,255,255,.4)'">
+          Forgot password?
+        </span>
+      </div>
 
 
     </div>
@@ -352,8 +361,8 @@
   firebaseOnAuthStateChanged(async (firebaseUser) => {
     if (firebaseUser) {
       // Firebase has a valid session → auto-login
-      // Extract username from email: "cuong.pham@bsched.app" → "cuong.pham"
-      const username = firebaseUser.email.replace('@bsched.app', '');
+      // Extract username from email: "cuong.pham@discoveryloft.com" → "cuong.pham"
+      const username = firebaseUser.email.replace('@discoveryloft.com', '');
       const session  = DB.getSession();
 
       // Use saved session shift, or default to 'E'
