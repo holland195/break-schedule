@@ -128,8 +128,40 @@ async function doLogin() {
 }
 
 // ─────────────────────────────────────────────
-//  FIRST-LOGIN PASSWORD CHANGE
+//  FORGOT PASSWORD
 // ─────────────────────────────────────────────
+async function forgotPassword() {
+  const u   = document.getElementById('li-user').value.trim();
+  const err = document.getElementById('login-err');
+
+  if (!u) {
+    err.style.color = '';
+    err.textContent = 'Enter your username first, then click Forgot password.';
+    document.getElementById('li-user').focus();
+    return;
+  }
+
+  const email = _toEmail(u);
+  err.style.color  = 'var(--text3)';
+  err.textContent  = '☁ Sending reset email…';
+
+  try {
+    await firebaseSendPasswordReset(email);
+    err.style.color = 'var(--ok)';
+    err.textContent = `✓ Reset link sent to ${u}@discoveryloft.com — check your inbox.`;
+  } catch (e) {
+    err.style.color = '';
+    if (e.code === 'auth/user-not-found') {
+      err.textContent = 'No account found for this username.';
+    } else if (e.code === 'auth/too-many-requests') {
+      err.textContent = 'Too many attempts. Try again later.';
+    } else {
+      err.textContent = 'Failed to send reset email: ' + (e.message || e.code);
+    }
+  }
+}
+
+
 function _showChangePwPrompt(username) {
   document.getElementById('login-view').style.display    = 'none';
   document.getElementById('changepw-view').style.display = '';

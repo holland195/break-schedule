@@ -54,7 +54,31 @@
 
 
 <!-- ─────────────────────────────────────────────────────
-  CHANGE 3: Replace bootApp() in the inline <script> block
+  CHANGE 4: Add "Forgot password?" link in index.html
+  
+  Find this block in the login card (inside #login-view):
+
+      <div style="margin-top:24px;">
+        <button class="btn btn-accent" id="signin-btn" onclick="doLogin()" style="width:100%">Sign in →</button>
+      </div>
+
+  Replace it with:
+───────────────────────────────────────────────────── -->
+
+      <div style="margin-top:24px;">
+        <button class="btn btn-accent" id="signin-btn" onclick="doLogin()" style="width:100%">Sign in →</button>
+      </div>
+      <div style="text-align:center;margin-top:14px;">
+        <span onclick="forgotPassword()"
+          style="font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;font-family:'IBM Plex Mono',monospace;
+                 letter-spacing:.04em;transition:color .15s;"
+          onmouseover="this.style.color='rgba(255,255,255,.75)'"
+          onmouseout="this.style.color='rgba(255,255,255,.4)'">
+          Forgot password?
+        </span>
+      </div>
+
+
   at the bottom of index.html
   
   BEFORE: the old bootApp() that called syncTryAutoConnect

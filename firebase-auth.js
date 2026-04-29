@@ -66,6 +66,11 @@ async function firebaseUpdatePassword(newPassword) {
   return user.updatePassword(newPassword);
 }
 
+async function firebaseSendPasswordReset(email) {
+  const auth = _initFirebase();
+  return auth.sendPasswordResetEmail(email);
+}
+
 // ── onAuthStateChanged: called once at boot in index.html ──
 // Fires on every page load. If Firebase has a valid session token,
 // it auto-logs the user in without showing the login screen.
