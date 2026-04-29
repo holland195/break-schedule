@@ -2,14 +2,6 @@
 //  RENDER: DASHBOARD
 // ═══════════════════════════════════════════════
 function renderDashboard() {
-  // Route to role-specific dashboard
-  if (isTraining(currentUser)) return _renderTrainingDashboard();
-  if (isLeader(currentUser)) return _renderLeaderDashboard();
-  return _renderAgentDashboard();
-}
-
-// ── Agent / QA / Sr Agent / Sr QA dashboard ──
-function _renderAgentDashboard() {
   const weekDates  = getWeekDates(); // always real current week
   const todayDk    = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
   const si         = DB.getStaffInfo(currentUser.username);
@@ -139,156 +131,11 @@ ${statsRow}
       ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending>0?`<span class="nav-badge" style="display:inline;">${myPending}</span>`:''}</button>` : ''}
       ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending>0?`<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>`:''}</button>` : ''}
       ${currentUser.gender==='F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
-      ${isLeader(currentUser) ? `<button class="btn" onclick="nav('attendance')" style="text-align:left;justify-content:flex-start;">⏱ Attendance Log</button>` : ''}
     </div>
-  </div>
-</div>
-
-<!-- Attendance today widget (leaders only) -->
-${isLeader(currentUser) ? `
-<div class="card" style="margin-top:0;padding:14px 16px;">
-  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-    <span>⏱ ATTENDANCE TODAY — Shift ${currentShift}</span>
-    <span style="font-size:10px;color:var(--text3);font-weight:400;">${typeof _todayDateKey==='function'?_todayDateKey():''}</span>
-  </div>
-  ${typeof renderAttendanceWidget === 'function' ? renderAttendanceWidget() : ''}
-</div>` : ''}
-
-${teamGrid}`;
-}
-
-// ── Leader / Supervisor dashboard ──
-function _renderLeaderDashboard() {
-  const weekDates  = getWeekDates();
-  const todayDk    = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-  const allPending = state.requests.filter(r => r.status === 'pending').length;
-  const shiftMates = getShiftMates(currentShift, todayDk);
-  const assigned   = shiftMates.filter(u => getAssigned(u.id, todayDk)).length;
-  const greetHour  = new Date().getHours();
-  const greet      = greetHour < 12 ? 'Good morning' : greetHour < 17 ? 'Good afternoon' : 'Good evening';
-
-  const shifts = ['A','B','C','D','E'];
-  const shiftSummary = shifts.map(sh => {
-    const mates   = getShiftMates(sh, todayDk);
-    const asgn    = mates.filter(u => getAssigned(u.id, todayDk)).length;
-    let lateCount = 0, earlyCount = 0;
-    mates.forEach(u => {
-      if (typeof calcLateEarly === 'function') {
-        const { lateMin, earlyMin } = calcLateEarly(u.id, todayDk);
-        if (lateMin  > 0) lateCount++;
-        if (earlyMin > 0) earlyCount++;
-      }
-    });
-    return { sh, total: mates.length, asgn, lateCount, earlyCount };
-  });
-
-  const noSchedule = state.users.length === 0 ? `
-<div class="card" style="border-color:var(--warn);background:var(--D-bg);">
-  <div style="font-size:13px;color:var(--warn);font-weight:600;">⚠ No schedule imported on this browser</div>
-  <div style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.8;">
-    Break assignments are synced from cloud ✓<br>
-    To see the full schedule, go to <b>Staff → Staff Schedule</b>.
-  </div>
-</div>` : '';
-
-  const shiftCards = shiftSummary.map(({sh, total, asgn, lateCount, earlyCount}) => {
-    const hasIssue = lateCount > 0 || earlyCount > 0 || (total > 0 && asgn < total);
-    const isCur    = sh === currentShift;
-    return `<div class="card" style="padding:12px 14px;margin-bottom:0;cursor:pointer;${hasIssue?'border-color:var(--accent);':''}${isCur?'background:var(--bg4);':''}"
-      onclick="changeSidebarShift('${sh}');nav('dashboard')">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:13px;font-weight:600;">Shift ${sh}</span>
-        <span style="font-size:10px;padding:1px 6px;background:var(--bg3);border-radius:99px;color:var(--text3);">${SHIFTS[sh]?.start||''}</span>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">${total} staff</div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
-        <span style="color:var(--text2);">Breaks</span>
-        <span style="color:${asgn===total&&total>0?'var(--ok)':'var(--warn)'};">${asgn}/${total}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
-        <span style="color:var(--text2);">Late</span>
-        <span style="color:${lateCount>0?'var(--err)':'var(--ok)'};">${lateCount}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;">
-        <span style="color:var(--text2);">Early out</span>
-        <span style="color:${earlyCount>0?'var(--warn)':'var(--ok)'};">${earlyCount}</span>
-      </div>
-      ${hasIssue?'<div style="margin-top:6px;font-size:9px;color:var(--accent);">↑ needs attention</div>':''}
-    </div>`;
-  }).join('');
-
-  const teamGrid = shiftMates.length === 0 ? '' : `
-<div class="card" style="margin-top:0;">
-  <div class="card-title">👥 Team Breaks Today — Shift ${currentShift} · ${todayDk}</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px;">
-    ${shiftMates.map(u => {
-      const br  = getAssigned(u.id, todayDk);
-      const idx = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border);">
-        <span class="break-slot ${br?`assigned slot-${idx+1}`:''}` + `" style="font-size:10px;padding:3px 8px;min-width:28px;text-align:center;">
-          ${br ? getShortSlot(currentShift, br.slot) : '?'}
-        </span>
-        <div style="min-width:0;">
-          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${u.name}${u.gender==='F'?'<span style="font-size:13px;color:var(--A-color);margin-left:3px;">♀</span>':''}
-          </div>
-          <div style="font-size:10px;color:var(--text3);">${u.team} · ${getRoleInfo(u.role).label}</div>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>
-</div>`;
-
-  return `
-<div class="page-header">
-  <div>
-    <div class="page-title">${greet}, ${currentUser.name.split(' ').slice(-1)[0]} 👋</div>
-    <div class="page-sub">${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · Shift ${currentShift} · Leader view</div>
-  </div>
-</div>
-${noSchedule}
-
-<div class="stats">
-  <div class="stat"><div class="stat-label">Team on Shift ${currentShift}</div><div class="stat-num">${shiftMates.length}</div></div>
-  <div class="stat"><div class="stat-label">Breaks assigned</div>
-    <div class="stat-num" style="color:${assigned===shiftMates.length&&shiftMates.length>0?'var(--ok)':'var(--warn)'}">
-      ${assigned}<span style="font-size:14px;color:var(--text3);">/${shiftMates.length}</span></div></div>
-  <div class="stat"><div class="stat-label">Pending requests</div>
-    <div class="stat-num" style="color:${allPending>0?'var(--warn)':'var(--ok)'};">${allPending}</div></div>
-  <div class="stat"><div class="stat-label">Today</div><div class="stat-num" style="font-size:16px;">${todayDk}</div></div>
-</div>
-
-<p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:0 0 10px;">All shifts overview — click to switch</p>
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;">${shiftCards}</div>
-
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:0;">
-  <div class="card" style="margin-bottom:0;padding:14px 16px;">
-    <div class="card-title">📋 Quick Links</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
-      <button class="btn" onclick="nav('schedule')" style="text-align:left;justify-content:flex-start;">📅 Break Schedule</button>
-      <button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending>0?`<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>`:''}</button>
-      <button class="btn" onclick="nav('attendance')" style="text-align:left;justify-content:flex-start;">⏱ Attendance Log</button>
-      <button class="btn" onclick="nav('report')" style="text-align:left;justify-content:flex-start;">📋 Monthly Report</button>
-      <button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:0;padding:14px 16px;">
-    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>⏱ ATTENDANCE TODAY — Shift ${currentShift}</span>
-      <span style="font-size:10px;color:var(--text3);font-weight:400;">${todayDk}</span>
-    </div>
-    ${typeof renderAttendanceWidget === 'function' ? renderAttendanceWidget() : ''}
   </div>
 </div>
 ${teamGrid}`;
 }
-
-// ── Training Manager / Assistant → delegates to report.js ──
-function _renderTrainingDashboard() {
-  if (typeof renderTrainingDashboard === 'function') return renderTrainingDashboard();
-  return '<div class="empty">Training dashboard loading…</div>';
-}
-
 
 // ═══════════════════════════════════════════════
 //  RENDER: BREAK SCHEDULE
@@ -1308,9 +1155,11 @@ function importExcelStaffInfo() {
 
         count++;
       });
-      save();
+      // Also update _usersUpdatedAt so cloud merge knows users changed
+      state._usersUpdatedAt = Date.now();
+      if (typeof syncWrite === 'function') syncWrite(); else save();
       buildDatalist();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ Imported ${count} records.</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ Imported ${count} records. Syncing to cloud…</span>`;
       // Refresh table
       const tbody = document.getElementById('staff-info-tbody');
       if (tbody) tbody.innerHTML = _renderStaffInfoRows('');

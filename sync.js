@@ -206,6 +206,18 @@ function _applyRemoteData(remote) {
       }
     });
   }
+  // Restore full staff profiles (name, role, gender, empNo, dob) from cloud
+  if (remote.staffInfo) {
+    Object.entries(remote.staffInfo).forEach(([uname, si]) => {
+      if (!state.staffInfo[uname]) state.staffInfo[uname] = {};
+      // Only overwrite non-password fields — passwords handled separately below
+      state.staffInfo[uname].name   = si.name   || state.staffInfo[uname].name   || '';
+      state.staffInfo[uname].role   = si.role   || state.staffInfo[uname].role   || '';
+      state.staffInfo[uname].gender = si.gender || state.staffInfo[uname].gender || '';
+      state.staffInfo[uname].empNo  = si.empNo  || state.staffInfo[uname].empNo  || '';
+      state.staffInfo[uname].dob    = si.dob    || state.staffInfo[uname].dob    || '';
+    });
+  }
   if (remote.staffPasswords) {
     Object.entries(remote.staffPasswords).forEach(([uname, p]) => {
       if (!state.staffInfo[uname]) {
@@ -222,10 +234,19 @@ async function syncPush() {
   if (!syncEnabled()) return false;
   try {
     const staffPasswords = {};
+    const staffInfoCloud = {};
     Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
       staffPasswords[uname] = {
         password:           si.password           ?? '1234',
         mustChangePassword: si.mustChangePassword ?? true,
+      };
+      // Include full staff profile so all browsers get name/role/gender/empNo/dob
+      staffInfoCloud[uname] = {
+        name:   si.name   || '',
+        role:   si.role   || '',
+        gender: si.gender || '',
+        empNo:  si.empNo  || '',
+        dob:    si.dob    || '',
       };
     });
     // Include full schedule — Firebase has no size limits
@@ -241,6 +262,7 @@ async function syncPush() {
       attendance:       state.attendance || {},
       users:            usersCompact,
       staffPasswords,
+      staffInfo:        staffInfoCloud,
       _updated:         Date.now(),
       _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
       _usersUpdatedAt:  state._usersUpdatedAt  || 0,
