@@ -98,6 +98,7 @@ function calcLateEarly(uid, dateKey) {
 
 // ── State for attendance page ──
 let attendanceMonday = null; // null = current week
+let attendanceTab    = 'log';  // 'log' | 'report'
 
 function _getAttendanceWeek() {
   if (attendanceMonday) return getWeekRange(attendanceMonday);
@@ -146,6 +147,38 @@ function _getAllAttendanceSundays() {
 function renderAttendance() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
 
+  // Tab header shared by both views
+  const tabs = `
+<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);">
+  <button onclick="attendanceTab='log';nav('attendance')"
+    style="padding:8px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;
+      color:${attendanceTab==='log'?'var(--accent)':'var(--text3)'};
+      border-bottom:${attendanceTab==='log'?'2px solid var(--accent)':'2px solid transparent'};
+      margin-bottom:-2px;">
+    ⏱ Weekly Log
+  </button>
+  <button onclick="attendanceTab='report';nav('attendance')"
+    style="padding:8px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;
+      color:${attendanceTab==='report'?'var(--accent)':'var(--text3)'};
+      border-bottom:${attendanceTab==='report'?'2px solid var(--accent)':'2px solid transparent'};
+      margin-bottom:-2px;">
+    📋 Monthly Report
+  </button>
+</div>`;
+
+  if (attendanceTab === 'report') {
+    return `
+<div class="page-header">
+  <div>
+    <div class="page-title">⏱ Attendance & Reports</div>
+    <div class="page-sub">Weekly log and monthly summary</div>
+  </div>
+</div>
+${tabs}
+${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Report loading…</div>'}`;
+  }
+
+  // ── Tab: Weekly Log ──
   const weekDates  = _getAttendanceWeek();
   const dayLabels  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -240,10 +273,11 @@ function renderAttendance() {
   return `
 <div class="page-header">
   <div>
-    <div class="page-title">⏱ Attendance — Shift ${currentShift}</div>
-    <div class="page-sub">Track late arrivals and early departures · Week Sun–Sat</div>
+    <div class="page-title">⏱ Attendance & Reports</div>
+    <div class="page-sub">Track late arrivals and early departures · Shift ${currentShift} · Week Sun–Sat</div>
   </div>
 </div>
+${tabs}
 
 <!-- Week picker -->
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">

@@ -158,7 +158,7 @@ function renderTrainingDashboard() {
     <div class="page-title">📊 Overview — All Shifts</div>
     <div class="page-sub">${today} · View only · Agent Training</div>
   </div>
-  <button class="btn btn-sm btn-accent" onclick="nav('report')">📋 Monthly Report</button>
+  <button class="btn btn-sm btn-accent" onclick="attendanceTab='report';nav('attendance')">📋 Monthly Report</button>
 </div>
 
 <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:0 0 10px;">All shifts — today ${today}</p>
@@ -303,22 +303,16 @@ function renderReport() {
         </tr>`).join('');
 
   return `
-<div class="page-header">
-  <div>
-    <div class="page-title">📋 Monthly Report</div>
-    <div class="page-sub">Attendance summary — all shifts</div>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-    <select class="login-input" style="width:auto;font-size:12px;padding:4px 8px;"
-      onchange="reportMonth=parseInt(this.value);nav('report')">
-      ${months.join('')}
-    </select>
-    <select class="login-input" style="width:auto;font-size:12px;padding:4px 8px;"
-      onchange="reportYear=parseInt(this.value);nav('report')">
-      ${[2025,2026,2027].map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
-    </select>
-    <button class="btn btn-sm" onclick="exportMonthlyReport(${month},${year})">⬇ Export CSV</button>
-  </div>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+  <select class="login-input" style="width:auto;font-size:12px;padding:4px 8px;"
+    onchange="reportMonth=parseInt(this.value);nav('attendance')">
+    ${months.join('')}
+  </select>
+  <select class="login-input" style="width:auto;font-size:12px;padding:4px 8px;"
+    onchange="reportYear=parseInt(this.value);nav('attendance')">
+    ${[2025,2026,2027].map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+  </select>
+  <button class="btn btn-sm" onclick="exportMonthlyReport(${month},${year})">⬇ Export CSV</button>
 </div>
 
 <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:0 0 10px;">Summary — ${monthLabel}</p>

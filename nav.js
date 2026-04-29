@@ -44,7 +44,6 @@ function nav(page) {
     staff:             renderStaff,
     sync:              renderSyncSettings,
     training_overview: renderTrainingDashboard,
-    report:            renderReport,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';
