@@ -324,7 +324,7 @@
   });
   // Enter key on password field
   document.getElementById('li-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-
+ 
   // Theme labels
   function updateLoginThemeBtn() { /* removed */ }
   function updateAppThemeBtn() {
@@ -335,7 +335,7 @@
     }
   }
   updateAppThemeBtn();
-
+ 
   // ── Boot: Firebase Auth handles session restore ──
   // onAuthStateChanged fires on every page load.
   // If the user has a valid Firebase session token, they are
@@ -343,18 +343,18 @@
   async function bootApp() {
     const btn = document.getElementById('signin-btn');
     const err = document.getElementById('login-err');
-
+ 
     // Show loading state while Firebase checks session
     if (btn) btn.disabled = true;
     if (err) { err.style.color = 'var(--text3)'; err.textContent = '☁ Loading…'; }
-
+ 
     // Pull cloud config (for sync) in parallel
     try { await syncTryAutoConnect(); } catch(e) { /* offline — ok */ }
-
+ 
     if (btn) btn.disabled = false;
     if (err) { err.style.color = ''; err.textContent = ''; }
   }
-
+ 
   // ── Firebase Auth state listener ──
   // This replaces the old restoreSession() call.
   // Firebase fires this once at page load with the current auth state.
@@ -364,19 +364,30 @@
       // Extract username from email: "cuong.pham@discoveryloft.com" → "cuong.pham"
       const username = firebaseUser.email.replace('@discoveryloft.com', '');
       const session  = DB.getSession();
-
+ 
       // Use saved session shift, or default to 'E'
       currentShift = session?.shift || 'E';
-
+ 
       const user = _resolveUser(username);
       if (user) {
         currentUser = user;
-        // Pull latest cloud data, then enter app
+ 
+        // Pull latest cloud data first (needed for mustChangePw flag)
         if (syncEnabled()) {
           updateSyncBadge('busy');
           await syncPull();
           updateSyncBadge('ok');
         }
+ 
+        // Check if password change is still required
+        if (DB.mustChangePw(username)) {
+          // Show login screen with change-password prompt
+          document.getElementById('screen-login').classList.add('active');
+          document.body.classList.add('login-active');
+          _showChangePwPrompt(username);
+          return;
+        }
+ 
         enterApp(true);
         startSyncPolling && startSyncPolling();
         return;

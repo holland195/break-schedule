@@ -98,7 +98,16 @@ async function doLogin() {
     currentShift = s || 'E';
     err.textContent = '';
 
-    // Check first-login password change requirement
+    // ── Pull cloud data FIRST before checking mustChangePw ──
+    // staffInfo.mustChangePassword comes from the cloud — must sync before checking
+    if (syncEnabled()) {
+      err.style.color = 'var(--text3)';
+      err.textContent = '☁ Loading…';
+      await syncPull();
+      err.textContent = '';
+    }
+
+    // Check first-login password change requirement (now using fresh cloud data)
     if (DB.mustChangePw(u)) {
       btn.disabled = false;
       _showChangePwPrompt(u);
@@ -187,25 +196,30 @@ async function submitChangePassword() {
   err.textContent = '☁ Updating password…';
 
   try {
-    // ── Update password in Firebase Auth ──
+    // ── 1. Update password in Firebase Auth ──
     await firebaseUpdatePassword(np1);
 
-    // Mark as changed in local/cloud state (for mustChangePw flag)
-    DB.setPassword(username, np1);
+    // ── 2. Clear mustChangePassword flag in local + cloud ──
+    DB.setPassword(username, np1);  // sets mustChangePassword: false
     DB.saveSession({ username, userId: currentUser.id, shift: currentShift });
 
+    // ── 3. Hide change-password view ──
     document.getElementById('changepw-view').style.display = 'none';
     document.getElementById('login-view').style.display    = '';
+
     toast('Password updated! Welcome 👋', 'ok');
 
-    // Push new flag to cloud so other devices know password is set
-    if (typeof syncWrite === 'function') syncWrite();
+    // ── 4. Push flag to cloud immediately so all devices know ──
+    if (typeof syncWrite === 'function') await syncWrite();
+
+    // ── 5. Enter the app ──
     _afterLogin();
 
   } catch (e) {
     err.style.color = '';
     if (e.code === 'auth/requires-recent-login') {
-      err.textContent = 'Session expired. Please sign in again to change password.';
+      // Firebase requires recent login to change password — re-auth needed
+      err.textContent = 'Session timed out. Please sign out and sign in again to change your password.';
     } else {
       err.textContent = 'Failed to update password: ' + (e.message || e.code);
       console.warn('[auth] updatePassword error:', e);
