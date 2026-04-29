@@ -9,6 +9,10 @@ function nav(page) {
   });
   const content = document.getElementById('main-content');
 
+  // Training roles: redirect dashboard to their overview
+  if (page === 'dashboard' && isTrainingRole(currentUser)) {
+    page = 'training_overview';
+  }
   // Guard: attendance page is leader-only
   if (page === 'attendance' && !isLeader(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
@@ -21,14 +25,16 @@ function nav(page) {
   }
 
   const pages = {
-    dashboard:  renderDashboard,
-    schedule:   renderSchedule,
-    requests:   renderRequests,
-    arrange:    renderArrange,
-    extbreak:   renderExtBreak,
-    attendance: renderAttendance,
-    staff:      renderStaff,
-    sync:       renderSyncSettings,
+    dashboard:         renderDashboard,
+    schedule:          renderSchedule,
+    requests:          renderRequests,
+    arrange:           renderArrange,
+    extbreak:          renderExtBreak,
+    attendance:        renderAttendance,
+    staff:             renderStaff,
+    sync:              renderSyncSettings,
+    training_overview: renderTrainingDashboard,
+    report:            renderReport,
   };
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';

@@ -66,6 +66,8 @@ const ROLES = {
   'Agent':            {level:1,tag:'role-agent', label:'Agent'},
   'QA':               {level:1,tag:'role-qa',    label:'QA'},
   'Sr QA':            {level:1,tag:'role-qa',    label:'Sr QA'},
+  'Agent Training Manager':   {level:1.5,tag:'role-leader',label:'Training Mgr'},
+  'Agent Training Assistant': {level:1.5,tag:'role-leader',label:'Training Asst'},
 };
 
 // ═══════════════════════════════════════════════
