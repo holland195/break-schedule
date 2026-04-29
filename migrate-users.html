@@ -113,7 +113,7 @@ async function startMigration() {
   log(`─────────────────────────────────────`, 'info');
   log(`Starting migration: ${allUsers.length} accounts to create`, 'info');
   log(`Email format: username@bsched.app`, 'info');
-  log(`Initial password: 1234`, 'info');
+  log(`Initial password: Pave@1234`, 'info');
   log(`─────────────────────────────────────`, 'info');
 
   document.getElementById('btn-migrate').disabled = true;
@@ -131,7 +131,7 @@ async function startMigration() {
     document.getElementById('prog-bar').style.width = pct + '%';
 
     try {
-      await fbAuth.createUserWithEmailAndPassword(email, '1234');
+      await fbAuth.createUserWithEmailAndPassword(email, 'Pave@1234');
       created++;
       log(`✓ [${i+1}/${allUsers.length}] Created: ${email}`, 'ok');
     } catch (e) {

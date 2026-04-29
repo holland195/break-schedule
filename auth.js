@@ -69,7 +69,10 @@ async function doLogin() {
 
   try {
     // ── Firebase Auth: verify credentials on Google's servers ──
-    const credential = await firebaseSignIn(_toEmail(u), p);
+    // Legacy mapping: staff who haven't changed password yet still type "1234"
+    // but Firebase account was created with "Pave@1234" (Firebase rejects weak passwords)
+    const firebasePassword = (p === '1234') ? 'Pave@1234' : p;
+    const credential = await firebaseSignIn(_toEmail(u), firebasePassword);
     const firebaseUid = credential.user.uid;
 
     // Resolve staff profile from local/cloud data
@@ -146,7 +149,7 @@ async function submitChangePassword() {
 
   if (np1.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
   if (np1 !== np2)    { err.textContent = 'Passwords do not match.'; return; }
-  if (np1 === '1234') { err.textContent = 'Please choose a different password from the default.'; return; }
+  if (np1 === '1234' || np1 === 'Pave@1234') { err.textContent = 'Please choose a personal password.'; return; }
 
   err.style.color = 'var(--text3)';
   err.textContent = '☁ Updating password…';
