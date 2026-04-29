@@ -15,12 +15,12 @@
 //  • Excel import, all other functions    — zero changes
 //
 //  USERNAME → EMAIL mapping:
-//  Firebase Auth requires email format.
-//  We map:  cuong.pham  →  cuong.pham@bsched.app
-//  The domain "@bsched.app" is internal-only — never real email.
+//  Firebase Auth uses real company email addresses.
+//  We map:  cuong.pham  →  cuong.pham@discoveryloft.com
+//  Staff can use "Forgot Password" to reset via their real inbox.
 // ═══════════════════════════════════════════════
 
-const AUTH_DOMAIN = '@bsched.app'; // internal email domain for Firebase Auth
+const AUTH_DOMAIN = '@discoveryloft.com'; // company email domain
 
 function _toEmail(username) {
   return username.trim().toLowerCase() + AUTH_DOMAIN;

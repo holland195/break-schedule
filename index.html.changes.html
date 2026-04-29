@@ -106,8 +106,8 @@
   firebaseOnAuthStateChanged(async (firebaseUser) => {
     if (firebaseUser) {
       // Firebase has a valid session → auto-login
-      // Extract username from email: "cuong.pham@bsched.app" → "cuong.pham"
-      const username = firebaseUser.email.replace('@bsched.app', '');
+      // Extract username from email: "cuong.pham@discoveryloft.com" → "cuong.pham"
+      const username = firebaseUser.email.replace('@discoveryloft.com', '');
       const session  = DB.getSession();
 
       // Use saved session shift, or default to 'E'
