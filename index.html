@@ -9,6 +9,11 @@
   <link rel="stylesheet" href="styles.css">
   <!-- SheetJS for Excel import -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Firebase Auth SDK (compat version — works with existing JS pattern) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <!-- Firebase Auth wrapper (must load before auth.js) -->
+  <script src="firebase-auth.js"></script>
 </head>
 <body>
 
@@ -300,49 +305,77 @@
 <script src="auth.js"></script>
 <script src="pages.js"></script>
 <script src="attendance.js"></script>
-  <script src="report.js"></script>
+<script src="report.js"></script>
 <script src="nav.js"></script>
 
 <script>
   // Modal overlay click to close
   document.querySelectorAll('.modal-overlay').forEach(el => {
-    el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
   });
   // Enter key on password field
-  document.getElementById('li-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('li-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
   // Theme labels
   function updateLoginThemeBtn() { /* removed */ }
   function updateAppThemeBtn() {
     const btn = document.getElementById('theme-toggle-btn');
-    if (btn) { btn.textContent = currentTheme === 'dark' ? '☀' : '☾'; btn.title = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'; }
+    if (btn) {
+      btn.textContent = currentTheme === 'dark' ? '☀' : '☾';
+      btn.title       = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+    }
   }
   updateAppThemeBtn();
 
-  // ── Boot: pull cloud passwords before login is usable ──
-  // Users never touch sync settings. Admin configures JSONBin once.
-  // Every browser silently pulls the latest passwords at page load.
+  // ── Boot: Firebase Auth handles session restore ──
+  // onAuthStateChanged fires on every page load.
+  // If the user has a valid Firebase session token, they are
+  // automatically logged in without seeing the login screen.
   async function bootApp() {
-    if (restoreSession()) return; // already logged in — skip login screen
-
     const btn = document.getElementById('signin-btn');
     const err = document.getElementById('login-err');
 
-    // Block Sign In briefly while pulling latest passwords from cloud
+    // Show loading state while Firebase checks session
     if (btn) btn.disabled = true;
     if (err) { err.style.color = 'var(--text3)'; err.textContent = '☁ Loading…'; }
 
-    try {
-      // syncTryAutoConnect: uses stored local key (saved from admin's first-time setup)
-      // to pull latest passwords. Completes silently — user sees nothing but the button.
-      await syncTryAutoConnect();
-    } catch(e) { /* network unavailable — continue with local data */ }
+    // Pull cloud config (for sync) in parallel
+    try { await syncTryAutoConnect(); } catch(e) { /* offline — ok */ }
 
     if (btn) btn.disabled = false;
     if (err) { err.style.color = ''; err.textContent = ''; }
   }
 
-  bootApp();
+  // ── Firebase Auth state listener ──
+  // This replaces the old restoreSession() call.
+  // Firebase fires this once at page load with the current auth state.
+  firebaseOnAuthStateChanged(async (firebaseUser) => {
+    if (firebaseUser) {
+      // Firebase has a valid session → auto-login
+      // Extract username from email: "cuong.pham@bsched.app" → "cuong.pham"
+      const username = firebaseUser.email.replace('@bsched.app', '');
+      const session  = DB.getSession();
+
+      // Use saved session shift, or default to 'E'
+      currentShift = session?.shift || 'E';
+
+      const user = _resolveUser(username);
+      if (user) {
+        currentUser = user;
+        // Pull latest cloud data, then enter app
+        if (syncEnabled()) {
+          updateSyncBadge('busy');
+          await syncPull();
+          updateSyncBadge('ok');
+        }
+        enterApp(true);
+        startSyncPolling && startSyncPolling();
+        return;
+      }
+    }
+    // No valid Firebase session → show login screen normally
+    bootApp();
+  });
 </script>
 </body>
 </html>
