@@ -59,15 +59,15 @@ const SHIFT_DEFAULTS = {
 };
 
 const ROLES = {
-  'Admin':            {level:3,tag:'role-leader',label:'Admin'},
-  'Agent Leader':     {level:2,tag:'role-leader',label:'Leader'},
-  'Agent Supervisor': {level:2,tag:'role-leader',label:'Supervisor'},
-  'Sr Agent':         {level:1,tag:'role-agent', label:'Sr Agent'},
-  'Agent':            {level:1,tag:'role-agent', label:'Agent'},
-  'QA':               {level:1,tag:'role-qa',    label:'QA'},
-  'Sr QA':            {level:1,tag:'role-qa',    label:'Sr QA'},
-  'Agent Training Manager':   {level:1.5,tag:'role-leader',label:'Training Mgr'},
-  'Agent Training Assistant': {level:1.5,tag:'role-leader',label:'Training Asst'},
+  'Admin':                    {level:4,tag:'role-leader',label:'Admin'},
+  'Agent Training Manager':   {level:3,tag:'role-training',label:'Training Mgr'},
+  'Agent Training Assistant': {level:3,tag:'role-training',label:'Training Asst'},
+  'Agent Leader':             {level:2,tag:'role-leader',label:'Leader'},
+  'Agent Supervisor':         {level:2,tag:'role-leader',label:'Supervisor'},
+  'Sr Agent':                 {level:1,tag:'role-agent', label:'Sr Agent'},
+  'Agent':                    {level:0,tag:'role-agent', label:'Agent'},
+  'QA':                       {level:0,tag:'role-qa',    label:'QA'},
+  'Sr QA':                    {level:1,tag:'role-qa',    label:'Sr QA'},
 };
 
 // ═══════════════════════════════════════════════
@@ -178,8 +178,9 @@ applyTheme(currentTheme);
 // ═══════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════
-function isLeader(u) { return u && (ROLES[u.role]?.level||0)>=2; }
-function isAdmin(u)  { return u && (ROLES[u.role]?.level||0)===3; }
+function isLeader(u)   { return u && (ROLES[u.role]?.level||0)>=2; }  // Leader, Supervisor, Training, Admin
+function isTraining(u) { return u && (ROLES[u.role]?.level||0)===3; } // Training Mgr / Asst only
+function isAdmin(u)    { return u && (ROLES[u.role]?.level||0)===4; } // Admin only
 function getRoleInfo(r) { return ROLES[r]||{level:0,tag:'role-agent',label:r||'—'}; }
 
 function todayKey() {

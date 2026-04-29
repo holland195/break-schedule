@@ -4,22 +4,9 @@
 //  Access: view-only, all shifts, dashboard + report
 // ═══════════════════════════════════════════════
 
-// ── Role helpers ──
-function isTrainingRole(u) {
-  if (!u) return false;
-  const r = u.role || '';
-  return r === 'Agent Training Manager' || r === 'Agent Training Assistant';
-}
-
-// Training roles can see all shifts — add to ROLES constant patch at runtime
-(function patchRoles() {
-  if (!ROLES['Agent Training Manager']) {
-    ROLES['Agent Training Manager'] = { level: 1.5, tag: 'role-leader', label: 'Training Mgr' };
-  }
-  if (!ROLES['Agent Training Assistant']) {
-    ROLES['Agent Training Assistant'] = { level: 1.5, tag: 'role-leader', label: 'Training Asst' };
-  }
-})();
+// isTraining() is defined in data.js (level 3 roles)
+// isTrainingRole kept as alias for backward compatibility
+function isTrainingRole(u) { return isTraining(u); }
 
 // ── Month/date helpers ──
 function _monthKey(year, month) { // month: 1-12
@@ -204,7 +191,7 @@ let reportYear  = new Date().getFullYear();
 let reportMonth = new Date().getMonth() + 1;
 
 function renderReport() {
-  if (!isLeader(currentUser) && !isTrainingRole(currentUser)) {
+  if (!isLeader(currentUser)) {
     return '<div class="empty">Access denied.</div>';
   }
 
@@ -214,9 +201,10 @@ function renderReport() {
   const monthLabel = new Date(year, month-1, 1).toLocaleString('en-US', { month:'long', year:'numeric' });
 
   // Exclude leaders/supervisors/training roles from the report
+  // Only track operational staff (Agent/QA/Sr Agent/Sr QA — level 0-1)
   const trackable = state.users.filter(u => {
     const lvl = ROLES[u.role]?.level || 0;
-    return lvl < 2 && !isTrainingRole(u);
+    return lvl <= 1;
   });
 
   // Compute stats per user

@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════
 function renderDashboard() {
   // Route to role-specific dashboard
-  if (isTrainingRole && isTrainingRole(currentUser)) return _renderTrainingDashboard();
+  if (isTraining(currentUser)) return _renderTrainingDashboard();
   if (isLeader(currentUser)) return _renderLeaderDashboard();
   return _renderAgentDashboard();
 }

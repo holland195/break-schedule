@@ -9,16 +9,26 @@ function nav(page) {
   });
   const content = document.getElementById('main-content');
 
-  // Training roles: redirect dashboard to their overview
-  if (page === 'dashboard' && isTrainingRole(currentUser)) {
+  // Training roles: redirect default dashboard → their overview
+  if (page === 'dashboard' && isTraining(currentUser)) {
     page = 'training_overview';
   }
-  // Guard: attendance page is leader-only
+  // Guard: attendance — leader+ only (level ≥ 2)
   if (page === 'attendance' && !isLeader(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;
   }
-  // Guard: sync page is admin-only
+  // Guard: arrange — leader/supervisor only (level 2), NOT training (level 3 — they don't arrange breaks)
+  if (page === 'arrange' && (!isLeader(currentUser) || isTraining(currentUser))) {
+    content.innerHTML = '<div class="empty">Access denied.</div>';
+    return;
+  }
+  // Guard: staff — leader+ (level ≥ 2)
+  if (page === 'staff' && !isLeader(currentUser)) {
+    content.innerHTML = '<div class="empty">Access denied.</div>';
+    return;
+  }
+  // Guard: sync — admin only (level 4)
   if (page === 'sync' && !isAdmin(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;

@@ -155,7 +155,10 @@ function enterApp(fromSession) {
   const gender = si?.gender||currentUser.gender||'';
   const tg     = document.getElementById('top-gender');
   if (tg) { tg.textContent=gender==='F'?'♀':gender==='M'?'♂':''; tg.style.color=gender==='F'?'var(--A-color)':'var(--B-color)'; tg.style.display=gender?'':'none'; }
+  // leader-only: shown for level ≥ 2 (Leader, Supervisor, Training, Admin)
   document.querySelectorAll('.leader-only').forEach(el=>el.style.display=isLeader(currentUser)?'flex':'none');
+  // arrange-nav: shown for level 2 ONLY (Leader/Supervisor) — Training role cannot arrange breaks
+  document.querySelectorAll('.arrange-nav').forEach(el=>el.style.display=(isLeader(currentUser)&&!isTraining(currentUser))?'flex':'none');
   document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin(currentUser)?'flex':'none');
   buildDatalist();
   document.getElementById('sidebar-shift').value = currentShift;
