@@ -99,7 +99,7 @@ async function doLogin() {
 
     // ── Pull cloud data FIRST before checking mustChangePw ──
     // staffInfo.mustChangePassword comes from the cloud — must sync before checking
-    if (syncEnabled()) {
+    if (typeof syncEnabled === 'function' && syncEnabled()) {
       err.style.color = 'var(--text3)';
       err.textContent = '☁ Loading…';
       await syncPull();
@@ -238,8 +238,8 @@ function cancelChangePassword() {
 //  POST-LOGIN FLOW (unchanged)
 // ─────────────────────────────────────────────
 async function _afterLogin() {
-  if (!syncEnabled()) await syncTryAutoConnect();
-  if (syncEnabled()) {
+  if (typeof syncEnabled === 'function' && !syncEnabled()) await syncTryAutoConnect();
+  if (typeof syncEnabled === 'function' && syncEnabled()) {
     updateSyncBadge('busy');
     await syncPull();
     updateSyncBadge('ok');
