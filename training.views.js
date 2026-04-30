@@ -394,7 +394,7 @@ function renderAttendanceTraining() {
     const dow = new Date(year,month-1,day).getDay(); // 0=Sun
     const isToday = dk===todayDk;
     const isSun = dow===0;
-    return `<th style="min-width:28px;max-width:32px;padding:3px 1px;text-align:center;
+    return `<th style="min-width:44px;max-width:50px;padding:3px 1px;text-align:center;
       font-size:10px;font-weight:${isToday?700:500};
       color:${isToday?'var(--accent)':'var(--text3)'};
       border-left:${isSun&&i>0?'1px solid var(--border2)':'none'};
@@ -449,28 +449,41 @@ function renderAttendanceTraining() {
         if(isLate)  { uLate++;  shiftLate++;  }
         if(isEarly) { uEarly++; shiftEarly++; }
 
-        let bg='',content='';
-        if(isLate&&isEarly) {
-          bg='background:var(--D-bg);';
-          content=`<span style="font-size:9px;font-weight:700;color:var(--err);">L</span><span style="font-size:9px;color:var(--warn);">E</span>`;
-        } else if(isLate) {
-          bg='background:var(--D-bg);';
-          content=`<span style="font-size:9px;font-weight:700;color:var(--err);" title="Late: ${late}">L</span>`;
-        } else if(isEarly) {
-          bg='background:rgba(245,158,11,.10);';
-          content=`<span style="font-size:9px;font-weight:700;color:var(--warn);" title="Early: ${early}">E</span>`;
-        } else if(hasRec) {
-          bg='background:rgba(74,222,128,.08);';
-          content=`<span style="font-size:9px;color:var(--ok);">✓</span>`;
+        let bg='';
+        if(isLate&&isEarly)    bg='background:var(--D-bg);';
+        else if(isLate)        bg='background:var(--D-bg);';
+        else if(isEarly)       bg='background:rgba(245,158,11,.08);';
+        else if(hasRec)        bg='background:rgba(74,222,128,.06);';
+
+        // Cell content: login + logout stacked + delta if late/early
+        let content;
+        if (!hasRec) {
+          content = `<span style="font-size:9px;color:var(--text3);">·</span>`;
         } else {
-          content=`<span style="font-size:9px;color:var(--text3);">·</span>`;
+          const loginTxt  = rec.start || '—';
+          const logoutTxt = rec.end   || '—';
+          const loginColor  = isLate  ? 'var(--err)'  : 'var(--ok)';
+          const logoutColor = isEarly ? 'var(--warn)' : 'var(--ok)';
+          const delta = isLate&&isEarly
+            ? `<div style="font-size:8px;font-weight:700;color:var(--err);line-height:1.2;">+${late}</div>
+               <div style="font-size:8px;font-weight:700;color:var(--warn);line-height:1.2;">-${early}</div>`
+            : isLate
+            ? `<div style="font-size:8px;font-weight:700;color:var(--err);line-height:1.2;">+${late}</div>`
+            : isEarly
+            ? `<div style="font-size:8px;font-weight:700;color:var(--warn);line-height:1.2;">-${early}</div>`
+            : '';
+          content = `
+            <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${loginColor};line-height:1.4;font-weight:${isLate?700:400};">${loginTxt}</div>
+            <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${logoutColor};line-height:1.4;font-weight:${isEarly?700:400};">${logoutTxt}</div>
+            ${delta}`;
         }
 
-        return `<td style="text-align:center;padding:2px 1px;cursor:pointer;${bg}
+        const note = rec?.note ? ` · ${rec.note}` : '';
+        return `<td style="text-align:center;padding:3px 2px;cursor:pointer;vertical-align:top;min-width:44px;${bg}
           ${isSun?'border-left:1px solid var(--border2);':''}
           ${isToday?'outline:1.5px solid var(--accent);outline-offset:-1px;':''}"
-          onclick="openAttendanceModal(${u.id},'${dk}')"
-          title="${rec?`Login: ${rec.start||'—'} | Logout: ${rec.end||'—'}${rec.note?' | '+rec.note:''}${isLate?' | Late: '+late:''}${isEarly?' | Early: '+early:''}` : 'No record — click to add'}">
+          onclick="openAttendanceViewModal(${u.id},'${dk}')"
+          title="${hasRec?`${loginTxt} → ${logoutTxt}${note}`:'No record'}">
           ${content}
         </td>`;
       }).join('');
@@ -507,10 +520,10 @@ function renderAttendanceTraining() {
         </table>
       </div>
       <div style="padding:8px 14px;background:var(--bg3);border-top:1px solid var(--border);font-size:11px;color:var(--text3);">
-        <b style="color:var(--err);">L</b> = late &nbsp;
-        <b style="color:var(--warn);">E</b> = early out &nbsp;
-        <span style="color:var(--ok);">✓</span> = on time &nbsp;
-        <b>·</b> = no record &nbsp;
+        <span style="color:var(--err);font-weight:600;">15:14</span> = late login &nbsp;·&nbsp;
+        <span style="color:var(--warn);font-weight:600;">23:38</span> = early logout &nbsp;·&nbsp;
+        <span style="color:var(--ok);font-weight:600;">15:00</span> = on time &nbsp;·&nbsp;
+        <b>·</b> = no record yet &nbsp;·&nbsp;
         <b>—</b> = off / not on shift
       </div>`, users.length);
   }).join('');
@@ -528,4 +541,69 @@ ${monthPicker}
 </div>
 ${_searchBar('attendance','Search by name…',vc)}
 ${blocks||'<div class="empty" style="padding:48px;"><div class="empty-ico">📋</div>No staff found for ${monthLabel}.</div>'}`;
+}
+
+// ── Read-only attendance modal for training role ──
+function openAttendanceViewModal(uid, dateKey) {
+  const u   = state.users.find(x => x.id === uid);
+  const rec = DB.getAttendance(uid, dateKey) || {};
+  const shift = _getUserShiftOnDate(u, dateKey) || '?';
+  const def   = SHIFT_DEFAULTS[shift] || {};
+  const {lateMin, earlyMin, late, early} = calcLateEarly(uid, dateKey);
+
+  // Build modal content
+  const statusLine = [
+    lateMin  > 0 ? `<span style="display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;background:var(--D-bg);color:var(--err);">Late +${late}</span>` : '',
+    earlyMin > 0 ? `<span style="display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;background:rgba(245,158,11,.12);color:var(--warn);">Early out -${early}</span>` : '',
+    (!lateMin && !earlyMin && (rec.start||rec.end)) ? `<span style="display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;background:var(--C-bg);color:var(--ok);">On time</span>` : '',
+  ].filter(Boolean).join(' ');
+
+  const html = `
+    <div style="padding:0 2px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:15px;font-weight:700;">${u?.name || '?'}</div>
+          <div style="font-size:11px;color:var(--text3);">${u?.team||''} · ${getRoleInfo(u?.role||'').label} · ${dateKey} · Shift ${shift}</div>
+        </div>
+      </div>
+
+      ${!rec.start && !rec.end && !rec.note
+        ? `<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px;">No attendance record for this day.</div>`
+        : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div style="background:var(--bg3);border-radius:8px;padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;">Login</div>
+              <div style="font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${lateMin>0?'var(--err)':'var(--ok)'};">${rec.start||'—'}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Scheduled: ${def.start||'—'}</div>
+              ${lateMin>0?`<div style="font-size:12px;color:var(--err);font-weight:600;margin-top:4px;">Late by +${late}</div>`:''}
+            </div>
+            <div style="background:var(--bg3);border-radius:8px;padding:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;">Logout</div>
+              <div style="font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${earlyMin>0?'var(--warn)':'var(--ok)'};">${rec.end||'—'}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Scheduled: ${def.end||'—'}</div>
+              ${earlyMin>0?`<div style="font-size:12px;color:var(--warn);font-weight:600;margin-top:4px;">Early out -${early}</div>`:''}
+            </div>
+          </div>
+          ${statusLine ? `<div style="margin-bottom:12px;">${statusLine}</div>` : ''}
+          ${rec.note ? `<div style="padding:10px 14px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);">
+            <span style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Note</span><br>
+            ${rec.note}
+          </div>` : ''}`}
+
+      <div style="margin-top:20px;text-align:right;">
+        <button class="btn" onclick="closeModal('modal-att-view')">Close</button>
+      </div>
+    </div>`;
+
+  // Reuse or create a simple modal
+  let modal = document.getElementById('modal-att-view');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-att-view';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `<div class="modal" style="width:480px;"><div id="modal-att-view-body"></div></div>`;
+    modal.addEventListener('click', e => { if(e.target===modal) closeModal('modal-att-view'); });
+    document.body.appendChild(modal);
+  }
+  document.getElementById('modal-att-view-body').innerHTML = html;
+  modal.classList.add('show');
 }
