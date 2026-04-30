@@ -240,15 +240,16 @@ async function syncPush() {
   try {
     
     const staffInfoCloud = {};
-    
-       staffInfoCloud[uname] = {
-     name:               si.name               || '',
-     role:               si.role               || '',
-     gender:             si.gender             || '',
-     empNo:              si.empNo              || '',
-     dob:                si.dob                || '',
-     mustChangePassword: si.mustChangePassword ?? true,  // ← ADD THIS LINE
-   };
+Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
+  staffInfoCloud[uname] = {
+    name:               si.name               || '',
+    role:               si.role               || '',
+    gender:             si.gender             || '',
+    empNo:              si.empNo              || '',
+    dob:                si.dob                || '',
+    mustChangePassword: si.mustChangePassword ?? true,
+  };
+});
     // Include full schedule — Firebase has no size limits
     const usersCompact = state.users.map(u => ({
       id: u.id, username: u.username, name: u.name,
