@@ -394,7 +394,7 @@ function renderAttendanceTraining() {
     const dow = new Date(year,month-1,day).getDay(); // 0=Sun
     const isToday = dk===todayDk;
     const isSun = dow===0;
-    return `<th style="min-width:44px;max-width:50px;padding:3px 1px;text-align:center;
+    return `<th style="min-width:64px;width:64px;padding:4px 2px;text-align:center;
       font-size:10px;font-weight:${isToday?700:500};
       color:${isToday?'var(--accent)':'var(--text3)'};
       border-left:${isSun&&i>0?'1px solid var(--border2)':'none'};
@@ -460,26 +460,26 @@ function renderAttendanceTraining() {
         const logoutTxt = rec?.end   || '—';
         let content;
         if (!hasRec) {
-          content = `<span style="font-size:9px;color:var(--text3);">·</span>`;
+          content = `<span style="font-size:11px;color:var(--text3);">·</span>`;
         } else {
           const loginColor  = isLate  ? 'var(--err)'  : 'var(--ok)';
           const logoutColor = isEarly ? 'var(--warn)' : 'var(--ok)';
           const delta = isLate&&isEarly
-            ? `<div style="font-size:8px;font-weight:700;color:var(--err);line-height:1.2;">+${late}</div>
-               <div style="font-size:8px;font-weight:700;color:var(--warn);line-height:1.2;">-${early}</div>`
+            ? `<div style="font-size:10px;font-weight:700;color:var(--err);line-height:1.3;">+${late}</div>
+               <div style="font-size:10px;font-weight:700;color:var(--warn);line-height:1.3;">-${early}</div>`
             : isLate
-            ? `<div style="font-size:8px;font-weight:700;color:var(--err);line-height:1.2;">+${late}</div>`
+            ? `<div style="font-size:10px;font-weight:700;color:var(--err);line-height:1.3;">+${late}</div>`
             : isEarly
-            ? `<div style="font-size:8px;font-weight:700;color:var(--warn);line-height:1.2;">-${early}</div>`
+            ? `<div style="font-size:10px;font-weight:700;color:var(--warn);line-height:1.3;">-${early}</div>`
             : '';
           content = `
-            <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${loginColor};line-height:1.4;font-weight:${isLate?700:400};">${loginTxt}</div>
-            <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${logoutColor};line-height:1.4;font-weight:${isEarly?700:400};">${logoutTxt}</div>
+            <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:${loginColor};line-height:1.5;font-weight:${isLate?700:400};">${loginTxt}</div>
+            <div style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:${logoutColor};line-height:1.5;font-weight:${isEarly?700:400};">${logoutTxt}</div>
             ${delta}`;
         }
 
         const note = rec?.note ? ` · ${rec.note}` : '';
-        return `<td style="text-align:center;padding:3px 2px;cursor:pointer;vertical-align:top;min-width:44px;${bg}
+        return `<td style="text-align:center;padding:4px 3px;cursor:pointer;vertical-align:top;min-width:64px;width:64px;${bg}
           ${isSun?'border-left:1px solid var(--border2);':''}
           ${isToday?'outline:1.5px solid var(--accent);outline-offset:-1px;':''}"
           onclick="openAttendanceViewModal(${u.id},'${dk}')"
@@ -507,8 +507,8 @@ function renderAttendanceTraining() {
     const hdr = `${users.length} staff · <span style="color:var(--err);">${shiftLate} late</span> · <span style="color:var(--warn);">${shiftEarly} early</span>`;
 
     return _shiftBlock(sh, hdr, `
-      <div style="overflow-x:auto;max-height:480px;overflow-y:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <div style="overflow-x:auto;overflow-y:auto;max-height:520px;">
+        <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;">
           <thead style="position:sticky;top:0;z-index:3;">
             <tr>
               <th style="text-align:left;padding:7px 10px;background:var(--bg3);border-bottom:2px solid var(--border2);min-width:180px;position:sticky;left:0;z-index:4;font-size:11px;color:var(--text2);">NAME</th>
