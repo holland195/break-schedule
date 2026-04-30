@@ -456,12 +456,12 @@ function renderAttendanceTraining() {
         else if(hasRec)        bg='background:rgba(74,222,128,.06);';
 
         // Cell content: login + logout stacked + delta if late/early
+        const loginTxt  = rec?.start || '—';
+        const logoutTxt = rec?.end   || '—';
         let content;
         if (!hasRec) {
           content = `<span style="font-size:9px;color:var(--text3);">·</span>`;
         } else {
-          const loginTxt  = rec.start || '—';
-          const logoutTxt = rec.end   || '—';
           const loginColor  = isLate  ? 'var(--err)'  : 'var(--ok)';
           const logoutColor = isEarly ? 'var(--warn)' : 'var(--ok)';
           const delta = isLate&&isEarly
