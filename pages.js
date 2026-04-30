@@ -26,92 +26,79 @@
 //
 //  SHIFT MISMATCH: XA on shift B day → conflict
  
+// ── Monthly attendance code map (Excel legend rows 123-168) ──
 const ATT_CODE_MAP = (() => {
   const map = {};
-  // Working days: extract shift from last char
   ['A','B','C','D','E'].forEach(sh => {
     map[`X${sh}`]  = { type:'WD', shift:sh };
     map[`X2${sh}`] = { type:'WD', shift:sh };
     map[`X3${sh}`] = { type:'WD', shift:sh };
     map[`X4${sh}`] = { type:'WD', shift:sh };
-    // Half-day paid
-    map[`${sh}1`]  = { type:'HD1', shift:sh }; // first half work
-    map[`${sh}2`]  = { type:'HD2', shift:sh }; // second half work
-    // Half-day unpaid
+    map[`${sh}1`]  = { type:'HD1', shift:sh };
+    map[`${sh}2`]  = { type:'HD2', shift:sh };
     map[`U${sh}1`] = { type:'HD1', shift:sh };
     map[`U${sh}2`] = { type:'HD2', shift:sh };
   });
-  // Full off
-  map['A'] = { type:'OFF', reason:'Annual leave' };
-  map['H'] = { type:'OFF', reason:'Public holiday' };
-  map['U'] = { type:'OFF', reason:'Unpaid leave' };
-  map['S'] = { type:'OFF', reason:'Sick leave' };
-  map['L'] = { type:'OFF', reason:'Personal leave' };
-  map['0'] = { type:'OFF', reason:'Day off' };
+  map['A']   = { type:'OFF', reason:'Annual leave' };
+  map['H']   = { type:'OFF', reason:'Public holiday' };
+  map['U']   = { type:'OFF', reason:'Unpaid leave' };
+  map['S']   = { type:'OFF', reason:'Sick leave' };
+  map['L']   = { type:'OFF', reason:'Personal leave' };
+  map['0']   = { type:'OFF', reason:'Day off' };
   map['0.0'] = { type:'OFF', reason:'Day off' };
   return map;
 })();
  
-// ── Parse attendance code → {type, shift, reason} ──
 function _parseAttCode(raw) {
   if (raw === null || raw === undefined || raw === '') return null;
   const s = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
   return ATT_CODE_MAP[s] || null;
 }
  
-// ── Convert Excel date header → DD/MM string ──
-function _excelDateToDk(h) {
+function _excelDateToDk(h, fallbackMonth) {
   if (!h) return null;
   if (h instanceof Date) {
     return String(h.getDate()).padStart(2,'0') + '/' + String(h.getMonth()+1).padStart(2,'0');
   }
   if (typeof h === 'number' && h > 40000) {
-    // Excel serial number
     const dt = new Date(Math.round((h - 25569) * 86400 * 1000));
     return String(dt.getUTCDate()).padStart(2,'0') + '/' + String(dt.getUTCMonth()+1).padStart(2,'0');
   }
   if (typeof h === 'string') {
+    if (h.match(/^\d{4}-\d{2}-\d{2}/)) {
+      const dt = new Date(h);
+      if (!isNaN(dt)) return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
+    }
     const c = h.replace(/[-–]/g,'/').trim();
     if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
       const [d,m] = c.split('/');
       return d.padStart(2,'0') + '/' + m.padStart(2,'0');
     }
-    if (/^\d{1,2}$/.test(c)) {
-      return c.padStart(2,'0') + '/' + String(_attImportMonth).padStart(2,'0');
+    if (/^\d{1,2}$/.test(c) && fallbackMonth) {
+      return c.padStart(2,'0') + '/' + String(fallbackMonth).padStart(2,'0');
     }
   }
   return null;
 }
  
-// ── Check conflict between monthly attendance code and attendance log ──
 function _checkAttConflict(u, dk, parsedCode) {
   if (!parsedCode) return null;
- 
   const weekRec = DB.getAttendance(u.id, dk);
-  const {lateMin, earlyMin} = weekRec ? calcLateEarly(u.id, dk) : {lateMin:0, earlyMin:0};
- 
-  // Get scheduled shift for this day
   const schedShift = (u.schedule?.[dk] || '').charAt(0);
- 
   const conflicts = [];
- 
   if (parsedCode.type === 'OFF') {
-    // Any attendance record on an OFF day is a conflict
     if (weekRec && (weekRec.start || weekRec.end)) {
-      conflicts.push(`Has attendance record on ${parsedCode.reason||'off day'}`);
+      conflicts.push(`Attendance logged on ${parsedCode.reason||'off day'}`);
     }
   } else if (parsedCode.type === 'HD1' || parsedCode.type === 'HD2') {
-    // Half-day — attendance record triggers review
     if (weekRec && (weekRec.start || weekRec.end)) {
-      conflicts.push(`Half-day but attendance logged`);
+      conflicts.push('Half-day but attendance logged');
     }
   } else if (parsedCode.type === 'WD') {
-    // Working day — check if shift matches schedule
     if (schedShift && parsedCode.shift && schedShift !== parsedCode.shift) {
       conflicts.push(`Attendance: Shift ${parsedCode.shift}, Schedule: Shift ${schedShift}`);
     }
   }
- 
   return conflicts.length > 0 ? conflicts : null;
 }
 
@@ -1467,96 +1454,59 @@ function importMonthlyAttendance() {
     return;
   }
   statusEl.innerHTML = '<span style="color:var(--text2);">Reading…</span>';
- 
-  const year     = _attImportYear;
-  const month    = _attImportMonth;
+  const year = _attImportYear, month = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
  
   const reader = new FileReader();
   reader.onload = e => {
     try {
+      // Read with cellDates:true to get JS Date objects for date headers
       const wb   = XLSX.read(e.target.result, { type:'array', cellDates:true });
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+      if (!rows.length) { statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>'; return; }
  
-      if (!rows.length) {
-        statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>';
-        return;
-      }
- 
-      // Row 0 = header (dates), Row 1 = formula row (skip), Row 2+ = staff data
+      // Row 0 = date headers, Row 1 = formula row (CHOOSE/WEEKDAY) — skip
+      // Row 2+ = staff data
+      // Columns: 0=No. 1=Emp# 2=Name 3=Position 4+=dates
       const headerRow = rows[0];
- 
-      // Detect date columns from row 0 (cols 4+ are dates)
-      // Cols 0-3 = No., Emp#, Name, Position
-      const dateCols = [];
+      const dateCols  = [];
       headerRow.forEach((h, i) => {
-        if (i < 4) return;
-        // XLSX with cellDates:true returns dates as strings in ISO format
-        // Try parsing as date string first, then fall back to number/string
-        let dk = null;
-        if (typeof h === 'string' && h.match(/^\d{4}-\d{2}-\d{2}/)) {
-          // ISO date string from cellDates:true
-          const dt = new Date(h);
-          if (!isNaN(dt)) {
-            dk = String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
-          }
-        } else {
-          dk = _excelDateToDk(h);
-        }
+        if (i < 4) return; // skip No./Emp#/Name/Position
+        const dk = _excelDateToDk(h, month);
         if (dk) dateCols.push({ index: i, dateKey: dk });
       });
- 
-      if (dateCols.length === 0) {
-        // Fallback: re-read without cellDates to get raw values
-        const wb2   = XLSX.read(e.target.result, { type:'array' });
-        const ws2   = wb2.Sheets[wb2.SheetNames[0]];
-        const rows2 = XLSX.utils.sheet_to_json(ws2, { header:1, defval:null });
-        const hdr2  = rows2[0];
-        hdr2.forEach((h, i) => {
-          if (i < 4) return;
-          const dk = _excelDateToDk(h);
-          if (dk) dateCols.push({ index: i, dateKey: dk });
-        });
-      }
  
       if (!state.monthlyAttendance) state.monthlyAttendance = {};
       let imported = 0, skipped = 0;
  
-      // Skip rows 0 (header) and 1 (formula row CHOOSE/WEEKDAY)
-      const dataRows = rows.slice(2);
- 
-      dataRows.forEach(row => {
-        if (!row || !row[2]) return; // col 2 = Name
-        const nameVal = String(row[2] || '').trim();
-        const empNo   = String(row[1] || '').trim();
+      rows.slice(2).forEach(row => { // slice(2) skips header + formula row
+        if (!row) return;
+        const nameVal = String(row[2] || '').trim(); // col C = Name
+        const empNo   = String(row[1] || '').trim(); // col B = Emp#
         if (!nameVal && !empNo) return;
  
-        // Match staff by name or empNo
-        const user = state.users.find(u =>
+        // Match by name first, then by empNo via staffInfo
+        let user = state.users.find(u =>
           u.name === nameVal ||
           (u.name||'').toLowerCase() === nameVal.toLowerCase()
-        ) || (() => {
-          const si = Object.entries(state.staffInfo)
-            .find(([, v]) => v.empNo === empNo || v.name === nameVal);
-          if (!si) return null;
-          return state.users.find(u => u.username === si[0]);
-        })();
- 
+        );
+        if (!user && empNo) {
+          const si = Object.entries(state.staffInfo||{})
+            .find(([,v]) => v.empNo === empNo);
+          if (si) user = state.users.find(u => u.username === si[0]);
+        }
         if (!user) { skipped++; return; }
  
         const uname = user.username;
-        if (!state.monthlyAttendance[uname]) state.monthlyAttendance[uname] = {};
+        if (!state.monthlyAttendance[uname])           state.monthlyAttendance[uname] = {};
         if (!state.monthlyAttendance[uname][monthKey]) state.monthlyAttendance[uname][monthKey] = {};
  
         dateCols.forEach(({ index, dateKey }) => {
           const raw = row[index];
           if (raw === null || raw === undefined) return;
-          const rawStr = String(typeof raw === 'number'
-            ? (Number.isInteger(raw) ? raw : Math.round(raw))
-            : raw).trim().toUpperCase();
-          if (!rawStr || rawStr === '0' && !raw) return;
-          // Store the raw code — we parse it at render time
+          const rawStr = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
+          if (!rawStr) return;
           state.monthlyAttendance[uname][monthKey][dateKey] = rawStr;
         });
         imported++;
@@ -1564,9 +1514,9 @@ function importMonthlyAttendance() {
  
       save();
       if (typeof syncWrite === 'function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported${skipped?` · ${skipped} not matched`:''}. ${dateCols.length} date columns detected.</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported · ${dateCols.length} date columns · ${skipped} not matched</span>`;
       nav('staff');
-    } catch (ex) {
+    } catch(ex) {
       console.error('[att import]', ex);
       statusEl.innerHTML = `<span style="color:var(--err);">Error: ${ex.message}</span>`;
     }
