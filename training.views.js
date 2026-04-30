@@ -37,7 +37,7 @@ function _tabBar(countFn, page) {
   const btn = (val, lbl) => {
     const isAct = act===val;
     const c = SHIFT_COLORS[val]||{};
-    const cnt = countFn ? countFn(val) : '';
+    const cnt = (val!=='all' && countFn) ? countFn(val) : '';
     return `<button onclick="window._tState.shiftFilter='${val}';window._tState.search='';nav('${page}')"
       style="padding:5px 14px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;
         border:1.5px solid ${isAct?(val==='all'?'var(--accent)':c.color):'var(--border2)'};
@@ -348,23 +348,26 @@ function renderAttendanceTraining() {
     return `window._tState.attMonth=${m};window._tState.attYear=${y};window._tState.shiftFilter='all';nav('attendance')`;
   }
 
+  const selStyle = `display:inline-block;padding:6px 10px;font-size:13px;font-weight:600;
+    border:1px solid var(--border2);border-radius:var(--r);background:var(--bg2);
+    color:var(--text);cursor:pointer;`;
   const monthPicker = `
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button onclick="${prevMonth()}" style="padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-size:13px;">‹</button>
-      <select class="login-select" style="padding:5px 10px;font-size:13px;font-weight:600;"
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <button onclick="${prevMonth()}" style="${selStyle}padding:6px 14px;">‹</button>
+      <select style="${selStyle}min-width:130px;"
         onchange="window._tState.attMonth=+this.value;nav('attendance')">
         ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>
           `<option value="${m}" ${m===month?'selected':''}>${new Date(year,m-1,1).toLocaleString('en-US',{month:'long'})}</option>`
         ).join('')}
       </select>
-      <select class="login-select" style="padding:5px 10px;font-size:13px;font-weight:600;"
+      <select style="${selStyle}min-width:80px;"
         onchange="window._tState.attYear=+this.value;nav('attendance')">
         ${[2024,2025,2026,2027].map(y=>
           `<option value="${y}" ${y===year?'selected':''}>${y}</option>`
         ).join('')}
       </select>
-      <button onclick="${nextMonth()}" style="padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;font-size:13px;">›</button>
-      <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${dates.length} days</span>
+      <button onclick="${nextMonth()}" style="${selStyle}padding:6px 14px;">›</button>
+      <span style="font-size:12px;color:var(--text2);margin-left:4px;">${monthLabel} · ${dates.length} days</span>
     </div>`;
 
   // Group users by primary shift this month
