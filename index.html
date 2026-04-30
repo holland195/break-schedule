@@ -391,7 +391,11 @@
         }
  
         // Check if password change is still required
-        if (DB.mustChangePw(username)) {
+        // Only force if mustChangePassword is true AND the user hasn't already
+        // set a personal password (i.e. they can still log in with Pave@1234)
+        // This prevents the cloud flag from overriding a locally-completed change
+        const alreadyChanged = localStorage.getItem(`pw_changed_${username}`) === '1';
+        if (!alreadyChanged && DB.mustChangePw(username)) {
           document.getElementById('screen-login').classList.add('active');
           document.body.classList.add('login-active');
           _showChangePwPrompt(username);

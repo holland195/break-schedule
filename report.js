@@ -337,9 +337,9 @@ function renderReport() {
   <div><div class="page-title">Monthly Report</div></div>
   <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;">
     <select class="login-select" style="padding:5px 10px;font-size:12px;"
-      onchange="reportMonth=+this.value;nav('report')">${months.join('')}</select>
+      onchange="reportMonth=+this.value;attendanceTab='report';nav('attendance')">${months.join('')}</select>
     <select class="login-select" style="padding:5px 10px;font-size:12px;"
-      onchange="reportYear=+this.value;nav('report')">
+      onchange="reportYear=+this.value;attendanceTab='report';nav('attendance')">
       ${[2024,2025,2026,2027].map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
     </select>
     <button class="btn btn-sm" onclick="exportReportCSV()">⬇ Export CSV</button>

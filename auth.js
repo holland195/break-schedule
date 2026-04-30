@@ -112,7 +112,9 @@ async function doLogin() {
     }
 
     // Check first-login password change requirement (now using fresh cloud data)
-    if (DB.mustChangePw(u)) {
+    // Skip if user has already changed password on this device (localStorage flag)
+    const alreadyChanged = localStorage.getItem(`pw_changed_${u}`) === '1';
+    if (!alreadyChanged && DB.mustChangePw(u)) {
       window._loginInProgress = false;
       btn.disabled = false;
       _showChangePwPrompt(u);
@@ -209,6 +211,9 @@ async function submitChangePassword() {
     // ── 2. Clear mustChangePassword flag in local + cloud ──
     DB.setPassword(username, np1);  // sets mustChangePassword: false
     DB.saveSession({ username, userId: currentUser.id, shift: currentShift });
+    // Store a separate flag in localStorage that survives syncPull overwrites
+    // syncPull may restore mustChangePassword:true from old cloud data
+    localStorage.setItem(`pw_changed_${username}`, '1');
 
     // ── 3. Hide change-password view ──
     document.getElementById('changepw-view').style.display = 'none';

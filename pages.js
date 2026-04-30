@@ -1,3 +1,120 @@
+//  WORKING DAYS (store shift char):
+//  XA → shift A working day
+//  XB → shift B working day
+//  XC → shift C working day
+//  XD → shift D working day
+//  XE → shift E working day
+//  X2A–X2E → working × 2 multiplier (still working)
+//  X3A–X3E → working × 3 multiplier (still working)
+//  X4A–X4E → working × 4 multiplier (still working)
+//
+//  HALF-DAY (paid leave, first/second half):
+//  A1,B1,C1,D1,E1 → work first half, leave second half
+//  A2,B2,C2,D2,E2 → work second half, leave first half
+//
+//  HALF-DAY (unpaid):
+//  UA1,UB1,UC1,UD1,UE1 → same but unpaid
+//  UA2,UB2,UC2,UD2,UE2 → same but unpaid
+//
+//  FULL OFF (all should flag conflict if attendance log exists):
+//  A  → annual leave (phép năm)
+//  H  → public holiday (nghỉ lễ)
+//  0  → weekly day off (nghỉ tuần)
+//  U  → unpaid leave
+//  S  → sick leave (BHXH)
+//  L  → personal leave (kết hôn, tang)
+//
+//  SHIFT MISMATCH: XA on shift B day → conflict
+ 
+const ATT_CODE_MAP = (() => {
+  const map = {};
+  // Working days: extract shift from last char
+  ['A','B','C','D','E'].forEach(sh => {
+    map[`X${sh}`]  = { type:'WD', shift:sh };
+    map[`X2${sh}`] = { type:'WD', shift:sh };
+    map[`X3${sh}`] = { type:'WD', shift:sh };
+    map[`X4${sh}`] = { type:'WD', shift:sh };
+    // Half-day paid
+    map[`${sh}1`]  = { type:'HD1', shift:sh }; // first half work
+    map[`${sh}2`]  = { type:'HD2', shift:sh }; // second half work
+    // Half-day unpaid
+    map[`U${sh}1`] = { type:'HD1', shift:sh };
+    map[`U${sh}2`] = { type:'HD2', shift:sh };
+  });
+  // Full off
+  map['A'] = { type:'OFF', reason:'Annual leave' };
+  map['H'] = { type:'OFF', reason:'Public holiday' };
+  map['U'] = { type:'OFF', reason:'Unpaid leave' };
+  map['S'] = { type:'OFF', reason:'Sick leave' };
+  map['L'] = { type:'OFF', reason:'Personal leave' };
+  map['0'] = { type:'OFF', reason:'Day off' };
+  map['0.0'] = { type:'OFF', reason:'Day off' };
+  return map;
+})();
+ 
+// ── Parse attendance code → {type, shift, reason} ──
+function _parseAttCode(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const s = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
+  return ATT_CODE_MAP[s] || null;
+}
+ 
+// ── Convert Excel date header → DD/MM string ──
+function _excelDateToDk(h) {
+  if (!h) return null;
+  if (h instanceof Date) {
+    return String(h.getDate()).padStart(2,'0') + '/' + String(h.getMonth()+1).padStart(2,'0');
+  }
+  if (typeof h === 'number' && h > 40000) {
+    // Excel serial number
+    const dt = new Date(Math.round((h - 25569) * 86400 * 1000));
+    return String(dt.getUTCDate()).padStart(2,'0') + '/' + String(dt.getUTCMonth()+1).padStart(2,'0');
+  }
+  if (typeof h === 'string') {
+    const c = h.replace(/[-–]/g,'/').trim();
+    if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
+      const [d,m] = c.split('/');
+      return d.padStart(2,'0') + '/' + m.padStart(2,'0');
+    }
+    if (/^\d{1,2}$/.test(c)) {
+      return c.padStart(2,'0') + '/' + String(_attImportMonth).padStart(2,'0');
+    }
+  }
+  return null;
+}
+ 
+// ── Check conflict between monthly attendance code and attendance log ──
+function _checkAttConflict(u, dk, parsedCode) {
+  if (!parsedCode) return null;
+ 
+  const weekRec = DB.getAttendance(u.id, dk);
+  const {lateMin, earlyMin} = weekRec ? calcLateEarly(u.id, dk) : {lateMin:0, earlyMin:0};
+ 
+  // Get scheduled shift for this day
+  const schedShift = (u.schedule?.[dk] || '').charAt(0);
+ 
+  const conflicts = [];
+ 
+  if (parsedCode.type === 'OFF') {
+    // Any attendance record on an OFF day is a conflict
+    if (weekRec && (weekRec.start || weekRec.end)) {
+      conflicts.push(`Has attendance record on ${parsedCode.reason||'off day'}`);
+    }
+  } else if (parsedCode.type === 'HD1' || parsedCode.type === 'HD2') {
+    // Half-day — attendance record triggers review
+    if (weekRec && (weekRec.start || weekRec.end)) {
+      conflicts.push(`Half-day but attendance logged`);
+    }
+  } else if (parsedCode.type === 'WD') {
+    // Working day — check if shift matches schedule
+    if (schedShift && parsedCode.shift && schedShift !== parsedCode.shift) {
+      conflicts.push(`Attendance: Shift ${parsedCode.shift}, Schedule: Shift ${schedShift}`);
+    }
+  }
+ 
+  return conflicts.length > 0 ? conflicts : null;
+}
+
 // ═══════════════════════════════════════════════
 //  Role sort order for Staff Info tab
 // ─────────────────────────────────────────────
@@ -1163,7 +1280,7 @@ function _renderStaffAttendance() {
   const year     = _attImportYear;
   const month    = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
-  const monthLabel = new Date(year, month-1, 1).toLocaleString('en-US', {month:'long', year:'numeric'});
+  const monthLabel = new Date(year, month-1, 1).toLocaleString('en-US',{month:'long',year:'numeric'});
   const dates    = _getAllDatesInMonth(year, month);
   const attData  = state.monthlyAttendance || {};
   const users    = state.users;
@@ -1173,7 +1290,8 @@ function _renderStaffAttendance() {
       <select class="login-select" style="padding:5px 10px;font-size:12px;"
         onchange="_attImportMonth=+this.value;nav('staff')">
         ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m =>
-          `<option value="${m}" ${m===month?'selected':''}>${new Date(year,m-1,1).toLocaleString('en-US',{month:'long'})}</option>`
+          `<option value="${m}" ${m===month?'selected':''}>${new Date(year,m-1,1)
+            .toLocaleString('en-US',{month:'long'})}</option>`
         ).join('')}
       </select>
       <select class="login-select" style="padding:5px 10px;font-size:12px;"
@@ -1187,14 +1305,16 @@ function _renderStaffAttendance() {
   const importPanel = `
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
       <div style="font-size:13px;font-weight:600;margin-bottom:6px;">📋 Import Monthly Attendance</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
-        Excel format: <b>Column A</b> = Name or Username · Remaining columns = dates (<code>01/05</code>, <code>02/05</code>…)<br>
-        Values: <code>WD</code> or blank = working · <code>OFF</code> = day off · <code>HD</code> = half day · <code>WFH</code> = work from home
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.8;">
+        Excel format: same as your <b>Month attendance</b> sheet.<br>
+        Col A = No. · Col B = Emp# · Col C = Name · Col D = Position · Col E onward = dates<br>
+        Row 1 = date headers · Row 2 = day name formulas (auto-skipped) · Row 3+ = staff
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <input type="file" id="att-import-file" accept=".xlsx,.xls" style="font-size:12px;">
         <button class="btn btn-accent btn-sm" onclick="importMonthlyAttendance()">Import Excel</button>
-        <button class="btn btn-sm" onclick="clearMonthlyAttendance(${year},${month})" style="color:var(--err);border-color:var(--err);">🗑 Clear ${monthLabel}</button>
+        <button class="btn btn-sm" onclick="clearMonthlyAttendance(${year},${month})"
+          style="color:var(--err);border-color:var(--err);">🗑 Clear ${monthLabel}</button>
         <span id="att-import-status" style="font-size:11px;"></span>
       </div>
     </div>`;
@@ -1206,65 +1326,115 @@ function _renderStaffAttendance() {
  
   if (!hasData) {
     return `
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">${monthPicker}
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+        ${monthPicker}
         <span style="font-size:12px;color:var(--text2);">${monthLabel}</span>
       </div>
       ${importPanel}
       <div class="empty" style="padding:48px;">
         <div class="empty-ico">📋</div>
         No attendance data for ${monthLabel}.<br>
-        <span style="font-size:12px;color:var(--text3);">Import an Excel file above to get started.</span>
+        <span style="font-size:12px;color:var(--text3);">Import an Excel file above.</span>
       </div>`;
   }
  
   // Legend
-  const CODES = {
-    'OFF': {bg:'#fee2e2',color:'#b91c1c',label:'Day off'},
-    'HD':  {bg:'#fef3c7',color:'#b45309',label:'Half day'},
-    'WFH': {bg:'#dbeafe',color:'#1d4ed8',label:'Work from home'},
-    'WD':  {bg:'var(--bg3)',color:'var(--text3)',label:'Working'},
-  };
+  const legendHTML = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;">
+      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working day
+      <span style="background:rgba(245,158,11,.12);color:var(--warn);padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
+      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:500;">OFF</span> Off / Leave
+      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict with attendance log
+    </div>`;
  
-  const legendHTML = Object.entries(CODES).map(([code, s]) =>
-    `<span style="background:${s.bg};color:${s.color};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${code}</span> ${s.label}`
-  ).join(' &nbsp; ');
- 
+  // Build table
   const theadDates = dates.map(dk => {
     const day = dk.split('/')[0];
-    return `<th style="min-width:32px;padding:4px 1px;text-align:center;font-size:10px;font-weight:600;color:var(--text3);">${day}</th>`;
+    const dow = new Date(year, month-1, parseInt(day)).getDay();
+    const isWknd = dow===0||dow===6;
+    return `<th style="min-width:36px;padding:4px 1px;text-align:center;
+      font-size:10px;font-weight:500;color:${isWknd?'var(--text3)':'var(--text2)'};
+      background:${isWknd?'var(--bg4)':'var(--bg3)'};
+      border-bottom:2px solid var(--border2);">
+      <div>${['S','M','T','W','T','F','S'][dow]}</div>
+      <div>${parseInt(day)}</div>
+    </th>`;
   }).join('');
+ 
+  let totalConflicts = 0;
  
   const tbodyRows = users.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
-    let conflicts = 0;
+    const conflicts = [];
+ 
     const cells = dates.map(dk => {
-      const code    = (uAtt[dk] || '').toUpperCase();
-      const weekRec = DB.getAttendance(u.id, dk);
-      const isOff   = code === 'OFF';
-      const isHalf  = code === 'HD';
-      const conflict = (isOff || isHalf) && weekRec;
-      if (conflict) conflicts++;
-      const s = CODES[code] || CODES['WD'];
-      return `<td style="text-align:center;padding:2px 1px;">
-        <span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 3px;border-radius:3px;
-          min-width:22px;text-align:center;font-family:'IBM Plex Mono',monospace;
-          ${conflict?'background:#fee2e2;color:#b91c1c;outline:1.5px solid #f87171;':
-            code?`background:${s.bg};color:${s.color};`:'color:var(--text3);'}"
-          title="${conflict?`⚠ Conflict: ${code} day but attendance logged`:code||'WD'}">
-          ${conflict?'⚠':(code||'·')}
-        </span>
+      const rawCode = uAtt[dk];
+      const parsed  = _parseAttCode(rawCode);
+      const dow     = new Date(year, month-1, parseInt(dk)).getDay();
+      const isWknd  = dow===0||dow===6;
+ 
+      if (!rawCode && !parsed) {
+        return `<td style="text-align:center;padding:2px 1px;background:${isWknd?'var(--bg4)':''};">
+          <span style="font-size:10px;color:var(--text3);">·</span>
+        </td>`;
+      }
+ 
+      const conflictList = _checkAttConflict(u, dk, parsed);
+      const hasConflict  = conflictList && conflictList.length > 0;
+      if (hasConflict) conflicts.push({ dk, msgs: conflictList });
+ 
+      let bg='', txt='', color='';
+      if (hasConflict) {
+        bg='background:rgba(248,113,113,.12);';
+        txt='⚠'; color='color:var(--err);font-weight:700;';
+      } else if (!parsed) {
+        txt=rawCode||'?'; color='color:var(--text3);';
+      } else if (parsed.type==='OFF') {
+        bg='background:var(--D-bg);';
+        const code=String(rawCode).toUpperCase();
+        txt = code==='0'||code==='0.0'?'0':code==='H'?'H':code==='A'?'A':code==='S'?'S':code==='U'?'U':code==='L'?'L':'OFF';
+        color='color:var(--err);font-weight:600;';
+      } else if (parsed.type==='HD1'||parsed.type==='HD2') {
+        bg='background:rgba(245,158,11,.10);';
+        txt=String(rawCode).toUpperCase(); color='color:var(--warn);font-weight:600;';
+      } else {
+        // WD — show shift letter
+        bg='background:rgba(74,222,128,.06);';
+        txt=parsed.shift||'✓'; color='color:var(--ok);font-weight:500;';
+      }
+ 
+      const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
+      return `<td style="text-align:center;padding:2px 1px;${bg}${isWknd?'opacity:.7;':''}"
+        title="${title}">
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
       </td>`;
     }).join('');
  
-    return `<tr style="${conflicts>0?'background:rgba(248,113,113,.04);':''}">
-      <td style="padding:5px 10px;font-weight:600;font-size:12px;white-space:nowrap;position:sticky;left:0;background:var(--bg2);z-index:1;">
-        ${u.name}
-        ${conflicts>0?`<span style="color:var(--err);font-size:10px;margin-left:6px;">⚠${conflicts}</span>`:''}
+    if (conflicts.length) totalConflicts++;
+ 
+    const conflictSummary = conflicts.length > 0
+      ? `<div style="font-size:10px;color:var(--err);margin-top:2px;">⚠ ${conflicts.length} conflict${conflicts.length>1?'s':''}: ${conflicts.map(c=>c.dk).join(', ')}</div>`
+      : '';
+ 
+    return `<tr style="border-bottom:0.5px solid var(--border);${conflicts.length?'background:rgba(248,113,113,.03);':''}">
+      <td style="padding:5px 10px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);">
+        <div style="font-size:12px;font-weight:600;">${u.name}</div>
+        <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</div>
+        ${conflictSummary}
       </td>
-      <td style="padding:5px 4px;font-size:11px;color:var(--text3);font-family:monospace;white-space:nowrap;">${u.team||'—'}</td>
       ${cells}
     </tr>`;
-  }).join('');
+  }).filter(r => r).join('');
+ 
+  const conflictBanner = totalConflicts > 0
+    ? `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
+        border-radius:8px;font-size:12px;color:var(--err);margin-bottom:12px;font-weight:500;">
+        ⚠ ${totalConflicts} staff with conflicts between monthly schedule and attendance log
+      </div>`
+    : `<div style="padding:8px 14px;background:var(--C-bg);border-radius:8px;
+        font-size:12px;color:var(--ok);margin-bottom:12px;">
+        ✓ No conflicts detected for ${monthLabel}
+      </div>`;
  
   return `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
@@ -1272,13 +1442,15 @@ function _renderStaffAttendance() {
       <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${users.length} staff</span>
     </div>
     ${importPanel}
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">${legendHTML}</div>
-    <div style="overflow-x:auto;max-height:calc(100vh - 360px);overflow-y:auto;">
-      <table style="border-collapse:collapse;width:100%;">
+    ${conflictBanner}
+    ${legendHTML}
+    <div style="overflow-x:auto;">
+      <table style="border-collapse:collapse;width:max-content;min-width:100%;">
         <thead style="position:sticky;top:0;z-index:2;background:var(--bg3);">
-          <tr style="border-bottom:2px solid var(--border2);">
-            <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);min-width:160px;position:sticky;left:0;background:var(--bg3);">NAME</th>
-            <th style="text-align:left;padding:6px 4px;font-size:11px;color:var(--text2);min-width:55px;">GROUP</th>
+          <tr>
+            <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
+              min-width:180px;position:sticky;left:0;z-index:3;background:var(--bg3);
+              border-bottom:2px solid var(--border2);">NAME</th>
             ${theadDates}
           </tr>
         </thead>
@@ -1299,65 +1471,103 @@ function importMonthlyAttendance() {
   const year     = _attImportYear;
   const month    = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
-  const m2       = String(month).padStart(2,'0');
  
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const wb   = XLSX.read(e.target.result, { type:'array' });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' });
+      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
+ 
       if (!rows.length) {
         statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>';
         return;
       }
  
-      // Detect date columns from header row
-      const hdrs = rows[0].map(h => String(h).trim());
+      // Row 0 = header (dates), Row 1 = formula row (skip), Row 2+ = staff data
+      const headerRow = rows[0];
+ 
+      // Detect date columns from row 0 (cols 4+ are dates)
+      // Cols 0-3 = No., Emp#, Name, Position
       const dateCols = [];
-      hdrs.forEach((h, i) => {
-        if (i === 0) return;
-        const c = h.replace(/[-–]/g, '/').trim();
+      headerRow.forEach((h, i) => {
+        if (i < 4) return;
+        // XLSX with cellDates:true returns dates as strings in ISO format
+        // Try parsing as date string first, then fall back to number/string
         let dk = null;
-        if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
-          const [d, mo] = c.split('/');
-          dk = `${d.padStart(2,'0')}/${mo.padStart(2,'0')}`;
-        } else if (/^\d{1,2}$/.test(c)) {
-          dk = `${c.padStart(2,'0')}/${m2}`;
+        if (typeof h === 'string' && h.match(/^\d{4}-\d{2}-\d{2}/)) {
+          // ISO date string from cellDates:true
+          const dt = new Date(h);
+          if (!isNaN(dt)) {
+            dk = String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
+          }
+        } else {
+          dk = _excelDateToDk(h);
         }
         if (dk) dateCols.push({ index: i, dateKey: dk });
       });
  
+      if (dateCols.length === 0) {
+        // Fallback: re-read without cellDates to get raw values
+        const wb2   = XLSX.read(e.target.result, { type:'array' });
+        const ws2   = wb2.Sheets[wb2.SheetNames[0]];
+        const rows2 = XLSX.utils.sheet_to_json(ws2, { header:1, defval:null });
+        const hdr2  = rows2[0];
+        hdr2.forEach((h, i) => {
+          if (i < 4) return;
+          const dk = _excelDateToDk(h);
+          if (dk) dateCols.push({ index: i, dateKey: dk });
+        });
+      }
+ 
       if (!state.monthlyAttendance) state.monthlyAttendance = {};
       let imported = 0, skipped = 0;
  
-      rows.slice(1).forEach(row => {
-        const nameOrUser = String(row[0] || '').trim();
-        if (!nameOrUser) return;
+      // Skip rows 0 (header) and 1 (formula row CHOOSE/WEEKDAY)
+      const dataRows = rows.slice(2);
  
-        // Match by name or username (case-insensitive)
+      dataRows.forEach(row => {
+        if (!row || !row[2]) return; // col 2 = Name
+        const nameVal = String(row[2] || '').trim();
+        const empNo   = String(row[1] || '').trim();
+        if (!nameVal && !empNo) return;
+ 
+        // Match staff by name or empNo
         const user = state.users.find(u =>
-          u.name === nameOrUser ||
-          u.username === nameOrUser ||
-          (u.name || '').toLowerCase() === nameOrUser.toLowerCase()
-        );
+          u.name === nameVal ||
+          (u.name||'').toLowerCase() === nameVal.toLowerCase()
+        ) || (() => {
+          const si = Object.entries(state.staffInfo)
+            .find(([, v]) => v.empNo === empNo || v.name === nameVal);
+          if (!si) return null;
+          return state.users.find(u => u.username === si[0]);
+        })();
+ 
         if (!user) { skipped++; return; }
  
         const uname = user.username;
-        if (!state.monthlyAttendance[uname])           state.monthlyAttendance[uname] = {};
+        if (!state.monthlyAttendance[uname]) state.monthlyAttendance[uname] = {};
         if (!state.monthlyAttendance[uname][monthKey]) state.monthlyAttendance[uname][monthKey] = {};
  
         dateCols.forEach(({ index, dateKey }) => {
-          const val = String(row[index] || '').trim().toUpperCase();
-          state.monthlyAttendance[uname][monthKey][dateKey] = val;
+          const raw = row[index];
+          if (raw === null || raw === undefined) return;
+          const rawStr = String(typeof raw === 'number'
+            ? (Number.isInteger(raw) ? raw : Math.round(raw))
+            : raw).trim().toUpperCase();
+          if (!rawStr || rawStr === '0' && !raw) return;
+          // Store the raw code — we parse it at render time
+          state.monthlyAttendance[uname][monthKey][dateKey] = rawStr;
         });
         imported++;
       });
  
       save();
       if (typeof syncWrite === 'function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported${skipped ? ' · ' + skipped + ' not matched' : ''}</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported${skipped?` · ${skipped} not matched`:''}. ${dateCols.length} date columns detected.</span>`;
       nav('staff');
     } catch (ex) {
+      console.error('[att import]', ex);
       statusEl.innerHTML = `<span style="color:var(--err);">Error: ${ex.message}</span>`;
     }
   };
@@ -1365,7 +1575,7 @@ function importMonthlyAttendance() {
 }
  
 function clearMonthlyAttendance(year, month) {
-  const label = new Date(year, month - 1).toLocaleString('en-US', { month:'long', year:'numeric' });
+  const label = new Date(year, month-1).toLocaleString('en-US',{month:'long',year:'numeric'});
   if (!confirm(`Clear attendance data for ${label}?`)) return;
   const mk = `${year}-${String(month).padStart(2,'0')}`;
   if (state.monthlyAttendance) {
