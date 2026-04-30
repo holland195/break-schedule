@@ -1339,9 +1339,9 @@ function _renderStaffAttendance() {
   // Build table
   const theadDates = dates.map(dk => {
     const day = dk.split('/')[0];
-    const [dd, mm] = dk.split('/');
-      const cellYear = (parseInt(mm) === month) ? year : (month === 1 ? year-1 : year);
-      const dow = new Date(cellYear, parseInt(mm)-1, parseInt(dd)).getDay();
+    const [_d, _m] = dk.split('/');
+      const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
+      const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow===0||dow===6;
     return `<th style="min-width:36px;padding:4px 1px;text-align:center;
       font-size:10px;font-weight:500;color:${isWknd?'var(--text3)':'var(--text2)'};
@@ -1364,8 +1364,10 @@ function _renderStaffAttendance() {
     const cells = dates.map(dk => {
       const rawCode = uAtt[dk];
       const parsed  = _parseAttCode(rawCode);
-      const dow     = new Date(year, month-1, parseInt(dk)).getDay();
-      const isWknd  = dow===0||dow===6;
+      const [_dd, _mm] = dk.split('/');
+      const _cellYear = (parseInt(_mm) === month) ? year : (month === 1 ? year - 1 : year);
+      const dow = new Date(_cellYear, parseInt(_mm) - 1, parseInt(_dd)).getDay();
+      const isWknd = dow === 0 || dow === 6;
  
       if (!rawCode && !parsed) {
         return `<td style="text-align:center;padding:2px 1px;background:${isWknd?'var(--bg4)':''};">
@@ -1398,7 +1400,9 @@ function _renderStaffAttendance() {
       }
  
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
-      return `<td style="text-align:center;padding:2px 1px;${bg}${isWknd?'opacity:.7;':''}"
+      // Don't dim OFF or conflict cells even on weekends — they need to be visible
+      const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
+      return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd?'opacity:.55;':''}"
         title="${title}">
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
       </td>`;
