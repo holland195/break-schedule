@@ -76,7 +76,10 @@ const ROLES = {
 // ═══════════════════════════════════════════════
 function load() {
   try { const d = localStorage.getItem(STORAGE); if (d) return JSON.parse(d); } catch(e){}
-  return { users:[], breaks:{}, requests:[], extBreaks:{}, staffInfo:{}, session:null, imported:false, _breaksUpdatedAt:0, _usersUpdatedAt:0, attendance:{} };
+  return { users:[], breaks:{}, requests:[], extBreaks:{},
+           staffInfo:{}, session:null, imported:false,
+           _breaksUpdatedAt:0, _usersUpdatedAt:0,
+           attendance:{}, monthlyAttendance:{} };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -111,6 +114,22 @@ const DB = {
     state.staffInfo[username].mustChangePassword = false;
     save();
   },
+
+  // monthlyAttendance: username → monthKey → dateKey → code ('WD','OFF','HD','WFH')
+  getMonthlyAtt:  (username, monthKey)         => state.monthlyAttendance?.[username]?.[monthKey] || {},
+  setMonthlyAtt:  (username, monthKey, data)   => {
+    if (!state.monthlyAttendance) state.monthlyAttendance = {};
+    if (!state.monthlyAttendance[username]) state.monthlyAttendance[username] = {};
+    state.monthlyAttendance[username][monthKey] = data;
+    save();
+  },
+  clearMonthlyAtt: (username, monthKey) => {
+    if (state.monthlyAttendance?.[username]) {
+      delete state.monthlyAttendance[username][monthKey];
+      save();
+    }
+  },
+  
   // session
   saveSession:   s            => { state.session=s; save(); },
   clearSession:  ()           => { state.session=null; save(); },
@@ -123,6 +142,7 @@ if (!state.extBreaks)  state.extBreaks  = {};
 if (!state.attendance) state.attendance = {};
 if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
+if (!state.monthlyAttendance) state.monthlyAttendance = {};
 // No more SEED_USERS — users come only from schedule import
 
 // Always ensure system admin exists — password '1234', never forced to change
