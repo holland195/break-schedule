@@ -14,20 +14,32 @@ function _monthKey(year, month) { // month: 1-12
 }
 
 function _getAllDatesInMonth(year, month) {
+  // Working month: 25th of previous month → 24th of current month
+  // e.g. "May 2026" = 25/04 → 24/05
   const days = [];
-  const date = new Date(year, month - 1, 1);
-  while (date.getMonth() === month - 1) {
-    const d = date.getDate().toString().padStart(2,'0');
-    const m = String(month).padStart(2,'0');
+ 
+  // Start: 25th of previous month
+  const startMonth = month === 1 ? 12 : month - 1;
+  const startYear  = month === 1 ? year - 1 : year;
+  const start = new Date(startYear, startMonth - 1, 25);
+ 
+  // End: 24th of current month
+  const end = new Date(year, month - 1, 24);
+ 
+  const cur = new Date(start);
+  while (cur <= end) {
+    const d = String(cur.getDate()).padStart(2,'0');
+    const m = String(cur.getMonth() + 1).padStart(2,'0');
     days.push(`${d}/${m}`);
-    date.setDate(date.getDate() + 1);
+    cur.setDate(cur.getDate() + 1);
   }
   return days;
 }
 
-function _dateKeyToDate(dk) {
+function _dateKeyToDate(dk, refYear) {
   const [d, m] = dk.split('/');
-  return new Date(2026, parseInt(m) - 1, parseInt(d));
+  // Use refYear if provided, otherwise default to 2026
+  return new Date(refYear || 2026, parseInt(m) - 1, parseInt(d));
 }
 
 // ── Compute per-user stats for a given month ──

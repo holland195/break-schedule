@@ -391,7 +391,8 @@ function renderAttendanceTraining() {
   // Group into weeks visually with subtle dividers every 7 days
   const theadDates = dates.map((dk,i)=>{
     const day = parseInt(dk.split('/')[0]);
-    const dow = new Date(year,month-1,day).getDay(); // 0=Sun
+    const cellYear = (parseInt(dk.split('/')[1]) === month) ? year : (month===1?year-1:year);
+    const dow = new Date(cellYear, parseInt(dk.split('/')[1])-1, day).getDay();
     const isToday = dk===todayDk;
     const isSun = dow===0;
     return `<th style="min-width:64px;width:64px;padding:4px 2px;text-align:center;

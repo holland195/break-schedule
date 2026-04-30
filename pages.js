@@ -1267,7 +1267,9 @@ function _renderStaffAttendance() {
   const year     = _attImportYear;
   const month    = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
-  const monthLabel = new Date(year, month-1, 1).toLocaleString('en-US',{month:'long',year:'numeric'});
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const monthLabel = `${new Date(prevYear, prevMonth-1, 25).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(year, month-1, 24).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
   const dates    = _getAllDatesInMonth(year, month);
   const attData  = state.monthlyAttendance || {};
   const users    = state.users;
@@ -1337,14 +1339,19 @@ function _renderStaffAttendance() {
   // Build table
   const theadDates = dates.map(dk => {
     const day = dk.split('/')[0];
-    const dow = new Date(year, month-1, parseInt(day)).getDay();
+    const [dd, mm] = dk.split('/');
+      const cellYear = (parseInt(mm) === month) ? year : (month === 1 ? year-1 : year);
+      const dow = new Date(cellYear, parseInt(mm)-1, parseInt(dd)).getDay();
     const isWknd = dow===0||dow===6;
     return `<th style="min-width:36px;padding:4px 1px;text-align:center;
       font-size:10px;font-weight:500;color:${isWknd?'var(--text3)':'var(--text2)'};
       background:${isWknd?'var(--bg4)':'var(--bg3)'};
       border-bottom:2px solid var(--border2);">
       <div>${['S','M','T','W','T','F','S'][dow]}</div>
-      <div>${parseInt(day)}</div>
+      <div>${parseInt(dk.split('/')[0])}</div>
+      ${dk.split('/')[0] === '25' || dk.split('/')[0] === '01'
+        ? `<div style="font-size:8px;opacity:.6;">/${dk.split('/')[1]}</div>`
+        : ''}
     </th>`;
   }).join('');
  
