@@ -1298,28 +1298,30 @@ function importMonthlyAttendance() {
   const year     = _attImportYear;
   const month    = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
-  const m2       = String(month).padStart(2, '0');
+  const m2       = String(month).padStart(2,'0');
  
-  new FileReader().onload = (e) => {
+  const reader = new FileReader();
+  reader.onload = e => {
     try {
-      const wb   = XLSX.read(e.target.result, { type: 'array' });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      if (!rows.length) { statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>'; return; }
+      const wb   = XLSX.read(e.target.result, { type:'array' });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' });
+      if (!rows.length) {
+        statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>';
+        return;
+      }
  
-      const headers = rows[0].map(h => String(h).trim());
- 
-      // Detect date columns
+      // Detect date columns from header row
+      const hdrs = rows[0].map(h => String(h).trim());
       const dateCols = [];
-      headers.forEach((h, i) => {
+      hdrs.forEach((h, i) => {
         if (i === 0) return;
-        const clean = h.replace(/[-–]/g, '/').trim();
+        const c = h.replace(/[-–]/g, '/').trim();
         let dk = null;
-        if (/^\d{1,2}\/\d{1,2}$/.test(clean)) {
-          const [d, mo] = clean.split('/');
+        if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
+          const [d, mo] = c.split('/');
           dk = `${d.padStart(2,'0')}/${mo.padStart(2,'0')}`;
-        } else if (/^\d{1,2}$/.test(clean)) {
-          dk = `${clean.padStart(2,'0')}/${m2}`;
+        } else if (/^\d{1,2}$/.test(c)) {
+          dk = `${c.padStart(2,'0')}/${m2}`;
         }
         if (dk) dateCols.push({ index: i, dateKey: dk });
       });
@@ -1330,15 +1332,17 @@ function importMonthlyAttendance() {
       rows.slice(1).forEach(row => {
         const nameOrUser = String(row[0] || '').trim();
         if (!nameOrUser) return;
+ 
+        // Match by name or username (case-insensitive)
         const user = state.users.find(u =>
           u.name === nameOrUser ||
           u.username === nameOrUser ||
-          (u.name||'').toLowerCase() === nameOrUser.toLowerCase()
+          (u.name || '').toLowerCase() === nameOrUser.toLowerCase()
         );
         if (!user) { skipped++; return; }
  
         const uname = user.username;
-        if (!state.monthlyAttendance[uname]) state.monthlyAttendance[uname] = {};
+        if (!state.monthlyAttendance[uname])           state.monthlyAttendance[uname] = {};
         if (!state.monthlyAttendance[uname][monthKey]) state.monthlyAttendance[uname][monthKey] = {};
  
         dateCols.forEach(({ index, dateKey }) => {
@@ -1350,67 +1354,9 @@ function importMonthlyAttendance() {
  
       save();
       if (typeof syncWrite === 'function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported${skipped?' · '+skipped+' not matched':''}</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported${skipped ? ' · ' + skipped + ' not matched' : ''}</span>`;
       nav('staff');
-    } catch(ex) {
-      statusEl.innerHTML = `<span style="color:var(--err);">Error: ${ex.message}</span>`;
-    }
-  }.call(new FileReader(), { target: { result: await new Promise(res => {
-    const r = new FileReader();
-    r.onload = res;
-    r.readAsArrayBuffer(fileInput.files[0]);
-  }) } });
-}
- 
-// Simpler version of the reader (fixes the nested async issue above):
-function importMonthlyAttendance() {
-  const fileInput = document.getElementById('att-import-file');
-  const statusEl  = document.getElementById('att-import-status');
-  if (!fileInput?.files?.[0]) {
-    statusEl.innerHTML = '<span style="color:var(--err);">Select a file first.</span>';
-    return;
-  }
-  statusEl.innerHTML = '<span style="color:var(--text2);">Reading…</span>';
-  const year = _attImportYear, month = _attImportMonth;
-  const monthKey = `${year}-${String(month).padStart(2,'0')}`;
-  const m2 = String(month).padStart(2,'0');
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const wb   = XLSX.read(e.target.result, { type:'array' });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' });
-      const hdrs = rows[0].map(h => String(h).trim());
-      const dateCols = [];
-      hdrs.forEach((h,i) => {
-        if (i===0) return;
-        const c = h.replace(/[-–]/g,'/').trim();
-        let dk = null;
-        if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
-          const [d,mo] = c.split('/');
-          dk = `${d.padStart(2,'0')}/${mo.padStart(2,'0')}`;
-        } else if (/^\d{1,2}$/.test(c)) {
-          dk = `${c.padStart(2,'0')}/${m2}`;
-        }
-        if (dk) dateCols.push({index:i, dateKey:dk});
-      });
-      if (!state.monthlyAttendance) state.monthlyAttendance = {};
-      let imported=0, skipped=0;
-      rows.slice(1).forEach(row => {
-        const n = String(row[0]||'').trim(); if (!n) return;
-        const u = state.users.find(u => u.name===n || u.username===n || (u.name||'').toLowerCase()===n.toLowerCase());
-        if (!u) { skipped++; return; }
-        if (!state.monthlyAttendance[u.username]) state.monthlyAttendance[u.username]={};
-        if (!state.monthlyAttendance[u.username][monthKey]) state.monthlyAttendance[u.username][monthKey]={};
-        dateCols.forEach(({index,dateKey}) => {
-          state.monthlyAttendance[u.username][monthKey][dateKey] = String(row[index]||'').trim().toUpperCase();
-        });
-        imported++;
-      });
-      save();
-      if (typeof syncWrite==='function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported${skipped?' · '+skipped+' skipped':''}</span>`;
-      nav('staff');
-    } catch(ex) {
+    } catch (ex) {
       statusEl.innerHTML = `<span style="color:var(--err);">Error: ${ex.message}</span>`;
     }
   };
@@ -1418,11 +1364,13 @@ function importMonthlyAttendance() {
 }
  
 function clearMonthlyAttendance(year, month) {
-  const label = new Date(year,month-1).toLocaleString('en-US',{month:'long',year:'numeric'});
+  const label = new Date(year, month - 1).toLocaleString('en-US', { month:'long', year:'numeric' });
   if (!confirm(`Clear attendance data for ${label}?`)) return;
   const mk = `${year}-${String(month).padStart(2,'0')}`;
   if (state.monthlyAttendance) {
-    Object.keys(state.monthlyAttendance).forEach(u => { delete state.monthlyAttendance[u]?.[mk]; });
+    Object.keys(state.monthlyAttendance).forEach(u => {
+      if (state.monthlyAttendance[u]) delete state.monthlyAttendance[u][mk];
+    });
   }
   save();
   nav('staff');
