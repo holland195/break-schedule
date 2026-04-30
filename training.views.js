@@ -430,11 +430,14 @@ function renderAttendanceTraining() {
         const isSun = dow===0&&i>0;
 
         if(!shift||shift==='0'||!SHIFT_DEFAULTS[shift]) {
-          // Off day
+          // Off day — still allow clicking in case a record was added manually
+          const rec = DB.getAttendance(u.id, dk);
           return `<td style="text-align:center;padding:2px 1px;
             ${isSun?'border-left:1px solid var(--border2);':''}
-            ${isToday?'background:rgba(31,102,241,.04);':''}">
-            <span style="font-size:9px;color:var(--border2);">—</span>
+            ${isToday?'background:rgba(31,102,241,.04);':''}
+            ${rec?'cursor:pointer;':''}"
+            ${rec?`onclick="openAttendanceModal(${u.id},'${dk}')"`:''}>
+            <span style="font-size:9px;color:${rec?'var(--warn)':'var(--border2)'};">${rec?'!':'—'}</span>
           </td>`;
         }
 
@@ -465,7 +468,9 @@ function renderAttendanceTraining() {
 
         return `<td style="text-align:center;padding:2px 1px;cursor:pointer;${bg}
           ${isSun?'border-left:1px solid var(--border2);':''}
-          ${isToday?'outline:1.5px solid var(--accent);outline-offset:-1px;':''}">
+          ${isToday?'outline:1.5px solid var(--accent);outline-offset:-1px;':''}"
+          onclick="openAttendanceModal(${u.id},'${dk}')"
+          title="${rec?`Login: ${rec.start||'—'} | Logout: ${rec.end||'—'}${rec.note?' | '+rec.note:''}${isLate?' | Late: '+late:''}${isEarly?' | Early: '+early:''}` : 'No record — click to add'}">
           ${content}
         </td>`;
       }).join('');
