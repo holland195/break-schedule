@@ -1264,15 +1264,14 @@ let _attImportMonth = new Date().getMonth() + 1;
 let _attImportYear  = new Date().getFullYear();
  
 function _renderStaffAttendance() {
-  const year     = _attImportYear;
-  const month    = _attImportMonth;
-  const monthKey = `${year}-${String(month).padStart(2,'0')}`;
+  const year      = _attImportYear;
+  const month     = _attImportMonth;
+  const monthKey  = `${year}-${String(month).padStart(2,'0')}`;
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear  = month === 1 ? year - 1 : year;
   const monthLabel = `${new Date(prevYear, prevMonth-1, 25).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(year, month-1, 24).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
-  const dates    = _getAllDatesInMonth(year, month);
-  const attData  = state.monthlyAttendance || {};
-  const users    = state.users;
+  const dates   = _getAllDatesInMonth(year, month);
+  const attData = state.monthlyAttendance || {};
  
   const monthPicker = `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1308,8 +1307,7 @@ function _renderStaffAttendance() {
       </div>
     </div>`;
  
-  // Check monthlyAttendance directly — don't rely on state.users
-  // which may be empty on browsers that haven't imported a schedule
+  // ── FIX: check monthlyAttendance directly, not through state.users ──
   const hasData = Object.values(attData).some(userMonths => {
     const ud = userMonths?.[monthKey];
     return ud && Object.keys(ud).length > 0;
@@ -1338,38 +1336,36 @@ function _renderStaffAttendance() {
       <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict with attendance log
     </div>`;
  
-  // Build table
+  // Build table header dates
   const theadDates = dates.map(dk => {
-    const day = dk.split('/')[0];
     const [_d, _m] = dk.split('/');
-      const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
-      const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
-    const isWknd = dow===0||dow===6;
+    const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
+    const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
+    const isWknd = dow === 0 || dow === 6;
     return `<th style="min-width:36px;padding:4px 1px;text-align:center;
       font-size:10px;font-weight:500;color:${isWknd?'var(--text3)':'var(--text2)'};
       background:${isWknd?'var(--bg4)':'var(--bg3)'};
       border-bottom:2px solid var(--border2);">
       <div>${['S','M','T','W','T','F','S'][dow]}</div>
-      <div>${parseInt(dk.split('/')[0])}</div>
-      ${dk.split('/')[0] === '25' || dk.split('/')[0] === '01'
-        ? `<div style="font-size:8px;opacity:.6;">/${dk.split('/')[1]}</div>`
-        : ''}
+      <div>${parseInt(_d)}</div>
+      ${_d === '25' || _d === '01'
+        ? `<div style="font-size:8px;opacity:.6;">/${_m}</div>` : ''}
     </th>`;
   }).join('');
  
-  // Build row list from monthlyAttendance keys + state.users
-  // So rows show even if state.users hasn't been populated on this device
-  const attUsernames = Object.keys(attData).filter(uname =>
-    attData[uname]?.[monthKey] && Object.keys(attData[uname][monthKey]).length > 0
-  );
-  // Merge: prefer state.users for name/role/team, fall back to staffInfo
+  // ── FIX: build rows from attData keys, not state.users ──
+  const attUsernames = Object.keys(attData).filter(uname => {
+    const ud = attData[uname]?.[monthKey];
+    return ud && Object.keys(ud).length > 0;
+  });
+ 
+  // For each username, get full user info from state.users or fall back to staffInfo
   const rowUsers = attUsernames.map(uname => {
     return state.users.find(u => u.username === uname) || (() => {
-      const si = state.staffInfo[uname];
-      if (!si) return null;
-      return { username: uname, name: si.name||uname, role: si.role||'', team: '' };
+      const si = state.staffInfo?.[uname];
+      return si ? { username: uname, name: si.name||uname, role: si.role||'', team: '', id: null } : null;
     })();
-  }).filter(Boolean);
+  }).filter(Boolean).sort((a,b) => (a.name||'').localeCompare(b.name||''));
  
   let totalConflicts = 0;
  
@@ -1387,8 +1383,7 @@ function _renderStaffAttendance() {
  
       if (!rawCode && !parsed) {
         return `<td style="text-align:center;padding:2px 1px;background:${isWknd?'var(--bg4)':''};">
-          <span style="font-size:10px;color:var(--text3);">·</span>
-        </td>`;
+          <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
  
       const conflictList = _checkAttConflict(u, dk, parsed);
@@ -1404,20 +1399,18 @@ function _renderStaffAttendance() {
       } else if (parsed.type==='OFF') {
         bg='background:var(--D-bg);';
         const code=String(rawCode).toUpperCase();
-        txt = code==='0'||code==='0.0'?'0':code==='H'?'H':code==='A'?'A':code==='S'?'S':code==='U'?'U':code==='L'?'L':'OFF';
+        txt=code==='0'||code==='0.0'?'0':code;
         color='color:var(--err);font-weight:600;';
       } else if (parsed.type==='HD1'||parsed.type==='HD2') {
         bg='background:rgba(245,158,11,.10);';
         txt=String(rawCode).toUpperCase(); color='color:var(--warn);font-weight:600;';
       } else {
-        // WD — show shift letter
         bg='background:rgba(74,222,128,.06);';
         txt=parsed.shift||'✓'; color='color:var(--ok);font-weight:500;';
       }
  
-      const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
-      // Don't dim OFF or conflict cells even on weekends — they need to be visible
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
+      const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
       return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd?'opacity:.55;':''}"
         title="${title}">
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
@@ -1438,7 +1431,7 @@ function _renderStaffAttendance() {
       </td>
       ${cells}
     </tr>`;
-  }).filter(r => r).join('');
+  }).join('');
  
   const conflictBanner = totalConflicts > 0
     ? `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
@@ -1453,7 +1446,7 @@ function _renderStaffAttendance() {
   return `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
       ${monthPicker}
-      <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${users.length} staff</span>
+      <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${rowUsers.length} staff</span>
     </div>
     ${importPanel}
     ${conflictBanner}
