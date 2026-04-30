@@ -63,6 +63,9 @@ async function doLogin() {
 
   if (!u || !p) { err.textContent = 'Enter username and password.'; return; }
 
+  // Block onAuthStateChanged from firing mid-login and bypassing our checks
+  window._loginInProgress = true;
+
   err.style.color  = 'var(--text3)';
   err.textContent  = '☁ Signing in…';
   btn.disabled     = true;
@@ -79,6 +82,7 @@ async function doLogin() {
     const user = _resolveUser(u);
 
     if (!user) {
+      window._loginInProgress = false;
       err.style.color = '';
       err.textContent = 'Username not found in staff data. Ask admin to import staff.';
       btn.disabled = false;
@@ -87,6 +91,7 @@ async function doLogin() {
 
     const isAdminUser = (ROLES[user.role]?.level || 0) >= 3;
     if (!isAdminUser && !s) {
+      window._loginInProgress = false;
       err.style.color = '';
       err.textContent = 'Please select your current shift.';
       btn.disabled = false;
@@ -108,16 +113,19 @@ async function doLogin() {
 
     // Check first-login password change requirement (now using fresh cloud data)
     if (DB.mustChangePw(u)) {
+      window._loginInProgress = false;
       btn.disabled = false;
       _showChangePwPrompt(u);
       return;
     }
 
     DB.saveSession({ username: u, userId: user.id, shift: currentShift });
+    window._loginInProgress = false;
     btn.disabled = false;
     _afterLogin();
 
   } catch (e) {
+    window._loginInProgress = false;
     btn.disabled    = false;
     err.style.color = '';
     // Firebase error codes

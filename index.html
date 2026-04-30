@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <!-- SheetJS for Excel import -->
+   <!-- SheetJS for Excel import -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <!-- Firebase Auth SDK (compat version — works with existing JS pattern) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -358,9 +358,15 @@
   // ── Firebase Auth state listener ──
   // This replaces the old restoreSession() call.
   // Firebase fires this once at page load with the current auth state.
+  // NOTE: also fires immediately after firebaseSignIn() in doLogin() —
+  // we block it during that flow using _loginInProgress flag.
   firebaseOnAuthStateChanged(async (firebaseUser) => {
+    // If doLogin() is actively running, let it handle the flow
+    // onAuthStateChanged fires mid-doLogin which would bypass shift + mustChangePw checks
+    if (window._loginInProgress) return;
+ 
     if (firebaseUser) {
-      // Firebase has a valid session → auto-login
+      // Firebase has a valid session → auto-login (page reload)
       // Extract username from email: "cuong.pham@discoveryloft.com" → "cuong.pham"
       const username = firebaseUser.email.replace('@discoveryloft.com', '');
       const session  = DB.getSession();
@@ -373,7 +379,7 @@
         currentUser = user;
  
         // Pull latest cloud data first (needed for mustChangePw flag)
-        if (syncEnabled()) {
+        if (typeof syncEnabled === 'function' && syncEnabled()) {
           updateSyncBadge('busy');
           await syncPull();
           updateSyncBadge('ok');
@@ -381,7 +387,6 @@
  
         // Check if password change is still required
         if (DB.mustChangePw(username)) {
-          // Show login screen with change-password prompt
           document.getElementById('screen-login').classList.add('active');
           document.body.classList.add('login-active');
           _showChangePwPrompt(username);
