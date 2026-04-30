@@ -206,6 +206,17 @@ function _applyRemoteData(remote) {
       }
     });
   }
+  if (remote.monthlyAttendance) {
+    if (!state.monthlyAttendance) state.monthlyAttendance = {};
+    // Merge per username → monthKey → dateKey
+    Object.entries(remote.monthlyAttendance).forEach(([username, months]) => {
+      if (!state.monthlyAttendance[username]) state.monthlyAttendance[username] = {};
+      Object.entries(months || {}).forEach(([mk, dates]) => {
+        // Remote wins — monthly attendance is imported by admin, not edited per-device
+        state.monthlyAttendance[username][mk] = dates;
+      });
+    });
+  }
   // Restore full staff profiles (name, role, gender, empNo, dob) from cloud
   if (remote.staffInfo) {
    Object.entries(remote.staffInfo).forEach(([uname, si]) => {
@@ -245,16 +256,16 @@ async function syncPush() {
       schedule: u.schedule || {},
     }));
     const payload = {
-      breaks:           state.breaks,
-      requests:         state.requests,
-      extBreaks:        state.extBreaks,
-      attendance:       state.attendance || {},
-      users:            usersCompact,
-      
-      staffInfo:        staffInfoCloud,
-      _updated:         Date.now(),
-      _breaksUpdatedAt: state._breaksUpdatedAt || Date.now(),
-      _usersUpdatedAt:  state._usersUpdatedAt  || 0,
+      breaks:             state.breaks,
+      requests:           state.requests,
+      extBreaks:          state.extBreaks,
+      attendance:         state.attendance || {},
+      monthlyAttendance:  state.monthlyAttendance || {},
+      users:              usersCompact,
+      staffInfo:          staffInfoCloud,
+      _updated:           Date.now(),
+      _breaksUpdatedAt:   state._breaksUpdatedAt || Date.now(),
+      _usersUpdatedAt:    state._usersUpdatedAt  || 0,
     };
     const kb = (JSON.stringify(payload).length / 1024).toFixed(1);
     console.log(`[sync] push payload: ${kb}kb`);
