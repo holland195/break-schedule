@@ -45,16 +45,17 @@ function nav(page) {
     sync:              renderSyncSettings,
     training_overview: renderTrainingDashboard,
   };
+  if (page !== currentPage) { window._tShiftFilter='all'; window._tSearch=''; window._tAttDay=undefined; }
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';
   attachPageEvents(page);
 }
 
-function changeSidebarShift(v) {
-  currentShift = v;
-  if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
-  nav(currentPage);
-}
+  function changeSidebarShift(v) {
+    currentShift = v;
+    if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
+    nav(currentPage);
+  }
 
 function attachPageEvents(page) {
   if (page === 'arrange') {

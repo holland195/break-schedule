@@ -170,6 +170,7 @@ let scheduleMonday = null; // null = "use current real week"
 
 function renderSchedule() {
   const canPickWeek    = isLeader(currentUser);
+  if (isTraining(currentUser)) return renderScheduleTraining();
   const isTrainingUser = isTraining(currentUser);
   const shiftToShow    = isTrainingUser
     ? (window._scheduleShiftTab || 'A')
@@ -1716,6 +1717,7 @@ function resolveRequest(idx, status) {
 // ═══════════════════════════════════════════════
 function renderExtBreak() {
   const isFemale = currentUser.gender === 'F';
+  if (isTraining(currentUser)) return renderExtBreakTraining();
   const mk       = currentMonthKey();  // 'YYYY-MM'
   const [yr, mo] = mk.split('-');
   const monthLabel = new Date(parseInt(yr), parseInt(mo)-1, 1)
