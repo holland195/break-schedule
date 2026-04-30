@@ -1308,8 +1308,10 @@ function _renderStaffAttendance() {
       </div>
     </div>`;
  
-  const hasData = users.some(u => {
-    const ud = attData[u.username]?.[monthKey];
+  // Check monthlyAttendance directly — don't rely on state.users
+  // which may be empty on browsers that haven't imported a schedule
+  const hasData = Object.values(attData).some(userMonths => {
+    const ud = userMonths?.[monthKey];
     return ud && Object.keys(ud).length > 0;
   });
  
@@ -1355,9 +1357,23 @@ function _renderStaffAttendance() {
     </th>`;
   }).join('');
  
+  // Build row list from monthlyAttendance keys + state.users
+  // So rows show even if state.users hasn't been populated on this device
+  const attUsernames = Object.keys(attData).filter(uname =>
+    attData[uname]?.[monthKey] && Object.keys(attData[uname][monthKey]).length > 0
+  );
+  // Merge: prefer state.users for name/role/team, fall back to staffInfo
+  const rowUsers = attUsernames.map(uname => {
+    return state.users.find(u => u.username === uname) || (() => {
+      const si = state.staffInfo[uname];
+      if (!si) return null;
+      return { username: uname, name: si.name||uname, role: si.role||'', team: '' };
+    })();
+  }).filter(Boolean);
+ 
   let totalConflicts = 0;
  
-  const tbodyRows = users.map(u => {
+  const tbodyRows = rowUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
     const conflicts = [];
  
