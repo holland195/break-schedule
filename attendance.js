@@ -379,7 +379,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
  
       const conflictTitle = logConflict ? `⚠ Time logged on ${logConflict.reason} (${logConflict.code})` : '';
       return `<td id="att-cell-${u.username}-${dk}"
-        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:120px;text-align:left;vertical-align:top;
+        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:110px;text-align:center;vertical-align:top;
           ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
         onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
         ${row1}
@@ -387,12 +387,6 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
         ${row3}
         ${row4}
         ${noteTxt ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:120px;text-overflow:ellipsis;" title="${noteTxt}">📝 ${noteTxt}</div>` : ''}
-      </td>`;
-        title="${conflictTitle}">
-        ${logConflict ? `<div style="font-size:9px;font-weight:700;color:var(--err);">⚠${logConflict.code}</div>` : ''}
-        <div>${startCell}</div>
-        <div>${endCell}</div>
-        ${noteTxt ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:66px;text-overflow:ellipsis;" title="${noteTxt}">📝 ${noteTxt}</div>` : ''}
       </td>`;
     }).join('');
 
