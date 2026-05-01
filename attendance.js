@@ -32,19 +32,77 @@ function _parseTime(str) {
 // Normalize any time string → "HH:MM" for storage
 function _normalizeTime(str) {
   if (!str) return '';
-  const mins = _parseTime(str);
-  if (mins === null) return str.trim(); // store as-is if unrecognized
-  const h = Math.floor(mins / 60) % 24;
-  const m = mins % 60;
-  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+  const s = str.trim();
+  // Preserve the full original string — keep seconds and AM/PM as entered
+  // Only normalize: remove extra whitespace, ensure consistent spacing
+  // e.g. "12:00:04AM" → "12:00:04 AM"
+  //      "12:00:04 am" → "12:00:04 AM"
+  //      "0:00:04"  → keep as-is (24h format with seconds)
+  const ampm = s.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s*(AM|PM)$/i);
+  if (ampm) {
+    return `${ampm[1]} ${ampm[2].toUpperCase()}`;
+  }
+  return s; // return as-is for 24h format or anything else
 }
 
 // Format minute diff → "+HH:MM" string
+// Format minute diff → "HH:MM:SS" string
+// If actualStr and defStr are provided, computes exact seconds
+// Otherwise falls back to minute precision with :00 seconds
+function _fmtDiffFull(approxMins, actualStr, defStr) {
+  function parseSeconds(str) {
+    if (!str) return null;
+    const s = str.trim();
+    // HH:MM:SS AM/PM
+    const ampm = s.match(/^(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i);
+    if (ampm) {
+      let h = parseInt(ampm[1]), m = parseInt(ampm[2]), sec = parseInt(ampm[3]);
+      const p = ampm[4].toUpperCase();
+      if (p === 'AM' && h === 12) h = 0;
+      if (p === 'PM' && h !== 12) h += 12;
+      return h * 3600 + m * 60 + sec;
+    }
+    // HH:MM:SS (24h)
+    const h24s = s.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+    if (h24s) return parseInt(h24s[1])*3600 + parseInt(h24s[2])*60 + parseInt(h24s[3]);
+    // HH:MM AM/PM
+    const ampm2 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (ampm2) {
+      let h = parseInt(ampm2[1]), m = parseInt(ampm2[2]);
+      const p = ampm2[3].toUpperCase();
+      if (p === 'AM' && h === 12) h = 0;
+      if (p === 'PM' && h !== 12) h += 12;
+      return h * 3600 + m * 60;
+    }
+    // HH:MM (24h)
+    const h24 = s.match(/^(\d{1,2}):(\d{2})$/);
+    if (h24) return parseInt(h24[1])*3600 + parseInt(h24[2])*60;
+    return null;
+  }
+ 
+  let totalSec;
+  if (actualStr && defStr) {
+    const a = parseSeconds(actualStr);
+    const d = parseSeconds(defStr);
+    if (a !== null && d !== null) {
+      totalSec = Math.abs(a - d);
+      if (totalSec > 43200) totalSec = 86400 - totalSec; // overnight wrap
+    }
+  }
+  if (totalSec === undefined) {
+    totalSec = Math.abs(approxMins) * 60;
+  }
+ 
+  const h   = Math.floor(totalSec / 3600).toString().padStart(2, '0');
+  const m   = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
+  const sec = (totalSec % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${sec}`;
+}
+ 
+// Keep _fmtDiff as a simple wrapper for backward compatibility
+// (used in report.js and other places that only have minutes)
 function _fmtDiff(mins) {
-  const abs = Math.abs(mins);
-  const h = Math.floor(abs / 60).toString().padStart(2, '0');
-  const m = (abs % 60).toString().padStart(2, '0');
-  return `+${h}:${m}`;
+  return _fmtDiffFull(mins, null, null);
 }
 
 // Get shift code for a user on a specific date
@@ -277,11 +335,17 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const startSymbol = isLate  ? `<span style="font-size:9px;font-weight:700;color:var(--err);">(-)</span> ` : (startTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
       const endSymbol   = isEarly ? `<span style="font-size:9px;font-weight:700;color:var(--warn);">(-)</span> ` : (endTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
       const startCell = startTxt
-        ? `<div style="display:flex;align-items:center;gap:1px;">${startSymbol}<span style="font-size:10px;color:${isLate?'var(--err)':'var(--ok)'};">${startTxt}</span></div>`
-        : `<span style="color:var(--text3);font-size:13px;">—</span>`;
+        ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};white-space:nowrap;">
+             <span style="font-size:9px;font-weight:700;">${isLate?'(-)':'(+)'}</span> ${startTxt}
+           </div>
+           ${isLate ? `<div style="font-size:9px;color:var(--err);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">${_fmtDiffFull(lateMin, rec?.start, SHIFT_DEFAULTS[_getUserShiftOnDate(state.users.find(x=>x.id===u.id), dk)]?.start)}</div>` : ''}`
+        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
       const endCell = endTxt
-        ? `<div style="display:flex;align-items:center;gap:1px;">${endSymbol}<span style="font-size:10px;color:${isEarly?'var(--warn)':'var(--ok)'};">${endTxt}</span></div>`
-        : `<span style="color:var(--text3);font-size:13px;">—</span>`;
+        ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};white-space:nowrap;">
+             <span style="font-size:9px;font-weight:700;">${isEarly?'(-)':'(+)'}</span> ${endTxt}
+           </div>
+           ${isEarly ? `<div style="font-size:9px;color:var(--warn);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">${_fmtDiffFull(earlyMin, SHIFT_DEFAULTS[_getUserShiftOnDate(state.users.find(x=>x.id===u.id), dk)]?.end, rec?.end)}</div>` : ''}`
+        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
       const logConflict = logConflicts.find(c => c.dk === dk);
       const bg = logConflict
@@ -296,7 +360,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
  
       const conflictTitle = logConflict ? `⚠ Time logged on ${logConflict.reason} (${logConflict.code})` : '';
       return `<td id="att-cell-${u.username}-${dk}"
-        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:68px;text-align:center;vertical-align:top;
+        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:110px;text-align:center;vertical-align:top;
           ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
         onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;"
         title="${conflictTitle}">
