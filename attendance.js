@@ -221,7 +221,15 @@ function _getAllAttendanceSundays() {
   });
   return [...sundays].sort((a, b) => {
     const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-    return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
+    // Use current year as base but handle year wrap:
+    // dates with month > current month by more than 6 = previous year
+    const now = new Date();
+    const cy = now.getFullYear();
+    const toMs = (d, m) => {
+      const yr = parseInt(m) > now.getMonth()+7 ? cy-1 : (parseInt(m) < now.getMonth()-4 ? cy+1 : cy);
+      return new Date(yr, parseInt(m)-1, parseInt(d)).getTime();
+    };
+    return toMs(da, ma) - toMs(db, mb);
   });
 }
 
@@ -308,12 +316,26 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   // Week picker: all available sundays
   const allSundays = _getAllAttendanceSundays();
   const curSun     = weekDates[0];
-  const weekPicker = allSundays.length > 1 ? `
-    <select class="fg" style="font-size:12px;padding:4px 8px;width:auto;"
-      onchange="attendanceMonday=this.value==='cur'?null:this.value;nav('attendance')">
-      ${allSundays.map(s => `<option value="${s}" ${s===curSun?'selected':''}>${s} – ${_addDays(s,6)}</option>`).join('')}
-      ${!allSundays.includes(curSun) ? `<option value="cur" selected>This week</option>` : ''}
-    </select>` : `<span style="font-size:12px;color:var(--text2);">${curSun} – ${_addDays(curSun,6)}</span>`;
+  const curIdx = allSundays.indexOf(curSun);
+  const prevSun = curIdx > 0 ? allSundays[curIdx-1] : null;
+  const nextSun = curIdx < allSundays.length-1 ? allSundays[curIdx+1] : null;
+ 
+  const weekPicker = `
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button style="padding:3px 10px;border-radius:var(--r);border:1px solid var(--border2);
+        background:var(--bg2);cursor:${prevSun?'pointer':'default'};color:${prevSun?'var(--text)':'var(--text3)'};"
+        ${prevSun?`onclick="attendanceMonday='${prevSun}';nav('attendance')"`:''}>‹</button>
+      ${allSundays.length > 1
+        ? `<select class="fg" style="font-size:12px;padding:4px 8px;width:auto;"
+            onchange="attendanceMonday=this.value==='cur'?null:this.value;nav('attendance')">
+            ${allSundays.map(s => `<option value="${s}" ${s===curSun?'selected':''}>${s} – ${_addDays(s,6)}</option>`).join('')}
+            ${!allSundays.includes(curSun) ? `<option value="cur" selected>This week</option>` : ''}
+          </select>`
+        : `<span style="font-size:12px;color:var(--text2);">${curSun} – ${_addDays(curSun,6)}</span>`}
+      <button style="padding:3px 10px;border-radius:var(--r);border:1px solid var(--border2);
+        background:var(--bg2);cursor:${nextSun?'pointer':'default'};color:${nextSun?'var(--text)':'var(--text3)'};"
+        ${nextSun?`onclick="attendanceMonday='${nextSun}';nav('attendance')"`:''}>›</button>
+    </div>`;
 
   // Build rows
   const rows = shiftUsers.map(u => {
