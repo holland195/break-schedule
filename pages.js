@@ -1474,47 +1474,91 @@ function importMonthlyAttendance() {
     return;
   }
   statusEl.innerHTML = '<span style="color:var(--text2);">Reading…</span>';
-  const year = _attImportYear, month = _attImportMonth;
+ 
+  const year     = _attImportYear;
+  const month    = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
  
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      // Read with cellDates:true to get JS Date objects for date headers
-      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      // Use cellDates:true + raw:true so:
+      // - date header cells → JS Date objects
+      // - attendance code cells → raw strings ('XD', 'H', etc.)
+      // - numeric cells (0) → numbers (not formatted strings)
+      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:true, raw:true });
       const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:false });
-      if (!rows.length) { statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>'; return; }
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
  
-      // Row 0 = date headers, Row 1 = formula row (CHOOSE/WEEKDAY) — skip
+      if (!rows.length) {
+        statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>';
+        return;
+      }
+ 
+      // Row 0 = date headers (cols 4+ are dates as JS Date objects)
+      // Row 1 = formula row (CHOOSE/WEEKDAY labels) — skip
       // Row 2+ = staff data
-      // Columns: 0=No. 1=Emp# 2=Name 3=Position 4+=dates
       const headerRow = rows[0];
       const dateCols  = [];
+ 
       headerRow.forEach((h, i) => {
-        if (i < 4) return; // skip No./Emp#/Name/Position
-        const dk = _excelDateToDk(h, month);
+        if (i < 4) return; // skip No./Emp#/Name/Position cols
+        let dk = null;
+ 
+        if (h instanceof Date) {
+          // cellDates:true gives JS Date objects directly
+          dk = String(h.getDate()).padStart(2,'0') + '/' + String(h.getMonth()+1).padStart(2,'0');
+        } else if (typeof h === 'number' && h > 40000) {
+          // Excel serial number fallback
+          const dt = new Date(Math.round((h - 25569) * 86400 * 1000));
+          dk = String(dt.getUTCDate()).padStart(2,'0') + '/' + String(dt.getUTCMonth()+1).padStart(2,'0');
+        } else if (typeof h === 'string') {
+          // String date formats: "25/04", "25-04", "2026-04-25"
+          const c = h.replace(/[-–]/g, '/').trim();
+          if (/^\d{4}\/\d{2}\/\d{2}$/.test(c)) {
+            const parts = c.split('/');
+            dk = parts[2] + '/' + parts[1]; // YYYY/MM/DD → DD/MM
+          } else if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
+            const [d, m] = c.split('/');
+            dk = d.padStart(2,'0') + '/' + m.padStart(2,'0');
+          }
+        }
+ 
         if (dk) dateCols.push({ index: i, dateKey: dk });
       });
+ 
+      if (dateCols.length === 0) {
+        statusEl.innerHTML = '<span style="color:var(--err);">Could not detect date columns in row 1. Check Excel format.</span>';
+        return;
+      }
  
       if (!state.monthlyAttendance) state.monthlyAttendance = {};
       let imported = 0, skipped = 0;
  
-      rows.slice(2).forEach(row => { // slice(2) skips header + formula row
+      // slice(2) skips row 0 (headers) and row 1 (CHOOSE/WEEKDAY formulas)
+      rows.slice(2).forEach(row => {
         if (!row) return;
         const nameVal = String(row[2] || '').trim(); // col C = Name
         const empNo   = String(row[1] || '').trim(); // col B = Emp#
         if (!nameVal && !empNo) return;
  
-        // Match by name first, then by empNo via staffInfo
+        // Match staff by name first, then empNo
         let user = state.users.find(u =>
           u.name === nameVal ||
           (u.name||'').toLowerCase() === nameVal.toLowerCase()
         );
         if (!user && empNo) {
           const si = Object.entries(state.staffInfo||{})
-            .find(([,v]) => v.empNo === empNo);
+            .find(([, v]) => v.empNo === empNo);
           if (si) user = state.users.find(u => u.username === si[0]);
+        }
+        // Fallback: match via staffInfo by name alone
+        if (!user) {
+          const si = Object.entries(state.staffInfo||{}).find(([, v]) =>
+            v.name === nameVal ||
+            (v.name||'').toLowerCase() === nameVal.toLowerCase()
+          );
+          if (si) user = { username: si[0], name: si[1].name, id: null };
         }
         if (!user) { skipped++; return; }
  
@@ -1525,8 +1569,16 @@ function importMonthlyAttendance() {
         dateCols.forEach(({ index, dateKey }) => {
           const raw = row[index];
           if (raw === null || raw === undefined) return;
-          const rawStr = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
-          if (!rawStr) return;
+ 
+          // Normalize to uppercase string
+          let rawStr;
+          if (typeof raw === 'number') {
+            rawStr = String(Math.round(raw)); // 0.0 → "0"
+          } else {
+            rawStr = String(raw).trim().toUpperCase();
+          }
+ 
+          if (!rawStr || rawStr === '') return;
           state.monthlyAttendance[uname][monthKey][dateKey] = rawStr;
         });
         imported++;
@@ -1534,7 +1586,7 @@ function importMonthlyAttendance() {
  
       save();
       if (typeof syncWrite === 'function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported · ${dateCols.length} date columns · ${skipped} not matched</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported · ${dateCols.length} date columns detected · ${skipped} not matched</span>`;
       nav('staff');
     } catch(ex) {
       console.error('[att import]', ex);
