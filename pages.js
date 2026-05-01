@@ -86,12 +86,17 @@ function _checkAttConflict(u, dk, parsedCode) {
   const weekRec = DB.getAttendance(u.id, dk);
   const schedShift = (u.schedule?.[dk] || '').charAt(0);
   const conflicts = [];
+  // Only flag if start or end is a non-empty, non-dash string
+  const hasRealRecord = weekRec &&
+    ((weekRec.start && weekRec.start.trim() !== '' && weekRec.start !== '—') ||
+     (weekRec.end   && weekRec.end.trim()   !== '' && weekRec.end   !== '—'));
+ 
   if (parsedCode.type === 'OFF') {
-    if (weekRec && (weekRec.start || weekRec.end)) {
+    if (hasRealRecord) {
       conflicts.push(`Attendance logged on ${parsedCode.reason||'off day'}`);
     }
   } else if (parsedCode.type === 'HD1' || parsedCode.type === 'HD2') {
-    if (weekRec && (weekRec.start || weekRec.end)) {
+    if (hasRealRecord) {
       conflicts.push('Half-day but attendance logged');
     }
   } else if (parsedCode.type === 'WD') {
@@ -1337,19 +1342,25 @@ function _renderStaffAttendance() {
     </div>`;
  
   // Build table header dates
+  const WDAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const theadDates = dates.map(dk => {
     const [_d, _m] = dk.split('/');
     const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
-    return `<th style="min-width:36px;padding:4px 1px;text-align:center;
-      font-size:10px;font-weight:500;color:${isWknd?'var(--text3)':'var(--text2)'};
+    const isSun  = dow === 0;
+    // Show month number at start of each month (day 01) and at start of table (day 25)
+    const showMonth = _d === '01' || _d === '25';
+    return `<th style="min-width:40px;width:40px;padding:5px 2px;text-align:center;
+      font-size:10px;font-weight:600;
+      color:${isSun?'var(--err)':isWknd?'var(--warn)':'var(--text)'};
       background:${isWknd?'var(--bg4)':'var(--bg3)'};
-      border-bottom:2px solid var(--border2);">
-      <div>${['S','M','T','W','T','F','S'][dow]}</div>
-      <div>${parseInt(_d)}</div>
-      ${_d === '25' || _d === '01'
-        ? `<div style="font-size:8px;opacity:.6;">/${_m}</div>` : ''}
+      border-bottom:2px solid ${isWknd?'var(--border2)':'var(--accent)'};
+      border-left:${isSun?'2px solid var(--border2)':'none'};
+      position:sticky;top:0;z-index:2;">
+      <div style="font-size:9px;font-weight:500;opacity:.7;line-height:1.4;">${WDAY_LABELS[dow]}</div>
+      <div style="line-height:1.4;">${_d}${showMonth?`<span style="font-size:8px;opacity:.6;">/${_m}</span>`:''}
+      </div>
     </th>`;
   }).join('');
  
@@ -1453,7 +1464,7 @@ function _renderStaffAttendance() {
     ${legendHTML}
     <div style="overflow-x:auto;">
       <table style="border-collapse:collapse;width:max-content;min-width:100%;">
-        <thead style="position:sticky;top:0;z-index:2;background:var(--bg3);">
+        <thead style="background:var(--bg3);">
           <tr>
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
               min-width:180px;position:sticky;left:0;z-index:3;background:var(--bg3);
