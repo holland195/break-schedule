@@ -528,7 +528,7 @@ function renderAttendanceTraining() {
     const dow = new Date(cellY, parseInt(_m)-1, parseInt(_d)).getDay();
     const isToday = dk===todayDk;
     const isWknd = dow===0||dow===6;
-    return `<th style="min-width:64px;width:64px;padding:4px 1px;text-align:center;
+    return `<th style="min-width:100px;width:100px;padding:4px 1px;text-align:center;
       font-size:10px;font-weight:500;position:sticky;top:0;z-index:2;
       color:${isToday?'var(--accent)':isWknd?'var(--warn)':'var(--text2)'};
       background:${isToday?'rgba(31,102,241,.08)':isWknd?'var(--bg4)':'var(--bg3)'};
@@ -593,7 +593,7 @@ function renderAttendanceTraining() {
            </div>`;
 
       return `<td style="text-align:center;padding:3px 1px;cursor:pointer;vertical-align:top;
-        min-width:64px;width:64px;${bg}
+        min-width:100px;width:100px;${bg}
         ${isToday?'outline:1.5px solid var(--accent);outline-offset:-1px;':''}
         ${isSunDiv?'border-left:1px solid var(--border2);':''}"
         onclick="openAttendanceModal(${u.id},'${dk}')"
