@@ -96,6 +96,32 @@ function calcLateEarly(uid, dateKey) {
   };
 }
 
+function _getLogbookConflicts(userId, weekDates) {
+  const conflicts = [];
+  weekDates.forEach(dk => {
+    const rec = DB.getAttendance(userId, dk);
+    if (!rec || (!rec.start && !rec.end)) return;
+    // Check monthly attendance for this date
+    const u = state.users.find(x => x.id === userId);
+    if (!u) return;
+    const m  = parseInt(dk.split('/')[1]);
+    const y  = new Date().getFullYear();
+    const mk = `${y}-${String(m).padStart(2,'0')}`;
+    const uAtt = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+    if (!uAtt) return;
+    const parsed = _parseAttCode ? _parseAttCode(uAtt) : null;
+    if (!parsed) return;
+    const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
+                          (rec.end   && rec.end.trim()   && rec.end   !== '—');
+    if (parsed.type === 'OFF' && hasRealRecord) {
+      conflicts.push({ dk, code: uAtt, reason: parsed.reason || 'Off day' });
+    } else if ((parsed.type === 'HD1' || parsed.type === 'HD2') && hasRealRecord) {
+      conflicts.push({ dk, code: uAtt, reason: 'Half day' });
+    }
+  });
+  return conflicts;
+}
+
 // ── State for attendance page ──
 let attendanceMonday = null; // null = current week
 let attendanceTab    = 'log';  // 'log' | 'report'
@@ -139,6 +165,33 @@ function _getAllAttendanceSundays() {
     const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
     return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
   });
+}
+
+function _getLogbookConflicts(userId, weekDates) {
+  const conflicts = [];
+  const u = state.users.find(x => x.id === userId);
+  if (!u) return conflicts;
+  weekDates.forEach(dk => {
+    const rec = DB.getAttendance(userId, dk);
+    if (!rec) return;
+    const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
+                          (rec.end   && rec.end.trim()   && rec.end   !== '—');
+    if (!hasRealRecord) return;
+    // Look up monthly attendance for this date
+    const [_d, _m] = dk.split('/');
+    const y  = new Date().getFullYear();
+    const mk = `${y}-${_m.padStart ? _m : String(_m).padStart(2,'0')}`;
+    const uAttCode = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+    if (!uAttCode) return;
+    const parsed = typeof _parseAttCode === 'function' ? _parseAttCode(uAttCode) : null;
+    if (!parsed) return;
+    if (parsed.type === 'OFF') {
+      conflicts.push({ dk, code: uAttCode, reason: parsed.reason || 'Off day' });
+    } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
+      conflicts.push({ dk, code: uAttCode, reason: 'Half day' });
+    }
+  });
+  return conflicts;
 }
 
 // ═══════════════════════════════════════════════
@@ -203,6 +256,9 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 
   // Build rows
   const rows = shiftUsers.map(u => {
+    // Get all conflict dates for this user this week
+    const logConflicts = _getLogbookConflicts(u.id, weekDates);
+ 
     const cells = weekDates.map((dk, di) => {
       const shift = _getUserShiftOnDate(u, dk);
       if (!shift || !shift.startsWith(currentShift.charAt(0))) {
@@ -218,31 +274,40 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const endTxt    = rec?.end    || '';
       const noteTxt   = rec?.note   || '';
 
+      const startSymbol = isLate  ? `<span style="font-size:9px;font-weight:700;color:var(--err);">(-)</span> ` : (startTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
+      const endSymbol   = isEarly ? `<span style="font-size:9px;font-weight:700;color:var(--warn);">(-)</span> ` : (endTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
       const startCell = startTxt
-        ? `<span style="font-size:10px;color:${isLate?'var(--err)':'var(--ok)'};">${startTxt}</span>${isLate ? `<span style="font-size:9px;color:var(--err);display:block;">${late}</span>` : ''}`
-        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
+        ? `<div style="display:flex;align-items:center;gap:1px;">${startSymbol}<span style="font-size:10px;color:${isLate?'var(--err)':'var(--ok)'};">${startTxt}</span></div>`
+        : `<span style="color:var(--text3);font-size:13px;">—</span>`;
       const endCell = endTxt
-        ? `<span style="font-size:10px;color:${isEarly?'var(--warn)':'var(--ok)'};">${endTxt}</span>${isEarly ? `<span style="font-size:9px;color:var(--warn);display:block;">${early}</span>` : ''}`
-        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
+        ? `<div style="display:flex;align-items:center;gap:1px;">${endSymbol}<span style="font-size:10px;color:${isEarly?'var(--warn)':'var(--ok)'};">${endTxt}</span></div>`
+        : `<span style="color:var(--text3);font-size:13px;">—</span>`;
 
-      const bg = isLate || isEarly ? (isLate ? 'var(--D-bg)' : 'rgba(245,158,11,.08)') : (hasData ? 'var(--C-bg)' : '');
+      const logConflict = logConflicts.find(c => c.dk === dk);
+      const bg = logConflict
+        ? 'rgba(248,113,113,.18)'
+        : isLate || isEarly ? (isLate ? 'var(--D-bg)' : 'rgba(245,158,11,.08)')
+        : (hasData ? 'var(--C-bg)' : '');
 
       // Check if this cell should be highlighted (came from conflict click)
       const isHighlighted = window._attHighlight &&
         window._attHighlight.uid === u.id &&
         window._attHighlight.dateKey === dk;
  
+      const conflictTitle = logConflict ? `⚠ Time logged on ${logConflict.reason} (${logConflict.code})` : '';
       return `<td id="att-cell-${u.username}-${dk}"
         style="padding:3px 4px;background:${bg};cursor:pointer;min-width:68px;text-align:center;vertical-align:top;
           ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
-        onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
+        onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;"
+        title="${conflictTitle}">
+        ${logConflict ? `<div style="font-size:9px;font-weight:700;color:var(--err);">⚠${logConflict.code}</div>` : ''}
         <div>${startCell}</div>
         <div>${endCell}</div>
         ${noteTxt ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:66px;text-overflow:ellipsis;" title="${noteTxt}">📝 ${noteTxt}</div>` : ''}
       </td>`;
     }).join('');
 
-    // Row summary: count late + early days
+    // Row summary: count late + early days + conflicts
     let lateDays = 0, earlyDays = 0;
     weekDates.forEach(dk => {
       const {lateMin, earlyMin} = calcLateEarly(u.id, dk);
@@ -261,6 +326,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       <td style="padding:5px 8px;white-space:nowrap;${stickyName}">
         <div style="font-weight:600;font-size:12px;">${u.name}</div>
         <div style="font-size:10px;color:var(--text3);">${u.team||'—'} · <span class="role-tag ${roleInfo.tag}" style="font-size:9px;">${roleInfo.label}</span></div>
+        ${logConflicts.length > 0 ? `<div style="font-size:9px;color:var(--err);margin-top:2px;">⚠ ${logConflicts.length} conflict${logConflicts.length>1?'s':''}: ${logConflicts.map(c=>c.dk).join(', ')}</div>` : ''}
       </td>
       <td style="padding:5px 8px;white-space:nowrap;${stickyUser}">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);">${u.username}</div>
@@ -281,7 +347,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   return `
 <div class="page-header">
   <div>
-    <div class="page-title">⏱ Attendance & Reports</div>
+    <div class="page-title">⏱ Logbook & Reports</div>
     <div class="page-sub">Track late arrivals and early departures · Shift ${currentShift} · Week Sun–Sat</div>
   </div>
 </div>
@@ -301,6 +367,18 @@ ${tabs}
   <span style="font-size:11px;padding:2px 8px;background:var(--C-bg);border-radius:4px;color:var(--ok);">🟢 On time</span>
   <span style="font-size:11px;color:var(--text3);">Click any cell to fill/edit</span>
 </div>
+
+${(() => {
+  const allConflicts = shiftUsers.flatMap(u =>
+    _getLogbookConflicts(u.id, weekDates).map(c => ({...c, name: u.name}))
+  );
+  if (!allConflicts.length) return '';
+  return `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
+    border-radius:8px;margin-bottom:12px;font-size:12px;color:var(--err);line-height:1.8;">
+    ⚠ <b>${allConflicts.length} conflict${allConflicts.length>1?'s':''}</b> this week —
+    ${allConflicts.map(c=>`<b>${c.name}</b> on ${c.dk} (${c.code})`).join(' · ')}
+  </div>`;
+})()}
 
 <!-- Table -->
 <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">

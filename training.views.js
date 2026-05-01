@@ -216,7 +216,21 @@ function renderScheduleTraining() {
     const s2b=`<span class="break-slot slot-2" style="font-size:10px;padding:2px 6px;margin-left:4px;">${sh}2: ${d.s2}</span>`;
     const hdr=`${d.users.length} agents · ${selDay} on-shift: ${d.total} ${s1b}${s2b}`;
 
+    // Legend: show slot times for this shift
+    const legendHTML = d.slots.length > 0
+      ? d.slots.map((time, i) =>
+          `<span class="break-slot slot-${i+1}" style="font-size:10px;padding:2px 8px;">${sh}${i+1}</span>
+           <span style="font-size:11px;color:var(--text2);margin-right:10px;">${time}</span>`
+        ).join('')
+      : '<span style="font-size:11px;color:var(--text3);">No slots defined</span>';
+ 
     return _shiftBlock(sh, hdr, `
+      <div style="display:flex;align-items:center;gap:4px;padding:6px 14px;
+        background:var(--bg3);border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <span style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;
+          letter-spacing:.05em;margin-right:6px;">Legend:</span>
+        ${legendHTML}
+      </div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead><tr>

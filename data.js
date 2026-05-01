@@ -95,8 +95,46 @@ const DB = {
   addRequest:    r            => { state.requests.unshift(r); },
   updateRequest: (i,r)        => { state.requests[i]={...state.requests[i],...r}; },
   getExtBreaks:  (uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]),
-  addExtBreak:   (uid,mk,e)   => { const k=`${uid}_${mk}`; if(!state.extBreaks[k]) state.extBreaks[k]=[]; state.extBreaks[k].push(e); },
-  deleteExtBreak:(uid,mk,i)   => { const k=`${uid}_${mk}`; if(state.extBreaks[k]) state.extBreaks[k].splice(i,1); },
+  addExtBreak:      (uid,mk,e)      => { const k=`${uid}_${mk}`; if(!state.extBreaks[k]) state.extBreaks[k]=[]; state.extBreaks[k].push({...e, status:'pending', at:Date.now()}); },
+  deleteExtBreak:   (uid,mk,i)      => { const k=`${uid}_${mk}`; if(state.extBreaks[k]) state.extBreaks[k].splice(i,1); },
+  approveExtBreak:  (uid, mk, idx, byId) => {
+    const k = `${uid}_${mk}`;
+    if (state.extBreaks[k]?.[idx]) {
+      state.extBreaks[k][idx].status     = 'approved';
+      state.extBreaks[k][idx].approvedBy = byId;
+      state.extBreaks[k][idx].approvedAt = Date.now();
+      save();
+    }
+  },
+  rejectExtBreak:   (uid, mk, idx, byId, reason) => {
+    const k = `${uid}_${mk}`;
+    if (state.extBreaks[k]?.[idx]) {
+      state.extBreaks[k][idx].status          = 'rejected';
+      state.extBreaks[k][idx].rejectedBy      = byId;
+      state.extBreaks[k][idx].rejectedReason  = reason || '';
+      state.extBreaks[k][idx].rejectedAt      = Date.now();
+      save();
+    }
+    },
+  getPendingExtBreaks: () => {
+    const pending = [];
+    Object.entries(state.extBreaks||{}).forEach(([key, entries]) => {
+      const [uid, mk] = key.split('_');
+      (entries||[]).forEach((e,i) => {
+        if (e.status === 'pending' || !e.status) pending.push({ uid:parseInt(uid), mk, idx:i, ...e });
+      });
+    });
+    return pending;
+  },
+  countPendingExtBreaks: () => {
+    let n = 0;
+    Object.values(state.extBreaks || {}).forEach(entries => {
+      (entries || []).forEach(e => {
+        if (!e.status || e.status === 'pending') n++;
+      });
+    });
+    return n;
+  },
   countExtBreaks:(uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]).length,
   // attendance: key = `${uid}_${dateKey}` → { start, end, note, by, at }
   getAttendance: (uid,day)   => {
@@ -264,6 +302,13 @@ function updateBadge() {
   const p=state.requests.filter(r=>r.status==='pending').length;
   const b=document.getElementById('req-badge');
   if(b){b.style.display=p>0?'':'none';b.textContent=p;}
+  // Pending ext breaks badge
+  const extBadge = document.getElementById('ext-badge');
+  if (extBadge) {
+    const pend = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
+    extBadge.textContent = pend;
+    extBadge.style.display = (isLeader(currentUser) || isTraining(currentUser)) && pend > 0 ? '' : 'none';
+  }
 }
 function timeSince(ts) {
   const d=Date.now()-ts;

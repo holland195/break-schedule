@@ -2007,9 +2007,11 @@ function resolveRequest(idx, status) {
 //  Leaders see everyone's registrations for current shift
 // ═══════════════════════════════════════════════
 function renderExtBreak() {
-  const isFemale = currentUser.gender === 'F';
-  if (isTraining(currentUser)) return renderExtBreakTraining();
-  const mk       = currentMonthKey();  // 'YYYY-MM'
+    const isFemale   = currentUser.gender === 'F';
+    if (isTraining(currentUser)) return renderExtBreakTraining();
+    const canApprove = isLeader(currentUser) || isTraining(currentUser);
+    const pendingCount = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
+    const mk         = currentMonthKey();
   const [yr, mo] = mk.split('-');
   const monthLabel = new Date(parseInt(yr), parseInt(mo)-1, 1)
     .toLocaleString('en-US', { month: 'long', year: 'numeric' });
@@ -2059,8 +2061,22 @@ function renderExtBreak() {
             <span style="color:var(--text2);font-size:11px;">${e.time}</span>
             ${regByLine}
             <span style="font-size:10px;color:var(--text3);margin-left:auto;">${timeSince(e.at)}</span>
-            ${u.id === currentUser.id || isLeader(currentUser) ? `
-              <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i},${currentUser.id})">✕</button>` : ''}
+            ${(() => {
+              const status = e.status || 'pending';
+              const badge = status === 'approved'
+                ? `<span style="font-size:10px;background:var(--C-bg);color:var(--ok);border-radius:4px;padding:2px 8px;">✓ Approved</span>`
+                : status === 'rejected'
+                ? `<span style="font-size:10px;background:var(--D-bg);color:var(--err);border-radius:4px;padding:2px 8px;" title="${e.rejectedReason||''}">✗ Rejected${e.rejectedReason?' — '+e.rejectedReason:''}</span>`
+                : `<span style="font-size:10px;background:rgba(245,158,11,.15);color:var(--warn);border-radius:4px;padding:2px 8px;">⏳ Pending</span>`;
+              const approveBtn = canApprove && (status === 'pending') ? `
+                <button class="btn btn-xs" style="background:var(--C-bg);color:var(--ok);border:1px solid var(--ok);"
+                  onclick="approveExtBreak(${u.id},'${mk}',${i})">✓ Approve</button>
+                <button class="btn btn-xs btn-err"
+                  onclick="rejectExtBreakPrompt(${u.id},'${mk}',${i})">✗ Reject</button>` : '';
+              const delBtn = (u.id === currentUser.id || isLeader(currentUser)) ? `
+                <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i},${currentUser.id})">🗑</button>` : '';
+              return badge + approveBtn + delBtn;
+            })()}
           </div>`;
         }).join('');
 
@@ -2108,10 +2124,20 @@ function renderExtBreak() {
 </div>
 
 ${noAccessMsg}
-
-${viewUsers.length === 0 && !noAccessMsg ? `<div class="empty"><div class="empty-ico">👥</div>No female staff on Shift ${currentShift} this week.</div>` : ''}
-
-${userCards}
+ 
+  ${canApprove && pendingCount > 0 ? `
+  <div style="padding:10px 16px;background:rgba(245,158,11,.12);border:1px solid var(--warn);
+    border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:20px;">⏳</span>
+    <div>
+      <div style="font-weight:600;color:var(--warn);">${pendingCount} pending request${pendingCount>1?'s':''}</div>
+      <div style="font-size:11px;color:var(--text2);">Review below — approve or reject each request</div>
+    </div>
+  </div>` : ''}
+ 
+  ${viewUsers.length === 0 && !noAccessMsg ? `<div class="empty"><div class="empty-ico">👥</div>No female staff on Shift ${currentShift} this week.</div>` : ''}
+ 
+  ${userCards}
 
 <div class="card" style="background:var(--bg3);border-color:var(--border2);">
   <div class="card-title">Rules</div>
@@ -2269,7 +2295,23 @@ function deleteExtBreak(uid, mk, idx, cancelledById) {
   nav('extbreak');
 }
 
-
+function approveExtBreak(uid, mk, idx) {
+  DB.approveExtBreak(uid, mk, idx, currentUser.id);
+  if (typeof syncWrite === 'function') syncWrite(); else save();
+  updateBadge();
+  toast('✓ Extra break approved.', 'ok');
+  nav('extbreak');
+}
+ 
+function rejectExtBreakPrompt(uid, mk, idx) {
+  const reason = prompt('Rejection reason (optional):');
+  if (reason === null) return; // user cancelled prompt
+  DB.rejectExtBreak(uid, mk, idx, currentUser.id, reason || '');
+  if (typeof syncWrite === 'function') syncWrite(); else save();
+  updateBadge();
+  toast('Extra break rejected.', 'warn');
+  nav('extbreak');
+}
 
 
 // ═══════════════════════════════════════════════
