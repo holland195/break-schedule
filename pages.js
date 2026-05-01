@@ -1499,113 +1499,108 @@ function importMonthlyAttendance() {
     return;
   }
   statusEl.innerHTML = '<span style="color:var(--text2);">Reading…</span>';
- 
+
   const year     = _attImportYear;
   const month    = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2,'0')}`;
- 
+
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      // Use cellDates:true so XLSX converts date cells to JS Date objects
-      // Do NOT use raw:true — it conflicts with cellDates and returns serials
-      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      // Read WITHOUT cellDates — keep dates as raw serial numbers
+      // This avoids all timezone issues with Date object local/UTC ambiguity
+      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:false });
       const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null });
- 
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+
       if (!rows.length) {
         statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>';
         return;
       }
- 
-      // ── Parse date from header cell ──
-      // XLSX.js with cellDates:true creates Date objects at UTC midnight.
-      // In Vietnam (UTC+7), getDate() on a UTC midnight date returns the PREVIOUS day.
-      // Fix: always use getUTCDate() + getUTCMonth() to avoid timezone shift.
+
+      // Convert Excel serial number to DD/MM string
+      // Excel serial: days since 1899-12-30 (with 1900 leap bug)
+      // 46137 = 25/04/2026
+      function serialToDk(serial) {
+        if (!serial || typeof serial !== 'number') return null;
+        if (serial < 40000 || serial > 60000) return null;
+        // Use UTC to avoid ANY local timezone influence
+        const ms = Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000;
+        const dt = new Date(ms);
+        const d  = String(dt.getUTCDate()).padStart(2,'0');
+        const m  = String(dt.getUTCMonth() + 1).padStart(2,'0');
+        return `${d}/${m}`;
+      }
+
+      // Parse date from header cell — handles serial numbers and strings
       function parseDateHeader(h) {
-        if (!h) return null;
- 
-        if (h instanceof Date) {
-          // Use UTC methods — avoids timezone off-by-one in any timezone
-          const d = String(h.getUTCDate()).padStart(2,'0');
-          const m = String(h.getUTCMonth() + 1).padStart(2,'0');
-          return `${d}/${m}`;
-        }
- 
-        if (typeof h === 'number' && h > 40000 && h < 60000) {
-          // Excel serial number — convert using UTC epoch
-          const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(h) * 86400000);
-          const d  = String(dt.getUTCDate()).padStart(2,'0');
-          const m  = String(dt.getUTCMonth() + 1).padStart(2,'0');
-          return `${d}/${m}`;
-        }
- 
+        if (h === null || h === undefined) return null;
+
+        // Serial number (most common with raw:true)
+        if (typeof h === 'number') return serialToDk(h);
+
+        // String fallbacks
         if (typeof h === 'string') {
-          // m/d/yyyy (Excel US format)
-          if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(h.trim())) {
-            const parts = h.trim().split('/');
-            // parts[0]=month, parts[1]=day in m/d/yyyy
-            return String(parseInt(parts[1])).padStart(2,'0') + '/' + String(parseInt(parts[0])).padStart(2,'0');
+          const c = h.trim();
+          // m/d/yyyy
+          if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(c)) {
+            const [mo, day] = c.split('/');
+            return String(parseInt(day)).padStart(2,'0') + '/' + String(parseInt(mo)).padStart(2,'0');
           }
-          // dd/mm or d/m
-          if (/^\d{1,2}\/\d{1,2}$/.test(h.trim())) {
-            const [p1, p2] = h.trim().split('/').map(Number);
-            return String(p1).padStart(2,'0') + '/' + String(p2).padStart(2,'0');
+          // dd/mm
+          if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
+            const [d, m] = c.split('/');
+            return String(parseInt(d)).padStart(2,'0') + '/' + String(parseInt(m)).padStart(2,'0');
           }
           // ISO 2026-04-25
-          if (/^\d{4}-\d{2}-\d{2}/.test(h.trim())) {
-            const dt = new Date(h.trim());
-            if (!isNaN(dt)) {
-              return String(dt.getUTCDate()).padStart(2,'0') + '/' + String(dt.getUTCMonth()+1).padStart(2,'0');
-            }
+          if (/^\d{4}-\d{2}-\d{2}/.test(c)) {
+            const parts = c.split('-');
+            return parts[2].substring(0,2) + '/' + parts[1];
           }
         }
         return null;
       }
- 
-      // Row 0 = date headers, Row 1 = CHOOSE/WEEKDAY formulas (skip), Row 2+ = staff
+
+      // Row 0 = date headers
+      // Row 1 = CHOOSE/WEEKDAY formula row → skip
+      // Row 2+ = staff data
       const headerRow = rows[0];
       const dateCols  = [];
- 
+
       headerRow.forEach((h, i) => {
         if (i < 4) return; // skip No./Emp#/Name/Position
         const dk = parseDateHeader(h);
         if (dk) dateCols.push({ index: i, dateKey: dk });
       });
- 
-      // Debug log
-      console.log('[att import] dateCols sample:',
-        dateCols.slice(0,5).map(c => `col${c.index}=${c.dateKey}`).join(', '));
- 
+
+      console.log('[att import] first 5 dateCols:',
+        dateCols.slice(0,5).map(c => `[${c.index}]=${c.dateKey}`).join(' '));
+
       if (dateCols.length === 0) {
-        const sample = headerRow.slice(4,9)
-          .map(h => `${typeof h}:${JSON.stringify(h)}`).join(' | ');
-        statusEl.innerHTML = `<span style="color:var(--err);">Could not detect date columns. Samples: ${sample}</span>`;
+        const sample = headerRow.slice(4,8)
+          .map(h => `${typeof h}:${h}`).join(' | ');
+        statusEl.innerHTML = `<span style="color:var(--err);">No date columns detected. Header: ${sample}</span>`;
         return;
       }
- 
+
       if (!state.monthlyAttendance) state.monthlyAttendance = {};
       let imported = 0, skipped = 0;
- 
-      // slice(2) skips header row + formula row
+
       rows.slice(2).forEach(row => {
         if (!row) return;
-        const nameVal = String(row[2] || '').trim(); // col C = Name
-        const empNo   = String(row[1] || '').trim(); // col B = Emp#
+        const nameVal = String(row[2] || '').trim();
+        const empNo   = String(row[1] || '').trim();
         if (!nameVal && !empNo) return;
- 
-        // Match staff by name
+
         let user = state.users.find(u =>
           u.name === nameVal ||
           (u.name||'').toLowerCase() === nameVal.toLowerCase()
         );
-        // Fallback: match by empNo
         if (!user && empNo) {
           const si = Object.entries(state.staffInfo||{})
             .find(([, v]) => v.empNo === empNo);
           if (si) user = state.users.find(u => u.username === si[0]);
         }
-        // Final fallback: staffInfo by name
         if (!user) {
           const si = Object.entries(state.staffInfo||{}).find(([, v]) =>
             v.name === nameVal ||
@@ -1614,19 +1609,17 @@ function importMonthlyAttendance() {
           if (si) user = { username: si[0], name: si[1].name, id: null };
         }
         if (!user) { skipped++; return; }
- 
+
         const uname = user.username;
         if (!state.monthlyAttendance[uname])           state.monthlyAttendance[uname] = {};
         if (!state.monthlyAttendance[uname][monthKey]) state.monthlyAttendance[uname][monthKey] = {};
- 
+
         dateCols.forEach(({ index, dateKey }) => {
           const raw = row[index];
           if (raw === null || raw === undefined) return;
           let rawStr;
           if (typeof raw === 'number') {
             rawStr = String(Math.round(raw)); // 0.0 → "0"
-          } else if (raw instanceof Date) {
-            return; // Date objects in data cells = skip (shouldn't happen)
           } else {
             rawStr = String(raw).trim().toUpperCase();
           }
@@ -1635,10 +1628,10 @@ function importMonthlyAttendance() {
         });
         imported++;
       });
- 
+
       save();
       if (typeof syncWrite === 'function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff imported · ${dateCols.length} dates · ${skipped} not matched</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff · ${dateCols.length} dates · ${skipped} not matched</span>`;
       nav('staff');
     } catch(ex) {
       console.error('[att import]', ex);
