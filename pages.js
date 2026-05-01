@@ -1342,25 +1342,22 @@ function _renderStaffAttendance() {
     </div>`;
  
   // Build table header dates
-  const WDAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const WDAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const theadDates = dates.map(dk => {
     const [_d, _m] = dk.split('/');
     const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
     const isSun  = dow === 0;
-    // Show month number at start of each month (day 01) and at start of table (day 25)
-    const showMonth = _d === '01' || _d === '25';
-    return `<th style="min-width:40px;width:40px;padding:5px 2px;text-align:center;
+    return `<th style="min-width:44px;width:44px;padding:4px 2px;text-align:center;
       font-size:10px;font-weight:600;
-      color:${isSun?'var(--err)':isWknd?'var(--warn)':'var(--text)'};
+      color:${isSun?'var(--err)':isWknd?'var(--warn)':'var(--text2)'};
       background:${isWknd?'var(--bg4)':'var(--bg3)'};
-      border-bottom:2px solid ${isWknd?'var(--border2)':'var(--accent)'};
-      border-left:${isSun?'2px solid var(--border2)':'none'};
-      position:sticky;top:0;z-index:2;">
-      <div style="font-size:9px;font-weight:500;opacity:.7;line-height:1.4;">${WDAY_LABELS[dow]}</div>
-      <div style="line-height:1.4;">${_d}${showMonth?`<span style="font-size:8px;opacity:.6;">/${_m}</span>`:''}
-      </div>
+      border-bottom:2px solid ${isSun?'var(--err)':isWknd?'var(--border2)':'var(--accent)'};
+      border-left:${isSun?'2px solid var(--border)':'none'};
+      position:sticky;top:0;z-index:2;white-space:nowrap;">
+      <div style="font-size:9px;opacity:.65;line-height:1.5;">${WDAY_SHORT[dow]}</div>
+      <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
     </th>`;
   }).join('');
  
@@ -1422,10 +1419,16 @@ function _renderStaffAttendance() {
  
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
+      // If conflict: clicking navigates to the attendance log week containing this date
+      const clickHandler = hasConflict
+        ? `onclick="attendanceTab='log';attendanceMonday=_getMondayOfWeek('${dk}');nav('attendance')"
+           style="cursor:pointer;"`
+        : '';
       return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd?'opacity:.55;':''}"
-        title="${title}">
+        title="${title}" ${clickHandler}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
       </td>`;
+
     }).join('');
  
     if (conflicts.length) totalConflicts++;
@@ -1462,12 +1465,12 @@ function _renderStaffAttendance() {
     ${importPanel}
     ${conflictBanner}
     ${legendHTML}
-    <div style="overflow-x:auto;">
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 320px);border:1px solid var(--border);border-radius:8px;">
       <table style="border-collapse:collapse;width:max-content;min-width:100%;">
-        <thead style="background:var(--bg3);">
+        <thead>
           <tr>
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
-              min-width:180px;position:sticky;left:0;z-index:3;background:var(--bg3);
+              min-width:200px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);">NAME</th>
             ${theadDates}
           </tr>
@@ -1512,13 +1515,12 @@ function importMonthlyAttendance() {
         let dk = null;
 
         if (h instanceof Date) {
-          // Best case: cellDates:true converted it properly
-          dk = String(h.getDate()).padStart(2,'0') + '/'
-             + String(h.getMonth()+1).padStart(2,'0');
+          // Use UTC methods to avoid timezone shift
+          // XLSX.js creates dates at UTC midnight
+          dk = String(h.getUTCDate()).padStart(2,'0') + '/'
+             + String(h.getUTCMonth()+1).padStart(2,'0');
 
         } else if (typeof h === 'number' && h > 40000 && h < 60000) {
-          // Excel serial date number (e.g. 46171 = 25/04/2026)
-          // Excel serial: days since 1900-01-00 (with Jan 1900 leap bug)
           const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(h) * 86400000);
           dk = String(dt.getUTCDate()).padStart(2,'0') + '/'
              + String(dt.getUTCMonth()+1).padStart(2,'0');
