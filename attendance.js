@@ -203,34 +203,48 @@ function _getAttendanceSunday(weekDates) {
 }
 
 function _getAllAttendanceSundays() {
-  // Collect all Sunday keys from attendance records
+  // Generate 8 weeks back and 4 weeks forward from today
+  // This ensures navigation always works regardless of schedule data
   const sundays = new Set();
-  // Also gather from users' schedules
+ 
+  // Start from 8 weeks ago Sunday
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const thisSun = new Date(now);
+  thisSun.setDate(now.getDate() - day);
+  thisSun.setHours(0,0,0,0);
+ 
+  for (let w = -8; w <= 4; w++) {
+    const dt = new Date(thisSun);
+    dt.setDate(thisSun.getDate() + w * 7);
+    const dk = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+    sundays.add(dk);
+  }
+ 
+  // Also add any Sundays found in schedule or attendance records
   state.users.forEach(u => {
     Object.keys(u.schedule || {}).forEach(dk => {
       if (getWkDay(dk) === 'Sun') sundays.add(dk);
     });
   });
-  // Add current week
-  const cur = _getAttendanceWeek();
-  sundays.add(cur[0]);
-  // Also from attendance records
   Object.keys(state.attendance || {}).forEach(key => {
     const dateKey = key.split('_')[1];
     if (dateKey && getWkDay(dateKey) === 'Sun') sundays.add(dateKey);
   });
-  return [...sundays].sort((a, b) => {
-    const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-    // Use current year as base but handle year wrap:
-    // dates with month > current month by more than 6 = previous year
+ 
+  // Sort chronologically using full date comparison
+  const toDate = dk => {
+    const [d, m] = dk.split('/');
     const now = new Date();
-    const cy = now.getFullYear();
-    const toMs = (d, m) => {
-      const yr = parseInt(m) > now.getMonth()+7 ? cy-1 : (parseInt(m) < now.getMonth()-4 ? cy+1 : cy);
-      return new Date(yr, parseInt(m)-1, parseInt(d)).getTime();
-    };
-    return toMs(da, ma) - toMs(db, mb);
-  });
+    const y = now.getFullYear();
+    // Handle year boundary: if month is more than 6 months ahead, it's last year
+    const mInt = parseInt(m);
+    const curM = now.getMonth() + 1;
+    const yr = mInt - curM > 6 ? y - 1 : mInt - curM < -6 ? y + 1 : y;
+    return new Date(yr, mInt - 1, parseInt(d));
+  };
+ 
+  return [...sundays].sort((a, b) => toDate(a) - toDate(b));
 }
 
 function _getLogbookConflicts(userId, weekDates) {
@@ -316,24 +330,24 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   // Week picker: all available sundays
   const allSundays = _getAllAttendanceSundays();
   const curSun     = weekDates[0];
-  const curIdx = allSundays.indexOf(curSun);
-  const prevSun = curIdx > 0 ? allSundays[curIdx-1] : null;
-  const nextSun = curIdx < allSundays.length-1 ? allSundays[curIdx+1] : null;
+  const curIdx  = allSundays.indexOf(curSun);
+  const prevSun = curIdx > 0 ? allSundays[curIdx - 1] : null;
+  const nextSun = curIdx < allSundays.length - 1 ? allSundays[curIdx + 1] : null;
+  const btnStyle = (active) => `padding:4px 12px;border-radius:var(--r);
+    border:1px solid var(--border2);background:var(--bg2);font-size:13px;
+    cursor:${active?'pointer':'default'};color:${active?'var(--text)':'var(--text3)'}`;
  
   const weekPicker = `
     <div style="display:flex;align-items:center;gap:6px;">
-      <button style="padding:3px 10px;border-radius:var(--r);border:1px solid var(--border2);
-        background:var(--bg2);cursor:${prevSun?'pointer':'default'};color:${prevSun?'var(--text)':'var(--text3)'};"
+      <button style="${btnStyle(!!prevSun)}"
         ${prevSun?`onclick="attendanceMonday='${prevSun}';nav('attendance')"`:''}>‹</button>
-      ${allSundays.length > 1
-        ? `<select class="fg" style="font-size:12px;padding:4px 8px;width:auto;"
-            onchange="attendanceMonday=this.value==='cur'?null:this.value;nav('attendance')">
-            ${allSundays.map(s => `<option value="${s}" ${s===curSun?'selected':''}>${s} – ${_addDays(s,6)}</option>`).join('')}
-            ${!allSundays.includes(curSun) ? `<option value="cur" selected>This week</option>` : ''}
-          </select>`
-        : `<span style="font-size:12px;color:var(--text2);">${curSun} – ${_addDays(curSun,6)}</span>`}
-      <button style="padding:3px 10px;border-radius:var(--r);border:1px solid var(--border2);
-        background:var(--bg2);cursor:${nextSun?'pointer':'default'};color:${nextSun?'var(--text)':'var(--text3)'};"
+      <select class="login-select" style="font-size:12px;padding:4px 8px;min-width:140px;"
+        onchange="attendanceMonday=this.value;nav('attendance')">
+        ${allSundays.map(s =>
+          `<option value="${s}" ${s===curSun?'selected':''}>${s} – ${_addDays(s,6)}</option>`
+        ).join('')}
+      </select>
+      <button style="${btnStyle(!!nextSun)}"
         ${nextSun?`onclick="attendanceMonday='${nextSun}';nav('attendance')"`:''}>›</button>
     </div>`;
 
