@@ -124,135 +124,179 @@ function renderScheduleTraining() {
     SD[sh] = {users, slots, s1, s2, total};
   });
 
-  const totalStaff = Object.values(SD).reduce((a,d)=>a+d.users.length,0);
-  const visCount   = Object.values(SD).flat
-    ? TS.search
-      ? state.users.filter(u=>u.name.toLowerCase().includes(TS.search.toLowerCase())).length
-      : totalStaff
-    : totalStaff;
+  const totalStaff  = Object.values(SD).reduce((a,d)=>a+d.users.length,0);
+  const totalOnDay  = Object.values(SD).reduce((a,d)=>a+d.total,0);
+  const searchQ     = (TS.search||'').toLowerCase();
 
-  // Day picker (for totals reference)
+  // ── Row 1: title ──
+  const titleRow = `
+    <div style="margin-bottom:14px;">
+      <div class="page-title">Break Schedule</div>
+      <div class="page-sub">Current week · Read-only · ${totalStaff} staff</div>
+    </div>`;
+
+  // ── Row 2: shift tabs + search on same line ──
+  const topRow = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${['all','A','B','C','D','E'].map(val=>{
+          const isAct = TS.shiftFilter===val;
+          const c = SHIFT_COLORS[val]||{};
+          const cnt = val!=='all' ? SD[val]?.users.length : '';
+          const lbl = val==='all' ? 'All shifts' : val;
+          return `<button onclick="window._tState.shiftFilter='${val}';window._tState.search='';nav('schedule')"
+            style="padding:5px 14px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;
+              border:1.5px solid ${isAct?(val==='all'?'var(--accent)':c.color):'var(--border2)'};
+              background:${isAct?(val==='all'?'var(--accent)':c.bg):'var(--bg2)'};
+              color:${isAct?(val==='all'?'#fff':c.color):'var(--text2)'};">
+            ${lbl}${cnt!==''?` <span style="font-size:10px;opacity:.65;">${cnt}</span>`:''}
+          </button>`;
+        }).join('')}
+      </div>
+      <input class="filter-input" style="width:220px;padding:6px 12px;font-size:13px;margin-left:4px;"
+        placeholder="Search by name…"
+        value="${TS.search||''}"
+        oninput="window._tState.search=this.value;
+          const q=this.value.toLowerCase();let v=0;
+          document.querySelectorAll('.t-sb').forEach(b=>{
+            let bv=0;
+            b.querySelectorAll('tr.tdr').forEach(r=>{
+              const show=!q||(r.dataset.name||'').toLowerCase().includes(q);
+              r.style.display=show?'':'none';if(show)bv++;
+            });
+            b.style.display=bv>0?'':'none';v+=bv;
+          });
+          document.getElementById('t-rc').textContent=v+' staff';">
+      <span id="t-rc" style="font-size:11px;color:var(--text3);">${totalStaff} staff</span>
+    </div>`;
+
+  // ── Row 3: day picker (compact, no "TOTALS FOR" label) ──
   const dayPicker = `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-      <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">TOTALS FOR:</span>
+    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:8px;">
+      <span style="font-size:11px;color:var(--text3);margin-right:2px;">Slot totals for:</span>
       ${weekDates.map((dk,i)=>{
-        const isAct = dk===selDay;
-        const isTod = dk===todayDk;
+        const isAct=dk===selDay, isTod=dk===todayDk;
         return `<button onclick="window._tState.schedDay='${dk}';nav('schedule')"
-          style="padding:4px 12px;border-radius:var(--r);font-size:12px;font-weight:${isAct?700:400};cursor:pointer;
-            border:1.5px solid ${isAct?'var(--accent)':isTod?'rgba(31,102,241,.35)':'var(--border2)'};
+          style="padding:4px 10px;border-radius:var(--r);font-size:11px;cursor:pointer;
+            border:1.5px solid ${isAct?'var(--accent)':isTod?'rgba(31,102,241,.4)':'var(--border2)'};
             background:${isAct?'var(--accent)':'var(--bg2)'};
-            color:${isAct?'#fff':isTod?'var(--accent)':'var(--text2)'};">
-          ${WEEK_DAYS[i]} ${dk}${isTod?' ·today':''}
+            color:${isAct?'#fff':isTod?'var(--accent)':'var(--text2)'};
+            font-weight:${isAct||isTod?600:400};">
+          ${WEEK_DAYS[i]} ${dk}${isTod?' · today':''}
         </button>`;
       }).join('')}
     </div>`;
 
-  // Totals summary bar
+  // ── Row 4: totals bar (compact inline format) ──
   const totalsBar = `
-    <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;
       background:var(--bg3);border:1px solid var(--border);border-radius:8px;
-      margin-bottom:12px;flex-wrap:wrap;font-size:12px;">
-      <b>All shifts on ${selDay}: <span style="color:var(--accent);">${
-        Object.values(SD).reduce((a,d)=>a+d.total,0)
-      }</span> agents</b>
+      margin-bottom:14px;flex-wrap:wrap;font-size:12px;">
+      <span style="font-weight:600;">On ${selDay}:
+        <span style="color:var(--accent);margin-left:2px;">${totalOnDay}</span>
+        <span style="color:var(--text3);font-size:11px;margin-left:2px;">agents</span>
+      </span>
       <span style="color:var(--border2);">|</span>
       ${['A','B','C','D','E'].map(sh=>{
         const d=SD[sh];
+        if (!d.users.length) return '';
         const c=SHIFT_COLORS[sh]||{};
         if (!d.total) return `<span style="color:var(--text3);font-size:11px;">${_shBadge(sh,16)} 0</span>`;
-        return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;">
+        return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;">
           ${_shBadge(sh,16)}
-          <span style="color:var(--text);">${d.total}</span>
-          <span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">${sh}1:${d.s1}</span>
-          <span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">${sh}2:${d.s2}</span>
+          <span style="color:var(--text);font-weight:500;">${d.total}</span>
+          <span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">${sh}1: ${d.s1}</span>
+          <span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">${sh}2: ${d.s2}</span>
         </span>`;
-      }).join('<span style="color:var(--border2);">·</span>')}
+      }).filter(Boolean).join('<span style="color:var(--border2);">·</span>')}
     </div>`;
 
-  // Shift blocks
+  // ── Shift blocks ──
   const blocks = ['A','B','C','D','E'].map(sh=>{
     const d=SD[sh];
     if (!d.users.length) return '';
     if (TS.shiftFilter!=='all'&&TS.shiftFilter!==sh) return '';
+    const c=SHIFT_COLORS[sh]||{};
+    const def=SHIFTS[sh]||{};
 
+    // Column headers
     const thead = weekDates.map((dk,i)=>{
       const isTod=dk===todayDk, isSel=dk===selDay;
-      return `<th style="min-width:58px;text-align:center;padding:6px 2px;
-        background:${isSel?'rgba(31,102,241,.10)':isTod?'rgba(31,102,241,.05)':'var(--bg3)'};
-        border-bottom:2px solid ${isSel?'var(--accent)':isTod?'rgba(31,102,241,.3)':'var(--border2)'};">
-        <div style="font-size:11px;font-weight:700;color:${isSel?'var(--accent)':isTod?'var(--accent)':'var(--text2)'};">${WEEK_DAYS[i]}</div>
-        <div style="font-size:10px;color:${isSel?'var(--accent)':'var(--text3)'};">${dk}</div>
-        ${isSel&&!isTod?'<div style="font-size:9px;color:var(--accent);">▼</div>':''}
-        ${isTod?'<div style="font-size:9px;color:var(--accent);">today</div>':''}
+      return `<th style="min-width:60px;text-align:center;padding:5px 2px;
+        background:${isSel?'rgba(31,102,241,.08)':isTod?'rgba(31,102,241,.04)':'var(--bg3)'};
+        border-bottom:2px solid ${isSel?'var(--accent)':isTod?'rgba(31,102,241,.4)':'var(--border2)'};
+        position:sticky;top:0;z-index:2;">
+        <div style="font-size:11px;font-weight:${isSel||isTod?700:500};color:${isSel||isTod?'var(--accent)':'var(--text2)'};">${WEEK_DAYS[i]}</div>
+        <div style="font-size:10px;color:${isSel||isTod?'var(--accent)':'var(--text3)'};">${dk}</div>
+        ${isTod?`<div style="font-size:8px;color:var(--accent);font-weight:700;">today</div>`:''}
       </th>`;
     }).join('');
 
+    // Data rows
     const rows = d.users.map(u=>{
       const cells = weekDates.map(dk=>{
         const us=getUS(u,dk);
         const isSel=dk===selDay;
-        if (us!==sh) return `<td style="text-align:center;padding:5px 2px;${isSel?'background:rgba(31,102,241,.04);':''}"><span style="font-size:10px;color:var(--text3);">—</span></td>`;
+        if (us!==sh) return `<td style="text-align:center;padding:5px 2px;${isSel?'background:rgba(31,102,241,.03);':''}"><span style="font-size:10px;color:var(--text3);">—</span></td>`;
         const br=DB.getBreak(u.id,dk);
         const idx=br?d.slots.indexOf(br.slot):-1;
         const cls=idx>=0?`slot-${idx+1}`:'';
         const code=br?getShortSlot(sh,br.slot):'?';
-        return `<td style="text-align:center;padding:4px 2px;${isSel?'background:rgba(31,102,241,.04);':''}">
+        return `<td style="text-align:center;padding:4px 2px;${isSel?'background:rgba(31,102,241,.03);':''}">
           <span class="${br?`break-slot assigned ${cls}`:''}"
             style="font-size:10px;padding:3px 7px;${br?'':'color:var(--text3);'}"
             title="${br?br.slot:'Not assigned'}">${code}</span>
         </td>`;
       }).join('');
       return `<tr class="tdr" data-name="${u.name.toLowerCase()}">
-        <td style="padding:6px 10px;white-space:nowrap;">
+        <td style="padding:6px 10px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);">
           <div style="font-size:12px;font-weight:600;">${u.name}</div>
           <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</div>
         </td>${cells}
       </tr>`;
     }).join('');
 
-    // Slot totals in header — show for selected day
-    const s1b=`<span class="break-slot slot-1" style="font-size:10px;padding:2px 6px;margin-left:6px;">${sh}1: ${d.s1}</span>`;
-    const s2b=`<span class="break-slot slot-2" style="font-size:10px;padding:2px 6px;margin-left:4px;">${sh}2: ${d.s2}</span>`;
-    const hdr=`${d.users.length} agents · ${selDay} on-shift: ${d.total} ${s1b}${s2b}`;
+    // Slot totals in block header (right side)
+    const s1b=`<span class="break-slot slot-1" style="font-size:10px;padding:2px 7px;">${sh}1: ${d.s1}</span>`;
+    const s2b=`<span class="break-slot slot-2" style="font-size:10px;padding:2px 7px;margin-left:4px;">${sh}2: ${d.s2}</span>`;
 
-    // Legend: show slot times for this shift
+    // Legend row (slot times)
     const legendHTML = d.slots.length > 0
-      ? d.slots.map((time, i) =>
-          `<span class="break-slot slot-${i+1}" style="font-size:10px;padding:2px 8px;">${sh}${i+1}</span>
+      ? d.slots.map((time,i)=>
+          `<span class="break-slot slot-${i+1}" style="font-size:10px;padding:2px 7px;">${sh}${i+1}</span>
            <span style="font-size:11px;color:var(--text2);margin-right:10px;">${time}</span>`
         ).join('')
-      : '<span style="font-size:11px;color:var(--text3);">No slots defined</span>';
- 
-    return _shiftBlock(sh, hdr, `
-      <div style="display:flex;align-items:center;gap:4px;padding:6px 14px;
-        background:var(--bg3);border-bottom:1px solid var(--border);flex-wrap:wrap;">
-        <span style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;
-          letter-spacing:.05em;margin-right:6px;">Legend:</span>
-        ${legendHTML}
+      : '';
+
+    return `<div class="t-sb" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:${c.bg};border-bottom:1px solid var(--border);">
+        ${_shBadge(sh,24)}
+        <span style="font-size:13px;font-weight:600;color:${c.color};">Shift ${sh}</span>
+        <span style="font-size:11px;color:var(--text2);">${def.display||''}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text2);">
+          ${d.users.length} agents · ${selDay}: ${d.total} on-shift
+        </span>
+        ${s1b}${s2b}
       </div>
+      ${legendHTML ? `<div style="display:flex;align-items:center;gap:4px;padding:5px 14px;background:var(--bg3);border-bottom:1px solid var(--border);">
+        <span style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-right:6px;">Legend</span>
+        ${legendHTML}
+      </div>` : ''}
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead><tr>
-            <th style="text-align:left;padding:7px 10px;background:var(--bg3);border-bottom:2px solid var(--border2);min-width:180px;font-size:11px;color:var(--text2);">Name / Group</th>
+            <th style="text-align:left;padding:6px 10px;background:var(--bg3);border-bottom:2px solid var(--border2);min-width:180px;font-size:11px;color:var(--text2);position:sticky;top:0;left:0;z-index:3;">Name / Group</th>
             ${thead}
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
-      </div>`, d.users.length);
+      </div>
+    </div>`;
   }).join('');
 
   return `
-<div class="page-header">
-  <div>
-    <div class="page-title">Break Schedule — All Shifts</div>
-    <div class="page-sub">Current week · Read-only · ${totalStaff} staff</div>
-  </div>
-</div>
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-  ${_tabBar(sh=>SD[sh]?.users.length,'schedule')}
-</div>
-${_searchBar('schedule','Search by name…',totalStaff)}
+${titleRow}
+${topRow}
 ${dayPicker}
 ${totalsBar}
 ${blocks||'<div class="empty">No staff found.</div>'}`;
@@ -405,8 +449,7 @@ function renderAttendanceTraining() {
   // Group into weeks visually with subtle dividers every 7 days
   const theadDates = dates.map((dk,i)=>{
     const day = parseInt(dk.split('/')[0]);
-    const cellYear = (parseInt(dk.split('/')[1]) === month) ? year : (month===1?year-1:year);
-    const dow = new Date(cellYear, parseInt(dk.split('/')[1])-1, day).getDay();
+    const dow = new Date(year,month-1,day).getDay(); // 0=Sun
     const isToday = dk===todayDk;
     const isSun = dow===0;
     return `<th style="min-width:64px;width:64px;padding:4px 2px;text-align:center;
