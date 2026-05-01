@@ -334,18 +334,37 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 
       const startSymbol = isLate  ? `<span style="font-size:9px;font-weight:700;color:var(--err);">(-)</span> ` : (startTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
       const endSymbol   = isEarly ? `<span style="font-size:9px;font-weight:700;color:var(--warn);">(-)</span> ` : (endTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
-      const startCell = startTxt
+      // Get shift defaults for exact delta calculation
+      const _shiftCode = _getUserShiftOnDate(u, dk);
+      const _def = SHIFT_DEFAULTS[_shiftCode] || {};
+ 
+      // Row 1: (+)/(-) login time
+      const row1 = startTxt
         ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};white-space:nowrap;">
-             <span style="font-size:9px;font-weight:700;">${isLate?'(-)':'(+)'}</span> ${startTxt}
-           </div>
-           ${isLate ? `<div style="font-size:9px;color:var(--err);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">${_fmtDiffFull(lateMin, rec?.start, SHIFT_DEFAULTS[_getUserShiftOnDate(state.users.find(x=>x.id===u.id), dk)]?.start)}</div>` : ''}`
-        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
-      const endCell = endTxt
+             <span style="font-size:9px;font-weight:700;">${isLate?'(-)':'(+'}</span> ${startTxt}
+           </div>`
+        : `<div style="font-size:11px;color:var(--text3);">—</div>`;
+ 
+      // Row 2: late delta (only if late, else empty line to keep layout)
+      const row2 = isLate
+        ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--err);white-space:nowrap;padding-left:14px;">
+             ${_fmtDiffFull(lateMin, startTxt, _def.start)}
+           </div>`
+        : `<div style="font-size:9px;color:transparent;">-</div>`;
+ 
+      // Row 3: (+)/(-) logout time
+      const row3 = endTxt
         ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};white-space:nowrap;">
-             <span style="font-size:9px;font-weight:700;">${isEarly?'(-)':'(+)'}</span> ${endTxt}
-           </div>
-           ${isEarly ? `<div style="font-size:9px;color:var(--warn);font-family:'IBM Plex Mono',monospace;white-space:nowrap;">${_fmtDiffFull(earlyMin, SHIFT_DEFAULTS[_getUserShiftOnDate(state.users.find(x=>x.id===u.id), dk)]?.end, rec?.end)}</div>` : ''}`
-        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
+             <span style="font-size:9px;font-weight:700;">${isEarly?'(-)':'(+'}</span> ${endTxt}
+           </div>`
+        : `<div style="font-size:11px;color:var(--text3);">—</div>`;
+ 
+      // Row 4: early delta (only if early, else empty line)
+      const row4 = isEarly
+        ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--warn);white-space:nowrap;padding-left:14px;">
+             ${_fmtDiffFull(earlyMin, _def.end, endTxt)}
+           </div>`
+        : `<div style="font-size:9px;color:transparent;">-</div>`;
 
       const logConflict = logConflicts.find(c => c.dk === dk);
       const bg = logConflict
@@ -360,9 +379,15 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
  
       const conflictTitle = logConflict ? `⚠ Time logged on ${logConflict.reason} (${logConflict.code})` : '';
       return `<td id="att-cell-${u.username}-${dk}"
-        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:110px;text-align:center;vertical-align:top;
+        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:120px;text-align:left;vertical-align:top;
           ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
-        onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;"
+        onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
+        ${row1}
+        ${row2}
+        ${row3}
+        ${row4}
+        ${noteTxt ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:120px;text-overflow:ellipsis;" title="${noteTxt}">📝 ${noteTxt}</div>` : ''}
+      </td>`;
         title="${conflictTitle}">
         ${logConflict ? `<div style="font-size:9px;font-weight:700;color:var(--err);">⚠${logConflict.code}</div>` : ''}
         <div>${startCell}</div>
