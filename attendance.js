@@ -290,7 +290,10 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   }
 
   // ── Tab: Weekly Log ──
-  if (isTraining(currentUser)) return renderAttendanceTraining();
+  if (isTraining(currentUser)) {
+    if (typeof renderAttendanceTraining === 'function') return renderAttendanceTraining();
+    return '<div class="empty">Loading…</div>';
+  }
   const weekDates  = _getAttendanceWeek();
   const dayLabels  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 

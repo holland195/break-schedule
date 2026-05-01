@@ -290,7 +290,10 @@ let scheduleMonday = null; // null = "use current real week"
 
 function renderSchedule() {
   const canPickWeek    = isLeader(currentUser);
-  if (isTraining(currentUser)) return renderScheduleTraining();
+  if (isTraining(currentUser)) {
+    if (typeof renderScheduleTraining === 'function') return renderScheduleTraining();
+    return '<div class="empty">Loading…</div>';
+  }
   const isTrainingUser = isTraining(currentUser);
   const shiftToShow    = isTrainingUser
     ? (window._scheduleShiftTab || 'A')
@@ -2008,7 +2011,10 @@ function resolveRequest(idx, status) {
 // ═══════════════════════════════════════════════
 function renderExtBreak() {
     const isFemale   = currentUser.gender === 'F';
-    if (isTraining(currentUser)) return renderExtBreakTraining();
+    if (isTraining(currentUser)) {
+    if (typeof renderExtBreakTraining === 'function') return renderExtBreakTraining();
+    return '<div class="empty">Loading…</div>';
+  }
     const canApprove = isLeader(currentUser) || isTraining(currentUser);
     const pendingCount = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
     const mk         = currentMonthKey();
