@@ -373,7 +373,8 @@ async function saveAttendance() {
   const note  = document.getElementById('attend-note').value.trim();
   const {uid, dateKey} = _attendModal;
   if (!start && !end && !note) {
-    DB.delAttendance(uid, dateKey);
+    // Write tombstone so other browsers know this was deleted
+    DB.setAttendance(uid, dateKey, { _deleted: true, at: Date.now() });
   } else {
     DB.setAttendance(uid, dateKey, { start, end, note, by: currentUser?.id, at: Date.now() });
   }
@@ -385,7 +386,8 @@ async function saveAttendance() {
 
 function deleteAttendance() {
   const {uid, dateKey} = _attendModal;
-  DB.delAttendance(uid, dateKey);
+  // Write tombstone so sync can propagate the deletion to other browsers
+  DB.setAttendance(uid, dateKey, { _deleted: true, at: Date.now() });
   closeModal('modal-attend');
   syncWrite();
   toast('Cleared', 'ok');

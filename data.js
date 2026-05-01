@@ -99,7 +99,10 @@ const DB = {
   deleteExtBreak:(uid,mk,i)   => { const k=`${uid}_${mk}`; if(state.extBreaks[k]) state.extBreaks[k].splice(i,1); },
   countExtBreaks:(uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]).length,
   // attendance: key = `${uid}_${dateKey}` → { start, end, note, by, at }
-  getAttendance: (uid,day)   => state.attendance[`${uid}_${day}`] || null,
+  getAttendance: (uid,day)   => {
+    const r = state.attendance[`${uid}_${day}`];
+    return (r && !r._deleted) ? r : null;
+  },
   setAttendance: (uid,day,d) => { state.attendance[`${uid}_${day}`] = d; },
   delAttendance: (uid,day)   => { delete state.attendance[`${uid}_${day}`]; },
   // staffInfo: username → { empNo, dob, gender, name, role, password, mustChangePassword }

@@ -198,11 +198,17 @@ function _applyRemoteData(remote) {
     }
   }
   if (remote.attendance) {
-    // Merge attendance — remote wins per entry if newer
     Object.entries(remote.attendance).forEach(([key, remoteEntry]) => {
       const localEntry = state.attendance[key];
-      if (!localEntry || (remoteEntry.at || 0) >= (localEntry.at || 0)) {
-        state.attendance[key] = remoteEntry;
+      const remoteAt = remoteEntry.at || 0;
+      const localAt  = localEntry?.at || 0;
+      if (!localEntry || remoteAt >= localAt) {
+        if (remoteEntry._deleted) {
+          // Remote tombstone is newer — delete locally too
+          delete state.attendance[key];
+        } else {
+          state.attendance[key] = remoteEntry;
+        }
       }
     });
   }
