@@ -80,6 +80,17 @@ function _excelDateToDk(h, fallbackMonth) {
   }
   return null;
 }
+
+function _getMondayOfWeek(dk) {
+  // Given a DD/MM dateKey, return the Monday of that week as DD/MM
+  // Week is Sun–Sat in the attendance view, but we need the Sunday
+  const [d, m] = dk.split('/');
+  const dt = new Date(new Date().getFullYear(), parseInt(m)-1, parseInt(d));
+  // Go back to Sunday (start of attendance week)
+  const day = dt.getDay(); // 0=Sun
+  dt.setDate(dt.getDate() - day);
+  return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
  
 function _checkAttConflict(u, dk, parsedCode) {
   if (!parsedCode) return null;
