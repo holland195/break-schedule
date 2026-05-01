@@ -338,39 +338,39 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const _shiftCode = _getUserShiftOnDate(u, dk);
       const _def = SHIFT_DEFAULTS[_shiftCode] || {};
  
-      // Row 1: (+)/(-) login time
+      // Row 1: login time only — color shows status
       const row1 = startTxt
-        ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};white-space:nowrap;">
-             <span style="font-size:9px;font-weight:700;">${isLate?'(-)':'(+'}</span> ${startTxt}
+        ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;
+             color:${isLate?'var(--err)':'var(--ok)'};white-space:nowrap;">
+             ${startTxt}
            </div>`
-        : `<div style="font-size:11px;color:var(--text3);">—</div>`;
+        : `<div style="font-size:10px;color:var(--text3);">—</div>`;
  
-      // Row 2: late delta (only if late, else empty line to keep layout)
-      const row2 = isLate
-        ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--err);white-space:nowrap;padding-left:14px;">
+      // Row 2: delta always shown — (-) red if late, (+) green if on time
+      const row2 = startTxt
+        ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
+             color:${isLate?'var(--err)':'var(--ok)'};white-space:nowrap;">
+             <span style="font-weight:700;">${isLate?'(-)':'(+'}</span>
              ${_fmtDiffFull(lateMin, startTxt, _def.start)}
            </div>`
-        : `<div style="font-size:9px;color:transparent;">-</div>`;
+        : `<div style="font-size:9px;color:var(--text3);">—</div>`;
  
-      // Row 3: (+)/(-) logout time
+      // Row 3: logout time only — color shows status
       const row3 = endTxt
-        ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};white-space:nowrap;">
-             <span style="font-size:9px;font-weight:700;">${isEarly?'(-)':'(+'}</span> ${endTxt}
+        ? `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;
+             color:${isEarly?'var(--warn)':'var(--ok)'};white-space:nowrap;">
+             ${endTxt}
            </div>`
-        : `<div style="font-size:11px;color:var(--text3);">—</div>`;
+        : `<div style="font-size:10px;color:var(--text3);">—</div>`;
  
-      // Row 4: early delta (only if early, else empty line)
-      const row4 = isEarly
-        ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--warn);white-space:nowrap;padding-left:14px;">
+      // Row 4: delta always shown — (-) amber if early, (+) green if on time
+      const row4 = endTxt
+        ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
+             color:${isEarly?'var(--warn)':'var(--ok)'};white-space:nowrap;">
+             <span style="font-weight:700;">${isEarly?'(-)':'(+'}</span>
              ${_fmtDiffFull(earlyMin, _def.end, endTxt)}
            </div>`
-        : `<div style="font-size:9px;color:transparent;">-</div>`;
-
-      const logConflict = logConflicts.find(c => c.dk === dk);
-      const bg = logConflict
-        ? 'rgba(248,113,113,.18)'
-        : isLate || isEarly ? (isLate ? 'var(--D-bg)' : 'rgba(245,158,11,.08)')
-        : (hasData ? 'var(--C-bg)' : '');
+        : `<div style="font-size:9px;color:var(--text3);">—</div>`;
 
       // Check if this cell should be highlighted (came from conflict click)
       const isHighlighted = window._attHighlight &&
