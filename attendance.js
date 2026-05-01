@@ -350,7 +350,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const row2 = startTxt
         ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
              color:${isLate?'var(--err)':'var(--ok)'};white-space:nowrap;">
-             <span style="font-weight:700;">${isLate?'(-)':'(+'}</span>
+             <span style="font-weight:700;">${isLate?'(-)':'(+)'}</span>
              ${_fmtDiffFull(lateMin, startTxt, _def.start)}
            </div>`
         : `<div style="font-size:9px;color:var(--text3);">—</div>`;
@@ -367,7 +367,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const row4 = endTxt
         ? `<div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
              color:${isEarly?'var(--warn)':'var(--ok)'};white-space:nowrap;">
-             <span style="font-weight:700;">${isEarly?'(-)':'(+'}</span>
+             <span style="font-weight:700;">${isEarly?'(-)':'(+)'}</span>
              ${_fmtDiffFull(earlyMin, _def.end, endTxt)}
            </div>`
         : `<div style="font-size:9px;color:var(--text3);">—</div>`;
