@@ -1430,13 +1430,27 @@ function _renderStaffAttendance() {
  
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
-      // If conflict: clicking navigates to the attendance log week containing this date
-      const clickHandler = hasConflict
-        ? `onclick="attendanceTab='log';attendanceMonday=_getMondayOfWeek('${dk}');nav('attendance')"
-           style="cursor:pointer;"`
-        : '';
+      const conflictClick = hasConflict ? `
+        onclick="
+          const [_d,_m]='${dk}'.split('/');
+          const _cy=${year};
+          const _dt=new Date(_cy,parseInt(_m)-1,parseInt(_d));
+          const _day=_dt.getDay();
+          const _sun=new Date(_dt);_sun.setDate(_dt.getDate()-_day);
+          const _sdk=(_sun.getDate().toString().padStart(2,'0'))+'/'+((_sun.getMonth()+1).toString().padStart(2,'0'));
+          window._attHighlight={uid:${u.id||'null'},username:'${u.username}',dateKey:'${dk}'};
+          attendanceTab='log';
+          attendanceMonday=_sdk;
+          currentShift='${(u.schedule?.['${dk}']||'').charAt(0)||'D'}';
+          nav('attendance');
+          setTimeout(()=>{
+            const el=document.getElementById('att-cell-${u.username}-${dk}');
+            if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('att-conflict-flash');}
+          },200);"
+        style="cursor:pointer;"` : '';
+ 
       return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd?'opacity:.55;':''}"
-        title="${title}" ${clickHandler}>
+        title="${title}" ${conflictClick}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
       </td>`;
 

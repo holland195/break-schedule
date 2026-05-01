@@ -227,8 +227,15 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 
       const bg = isLate || isEarly ? (isLate ? 'var(--D-bg)' : 'rgba(245,158,11,.08)') : (hasData ? 'var(--C-bg)' : '');
 
-      return `<td style="padding:3px 4px;background:${bg};cursor:pointer;min-width:68px;text-align:center;vertical-align:top;"
-        onclick="openAttendanceModal(${u.id},'${dk}')">
+      // Check if this cell should be highlighted (came from conflict click)
+      const isHighlighted = window._attHighlight &&
+        window._attHighlight.uid === u.id &&
+        window._attHighlight.dateKey === dk;
+ 
+      return `<td id="att-cell-${u.username}-${dk}"
+        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:68px;text-align:center;vertical-align:top;
+          ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
+        onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
         <div>${startCell}</div>
         <div>${endCell}</div>
         ${noteTxt ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:66px;text-overflow:ellipsis;" title="${noteTxt}">📝 ${noteTxt}</div>` : ''}

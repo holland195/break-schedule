@@ -1079,3 +1079,15 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   background: rgba(255,255,255,.1) !important;
   color: rgba(255,255,255,.7) !important;
 }
+
+@keyframes attFlash {
+  0%   { outline-color: var(--err); background: rgba(248,113,113,.25); }
+  50%  { outline-color: var(--err); background: rgba(248,113,113,.05); }
+  100% { outline-color: var(--err); background: rgba(248,113,113,.25); }
+}
+ 
+.att-conflict-flash {
+  animation: attFlash 0.8s ease 4;
+  outline: 2.5px solid var(--err) !important;
+  outline-offset: -2px;
+}
