@@ -582,16 +582,15 @@ function renderAttendanceTraining() {
       const bg = isLate ? 'background:var(--D-bg);' : isEarly ? 'background:rgba(245,158,11,.08);' : hasRec ? 'background:rgba(74,222,128,.06);' : '';
 
       const content = !hasRec
-  ? `<span style="font-size:11px;color:var(--text3);">·</span>`
-  : `<div style="display:flex;align-items:center;gap:3px;justify-content:center;line-height:1.3;">
-       <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};">${rec.start||'—'}</span>
-       <span style="font-size:8px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};opacity:.75;">${isLate?'(-)':'(+)'}${lateTxt}</span>
-     </div>
-     <div style="display:flex;align-items:center;gap:3px;justify-content:center;line-height:1.3;
-       border-top:1px dashed var(--border);margin-top:2px;padding-top:2px;">
-       <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};">${rec.end||'—'}</span>
-       <span style="font-size:8px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};opacity:.75;">${isEarly?'(-)':'(+)'}${earlyTxt}</span>
-     </div>`;
+        ? `<span style="font-size:11px;color:var(--text3);">·</span>`
+        : `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};line-height:1.5;">${rec.start||'—'}</div>
+           <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};">
+             <b>${isLate?'(-)':'(+)'}</b> ${lateTxt}
+           </div>
+           <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};line-height:1.5;">${rec.end||'—'}</div>
+           <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};">
+             <b>${isEarly?'(-)':'(+)'}</b> ${earlyTxt}
+           </div>`;
 
       return `<td style="text-align:center;padding:3px 1px;cursor:pointer;vertical-align:top;
         min-width:64px;width:64px;${bg}
