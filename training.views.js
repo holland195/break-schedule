@@ -461,67 +461,222 @@ ${blocks||'<div class="empty">No female staff found.</div>'}`;
 //  Full month calendar, edit enabled all shifts
 // ═══════════════════════════════════════════════
 function renderAttendanceTraining() {
-// ── Read-only attendance modal for training role ──
-function openAttendanceViewModal(uid, dateKey) {
-  const u   = state.users.find(x => x.id === uid);
-  const rec = DB.getAttendance(uid, dateKey) || {};
-  const shift = _getUserShiftOnDate(u, dateKey) || '?';
-  const def   = SHIFT_DEFAULTS[shift] || {};
-  const {lateMin, earlyMin, late, early} = calcLateEarly(uid, dateKey);
+  const year  = TS.attYear;
+  const month = TS.attMonth;
+  const prevM = month===1?12:month-1;
+  const prevY = month===1?year-1:year;
+  const monthLabel = `${new Date(prevY,prevM-1,25).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(year,month-1,24).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
+  const dates   = _getAllDatesInMonth(year, month);
+  const todayDk = _todayDateKey();
 
-  // Build modal content
-  const statusLine = [
-    lateMin  > 0 ? `<span style="display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;background:var(--D-bg);color:var(--err);">Late +${late}</span>` : '',
-    earlyMin > 0 ? `<span style="display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;background:rgba(245,158,11,.12);color:var(--warn);">Early out -${early}</span>` : '',
-    (!lateMin && !earlyMin && (rec.start||rec.end)) ? `<span style="display:inline-block;padding:3px 10px;border-radius:5px;font-size:12px;font-weight:600;background:var(--C-bg);color:var(--ok);">On time</span>` : '',
-  ].filter(Boolean).join(' ');
-
-  const html = `
-    <div style="padding:0 2px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
-        <div>
-          <div style="font-size:15px;font-weight:700;">${u?.name || '?'}</div>
-          <div style="font-size:11px;color:var(--text3);">${u?.team||''} · ${getRoleInfo(u?.role||'').label} · ${dateKey} · Shift ${shift}</div>
-        </div>
-      </div>
-
-      ${!rec.start && !rec.end && !rec.note
-        ? `<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px;">No attendance record for this day.</div>`
-        : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-            <div style="background:var(--bg3);border-radius:8px;padding:14px;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;">Login</div>
-              <div style="font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${lateMin>0?'var(--err)':'var(--ok)'};">${rec.start||'—'}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Scheduled: ${def.start||'—'}</div>
-              ${lateMin>0?`<div style="font-size:12px;color:var(--err);font-weight:600;margin-top:4px;">Late by +${late}</div>`:''}
-            </div>
-            <div style="background:var(--bg3);border-radius:8px;padding:14px;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;">Logout</div>
-              <div style="font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:${earlyMin>0?'var(--warn)':'var(--ok)'};">${rec.end||'—'}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:4px;">Scheduled: ${def.end||'—'}</div>
-              ${earlyMin>0?`<div style="font-size:12px;color:var(--warn);font-weight:600;margin-top:4px;">Early out -${early}</div>`:''}
-            </div>
-          </div>
-          ${statusLine ? `<div style="margin-bottom:12px;">${statusLine}</div>` : ''}
-          ${rec.note ? `<div style="padding:10px 14px;background:var(--bg3);border-radius:8px;font-size:12px;color:var(--text2);">
-            <span style="color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Note</span><br>
-            ${rec.note}
-          </div>` : ''}`}
-
-      <div style="margin-top:20px;text-align:right;">
-        <button class="btn" onclick="closeModal('modal-att-view')">Close</button>
-      </div>
+  // Month picker
+  const selStyle = `padding:5px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;font-size:13px;font-weight:500;`;
+  const monthPicker = `
+    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:12px;">
+      <button onclick="let m=${month===1?12:month-1},y=${month===1?year-1:year};window._tState.attMonth=m;window._tState.attYear=y;window._tState.shiftFilter='all';nav('attendance')"
+        style="${selStyle}padding:5px 12px;">‹</button>
+      <select style="${selStyle}min-width:120px;"
+        onchange="window._tState.attMonth=+this.value;nav('attendance')">
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>
+          `<option value="${m}" ${m===month?'selected':''}>${new Date(year,m-1,1).toLocaleString('en-US',{month:'long'})}</option>`
+        ).join('')}
+      </select>
+      <select style="${selStyle}min-width:75px;"
+        onchange="window._tState.attYear=+this.value;nav('attendance')">
+        ${[2024,2025,2026,2027].map(y=>
+          `<option value="${y}" ${y===year?'selected':''}>${y}</option>`
+        ).join('')}
+      </select>
+      <button onclick="let m=${month===12?1:month+1},y=${month===12?year+1:year};window._tState.attMonth=m;window._tState.attYear=y;window._tState.shiftFilter='all';nav('attendance')"
+        style="${selStyle}padding:5px 12px;">›</button>
+      <span style="font-size:12px;color:var(--text2);">${monthLabel}</span>
     </div>`;
 
-  // Reuse or create a simple modal
-  let modal = document.getElementById('modal-att-view');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'modal-att-view';
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `<div class="modal" style="width:480px;"><div id="modal-att-view-body"></div></div>`;
-    modal.addEventListener('click', e => { if(e.target===modal) closeModal('modal-att-view'); });
-    document.body.appendChild(modal);
-  }
-  document.getElementById('modal-att-view-body').innerHTML = html;
-  modal.classList.add('show');
+  // Group users by primary shift this month
+  const byShift = {A:[],B:[],C:[],D:[],E:[]};
+  state.users.forEach(u=>{
+    const sc={};
+    dates.forEach(dk=>{
+      const s=u.schedule?.[dk];
+      if(s&&s!=='0'&&SHIFT_DEFAULTS[s]) sc[s.charAt(0)]=(sc[s.charAt(0)]||0)+1;
+    });
+    const ps=Object.entries(sc).sort((a,b)=>b[1]-a[1])[0]?.[0];
+    if(ps&&byShift[ps]) byShift[ps].push(u);
+  });
+
+  const totalStaff = Object.values(byShift).reduce((a,arr)=>a+arr.length,0);
+  const q = (TS.search||'').toLowerCase();
+
+  // Date column headers
+  const WDAY = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const theadDates = dates.map(dk=>{
+    const [_d,_m] = dk.split('/');
+    const cellY = parseInt(_m)===month ? year : (month===1?year-1:year);
+    const dow = new Date(cellY, parseInt(_m)-1, parseInt(_d)).getDay();
+    const isToday = dk===todayDk;
+    const isWknd = dow===0||dow===6;
+    return `<th style="min-width:64px;width:64px;padding:4px 1px;text-align:center;
+      font-size:10px;font-weight:500;position:sticky;top:0;z-index:2;
+      color:${isToday?'var(--accent)':isWknd?'var(--warn)':'var(--text2)'};
+      background:${isToday?'rgba(31,102,241,.08)':isWknd?'var(--bg4)':'var(--bg3)'};
+      border-bottom:2px solid ${isToday?'var(--accent)':'var(--border2)'};
+      border-left:${dow===0&&dk!==dates[0]?'1px solid var(--border2)':'none'};">
+      <div style="opacity:.7;">${WDAY[dow]}</div>
+      <div style="font-size:11px;font-weight:${isToday?700:400};">${parseInt(_d)}<span style="font-size:8px;opacity:.55;">/${_m}</span></div>
+    </th>`;
+  }).join('');
+
+  // Shift blocks
+  const blocks = ['A','B','C','D','E'].map(sh=>{
+    const users = byShift[sh].filter(u=>!q||u.name.toLowerCase().includes(q));
+    if (!users.length) return '';
+    if (TS.shiftFilter!=='all'&&TS.shiftFilter!==sh) return '';
+    const c = SHIFT_COLORS[sh]||{};
+    let shiftLate=0, shiftEarly=0;
+
+    const rows = users.map(u=>{
+      let uLate=0, uEarly=0;
+      const cells = dates.map(dk=>{
+        const [_d,_m] = dk.split('/');
+        const cellY = parseInt(_m)===month ? year : (month===1?year-1:year);
+        const dow = new Date(cellY, parseInt(_m)-1, parseInt(_d)).getDay();
+        const isWknd = dow===0||dow===6;
+        const isToday = dk===todayDk;
+        const shift = u.schedule?.[dk];
+        const isSunDiv = dow===0&&dk!==dates[0];
+
+        // Off day
+        if (!shift||shift==='0'||!SHIFT_DEFAULTS[shift]) {
+          const rec = DB.getAttendance(u.id, dk);
+          return `<td style="text-align:center;padding:2px 1px;
+            ${isWknd?'background:var(--bg4);opacity:.65;':''}
+            ${isToday?'outline:1px solid var(--accent);outline-offset:-1px;':''}
+            ${isSunDiv?'border-left:1px solid var(--border2);':''}
+            cursor:${rec?'pointer':'default'};"
+            ${rec?`onclick="openAttendanceModal(${u.id},'${dk}')"`:''}>
+            <span style="font-size:10px;color:${rec?'var(--warn)':'var(--border2)'};">${rec?'!':'—'}</span>
+          </td>`;
+        }
+
+        const rec = DB.getAttendance(u.id, dk);
+        const {lateMin,earlyMin} = calcLateEarly(u.id, dk);
+        const hasRec = rec&&(rec.start||rec.end);
+        const isLate = lateMin>0, isEarly = earlyMin>0;
+        if(isLate)  { uLate++; shiftLate++; }
+        if(isEarly) { uEarly++; shiftEarly++; }
+
+        const _def = SHIFT_DEFAULTS[shift]||{};
+        const lateTxt  = typeof _fmtDiffFull==='function' ? _fmtDiffFull(lateMin, rec?.start, _def.start) : (lateMin>0?`${lateMin}m`:'00:00');
+        const earlyTxt = typeof _fmtDiffFull==='function' ? _fmtDiffFull(earlyMin, _def.end, rec?.end) : (earlyMin>0?`${earlyMin}m`:'00:00');
+
+        const bg = isLate ? 'background:var(--D-bg);' : isEarly ? 'background:rgba(245,158,11,.08);' : hasRec ? 'background:rgba(74,222,128,.06);' : '';
+
+        const content = !hasRec
+          ? `<span style="font-size:11px;color:var(--text3);">·</span>`
+          : `<div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};line-height:1.5;">${rec.start||'—'}</div>
+             <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${isLate?'var(--err)':'var(--ok)'};">
+               <b>${isLate?'(-)':'(+'}</b> ${lateTxt}
+             </div>
+             <div style="font-size:10px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};line-height:1.5;">${rec.end||'—'}</div>
+             <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${isEarly?'var(--warn)':'var(--ok)'};">
+               <b>${isEarly?'(-)':'(+'}</b> ${earlyTxt}
+             </div>`;
+
+        return `<td style="text-align:center;padding:3px 1px;cursor:pointer;vertical-align:top;
+          min-width:64px;width:64px;${bg}
+          ${isToday?'outline:1.5px solid var(--accent);outline-offset:-1px;':''}
+          ${isSunDiv?'border-left:1px solid var(--border2);':''}"
+          onclick="openAttendanceModal(${u.id},'${dk}')"
+          title="${hasRec?`${rec?.start||'—'} → ${rec?.end||'—'}`:'No record — click to add'}">
+          ${content}
+        </td>`;
+      }).join('');
+
+      const sumTxt = uLate>0||uEarly>0
+        ? [uLate>0?`<span style="color:var(--err);font-size:10px;font-weight:600;">${uLate}L</span>`:'',
+           uEarly>0?`<span style="color:var(--warn);font-size:10px;font-weight:600;">${uEarly}E</span>`:'']
+           .filter(Boolean).join(' ')
+        : `<span style="color:var(--ok);font-size:11px;">✓</span>`;
+
+      return `<tr data-name="${u.name.toLowerCase()}"
+        style="border-bottom:0.5px solid var(--border);">
+        <td style="padding:5px 10px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);">
+          <div style="font-size:12px;font-weight:600;">${u.name}</div>
+          <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</div>
+        </td>
+        <td style="padding:5px 6px;text-align:center;white-space:nowrap;border-right:1px solid var(--border);">
+          ${sumTxt}
+        </td>
+        ${cells}
+      </tr>`;
+    }).join('');
+
+    return `<div class="t-sb" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:${c.bg};border-bottom:1px solid var(--border);">
+        ${_shBadge(sh,22)}
+        <span style="font-size:13px;font-weight:600;color:${c.color};">Shift ${sh}</span>
+        <span style="font-size:11px;color:var(--text2);">${(SHIFTS[sh]||{}).display||''}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text2);">${users.length} staff</span>
+        ${shiftLate>0?`<span style="font-size:11px;color:var(--err);">${shiftLate} late</span>`:''}
+        ${shiftEarly>0?`<span style="font-size:11px;color:var(--warn);">${shiftEarly} early</span>`:''}
+      </div>
+      <div style="overflow-x:auto;overflow-y:auto;max-height:480px;">
+        <table style="width:max-content;min-width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 10px;background:var(--bg3);border-bottom:2px solid var(--border2);
+                min-width:180px;position:sticky;top:0;left:0;z-index:4;font-size:11px;color:var(--text2);">Name</th>
+              <th style="text-align:center;padding:6px 6px;background:var(--bg3);border-bottom:2px solid var(--border2);
+                min-width:36px;font-size:10px;color:var(--text2);border-right:1px solid var(--border);">Sum</th>
+              ${theadDates}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="padding:6px 14px;background:var(--bg3);border-top:1px solid var(--border);font-size:11px;color:var(--text3);">
+        Click any cell to edit &nbsp;·&nbsp;
+        <span style="color:var(--err);">red</span> = late &nbsp;·&nbsp;
+        <span style="color:var(--warn);">amber</span> = early out &nbsp;·&nbsp;
+        <span style="color:var(--ok);">green</span> = on time
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+<div style="margin-bottom:12px;">
+  <div class="page-title">Logbook</div>
+  <div class="page-sub">${monthLabel} · ${totalStaff} staff · Click any cell to edit</div>
+</div>
+${monthPicker}
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+  <div style="display:flex;gap:5px;flex-wrap:wrap;">
+    ${['all','A','B','C','D','E'].map(val=>{
+      const isAct=TS.shiftFilter===val;
+      const c=SHIFT_COLORS[val]||{};
+      const cnt=val!=='all'?byShift[val]?.length:'';
+      return `<button onclick="window._tState.shiftFilter='${val}';window._tState.search='';nav('attendance')"
+        style="padding:5px 12px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;
+          border:1.5px solid ${isAct?(val==='all'?'var(--accent)':c.color):'var(--border2)'};
+          background:${isAct?(val==='all'?'var(--accent)':c.bg):'var(--bg2)'};
+          color:${isAct?(val==='all'?'#fff':c.color):'var(--text2)'};">
+        ${val==='all'?'All shifts':val}${cnt!==''?` <span style="font-size:10px;opacity:.65;">${cnt}</span>`:''}
+      </button>`;
+    }).join('')}
+  </div>
+  <input class="filter-input" style="width:200px;padding:6px 12px;font-size:13px;"
+    placeholder="Search by name…" value="${q||''}"
+    oninput="window._tState.search=this.value;
+      const q=this.value.toLowerCase();
+      document.querySelectorAll('.t-sb').forEach(b=>{
+        let v=0;
+        b.querySelectorAll('tr[data-name]').forEach(r=>{
+          const show=!q||(r.dataset.name||'').toLowerCase().includes(q);
+          r.style.display=show?'':'none';if(show)v++;
+        });
+        b.style.display=v>0?'':'none';
+      });">
+  <span style="font-size:11px;color:var(--text3);">${totalStaff} staff</span>
+</div>
+${blocks||'<div class="empty">No staff found.</div>'}`;
 }
