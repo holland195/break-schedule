@@ -134,7 +134,19 @@
       </div>
       <!-- Theme toggle -->
       <button class="theme-toggle" onclick="toggleTheme();updateAppThemeBtn()" id="theme-toggle-btn" title="Toggle theme">☀</button>
-      <span id="sync-badge" style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none;"></span>
+      <span id="sync-badge"
+        style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none;cursor:pointer;padding:3px 8px;border-radius:4px;transition:opacity .15s;"
+        title="Click to sync now"
+        onmouseenter="this.style.opacity='.7'"
+        onmouseleave="this.style.opacity='1'"
+        onclick="(async()=>{
+          updateSyncBadge('busy');
+          const ok = typeof syncEnabled==='function'&&syncEnabled() ? await syncPull() : await syncPublicPull();
+          if(ok){ nav(currentPage); updateBadge(); }
+          updateSyncBadge(ok?'ok':'err');
+          if(ok) { const el=document.getElementById('sync-badge'); const old=el.textContent; el.textContent='✓ Updated'; setTimeout(()=>updateSyncBadge('ok'),1500); }
+        })()">
+      </span>
       <button class="btn btn-sm" onclick="logout()">Sign out</button>
     </div>
   </div>

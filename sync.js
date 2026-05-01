@@ -375,7 +375,9 @@ function updateSyncBadge(status) {
     busy: ['☁ Syncing…', 'var(--text3)'],
   };
   const [txt, col] = map[status] || map.err;
-  el.textContent = txt; el.style.color = col;
+  el.textContent = txt;
+  el.style.color = col;
+  el.title = status === 'busy' ? 'Syncing…' : 'Click to sync now';
 }
 
 // ═══════════════════════════════════════════════
