@@ -372,6 +372,12 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
            </div>`
         : `<div style="font-size:9px;color:var(--text3);">—</div>`;
 
+      const logConflict = logConflicts.find(c => c.dk === dk);
+      const bg = logConflict
+        ? 'rgba(248,113,113,.18)'
+        : isLate || isEarly ? (isLate ? 'var(--D-bg)' : 'rgba(245,158,11,.08)')
+        : (hasData ? 'var(--C-bg)' : '');
+
       // Check if this cell should be highlighted (came from conflict click)
       const isHighlighted = window._attHighlight &&
         window._attHighlight.uid === u.id &&
