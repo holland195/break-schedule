@@ -2169,9 +2169,14 @@ function renderExtBreak() {
               + '</div>'
             : '';
 
-          const delBtn = (u.id === currentUser.id || isLeader(currentUser))
+          const todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
+          const dayStr    = (e.days && e.days.length > 0) ? e.days[0] : (e.day || '');
+          const [_d, _m]  = dayStr.split('/').map(Number);
+          const isPastDay = dayStr ? ((_m - 1) * 100 + _d) < todayMMDD : false;
+          const canCancel = (u.id === currentUser.id || isLeader(currentUser)) && !isPastDay;
+          const delBtn    = canCancel
             ? '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
-              + 'onclick="deleteExtBreak(' + u.id + ',\'' + (e.mk || mk) + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
+              + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
             : '';
 
           const daysLabel = (e.days && e.days.length > 1)
@@ -2457,6 +2462,16 @@ function deleteExtBreak(uid, mk, idx, cancelledById) {
 
   // Fallback: scan all months for this user to find the right entry
   if (!entry) {
+    // Block cancellation for past dates
+  const dayStr = (entry.days && entry.days.length > 0) ? entry.days[0] : (entry.day || '');
+  if (dayStr) {
+    const [d, m]    = dayStr.split('/').map(Number);
+    const todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
+    if ((m - 1) * 100 + d < todayMMDD && cancelledById === uid) {
+      toast('Cannot cancel a past registration.', 'err');
+      return;
+    }
+  }
     const allKeys = Object.keys(state.extBreaks || {})
       .filter(k => k.startsWith(uid + '_'));
     for (const key of allKeys) {

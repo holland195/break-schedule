@@ -391,8 +391,16 @@ function renderExtBreakTraining() {
                   + 'onclick="rejectExtBreakPrompt(' + u.id + ',\'' + mk + '\',' + i + ')">✗</button>'
                   + '</div>'
                 : '')
-              + '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
-              + 'onclick="deleteExtBreak(' + u.id + ',\'' + (e.mk || mk) + '\',' + i + ',' + u.id + ')">🗑</button>'
+              + (() => {
+                  const _tMMDD = new Date().getMonth() * 100 + new Date().getDate();
+                  const _ds    = (e.days && e.days.length > 0) ? e.days[0] : (e.day || '');
+                  const [_td, _tm] = _ds.split('/').map(Number);
+                  const _past  = _ds ? ((_tm - 1) * 100 + _td) < _tMMDD : false;
+                  return !_past
+                    ? '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
+                      + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + u.id + ')">🗑</button>'
+                    : '';
+                })()
               + '</div>';
           }).join('');
 
