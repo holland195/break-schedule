@@ -280,6 +280,12 @@ function _getLogbookConflicts(userId, weekDates) {
 function renderAttendance() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
 
+  // Training role owns its entire attendance page (log + report tabs)
+  if (isTraining(currentUser)) {
+    if (typeof renderAttendanceTraining === 'function') return renderAttendanceTraining();
+    return '<div class="empty">Loading…</div>';
+  }
+
   // Tab header shared by both views
   const tabs = `
 <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);">

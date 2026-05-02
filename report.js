@@ -344,64 +344,64 @@ function renderReport(hideHeader = false) {
     ${logRows}`;
   }).join('');
  
-  
-return `
-${hideHeader ? '' : `
-<div class="page-header">
-  <div><div class="page-title">⏱ Logbook & Reports</div></div>
-</div>`}
-
-<!-- Month picker bar -->
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
-  <select class="login-select" style="padding:5px 10px;font-size:12px;"
-    onchange="reportMonth=+this.value;attendanceTab='report';nav('attendance')">${months.join('')}</select>
-  <select class="login-select" style="padding:5px 10px;font-size:12px;"
-    onchange="reportYear=+this.value;attendanceTab='report';nav('attendance')">
-    ${[2024,2025,2026,2027].map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
-  </select>
-  <span style="font-size:12px;color:var(--text3);">${monthLabel}</span>
-  <button class="btn btn-sm" onclick="exportMonthlyReport(${month},${year})" style="margin-left:auto;">⬇ CSV</button>
+  return `
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+  <div>
+    <div class="page-title" style="font-size:16px;">📋 Monthly Report</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:2px;">${monthLabel} · ${totalStaff} staff tracked</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
+    <select class="login-select" style="padding:5px 10px;font-size:12px;"
+      onchange="reportMonth=+this.value;attendanceTab='report';nav('attendance')">${months.join('')}</select>
+    <select class="login-select" style="padding:5px 10px;font-size:12px;"
+      onchange="reportYear=+this.value;attendanceTab='report';nav('attendance')">
+      ${[2024,2025,2026,2027].map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+    </select>
+    <button class="btn btn-sm" onclick="exportReportCSV()">⬇ CSV</button>
+  </div>
 </div>
 
 <!-- Summary strip -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;">
-  <div style="padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;">Staff</div>
-    <div style="font-size:22px;font-weight:700;color:var(--text);">${totalStaff}</div>
+<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+  <div style="flex:1;min-width:100px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;">Staff</div>
+    <div style="font-size:22px;font-weight:700;color:var(--text);margin-top:2px;">${totalStaff}</div>
   </div>
-  <div style="padding:12px 14px;background:var(--D-bg);border:1px solid var(--err);border-radius:8px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--err);margin-bottom:4px;">Late days</div>
-    <div style="font-size:22px;font-weight:700;color:var(--err);">${totalLate}</div>
+  <div style="flex:1;min-width:100px;padding:12px 16px;background:var(--D-bg);border:1px solid var(--err);border-radius:8px;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--err);font-weight:700;">Late incidents</div>
+    <div style="font-size:22px;font-weight:700;color:var(--err);margin-top:2px;">${totalLate}</div>
   </div>
-  <div style="padding:12px 14px;background:rgba(245,158,11,.08);border:1px solid var(--warn);border-radius:8px;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);margin-bottom:4px;">Early out</div>
-    <div style="font-size:22px;font-weight:700;color:var(--warn);">${totalEarly}</div>
+  <div style="flex:1;min-width:100px;padding:12px 16px;background:rgba(245,158,11,.08);border:1px solid var(--warn);border-radius:8px;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:700;">Early out</div>
+    <div style="font-size:22px;font-weight:700;color:var(--warn);margin-top:2px;">${totalEarly}</div>
   </div>
-  ${top5.length > 0 ? `
-  <div style="padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;grid-column:span 2;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;">Top incidents</div>
-    ${top5.map(s=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-      <span class="sh sh-${s.primaryShift}" style="width:18px;height:18px;font-size:9px;flex-shrink:0;">${s.primaryShift}</span>
-      <span style="font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.u.name}</span>
-      ${s.lateDays>0?`<span style="font-size:10px;color:var(--err);font-weight:600;">${s.lateDays}L</span>`:''}
-      ${s.earlyDays>0?`<span style="font-size:10px;color:var(--warn);font-weight:600;">${s.earlyDays}E</span>`:''}
-    </div>`).join('')}
-  </div>` : ''}
+  <div style="flex:1;min-width:100px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;">Break coverage</div>
+    <div style="font-size:22px;font-weight:700;color:${breakPct<80?'var(--warn)':'var(--ok)'};margin-top:2px;">${breakPct}%</div>
+  </div>
+  <!-- Late by shift inline bars -->
+  <div style="flex:2;min-width:200px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;margin-bottom:8px;">Late by shift</div>
+    <div style="display:flex;flex-direction:column;gap:5px;">${shiftBars}</div>
+  </div>
 </div>
 
 <!-- Main table -->
+<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">
+  Click <span style="color:var(--accent);">▶</span> on any row to expand day-by-day log
+</div>
 <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
-  <table style="width:100%;border-collapse:collapse;min-width:680px;font-size:12px;">
+  <table style="width:100%;border-collapse:collapse;font-size:12px;">
     <thead>
       <tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">
-        <th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--text2);min-width:180px;position:sticky;top:0;background:var(--bg3);z-index:2;">NAME</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text2);position:sticky;top:0;background:var(--bg3);z-index:2;">SHIFT</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text2);position:sticky;top:0;background:var(--bg3);z-index:2;">DAYS</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--err);position:sticky;top:0;background:var(--bg3);z-index:2;">LATE</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--err);position:sticky;top:0;background:var(--bg3);z-index:2;">AVG</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--warn);position:sticky;top:0;background:var(--bg3);z-index:2;">EARLY</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--warn);position:sticky;top:0;background:var(--bg3);z-index:2;">AVG</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text3);position:sticky;top:0;background:var(--bg3);z-index:2;">▼</th>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--text2);min-width:180px;">NAME</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--text2);">SHIFT</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--text2);">WORK DAYS</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--err);">LATE</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--err);">AVG LATE</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--warn);">EARLY OUT</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--warn);">AVG EARLY</th>
+        <th style="text-align:center;padding:8px 8px;font-size:11px;color:var(--text3);width:32px;"></th>
       </tr>
     </thead>
     <tbody>${tableRows}</tbody>
