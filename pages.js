@@ -437,6 +437,45 @@ function renderSchedule() {
       const slotIdx = br ? shiftSlots.indexOf(br.slot) : -1;
       const slotCls = slotIdx >= 0 ? `slot-${slotIdx + 1}` : '';
       const shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
+
+      // ── Per-day slot totals by role tier ──
+  const ROLE_TIERS = [
+    { label: 'Agent',  match: u => ['Agent','Sr Agent','Sr. Agent'].includes(u.role) },
+    { label: 'QA',     match: u => u.role === 'QA' },
+    { label: 'Sr QA',  match: u => ['Sr QA','Sr. QA'].includes(u.role) },
+  ];
+
+  const tfootRows = ROLE_TIERS.map(tier => {
+    const tierUsers = allShiftUsers.filter(tier.match);
+    if (!tierUsers.length) return '';
+    const dayCells = weekDates.map(dk => {
+      let s1 = 0, s2 = 0;
+      tierUsers.forEach(u => {
+        if (getUserShift(u, dk) !== shiftToShow) return;
+        const br = DB.getBreak(u.id, dk);
+        if (!br) return;
+        const idx = shiftSlots.indexOf(br.slot);
+        if (idx === 0) s1++;
+        else if (idx === 1) s2++;
+      });
+      return '<td style="text-align:center;padding:4px 2px;border-right:1px solid var(--border);">'
+        + '<span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">' + s1 + '</span>'
+        + ' <span style="color:var(--text3);font-size:9px;">·</span> '
+        + '<span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">' + s2 + '</span>'
+        + '</td>';
+    }).join('');
+    return '<tr style="background:var(--bg4);border-top:1px solid var(--border2);">'
+      + '<td class="sched-name-col" style="font-size:10px;font-weight:700;color:var(--text3);'
+      +   'font-family:\'IBM Plex Mono\',monospace;letter-spacing:.03em;padding:4px 14px;">'
+      +   tier.label
+      + '</td>'
+      + dayCells
+      + '</tr>';
+  }).filter(Boolean).join('');
+
+  const tfootHTML = tfootRows
+    ? '<tfoot style="position:sticky;bottom:0;z-index:5;">' + tfootRows + '</tfoot>'
+    : '';
       return `<td style="text-align:center;padding:4px 2px;"${hasExt ? ' class="cell-female-ext"' : ''}>
         <span class="${br ? `break-slot assigned ${slotCls}` : ''}"
           style="font-size:10px;padding:3px 8px;${br ? '' : 'color:var(--text3)'}"
@@ -495,6 +534,7 @@ ${shiftUsers.length > 0 ? `
       ${theadCells}
     </tr></thead>
     <tbody id="sched-tbody">${tbodyRows}</tbody>
+    ${tfootHTML}
   </table>
 </div>`: ''}`;
 }
