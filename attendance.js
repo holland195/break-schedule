@@ -303,8 +303,8 @@ function renderAttendance() {
     return `
 <div class="page-header">
   <div>
-    <div class="page-title">⏱ Attendance & Reports</div>
-    <div class="page-sub">Weekly log and monthly summary</div>
+    <div class="page-title">⏱ Logbook & Reports</div>
+<div class="page-sub">Weekly log and monthly summary</div>
   </div>
 </div>
 ${tabs}

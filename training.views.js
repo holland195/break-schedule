@@ -645,11 +645,40 @@ function renderAttendanceTraining() {
 
   const emptyMsg = `<tr><td colspan="${dates.length+2}" style="text-align:center;padding:48px;color:var(--text3);">No staff found.</td></tr>`;
 
+  // Tab state (reuse attendanceTab shared variable)
+  const tabs = `
+<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);">
+  <button onclick="attendanceTab='log';nav('attendance')"
+    style="padding:8px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;
+      color:${attendanceTab==='log'?'var(--accent)':'var(--text3)'};
+      border-bottom:${attendanceTab==='log'?'2px solid var(--accent)':'2px solid transparent'};
+      margin-bottom:-2px;">
+    ⏱ Monthly Log
+  </button>
+  <button onclick="attendanceTab='report';nav('attendance')"
+    style="padding:8px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;
+      color:${attendanceTab==='report'?'var(--accent)':'var(--text3)'};
+      border-bottom:${attendanceTab==='report'?'2px solid var(--accent)':'2px solid transparent'};
+      margin-bottom:-2px;">
+    📋 Monthly Report
+  </button>
+</div>`;
+
+  if (attendanceTab === 'report') {
+    return `
+<div style="margin-bottom:12px;">
+  <div class="page-title">⏱ Logbook & Reports</div>
+</div>
+${tabs}
+${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Report loading…</div>'}`;
+  }
+
   return `
 <div style="margin-bottom:12px;">
-  <div class="page-title">Logbook</div>
+  <div class="page-title">⏱ Logbook & Reports</div>
   <div class="page-sub">${monthLabel} · ${totalStaff} staff · Click any cell to edit</div>
 </div>
+${tabs}
 
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
   ${monthPicker}
