@@ -920,12 +920,13 @@ function _renderArrangeOverviewTab(weekRange) {
       </td>`;
     }).join('');
 
-    const genderIcon = u.gender === 'F' ? '♀' : u.gender === 'M' ? '♂' : '';
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
-        <span style="font-weight:600;font-size:12px;">${u.name}</span>
-        ${genderIcon ? `<span style="font-size:10px;color:${u.gender === 'F' ? 'var(--A-color)' : 'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
-        <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team} · ${getRoleInfo(u.role).label}</div>
+        <div style="font-weight:600;font-size:12px;margin-bottom:2px;">${u.name}</div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team}</span>
+          <span class="role-tag ${getRoleInfo(u.role).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role).label}</span>
+        </div>
       </td>
       ${dayCells}
     </tr>`;
@@ -1030,17 +1031,15 @@ function getArrangeDayMemberList(_unused) {
       </td>`;
     }).join('');
 
-    const genderBadge = u.gender === 'F'
-      ? `<span style="font-size:9px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
-
     return `<tr class="arr-row">
-      
-      <td>
-        <div style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:1px;">${u.team}</div>
-        <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${u.name}${genderBadge}
+      <td class="arr-name-col">
+        <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;">
+          ${u.name}
         </div>
-        <span class="role-tag ${getRoleInfo(u.role).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role).label}</span>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team}</span>
+          <span class="role-tag ${getRoleInfo(u.role).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role).label}</span>
+        </div>
       </td>
       ${dayCells}
     </tr>`;

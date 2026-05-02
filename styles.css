@@ -971,8 +971,10 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 }
 .arr-cell:last-child { border-right: none; }
 .arr-cell-off {
-  background: var(--bg);      /* slightly darker = visually off */
+  background: var(--bg);
   opacity: 0.5;
+  text-align: center;
+  vertical-align: middle;
 }
 .arr-cell-today { background: rgba(31,102,241,.04) !important; }
 [data-theme="light"] .arr-cell-today { background: rgba(31,102,241,.03) !important; }
