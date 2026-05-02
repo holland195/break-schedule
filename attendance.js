@@ -308,10 +308,7 @@ function renderAttendance() {
   if (attendanceTab === 'report') {
     return `
 <div class="page-header">
-  <div>
-    <div class="page-title">⏱ Logbook & Reports</div>
-<div class="page-sub">Weekly log and monthly summary</div>
-  </div>
+  <div><div class="page-title">⏱ Logbook & Reports</div></div>
 </div>
 ${tabs}
 ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Report loading…</div>'}`;
