@@ -176,7 +176,7 @@
         <div class="nav-item" onclick="nav('schedule')" data-page="schedule"><span class="nav-ico">📅</span> Break
           Schedule</div>
         <div class="nav-item" onclick="nav('requests')" data-page="requests">
-          <span class="nav-ico">🔄</span> Requests
+          <span class="nav-ico">🔄</span> Break Swap
           <span class="nav-badge" id="req-badge" style="display:none">0</span>
         </div>
         <div class="nav-item" onclick="nav('extbreak')" data-page="extbreak">
@@ -254,7 +254,7 @@
   <!-- ─── MODAL: REQUEST ────────────────────────────────────── -->
   <div class="modal-overlay" id="modal-request">
     <div class="modal" style="width:560px;">
-      <div class="modal-title">🔄 Request Break Swap</div>
+      <div class="modal-title">🔄 Break Swap Request</div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
         Choose a partner with the <b>same exact role</b> on the same shift. A leader must approve before slots are
         swapped.
@@ -329,15 +329,14 @@
         Female staff may register up to <b style="color:var(--accent);">3 times per month</b>.
         The extra 30 min is added immediately before or after your main break slot.
       </p>
-      <div class="fg"><label>Day</label>
-        <select id="eb-day" onchange="_updateEbDayChange()">
-          <option value="">— choose day —</option>
-        </select>
-      </div>
-      <div class="fg"><label>Your main break on that day</label>
-        <input id="eb-main-slot" readonly
-          style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
-      </div>
+      <div class="fg"><label>Select day(s) — max 3 remaining</label>
+  <div id="eb-day-list" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;
+    max-height:180px;overflow-y:auto;padding-right:4px;"></div>
+</div>
+<div class="fg" id="eb-main-slot-wrap"><label>Your main break on selected day(s)</label>
+  <input id="eb-main-slot" readonly
+    style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
+</div>
       <div class="fg"><label>Extra 30-min position</label>
         <div style="display:flex;gap:8px;margin-top:4px;">
           <label

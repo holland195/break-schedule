@@ -25,57 +25,57 @@
 //  L  → personal leave (kết hôn, tang)
 //
 //  SHIFT MISMATCH: XA on shift B day → conflict
- 
+
 // ── Monthly attendance code map (Excel legend rows 123-168) ──
 const ATT_CODE_MAP = (() => {
   const map = {};
-  ['A','B','C','D','E'].forEach(sh => {
-    map[`X${sh}`]  = { type:'WD', shift:sh };
-    map[`X2${sh}`] = { type:'WD', shift:sh };
-    map[`X3${sh}`] = { type:'WD', shift:sh };
-    map[`X4${sh}`] = { type:'WD', shift:sh };
-    map[`${sh}1`]  = { type:'HD1', shift:sh };
-    map[`${sh}2`]  = { type:'HD2', shift:sh };
-    map[`U${sh}1`] = { type:'HD1', shift:sh };
-    map[`U${sh}2`] = { type:'HD2', shift:sh };
+  ['A', 'B', 'C', 'D', 'E'].forEach(sh => {
+    map[`X${sh}`] = { type: 'WD', shift: sh };
+    map[`X2${sh}`] = { type: 'WD', shift: sh };
+    map[`X3${sh}`] = { type: 'WD', shift: sh };
+    map[`X4${sh}`] = { type: 'WD', shift: sh };
+    map[`${sh}1`] = { type: 'HD1', shift: sh };
+    map[`${sh}2`] = { type: 'HD2', shift: sh };
+    map[`U${sh}1`] = { type: 'HD1', shift: sh };
+    map[`U${sh}2`] = { type: 'HD2', shift: sh };
   });
-  map['A']   = { type:'OFF', reason:'Annual leave' };
-  map['H']   = { type:'OFF', reason:'Public holiday' };
-  map['U']   = { type:'OFF', reason:'Unpaid leave' };
-  map['S']   = { type:'OFF', reason:'Sick leave' };
-  map['L']   = { type:'OFF', reason:'Personal leave' };
-  map['0']   = { type:'OFF', reason:'Day off' };
-  map['0.0'] = { type:'OFF', reason:'Day off' };
+  map['A'] = { type: 'OFF', reason: 'Annual leave' };
+  map['H'] = { type: 'OFF', reason: 'Public holiday' };
+  map['U'] = { type: 'OFF', reason: 'Unpaid leave' };
+  map['S'] = { type: 'OFF', reason: 'Sick leave' };
+  map['L'] = { type: 'OFF', reason: 'Personal leave' };
+  map['0'] = { type: 'OFF', reason: 'Day off' };
+  map['0.0'] = { type: 'OFF', reason: 'Day off' };
   return map;
 })();
- 
+
 function _parseAttCode(raw) {
   if (raw === null || raw === undefined || raw === '') return null;
   const s = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
   return ATT_CODE_MAP[s] || null;
 }
- 
+
 function _excelDateToDk(h, fallbackMonth) {
   if (!h) return null;
   if (h instanceof Date) {
-    return String(h.getDate()).padStart(2,'0') + '/' + String(h.getMonth()+1).padStart(2,'0');
+    return String(h.getDate()).padStart(2, '0') + '/' + String(h.getMonth() + 1).padStart(2, '0');
   }
   if (typeof h === 'number' && h > 40000) {
     const dt = new Date(Math.round((h - 25569) * 86400 * 1000));
-    return String(dt.getUTCDate()).padStart(2,'0') + '/' + String(dt.getUTCMonth()+1).padStart(2,'0');
+    return String(dt.getUTCDate()).padStart(2, '0') + '/' + String(dt.getUTCMonth() + 1).padStart(2, '0');
   }
   if (typeof h === 'string') {
     if (h.match(/^\d{4}-\d{2}-\d{2}/)) {
       const dt = new Date(h);
-      if (!isNaN(dt)) return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
+      if (!isNaN(dt)) return String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
     }
-    const c = h.replace(/[-–]/g,'/').trim();
+    const c = h.replace(/[-–]/g, '/').trim();
     if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
-      const [d,m] = c.split('/');
-      return d.padStart(2,'0') + '/' + m.padStart(2,'0');
+      const [d, m] = c.split('/');
+      return d.padStart(2, '0') + '/' + m.padStart(2, '0');
     }
     if (/^\d{1,2}$/.test(c) && fallbackMonth) {
-      return c.padStart(2,'0') + '/' + String(fallbackMonth).padStart(2,'0');
+      return c.padStart(2, '0') + '/' + String(fallbackMonth).padStart(2, '0');
     }
   }
   return null;
@@ -85,13 +85,13 @@ function _getMondayOfWeek(dk) {
   // Given a DD/MM dateKey, return the Monday of that week as DD/MM
   // Week is Sun–Sat in the attendance view, but we need the Sunday
   const [d, m] = dk.split('/');
-  const dt = new Date(new Date().getFullYear(), parseInt(m)-1, parseInt(d));
+  const dt = new Date(new Date().getFullYear(), parseInt(m) - 1, parseInt(d));
   // Go back to Sunday (start of attendance week)
   const day = dt.getDay(); // 0=Sun
   dt.setDate(dt.getDate() - day);
-  return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
 }
- 
+
 function _checkAttConflict(u, dk, parsedCode) {
   if (!parsedCode) return null;
   const weekRec = DB.getAttendance(u.id, dk);
@@ -100,11 +100,11 @@ function _checkAttConflict(u, dk, parsedCode) {
   // Only flag if start or end is a non-empty, non-dash string
   const hasRealRecord = weekRec &&
     ((weekRec.start && weekRec.start.trim() !== '' && weekRec.start !== '—') ||
-     (weekRec.end   && weekRec.end.trim()   !== '' && weekRec.end   !== '—'));
- 
+      (weekRec.end && weekRec.end.trim() !== '' && weekRec.end !== '—'));
+
   if (parsedCode.type === 'OFF') {
     if (hasRealRecord) {
-      conflicts.push(`Attendance logged on ${parsedCode.reason||'off day'}`);
+      conflicts.push(`Attendance logged on ${parsedCode.reason || 'off day'}`);
     }
   } else if (parsedCode.type === 'HD1' || parsedCode.type === 'HD2') {
     if (hasRealRecord) {
@@ -121,19 +121,19 @@ function _checkAttConflict(u, dk, parsedCode) {
 // ═══════════════════════════════════════════════
 //  Role sort order for Staff Info tab
 // ─────────────────────────────────────────────
- 
+
 const ROLE_SORT_ORDER = {
-  'Agent Training Manager':   0,
+  'Agent Training Manager': 0,
   'Agent Training Assistant': 1,
-  'Agent Leader':             2,
-  'Agent Supervisor':         2,
-  'Sr QA':                    3,
-  'QA':                       4,
-  'Sr Agent':                 5,
-  'Agent':                    6,
-  'Admin':                    99,
+  'Agent Leader': 2,
+  'Agent Supervisor': 2,
+  'Sr QA': 3,
+  'QA': 4,
+  'Sr Agent': 5,
+  'Agent': 6,
+  'Admin': 99,
 };
- 
+
 function _roleSort(a, b) {
   const ra = ROLE_SORT_ORDER[a.role] ?? 9;
   const rb = ROLE_SORT_ORDER[b.role] ?? 9;
@@ -144,42 +144,42 @@ function _roleSort(a, b) {
 //  RENDER: DASHBOARD
 // ═══════════════════════════════════════════════
 function renderDashboard() {
-  const weekDates  = getWeekDates(); // always real current week
-  const todayDk    = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-  const si         = DB.getStaffInfo(currentUser.username);
-  const gender     = si?.gender || currentUser.gender || '';
-  const mk         = currentMonthKey();
-  const extUsed    = DB.countExtBreaks(currentUser.id, mk);
+  const weekDates = getWeekDates(); // always real current week
+  const todayDk = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const si = DB.getStaffInfo(currentUser.username);
+  const gender = si?.gender || currentUser.gender || '';
+  const mk = currentMonthKey();
+  const extUsed = DB.countExtBreaks(currentUser.id, mk);
 
   // My break today
-  const myBr       = getAssigned(currentUser.id, todayDk)
-                  || getAssigned(currentUser.id, getWkDay(todayDk));
-  const myShift    = currentUser.schedule?.[todayDk]
-                  || currentUser.schedule?.[getWkDay(todayDk)] || '0';
-  const onShift    = myShift === currentShift;
+  const myBr = getAssigned(currentUser.id, todayDk)
+    || getAssigned(currentUser.id, getWkDay(todayDk));
+  const myShift = currentUser.schedule?.[todayDk]
+    || currentUser.schedule?.[getWkDay(todayDk)] || '0';
+  const onShift = myShift === currentShift;
 
   // Pending requests
-  const myPending  = state.requests.filter(r =>
+  const myPending = state.requests.filter(r =>
     r.userId === currentUser.id && r.status === 'pending'
   ).length;
   const allPending = state.requests.filter(r => r.status === 'pending').length;
 
   // Team breaks today (same shift)
   const shiftMates = getShiftMates(currentShift, todayDk);
-  const assigned   = shiftMates.filter(u => getAssigned(u.id, todayDk)).length;
+  const assigned = shiftMates.filter(u => getAssigned(u.id, todayDk)).length;
 
-  const greetHour  = new Date().getHours();
-  const greet      = greetHour < 12 ? 'Good morning' : greetHour < 17 ? 'Good afternoon' : 'Good evening';
+  const greetHour = new Date().getHours();
+  const greet = greetHour < 12 ? 'Good morning' : greetHour < 17 ? 'Good afternoon' : 'Good evening';
 
   // My break card
   const myBreakCard = `
 <div class="card" style="margin-bottom:0;">
   <div class="card-title">🕐 My Break Today</div>
   ${!onShift
-    ? `<div style="color:var(--text3);font-size:13px;">Not on Shift ${currentShift} today.</div>`
-    : myBr
-      ? `<div style="display:flex;align-items:center;gap:12px;">
-          <span class="break-slot assigned slot-${(BREAK_SLOTS[currentShift]||[]).indexOf(myBr.slot)+1||1}"
+      ? `<div style="color:var(--text3);font-size:13px;">Not on Shift ${currentShift} today.</div>`
+      : myBr
+        ? `<div style="display:flex;align-items:center;gap:12px;">
+          <span class="break-slot assigned slot-${(BREAK_SLOTS[currentShift] || []).indexOf(myBr.slot) + 1 || 1}"
             style="font-size:14px;padding:8px 18px;font-weight:700;">
             ${getShortSlot(currentShift, myBr.slot)}
           </span>
@@ -188,7 +188,7 @@ function renderDashboard() {
             <div style="font-size:11px;color:var(--text3);">${SHIFTS[currentShift].display}</div>
           </div>
         </div>`
-      : `<div style="color:var(--warn);font-size:13px;">⏳ Not assigned yet for today.</div>`}
+        : `<div style="color:var(--warn);font-size:13px;">⏳ Not assigned yet for today.</div>`}
   ${gender === 'F' ? `<div style="margin-top:10px;font-size:11px;color:var(--A-color);">🌸 Extra 30-min breaks used this month: <b>${extUsed}/3</b></div>` : ''}
 </div>`;
 
@@ -205,16 +205,16 @@ function renderDashboard() {
   </div>
   <div class="stat">
     <div class="stat-label">Breaks assigned</div>
-    <div class="stat-num" style="color:${assigned===shiftMates.length&&shiftMates.length>0?'var(--ok)':'var(--warn)'}">${assigned}<span style="font-size:14px;color:var(--text3)">/${shiftMates.length}</span></div>
+    <div class="stat-num" style="color:${assigned === shiftMates.length && shiftMates.length > 0 ? 'var(--ok)' : 'var(--warn)'}">${assigned}<span style="font-size:14px;color:var(--text3)">/${shiftMates.length}</span></div>
   </div>
   ${isLeader(currentUser)
-    ? `<div class="stat">
+      ? `<div class="stat">
         <div class="stat-label">Pending requests</div>
-        <div class="stat-num" style="color:${allPending>0?'var(--warn)':'var(--ok)'}">${allPending}</div>
+        <div class="stat-num" style="color:${allPending > 0 ? 'var(--warn)' : 'var(--ok)'}">${allPending}</div>
       </div>`
-    : `<div class="stat">
+      : `<div class="stat">
         <div class="stat-label">My requests</div>
-        <div class="stat-num" style="color:${myPending>0?'var(--warn)':'var(--ok)'}">${myPending}</div>
+        <div class="stat-num" style="color:${myPending > 0 ? 'var(--warn)' : 'var(--ok)'}">${myPending}</div>
       </div>`}
 </div>`;
 
@@ -224,24 +224,24 @@ function renderDashboard() {
   <div class="card-title">👥 Team Breaks Today — Shift ${currentShift} · ${todayDk}</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px;">
     ${shiftMates.map(u => {
-      const br  = getAssigned(u.id, todayDk);
-      const idx = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
-      const isSelf = u.id === currentUser.id;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
-        background:${isSelf?'var(--bg4)':'var(--bg3)'};border-radius:7px;
-        border:1px solid ${isSelf?'var(--accent)':'var(--border)'};">
-        <span class="break-slot ${br?`assigned slot-${idx+1}`:''}" style="font-size:10px;padding:3px 8px;min-width:28px;text-align:center;">
+    const br = getAssigned(u.id, todayDk);
+    const idx = br ? (BREAK_SLOTS[currentShift] || []).indexOf(br.slot) : -1;
+    const isSelf = u.id === currentUser.id;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+        background:${isSelf ? 'var(--bg4)' : 'var(--bg3)'};border-radius:7px;
+        border:1px solid ${isSelf ? 'var(--accent)' : 'var(--border)'};">
+        <span class="break-slot ${br ? `assigned slot-${idx + 1}` : ''}" style="font-size:10px;padding:3px 8px;min-width:28px;text-align:center;">
           ${br ? getShortSlot(currentShift, br.slot) : '?'}
         </span>
         <div style="min-width:0;">
           <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${u.name}${isSelf?' <span style="font-size:10px;color:var(--accent);">(you)</span>':''}
-            ${u.gender==='F'?'<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>':''}
+            ${u.name}${isSelf ? ' <span style="font-size:10px;color:var(--accent);">(you)</span>' : ''}
+            ${u.gender === 'F' ? '<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>' : ''}
           </div>
           <div style="font-size:10px;color:var(--text3);">${u.team} · ${getRoleInfo(u.role).label}</div>
         </div>
       </div>`;
-    }).join('')}
+  }).join('')}
   </div>
 </div>`;
 
@@ -259,7 +259,7 @@ function renderDashboard() {
 <div class="page-header">
   <div>
     <div class="page-title">${greet}, ${currentUser.name.split(' ').slice(-1)[0]} 👋</div>
-    <div class="page-sub">${new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} · Shift ${currentShift}</div>
+    <div class="page-sub">${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · Shift ${currentShift}</div>
   </div>
 </div>
 ${noSchedule}
@@ -270,9 +270,9 @@ ${statsRow}
     <div class="card-title">📋 Quick Links</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
       <button class="btn" onclick="nav('schedule')" style="text-align:left;justify-content:flex-start;">📅 View Break Schedule</button>
-      ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending>0?`<span class="nav-badge" style="display:inline;">${myPending}</span>`:''}</button>` : ''}
-      ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending>0?`<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>`:''}</button>` : ''}
-      ${currentUser.gender==='F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
+      ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending > 0 ? `<span class="nav-badge" style="display:inline;">${myPending}</span>` : ''}</button>` : ''}
+      ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending > 0 ? `<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>` : ''}</button>` : ''}
+      ${currentUser.gender === 'F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
     </div>
   </div>
 </div>
@@ -289,41 +289,41 @@ ${teamGrid}`;
 let scheduleMonday = null; // null = "use current real week"
 
 function renderSchedule() {
-  const canPickWeek    = isLeader(currentUser);
+  const canPickWeek = isLeader(currentUser);
   if (isTraining(currentUser)) {
     if (typeof renderScheduleTraining === 'function') return renderScheduleTraining();
     return '<div class="empty">Loading…</div>';
   }
   const isTrainingUser = isTraining(currentUser);
-  const shiftToShow    = isTrainingUser
+  const shiftToShow = isTrainingUser
     ? (window._scheduleShiftTab || 'A')
     : currentShift;
- 
+
   let weekDates;
   if (canPickWeek && scheduleMonday) {
     weekDates = getWeekRange(scheduleMonday);
   } else {
     weekDates = getWeekDates();
   }
- 
+
   const realWeekDates = getWeekDates();
   const dateToDayName = {};
   WEEK_DAYS.forEach((d, i) => { dateToDayName[realWeekDates[i]] = d; });
   weekDates.forEach((dk, i) => { if (!dateToDayName[dk]) dateToDayName[dk] = WEEK_DAYS[i]; });
- 
+
   function getUserShift(u, dateKey) {
     return u.schedule[dateKey] || u.schedule[dateToDayName[dateKey]] || '0';
   }
- 
-  const schedSearch  = window._schedSearch || '';
-  const shiftSlots   = BREAK_SLOTS[shiftToShow] || [];
-  const todayDk      = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || weekDates[0];
- 
+
+  const schedSearch = window._schedSearch || '';
+  const shiftSlots = BREAK_SLOTS[shiftToShow] || [];
+  const todayDk = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || weekDates[0];
+
   // All users on this shift (unfiltered, for totals)
   const allShiftUsers = state.users.filter(u =>
     weekDates.some(dk => getUserShift(u, dk) === shiftToShow)
   );
- 
+
   // Slot totals across the week
   let slot1Count = 0, slot2Count = 0;
   allShiftUsers.forEach(u => {
@@ -335,7 +335,7 @@ function renderSchedule() {
       else if (idx === 1) slot2Count++;
     });
   });
- 
+
   // Filtered for display
   let shiftUsers = [...allShiftUsers];
   if (schedSearch) {
@@ -345,40 +345,40 @@ function renderSchedule() {
       (u.username || '').toLowerCase().includes(q)
     );
   }
- 
+
   // Week picker (leaders only)
   let weekPickerHTML = '';
   if (canPickWeek) {
     const allDates = Object.keys(state.users[0]?.schedule || {});
-    const mondays  = allDates.filter(d => getWkDay(d) === 'Mon').sort();
+    const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
     const activeMon = scheduleMonday || weekDates[0];
     weekPickerHTML = mondays.length > 0 ? `
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
         <select class="login-select" style="padding:4px 8px;font-size:11px;"
           onchange="scheduleMonday=this.value;nav('schedule')">
-          ${mondays.map(m => `<option value="${m}" ${m===activeMon?'selected':''}>${m}</option>`).join('')}
+          ${mondays.map(m => `<option value="${m}" ${m === activeMon ? 'selected' : ''}>${m}</option>`).join('')}
         </select>
       </div>` : '';
   }
- 
+
   // Shift tab bar for training role
   const shiftTabsHTML = isTrainingUser ? `
     <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
-      ${['A','B','C','D','E'].map(sh => {
-        const active = shiftToShow === sh;
-        const cnt = state.users.filter(u => weekDates.some(dk => getUserShift(u, dk) === sh)).length;
-        return `<button onclick="window._scheduleShiftTab='${sh}';window._schedSearch='';nav('schedule')"
+      ${['A', 'B', 'C', 'D', 'E'].map(sh => {
+    const active = shiftToShow === sh;
+    const cnt = state.users.filter(u => weekDates.some(dk => getUserShift(u, dk) === sh)).length;
+    return `<button onclick="window._scheduleShiftTab='${sh}';window._schedSearch='';nav('schedule')"
           style="padding:7px 18px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;
-            border:1.5px solid ${active?`var(--${sh}-color)`:'var(--border)'};
-            background:${active?`var(--${sh}-bg)`:'var(--bg2)'};
-            color:${active?`var(--${sh}-color)`:'var(--text2)'};transition:all .12s;">
+            border:1.5px solid ${active ? `var(--${sh}-color)` : 'var(--border)'};
+            background:${active ? `var(--${sh}-bg)` : 'var(--bg2)'};
+            color:${active ? `var(--${sh}-color)` : 'var(--text2)'};transition:all .12s;">
           Shift ${sh}
           <span style="font-size:10px;opacity:.7;margin-left:4px;">${cnt}</span>
         </button>`;
-      }).join('')}
+  }).join('')}
     </div>` : '';
- 
+
   // Slot totals summary
   const slotTotalsHTML = shiftSlots.length > 0 ? `
     <div style="display:flex;align-items:center;gap:14px;padding:9px 16px;
@@ -391,35 +391,35 @@ function renderSchedule() {
       </span>
       <span style="color:var(--border2);">|</span>
       ${shiftSlots.map((time, i) => {
-        const count = i === 0 ? slot1Count : slot2Count;
-        return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;">
-          <span class="break-slot slot-${i+1}" style="font-size:10px;padding:2px 8px;">${shiftToShow}${i+1}</span>
+    const count = i === 0 ? slot1Count : slot2Count;
+    return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;">
+          <span class="break-slot slot-${i + 1}" style="font-size:10px;padding:2px 8px;">${shiftToShow}${i + 1}</span>
           <span style="color:var(--text);">
             <b>${count}</b>
             <span style="color:var(--text3);font-size:11px;">assigned</span>
           </span>
         </span>`;
-      }).join(`<span style="color:var(--border2);">·</span>`)}
+  }).join(`<span style="color:var(--border2);">·</span>`)}
     </div>` : '';
- 
+
   // Legend
   const legendItems = shiftSlots.map((time, i) => `
     <div style="display:flex;align-items:center;gap:6px;">
-      <span class="break-slot assigned slot-${i+1}" style="font-size:10px;min-width:28px;text-align:center;">${shiftToShow}${i+1}</span>
+      <span class="break-slot assigned slot-${i + 1}" style="font-size:10px;min-width:28px;text-align:center;">${shiftToShow}${i + 1}</span>
       <span style="color:var(--text2);font-size:11px;">${time}</span>
     </div>`).join('');
- 
+
   // Table header
   const theadCells = weekDates.map((dk, i) => {
     const isToday = dk === todayDk;
     return `<th style="min-width:70px;text-align:center;padding:8px 4px;
-      background:${isToday?'rgba(31,102,241,.08)':'var(--bg3)'};
-      border-bottom:2px solid ${isToday?'var(--accent)':'var(--border2)'};">
-      <div style="color:${isToday?'var(--accent)':'var(--text2)'};font-size:11px;font-weight:700;">${WEEK_DAYS[i]}</div>
-      <div style="font-size:10px;color:${isToday?'var(--accent)':'var(--text3)'};font-weight:400;">${dk}</div>
+      background:${isToday ? 'rgba(31,102,241,.08)' : 'var(--bg3)'};
+      border-bottom:2px solid ${isToday ? 'var(--accent)' : 'var(--border2)'};">
+      <div style="color:${isToday ? 'var(--accent)' : 'var(--text2)'};font-size:11px;font-weight:700;">${WEEK_DAYS[i]}</div>
+      <div style="font-size:10px;color:${isToday ? 'var(--accent)' : 'var(--text3)'};font-weight:400;">${dk}</div>
     </th>`;
   }).join('');
- 
+
   // Table body
   const tbodyRows = shiftUsers.map(u => {
     const cells = weekDates.map(dk => {
@@ -428,43 +428,43 @@ function renderSchedule() {
         return `<td style="text-align:center;padding:6px 4px;">
           <span style="font-size:10px;color:var(--text3);">—</span></td>`;
       }
-      const br       = DB.getBreak(u.id, dk);
-      const hasExt   = DB.countExtBreaks(u.id, currentMonthKey()) > 0;
-      const slotIdx  = br ? shiftSlots.indexOf(br.slot) : -1;
-      const slotCls  = slotIdx >= 0 ? `slot-${slotIdx+1}` : '';
+      const br = DB.getBreak(u.id, dk);
+      const hasExt = DB.countExtBreaks(u.id, currentMonthKey()) > 0;
+      const slotIdx = br ? shiftSlots.indexOf(br.slot) : -1;
+      const slotCls = slotIdx >= 0 ? `slot-${slotIdx + 1}` : '';
       const shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
-      return `<td style="text-align:center;padding:4px 2px;"${hasExt?' class="cell-female-ext"':''}>
-        <span class="${br?`break-slot assigned ${slotCls}`:''}"
-          style="font-size:10px;padding:3px 8px;${br?'':'color:var(--text3)'}"
-          title="${br?br.slot+(hasExt?' 🌸+30min':''):'Not assigned'}">
-          ${shortCode}${hasExt?' 🌸':''}
+      return `<td style="text-align:center;padding:4px 2px;"${hasExt ? ' class="cell-female-ext"' : ''}>
+        <span class="${br ? `break-slot assigned ${slotCls}` : ''}"
+          style="font-size:10px;padding:3px 8px;${br ? '' : 'color:var(--text3)'}"
+          title="${br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned'}">
+          ${shortCode}${hasExt ? ' 🌸' : ''}
         </span></td>`;
     }).join('');
     return `<tr>
       <td class="sched-name-col">
         <div class="sched-name">${u.name}</div>
-        <div class="sched-meta">${u.team||''} · ${getRoleInfo(u.role).label}</div>
+        <div class="sched-meta">${u.team || ''} · ${getRoleInfo(u.role).label}</div>
       </td>${cells}
     </tr>`;
   }).join('');
- 
+
   const emptyMsg = shiftUsers.length === 0
     ? `<div class="empty" style="padding:40px;">
         <div class="empty-ico">👥</div>
         ${schedSearch ? `No results for "${schedSearch}"` : `No staff on Shift ${shiftToShow} this week.`}
       </div>`
     : '';
- 
+
   return `
 <div class="schedule-title-row">
   <div>
-    <div class="page-title">Break Schedule${isTrainingUser?' — All Shifts':` — Shift ${shiftToShow}`}</div>
-    <div class="page-sub">${SHIFTS[shiftToShow]?.display||''}${!canPickWeek?' · Current week (read-only)':''}</div>
+    <div class="page-title">Break Schedule${isTrainingUser ? ' — All Shifts' : ` — Shift ${shiftToShow}`}</div>
+    <div class="page-sub">${SHIFTS[shiftToShow]?.display || ''}${!canPickWeek ? ' · Current week (read-only)' : ''}</div>
   </div>
   <div class="schedule-legend-inline" style="flex-wrap:wrap;gap:8px;">
     ${weekPickerHTML}
     <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Legend:</span>
-    ${legendItems||'<span style="color:var(--text3);font-size:11px">—</span>'}
+    ${legendItems || '<span style="color:var(--text3);font-size:11px">—</span>'}
   </div>
 </div>
 ${shiftTabsHTML}
@@ -483,7 +483,7 @@ ${shiftTabsHTML}
 </div>
 ${slotTotalsHTML}
 ${emptyMsg}
-${shiftUsers.length>0?`
+${shiftUsers.length > 0 ? `
 <div class="sched-table-wrap">
   <table class="sched-table">
     <thead><tr>
@@ -492,7 +492,7 @@ ${shiftUsers.length>0?`
     </tr></thead>
     <tbody id="sched-tbody">${tbodyRows}</tbody>
   </table>
-</div>`:''}`;
+</div>`: ''}`;
 }
 
 // ═══════════════════════════════════════════════
@@ -507,34 +507,34 @@ function renderRequests() {
     : state.requests.filter(r => r.userId === currentUser.id);
 
   const pending = myReqs.filter(r => r.status === 'pending');
-  const rest    = myReqs.filter(r => r.status !== 'pending');
+  const rest = myReqs.filter(r => r.status !== 'pending');
 
   const card = (r) => {
-    const emp      = state.users.find(u => u.id === r.userId);
-    const partner  = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
+    const emp = state.users.find(u => u.id === r.userId);
+    const partner = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
     const approver = r.resolvedBy
       ? (state.users.find(u => u.id === r.resolvedBy) ||
-         (() => {
-           // fallback: search staffInfo by stable ID
-           const uname = Object.keys(state.staffInfo||{}).find(k => {
-             let h=0; for(let i=0;i<k.length;i++) h=(Math.imul(31,h)+k.charCodeAt(i))|0; return Math.abs(h)===r.resolvedBy;
-           });
-           return uname ? { name: state.staffInfo[uname].name } : null;
-         })())
+        (() => {
+          // fallback: search staffInfo by stable ID
+          const uname = Object.keys(state.staffInfo || {}).find(k => {
+            let h = 0; for (let i = 0; i < k.length; i++) h = (Math.imul(31, h) + k.charCodeAt(i)) | 0; return Math.abs(h) === r.resolvedBy;
+          });
+          return uname ? { name: state.staffInfo[uname].name } : null;
+        })())
       : null;
-    const isOwn    = r.userId === currentUser.id;
-    const idx      = state.requests.indexOf(r);
-    const isWeek   = r.swapWeek === true;
+    const isOwn = r.userId === currentUser.id;
+    const idx = state.requests.indexOf(r);
+    const isWeek = r.swapWeek === true;
 
     // Build week-swap impact table for pending leader view
     let impactHTML = '';
     if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
       const days = r.swapDays || [];
       const rows = days.map(d => {
-        const myBr    = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
-        const ptBr    = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
-        const myCode  = myBr  ? getShortSlot(currentShift, myBr.slot)  : '—';
-        const ptCode  = ptBr  ? getShortSlot(currentShift, ptBr.slot)  : '—';
+        const myBr = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
+        const ptBr = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
+        const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : '—';
+        const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : '—';
         return `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:4px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;">${d} <span style="color:var(--text3)">${getWkDay(d)}</span></td>
           <td style="padding:4px 10px;text-align:center;"><span class="break-slot assigned" style="font-size:10px;">${myCode}</span> → <span class="break-slot" style="font-size:10px;color:var(--warn);">${ptCode}</span></td>
@@ -544,13 +544,13 @@ function renderRequests() {
       impactHTML = rows ? `
         <div style="margin:10px 0 4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
           <div style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg4);">
-            📊 Swap Impact — ${days.length} day${days.length>1?'s':''}
+            📊 Swap Impact — ${days.length} day${days.length > 1 ? 's' : ''}
           </div>
           <table style="border-collapse:collapse;width:100%;">
             <thead><tr style="background:var(--bg4);">
               <th style="padding:5px 10px;font-size:10px;color:var(--text3);text-align:left;">Day</th>
-              <th style="padding:5px 10px;font-size:10px;color:var(--accent);">${emp?.name?.split(' ').slice(-1)[0]||'Req.'}</th>
-              <th style="padding:5px 10px;font-size:10px;color:var(--warn);">${partner?.name?.split(' ').slice(-1)[0]||'Partner'}</th>
+              <th style="padding:5px 10px;font-size:10px;color:var(--accent);">${emp?.name?.split(' ').slice(-1)[0] || 'Req.'}</th>
+              <th style="padding:5px 10px;font-size:10px;color:var(--warn);">${partner?.name?.split(' ').slice(-1)[0] || 'Partner'}</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -566,14 +566,14 @@ function renderRequests() {
       : '';
 
     const approverLine = approver && r.status !== 'pending'
-      ? `<br><span style="color:var(--text3)">${r.status==='approved'?'Approved':'Rejected'} by:</span> <b style="color:${r.status==='approved'?'var(--ok)':'var(--err)'};">${approver.name}</b> · <span style="color:var(--text3);font-size:10px;">${timeSince(r.resolvedAt)}</span>`
+      ? `<br><span style="color:var(--text3)">${r.status === 'approved' ? 'Approved' : 'Rejected'} by:</span> <b style="color:${r.status === 'approved' ? 'var(--ok)' : 'var(--err)'};">${approver.name}</b> · <span style="color:var(--text3);font-size:10px;">${timeSince(r.resolvedAt)}</span>`
       : '';
 
     return `<div class="req-card ${r.status}">
       <div class="req-header">
         <div>
           <div class="req-title">${emp?.name || 'Unknown'} ${scopeTag}</div>
-          <div class="req-meta">${emp?.team || '—'} · ${isWeek ? (r.swapDays||[]).join(', ') : r.day} · submitted ${timeSince(r.at)}</div>
+          <div class="req-meta">${emp?.team || '—'} · ${isWeek ? (r.swapDays || []).join(', ') : r.day} · submitted ${timeSince(r.at)}</div>
         </div>
         <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
       </div>
@@ -597,20 +597,49 @@ function renderRequests() {
   return `
 <div class="page-header">
   <div>
-    <div class="page-title">${isLeader(currentUser) ? 'Approval Queue' : 'My Requests'}</div>
-    <div class="page-sub">${isLeader(currentUser) ? `${pending.length} pending approval` : 'Track your break change requests'}</div>
+    <div class="page-title">🔄 Break Swap</div>
+    <div class="page-sub">${isLeader(currentUser) ? `${pending.length} pending · your shift` : 'Your break swap requests'}</div>
   </div>
-  ${!isLeader(currentUser) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ New request</button>` : ''}
+  ${!isLeader(currentUser) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ New swap</button>` : ''}
 </div>
 
 ${pending.length > 0 ? `
   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">⏳ Pending (${pending.length})</div>
   ${pending.map(r => card(r)).join('')}` : ''}
 
-${rest.length > 0 ? `
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin:16px 0 10px;font-family:'IBM Plex Mono',monospace">History</div>
-  ${rest.slice(0, 20).map(r => card(r)).join('')}
-` : ''}
+${(() => {
+      if (!rest.length) return '';
+      // Month picker for history
+      const now = new Date();
+      const hMonth = window._reqHistMonth ?? (now.getMonth() + 1);
+      const hYear = window._reqHistYear ?? now.getFullYear();
+      window._reqHistMonth = hMonth;
+      window._reqHistYear = hYear;
+      const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const filtered = rest.filter(r => {
+        const d = new Date(r.resolvedAt || r.at);
+        return d.getFullYear() === hYear && (d.getMonth() + 1) === hMonth;
+      });
+      const monthOpts = Array.from({ length: 12 }, (_, i) =>
+        `<option value="${i + 1}" ${i + 1 === hMonth ? 'selected' : ''}>${new Date(hYear, i, 1).toLocaleString('en-US', { month: 'long' })}</option>`
+      ).join('');
+      return `
+<div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px;flex-wrap:wrap;">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text3);font-family:'IBM Plex Mono',monospace;">History</div>
+  <select class="login-select" style="font-size:11px;padding:3px 8px;"
+    onchange="window._reqHistMonth=+this.value;nav('requests')">${monthOpts}</select>
+  <select class="login-select" style="font-size:11px;padding:3px 8px;"
+    onchange="window._reqHistYear=+this.value;nav('requests')">
+    ${[now.getFullYear() - 1, now.getFullYear()].map(y =>
+        `<option value="${y}" ${y === hYear ? 'selected' : ''}>${y}</option>`).join('')}
+  </select>
+  <span style="font-size:11px;color:var(--text3);">${filtered.length} record${filtered.length !== 1 ? 's' : ''}</span>
+</div>
+${filtered.length > 0
+          ? filtered.map(r => card(r)).join('')
+          : `<div style="font-size:12px;color:var(--text3);padding:12px 0;">No history for this month.</div>`}`;
+    })()}
 
 ${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>` : ''}
 `;
@@ -624,9 +653,9 @@ ${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No r
 let arrangeMainTab = 'assign'; // 'assign' | 'overview'
 let arrangeActiveDay = null;   // set on first render
 // Persisted bulk-panel state — survives re-renders and sync polls
-let _bulkGroups   = new Set(); // selected group checkboxes
-let _bulkDays     = new Set(); // selected day checkboxes
-let _bulkSlotIdx  = 0;         // slot dropdown index
+let _bulkGroups = new Set(); // selected group checkboxes
+let _bulkDays = new Set(); // selected day checkboxes
+let _bulkSlotIdx = 0;         // slot dropdown index
 // Persisted paste area content — survives re-renders
 let _pasteContent = '';
 
@@ -636,17 +665,17 @@ function renderArrange() {
   if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
   // Build week picker from available schedule dates
-  const allDates  = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
-  const mondays   = allDates.filter(d => getWkDay(d) === 'Mon').sort((a,b) => {
-    const [da,ma] = a.split('/'); const [db,mb] = b.split('/');
-    return new Date(2026,parseInt(ma)-1,parseInt(da)) - new Date(2026,parseInt(mb)-1,parseInt(db));
+  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort((a, b) => {
+    const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
+    return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
   });
   const weekPickerHTML = mondays.length > 0 ? `
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
       <select class="login-select" style="padding:4px 8px;font-size:11px;"
         onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
-        ${mondays.map(m=>`<option value="${m}" ${m===activeMonday?'selected':''}>${m} — ${getWkDay(m)}</option>`).join('')}
+        ${mondays.map(m => `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>${m} — ${getWkDay(m)}</option>`).join('')}
       </select>
     </div>` : '';
 
@@ -668,15 +697,15 @@ function renderArrange() {
 <div style="display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px;">
   <button onclick="switchArrangeMainTab('assign')"
     style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
-      background:none; color:${arrangeMainTab==='assign'?'var(--accent)':'var(--text2)'};
-      border-bottom:3px solid ${arrangeMainTab==='assign'?'var(--accent)':'transparent'};
+      background:none; color:${arrangeMainTab === 'assign' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab === 'assign' ? 'var(--accent)' : 'transparent'};
       margin-bottom:-2px; transition:all .12s;">
     ✏️ Arrange Breaks
   </button>
   <button onclick="switchArrangeMainTab('overview')"
     style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
-      background:none; color:${arrangeMainTab==='overview'?'var(--accent)':'var(--text2)'};
-      border-bottom:3px solid ${arrangeMainTab==='overview'?'var(--accent)':'transparent'};
+      background:none; color:${arrangeMainTab === 'overview' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab === 'overview' ? 'var(--accent)' : 'transparent'};
       margin-bottom:-2px; transition:all .12s;">
     📊 Week Overview
   </button>
@@ -689,9 +718,9 @@ function renderArrange() {
 
 // ── Save Breaks button handler ──
 async function saveBreaksToCloud() {
-  const btn   = document.getElementById('save-breaks-btn');
-  const ico   = document.getElementById('save-breaks-ico');
-  const lbl   = document.getElementById('save-breaks-lbl');
+  const btn = document.getElementById('save-breaks-btn');
+  const ico = document.getElementById('save-breaks-ico');
+  const lbl = document.getElementById('save-breaks-lbl');
   if (!btn) return;
 
   // ── Check: do we have the API key needed to push? ──
@@ -782,7 +811,7 @@ function _renderArrangeAssignTab(weekRange) {
       ${allShiftTeams.map(t => `
         <label class="group-check-item">
           <input type="checkbox" name="bulk-group" value="${t}"
-            ${_bulkGroups.has(t)?'checked':''} onchange="_saveBulkGroups()"> ${t}
+            ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()"> ${t}
         </label>`).join('')}
     </div>
   </div>
@@ -794,7 +823,7 @@ function _renderArrangeAssignTab(weekRange) {
           <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
           <span style="font-size:9px;color:var(--text3)">${d}</span>
           <input type="checkbox" name="bulk-day" value="${d}"
-            ${_bulkDays.has(d)?'checked':''} onchange="_saveBulkDays()">
+            ${_bulkDays.has(d) ? 'checked' : ''} onchange="_saveBulkDays()">
         </label>`).join('')}
     </div>
   </div>
@@ -802,7 +831,7 @@ function _renderArrangeAssignTab(weekRange) {
     <div class="bulk-panel-label">Slot</div>
     <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
       onchange="_bulkSlotIdx=parseInt(this.value)">
-      ${slots.map((s, i) => `<option value="${i}" ${i===_bulkSlotIdx?'selected':''}>${currentShift}${i+1} — ${s}</option>`).join('')}
+      ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
     </select>
   </div>
   <div class="bulk-panel-section" style="justify-content:flex-end;">
@@ -832,9 +861,9 @@ function _renderArrangeOverviewTab(weekRange) {
     return `<th style="text-align:center;padding:7px 4px;font-size:10px;min-width:54px;
       font-weight:700;
       position:sticky;top:0;z-index:10;
-      background:${isToday?'var(--accent)':isActive?'var(--bg4)':'var(--bg3)'};
-      color:${isToday?'#fff':isActive?'var(--accent)':'var(--text2)'};
-      border-bottom:2px solid ${isToday?'var(--accent2)':'var(--border)'};
+      background:${isToday ? 'var(--accent)' : isActive ? 'var(--bg4)' : 'var(--bg3)'};
+      color:${isToday ? '#fff' : isActive ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:2px solid ${isToday ? 'var(--accent2)' : 'var(--border)'};
       ">
       ${WEEK_DAYS[i]}<br>
       <span style="font-weight:400;font-size:9px;opacity:0.7;">${d}</span>
@@ -843,28 +872,28 @@ function _renderArrangeOverviewTab(weekRange) {
 
   const summaryRows = shiftUsers.map(u => {
     const dayCells = weekRange.map((d, i) => {
-      const dn       = WEEK_DAYS[i];
+      const dn = WEEK_DAYS[i];
       const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
-      const onShift  = shiftVal === currentShift;
-      const br       = getAssigned(u.id, d) || getAssigned(u.id, dn);
+      const onShift = shiftVal === currentShift;
+      const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
 
       if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
       if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
 
-      const code     = br ? getShortSlot(currentShift, br.slot) : '?';
-      const ov_si    = br ? (BREAK_SLOTS[currentShift]||[]).indexOf(br.slot) : -1;
+      const code = br ? getShortSlot(currentShift, br.slot) : '?';
+      const ov_si = br ? (BREAK_SLOTS[currentShift] || []).indexOf(br.slot) : -1;
       const isActive = d === arrangeActiveDay;
       const ov_class = br
-        ? `break-slot slot-${ov_si===0?1:2} assigned overview-cell-assigned${isActive?' overview-cell-active':''}`
-        : `break-slot overview-cell-pending${isActive?' overview-cell-active':''}`;
-      return `<td style="text-align:center;padding:6px 4px;background:${isActive?'rgba(200,212,0,0.06)':''};">
+        ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned${isActive ? ' overview-cell-active' : ''}`
+        : `break-slot overview-cell-pending${isActive ? ' overview-cell-active' : ''}`;
+      return `<td style="text-align:center;padding:6px 4px;background:${isActive ? 'rgba(200,212,0,0.06)' : ''};">
         <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
           class="${ov_class}"
           style="display:inline-flex;align-items:center;justify-content:center;
             width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
             font-family:'IBM Plex Mono',monospace;cursor:pointer;
-            ${isActive?'outline:2px solid var(--accent);outline-offset:2px;':''}"
-          title="${br?br.slot:'Not assigned — click to assign'}">${code}</span>
+            ${isActive ? 'outline:2px solid var(--accent);outline-offset:2px;' : ''}"
+          title="${br ? br.slot : 'Not assigned — click to assign'}">${code}</span>
       </td>`;
     }).join('');
 
@@ -872,7 +901,7 @@ function _renderArrangeOverviewTab(weekRange) {
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
         <span style="font-weight:600;font-size:12px;">${u.name}</span>
-        ${genderIcon ? `<span style="font-size:10px;color:${u.gender==='F'?'var(--A-color)':'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
+        ${genderIcon ? `<span style="font-size:10px;color:${u.gender === 'F' ? 'var(--A-color)' : 'var(--B-color)'};margin-left:4px;">${genderIcon}</span>` : ''}
         <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team} · ${getRoleInfo(u.role).label}</div>
       </td>
       ${dayCells}
@@ -919,8 +948,8 @@ function switchArrangeDay(day) {
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
   const weekRange = getWeekRange(activeMonday);
-  const slots     = BREAK_SLOTS[currentShift] || [];
-  const todayDk   = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const slots = BREAK_SLOTS[currentShift] || [];
+  const todayDk = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 
   // All users on this shift in ANY day this week
   const allMates = state.users.filter(u =>
@@ -935,9 +964,9 @@ function getArrangeDayMemberList(_unused) {
 
   // Table header — day columns
   const thDays = weekRange.map(d => {
-    const isToday  = d === todayDk;
+    const isToday = d === todayDk;
     const dayLabel = getWkDay(d);
-    return `<th class="arr-th-day${isToday?' arr-th-today':''}" style="min-width:90px;text-align:center;">
+    return `<th class="arr-th-day${isToday ? ' arr-th-today' : ''}" style="min-width:90px;text-align:center;">
       <div style="font-size:11px;font-weight:700;">${dayLabel}</div>
       <div style="font-size:9px;opacity:0.6;font-weight:400;">${d}</div>
     </th>`;
@@ -946,32 +975,32 @@ function getArrangeDayMemberList(_unused) {
   // Table rows — one per member
   const tbRows = allMates.map(u => {
     const dayCells = weekRange.map(d => {
-      const dn       = WEEK_DAYS[weekRange.indexOf(d)];
+      const dn = WEEK_DAYS[weekRange.indexOf(d)];
       const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
-      const onShift  = shiftVal === currentShift;
-      const isToday  = d === todayDk;
+      const onShift = shiftVal === currentShift;
+      const isToday = d === todayDk;
 
       // Day off or different shift — show nothing
       if (!onShift) {
-        return `<td class="arr-cell arr-cell-off${isToday?' arr-cell-today':''}">
+        return `<td class="arr-cell arr-cell-off${isToday ? ' arr-cell-today' : ''}">
           <span style="color:var(--text3);font-size:12px;">—</span>
         </td>`;
       }
 
-      const br     = getAssigned(u.id, d) || getAssigned(u.id, dn);
+      const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
       const br_idx = br ? (slots.indexOf(br.slot)) : -1;
 
       const slotBtns = slots.map((s, idx) => {
         const isAssigned = br?.slot === s;
         return `<span
-          class="arr-slot arr-slot-${idx+1}${isAssigned?' arr-slot-on':' arr-slot-off'}"
+          class="arr-slot arr-slot-${idx + 1}${isAssigned ? ' arr-slot-on' : ' arr-slot-off'}"
           onclick="quickAssign(${u.id},'${d}','${s}')"
           title="${s}">
-          ${currentShift}${idx+1}
+          ${currentShift}${idx + 1}
         </span>`;
       }).join('');
 
-      return `<td class="arr-cell${isToday?' arr-cell-today':''}">
+      return `<td class="arr-cell${isToday ? ' arr-cell-today' : ''}">
         <div style="display:flex;gap:4px;justify-content:center;align-items:center;">
           ${slotBtns}
         </div>
@@ -1014,25 +1043,25 @@ function quickAssign(uid, day, slot) {
   // Re-render just the table body (no full nav re-render = keeps bulk panel state)
   const wrap = document.querySelector('.arr-table-wrap');
   if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
-  else { const c = document.getElementById('arrange-day-content'); if(c) c.innerHTML = getArrangeDayMemberList(null); }
+  else { const c = document.getElementById('arrange-day-content'); if (c) c.innerHTML = getArrangeDayMemberList(null); }
   updateBadge();
 }
 
 function _saveBulkGroups() {
-  _bulkGroups = new Set(Array.from(document.querySelectorAll('input[name="bulk-group"]:checked')).map(el=>el.value));
+  _bulkGroups = new Set(Array.from(document.querySelectorAll('input[name="bulk-group"]:checked')).map(el => el.value));
 }
 function _saveBulkDays() {
-  _bulkDays = new Set(Array.from(document.querySelectorAll('input[name="bulk-day"]:checked')).map(el=>el.value));
+  _bulkDays = new Set(Array.from(document.querySelectorAll('input[name="bulk-day"]:checked')).map(el => el.value));
 }
 function bulkAssignMulti() {
   // Read from DOM (current state) and also persist
   _saveBulkGroups(); _saveBulkDays();
   const selectedGroups = [..._bulkGroups];
-  const selectedDays   = [..._bulkDays];
-  const slotIdx        = _bulkSlotIdx;
+  const selectedDays = [..._bulkDays];
+  const slotIdx = _bulkSlotIdx;
 
   if (selectedGroups.length === 0) { toast('Select at least one Group.', 'err'); return; }
-  if (selectedDays.length === 0)   { toast('Select at least one Day.', 'err'); return; }
+  if (selectedDays.length === 0) { toast('Select at least one Day.', 'err'); return; }
 
   const actualTime = (BREAK_SLOTS[currentShift] || [])[slotIdx];
   if (!actualTime) { toast('Invalid slot selected.', 'err'); return; }
@@ -1056,7 +1085,7 @@ function bulkAssignMulti() {
 }
 
 function autofillDay() {
-  const day   = todayKey();
+  const day = todayKey();
   const mates = getShiftMates(currentShift, day);
   const slots = BREAK_SLOTS[currentShift] || [];
   mates.forEach((u, i) => assign(u.id, day, slots[i % slots.length], 'auto'));
@@ -1088,32 +1117,32 @@ function renderStaff() {
 <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
   <button onclick="staffSubTab='info';nav('staff')"
     style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
-      background:none;color:${staffSubTab==='info'?'var(--accent)':'var(--text2)'};
-      border-bottom:3px solid ${staffSubTab==='info'?'var(--accent)':'transparent'};
+      background:none;color:${staffSubTab === 'info' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${staffSubTab === 'info' ? 'var(--accent)' : 'transparent'};
       margin-bottom:-2px;transition:all .12s;">
     👤 Staff Info
   </button>
   <button onclick="staffSubTab='schedule';nav('staff')"
     style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
-      background:none;color:${staffSubTab==='schedule'?'var(--accent)':'var(--text2)'};
-      border-bottom:3px solid ${staffSubTab==='schedule'?'var(--accent)':'transparent'};
+      background:none;color:${staffSubTab === 'schedule' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${staffSubTab === 'schedule' ? 'var(--accent)' : 'transparent'};
       margin-bottom:-2px;transition:all .12s;">
     📅 Staff Schedule
   </button>
   <button onclick="staffSubTab='attendance';nav('staff')"
     style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
-      background:none;color:${staffSubTab==='attendance'?'var(--accent)':'var(--text2)'};
-      border-bottom:3px solid ${staffSubTab==='attendance'?'var(--accent)':'transparent'};
+      background:none;color:${staffSubTab === 'attendance' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${staffSubTab === 'attendance' ? 'var(--accent)' : 'transparent'};
       margin-bottom:-2px;transition:all .12s;">
     📋 Staff Attendance
   </button>
 </div>
 <div id="staff-subtab-content">
   ${staffSubTab === 'info'
-    ? _renderStaffInfo()
-    : staffSubTab === 'attendance'
-    ? _renderStaffAttendance()
-    : _renderStaffSchedule()}
+      ? _renderStaffInfo()
+      : staffSubTab === 'attendance'
+        ? _renderStaffAttendance()
+        : _renderStaffSchedule()}
 </div>`;
 }
 
@@ -1122,19 +1151,19 @@ function _renderStaffInfo() {
   const all = Object.entries(state.staffInfo || {})
     .map(([username, d]) => ({ username, ...d }))
     .sort(_roleSort);
- 
+
   const infoFilter = staffFilters._info || '';
- 
+
   const filtered = all.filter(u =>
     !infoFilter ||
-    (u.name||'').toLowerCase().includes(infoFilter.toLowerCase()) ||
-    (u.username||'').toLowerCase().includes(infoFilter.toLowerCase()) ||
-    (u.empNo||'').toLowerCase().includes(infoFilter.toLowerCase()) ||
-    (u.role||'').toLowerCase().includes(infoFilter.toLowerCase())
+    (u.name || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
+    (u.username || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
+    (u.empNo || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
+    (u.role || '').toLowerCase().includes(infoFilter.toLowerCase())
   );
- 
+
   const rows = _renderStaffInfoRows(infoFilter);
- 
+
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <input class="filter-input" style="width:260px;" placeholder="Search name, username, emp#, role…"
@@ -1161,7 +1190,7 @@ function _renderStaffInfo() {
   </table>
 </div>`;
 }
- 
+
 function _renderStaffInfoRows(filter) {
   const all = Object.entries(state.staffInfo || {})
     .map(([username, d]) => ({ username, ...d }))
@@ -1169,26 +1198,26 @@ function _renderStaffInfoRows(filter) {
   const f = (filter || '').toLowerCase();
   return all.filter(u =>
     !f ||
-    (u.name||'').toLowerCase().includes(f) ||
-    (u.username||'').toLowerCase().includes(f) ||
-    (u.empNo||'').toLowerCase().includes(f) ||
-    (u.role||'').toLowerCase().includes(f)
+    (u.name || '').toLowerCase().includes(f) ||
+    (u.username || '').toLowerCase().includes(f) ||
+    (u.empNo || '').toLowerCase().includes(f) ||
+    (u.role || '').toLowerCase().includes(f)
   ).map(u => {
     const g = u.gender === 'F'
       ? `<span style="color:var(--A-color);font-weight:700;">♀ Female</span>`
       : `<span style="color:var(--B-color);font-weight:700;">♂ Male</span>`;
-    const roleLvl  = ROLE_SORT_ORDER[u.role] ?? 9;
+    const roleLvl = ROLE_SORT_ORDER[u.role] ?? 9;
     const roleColor = roleLvl <= 1 ? 'var(--accent)'
       : roleLvl <= 2 ? 'var(--warn)'
-      : roleLvl <= 3 ? 'var(--ok)'
-      : 'var(--text2)';
+        : roleLvl <= 3 ? 'var(--ok)'
+          : 'var(--text2)';
     return `<tr>
-      <td class="mono" style="font-size:11px;color:var(--text3);">${u.empNo||'—'}</td>
-      <td style="font-weight:600;">${u.name||'—'}</td>
+      <td class="mono" style="font-size:11px;color:var(--text3);">${u.empNo || '—'}</td>
+      <td style="font-weight:600;">${u.name || '—'}</td>
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
       <td>${g}</td>
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${u.dob||'—'}</td>
-      <td style="font-size:11px;color:${roleColor};font-weight:500;">${u.role||'—'}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${u.dob || '—'}</td>
+      <td style="font-size:11px;color:${roleColor};font-weight:500;">${u.role || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1230,26 +1259,26 @@ function _renderStaffSchedule() {
 </div>`;
   }
 
-  const allDates         = Object.keys(state.users.find(u=>Object.keys(u.schedule).some(k=>/\d{2}\/\d{2}/.test(k)))?.schedule || state.users[0]?.schedule || {});
+  const allDates = Object.keys(state.users.find(u => Object.keys(u.schedule).some(k => /\d{2}\/\d{2}/.test(k)))?.schedule || state.users[0]?.schedule || {});
   const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
-  const weekRange        = getWeekRange(activeMonday);
-  const displayDates     = showFullMonth ? allDates : weekRange;
+  const weekRange = getWeekRange(activeMonday);
+  const displayDates = showFullMonth ? allDates : weekRange;
 
   const filteredUsers = state.users.filter(u =>
-    (u.team||'').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name||'').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username||'').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (u.role||'').toLowerCase().includes(staffFilters.role.toLowerCase())
+    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+    (u.role || '').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
 
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <label style="font-size:11px;opacity:.7;">Week:</label>
   <select class="login-select" style="width:130px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
-    ${availableMondays.map(m=>`<option value="${m}" ${m===activeMonday?'selected':''}>Week ${m}</option>`).join('')}
+    ${availableMondays.map(m => `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>Week ${m}</option>`).join('')}
   </select>
-  <button class="toggle-btn ${showFullMonth?'active':''}" onclick="showFullMonth=!showFullMonth;nav('staff')">
-    ${showFullMonth?'📂 Week only':'📂 Full month'}
+  <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')">
+    ${showFullMonth ? '📂 Week only' : '📂 Full month'}
   </button>
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
 </div>
@@ -1268,7 +1297,7 @@ ${importPanel}
       </tr>
       <tr>
         <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
-        ${displayDates.map(d=>`<th class="c" style="min-width:42px;padding:6px 2px;">
+        ${displayDates.map(d => `<th class="c" style="min-width:42px;padding:6px 2px;">
           <div style="color:var(--accent);font-size:11px;">${d}</div>
           <div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">${getWkDay(d)}</div>
         </th>`).join('')}
@@ -1280,35 +1309,35 @@ ${importPanel}
 }
 
 let _attImportMonth = new Date().getMonth() + 1;
-let _attImportYear  = new Date().getFullYear();
- 
+let _attImportYear = new Date().getFullYear();
+
 function _renderStaffAttendance() {
-  const year      = _attImportYear;
-  const month     = _attImportMonth;
-  const monthKey  = `${year}-${String(month).padStart(2,'0')}`;
+  const year = _attImportYear;
+  const month = _attImportMonth;
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`;
   const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear  = month === 1 ? year - 1 : year;
-  const monthLabel = `${new Date(prevYear, prevMonth-1, 25).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(year, month-1, 24).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
-  const dates   = _getAllDatesInMonth(year, month);
+  const prevYear = month === 1 ? year - 1 : year;
+  const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const dates = _getAllDatesInMonth(year, month);
   const attData = state.monthlyAttendance || {};
- 
+
   const monthPicker = `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <select class="login-select" style="padding:5px 10px;font-size:12px;"
         onchange="_attImportMonth=+this.value;nav('staff')">
-        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m =>
-          `<option value="${m}" ${m===month?'selected':''}>${new Date(year,m-1,1)
-            .toLocaleString('en-US',{month:'long'})}</option>`
-        ).join('')}
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
+    `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
+      .toLocaleString('en-US', { month: 'long' })}</option>`
+  ).join('')}
       </select>
       <select class="login-select" style="padding:5px 10px;font-size:12px;"
         onchange="_attImportYear=+this.value;nav('staff')">
-        ${[2024,2025,2026,2027].map(y =>
-          `<option value="${y}" ${y===year?'selected':''}>${y}</option>`
-        ).join('')}
+        ${[2024, 2025, 2026, 2027].map(y =>
+    `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
+  ).join('')}
       </select>
     </div>`;
- 
+
   const importPanel = `
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
       <div style="font-size:13px;font-weight:600;margin-bottom:6px;">📋 Import Monthly Attendance</div>
@@ -1325,13 +1354,13 @@ function _renderStaffAttendance() {
         <span id="att-import-status" style="font-size:11px;"></span>
       </div>
     </div>`;
- 
+
   // ── FIX: check monthlyAttendance directly, not through state.users ──
   const hasData = Object.values(attData).some(userMonths => {
     const ud = userMonths?.[monthKey];
     return ud && Object.keys(ud).length > 0;
   });
- 
+
   if (!hasData) {
     return `
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
@@ -1345,7 +1374,7 @@ function _renderStaffAttendance() {
         <span style="font-size:12px;color:var(--text3);">Import an Excel file above.</span>
       </div>`;
   }
- 
+
   // Legend
   const legendHTML = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;">
@@ -1354,85 +1383,85 @@ function _renderStaffAttendance() {
       <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:500;">OFF</span> Off / Leave
       <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict with attendance log
     </div>`;
- 
+
   // Build table header dates
-  const WDAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const theadDates = dates.map(dk => {
     const [_d, _m] = dk.split('/');
     const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
-    const isSun  = dow === 0;
+    const isSun = dow === 0;
     return `<th style="min-width:44px;width:44px;padding:4px 2px;text-align:center;
       font-size:10px;font-weight:600;
-      color:${isSun?'var(--err)':isWknd?'var(--warn)':'var(--text2)'};
-      background:${isWknd?'var(--bg4)':'var(--bg3)'};
-      border-bottom:2px solid ${isSun?'var(--err)':isWknd?'var(--border2)':'var(--accent)'};
-      border-left:${isSun?'2px solid var(--border)':'none'};
+      color:${isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)'};
+      background:${isWknd ? 'var(--bg4)' : 'var(--bg3)'};
+      border-bottom:2px solid ${isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
+      border-left:${isSun ? '2px solid var(--border)' : 'none'};
       position:sticky;top:0;z-index:2;white-space:nowrap;">
       <div style="font-size:9px;opacity:.65;line-height:1.5;">${WDAY_SHORT[dow]}</div>
       <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
     </th>`;
   }).join('');
- 
+
   // ── FIX: build rows from attData keys, not state.users ──
   const attUsernames = Object.keys(attData).filter(uname => {
     const ud = attData[uname]?.[monthKey];
     return ud && Object.keys(ud).length > 0;
   });
- 
+
   // For each username, get full user info from state.users or fall back to staffInfo
   const rowUsers = attUsernames.map(uname => {
     return state.users.find(u => u.username === uname) || (() => {
       const si = state.staffInfo?.[uname];
-      return si ? { username: uname, name: si.name||uname, role: si.role||'', team: '', id: null } : null;
+      return si ? { username: uname, name: si.name || uname, role: si.role || '', team: '', id: null } : null;
     })();
-  }).filter(Boolean).sort((a,b) => (a.name||'').localeCompare(b.name||''));
- 
+  }).filter(Boolean).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
   let totalConflicts = 0;
- 
+
   const tbodyRows = rowUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
     const conflicts = [];
- 
+
     const cells = dates.map(dk => {
       const rawCode = uAtt[dk];
-      const parsed  = _parseAttCode(rawCode);
+      const parsed = _parseAttCode(rawCode);
       const [_dd, _mm] = dk.split('/');
       const _cellYear = (parseInt(_mm) === month) ? year : (month === 1 ? year - 1 : year);
       const dow = new Date(_cellYear, parseInt(_mm) - 1, parseInt(_dd)).getDay();
       const isWknd = dow === 0 || dow === 6;
- 
+
       if (!rawCode && !parsed) {
-        return `<td style="text-align:center;padding:2px 1px;background:${isWknd?'var(--bg4)':''};">
+        return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};">
           <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
- 
+
       const conflictList = _checkAttConflict(u, dk, parsed);
-      const hasConflict  = conflictList && conflictList.length > 0;
+      const hasConflict = conflictList && conflictList.length > 0;
       if (hasConflict) conflicts.push({ dk, msgs: conflictList });
- 
-      let bg='', txt='', color='';
+
+      let bg = '', txt = '', color = '';
       if (hasConflict) {
-        bg='background:rgba(248,113,113,.12);';
-        txt='⚠'; color='color:var(--err);font-weight:700;';
+        bg = 'background:rgba(248,113,113,.12);';
+        txt = '⚠'; color = 'color:var(--err);font-weight:700;';
       } else if (!parsed) {
-        txt=rawCode||'?'; color='color:var(--text3);';
-      } else if (parsed.type==='OFF') {
-        bg='background:var(--D-bg);';
-        const code=String(rawCode).toUpperCase();
-        txt=code==='0'||code==='0.0'?'0':code;
-        color='color:var(--err);font-weight:600;';
-      } else if (parsed.type==='HD1'||parsed.type==='HD2') {
-        bg='background:rgba(245,158,11,.10);';
-        txt=String(rawCode).toUpperCase(); color='color:var(--warn);font-weight:600;';
+        txt = rawCode || '?'; color = 'color:var(--text3);';
+      } else if (parsed.type === 'OFF') {
+        bg = 'background:var(--D-bg);';
+        const code = String(rawCode).toUpperCase();
+        txt = code === '0' || code === '0.0' ? '0' : code;
+        color = 'color:var(--err);font-weight:600;';
+      } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
+        bg = 'background:rgba(245,158,11,.10);';
+        txt = String(rawCode).toUpperCase(); color = 'color:var(--warn);font-weight:600;';
       } else {
-        bg='background:rgba(74,222,128,.06);';
-        txt=parsed.shift||'✓'; color='color:var(--ok);font-weight:500;';
+        bg = 'background:rgba(74,222,128,.06);';
+        txt = parsed.shift || '✓'; color = 'color:var(--ok);font-weight:500;';
       }
- 
+
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
-      const title = conflictList ? conflictList.join(' | ') : (parsed?.reason||rawCode||'');
+      const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
       const conflictClick = hasConflict ? `
         onclick="
           const [_d,_m]='${dk}'.split('/');
@@ -1441,40 +1470,40 @@ function _renderStaffAttendance() {
           const _day=_dt.getDay();
           const _sun=new Date(_dt);_sun.setDate(_dt.getDate()-_day);
           const _sdk=(_sun.getDate().toString().padStart(2,'0'))+'/'+((_sun.getMonth()+1).toString().padStart(2,'0'));
-          window._attHighlight={uid:${u.id||'null'},username:'${u.username}',dateKey:'${dk}'};
+          window._attHighlight={uid:${u.id || 'null'},username:'${u.username}',dateKey:'${dk}'};
           attendanceTab='log';
           attendanceMonday=_sdk;
-          currentShift='${(u.schedule?.['${dk}']||'').charAt(0)||'D'}';
+          currentShift='${(u.schedule?.['${dk}'] || '').charAt(0) || 'D'}';
           nav('attendance');
           setTimeout(()=>{
             const el=document.getElementById('att-cell-${u.username}-${dk}');
             if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('att-conflict-flash');}
           },200);"
         style="cursor:pointer;"` : '';
- 
-      return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd?'opacity:.55;':''}"
+
+      return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${conflictClick}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
       </td>`;
 
     }).join('');
- 
+
     if (conflicts.length) totalConflicts++;
- 
+
     const conflictSummary = conflicts.length > 0
-      ? `<div style="font-size:10px;color:var(--err);margin-top:2px;">⚠ ${conflicts.length} conflict${conflicts.length>1?'s':''}: ${conflicts.map(c=>c.dk).join(', ')}</div>`
+      ? `<div style="font-size:10px;color:var(--err);margin-top:2px;">⚠ ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}: ${conflicts.map(c => c.dk).join(', ')}</div>`
       : '';
- 
-    return `<tr style="border-bottom:0.5px solid var(--border);${conflicts.length?'background:rgba(248,113,113,.03);':''}">
+
+    return `<tr style="border-bottom:0.5px solid var(--border);${conflicts.length ? 'background:rgba(248,113,113,.03);' : ''}">
       <td style="padding:5px 10px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
-        <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</div>
+        <div style="font-size:10px;color:var(--text3);">${u.team || ''} · ${getRoleInfo(u.role).label}</div>
         ${conflictSummary}
       </td>
       ${cells}
     </tr>`;
   }).join('');
- 
+
   const conflictBanner = totalConflicts > 0
     ? `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
         border-radius:8px;font-size:12px;color:var(--err);margin-bottom:12px;font-weight:500;">
@@ -1484,7 +1513,7 @@ function _renderStaffAttendance() {
         font-size:12px;color:var(--ok);margin-bottom:12px;">
         ✓ No conflicts detected for ${monthLabel}
       </div>`;
- 
+
   return `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
       ${monthPicker}
@@ -1510,25 +1539,25 @@ function _renderStaffAttendance() {
 
 function importMonthlyAttendance() {
   const fileInput = document.getElementById('att-import-file');
-  const statusEl  = document.getElementById('att-import-status');
+  const statusEl = document.getElementById('att-import-status');
   if (!fileInput?.files?.[0]) {
     statusEl.innerHTML = '<span style="color:var(--err);">Select a file first.</span>';
     return;
   }
   statusEl.innerHTML = '<span style="color:var(--text2);">Reading…</span>';
 
-  const year     = _attImportYear;
-  const month    = _attImportMonth;
-  const monthKey = `${year}-${String(month).padStart(2,'0')}`;
+  const year = _attImportYear;
+  const month = _attImportMonth;
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`;
 
   const reader = new FileReader();
   reader.onload = e => {
     try {
       // Read WITHOUT cellDates — keep dates as raw serial numbers
       // This avoids all timezone issues with Date object local/UTC ambiguity
-      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:false });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
 
       if (!rows.length) {
         statusEl.innerHTML = '<span style="color:var(--err);">Empty file.</span>';
@@ -1544,8 +1573,8 @@ function importMonthlyAttendance() {
         // Use UTC to avoid ANY local timezone influence
         const ms = Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000;
         const dt = new Date(ms);
-        const d  = String(dt.getUTCDate()).padStart(2,'0');
-        const m  = String(dt.getUTCMonth() + 1).padStart(2,'0');
+        const d = String(dt.getUTCDate()).padStart(2, '0');
+        const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
         return `${d}/${m}`;
       }
 
@@ -1562,17 +1591,17 @@ function importMonthlyAttendance() {
           // m/d/yyyy
           if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(c)) {
             const [mo, day] = c.split('/');
-            return String(parseInt(day)).padStart(2,'0') + '/' + String(parseInt(mo)).padStart(2,'0');
+            return String(parseInt(day)).padStart(2, '0') + '/' + String(parseInt(mo)).padStart(2, '0');
           }
           // dd/mm
           if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
             const [d, m] = c.split('/');
-            return String(parseInt(d)).padStart(2,'0') + '/' + String(parseInt(m)).padStart(2,'0');
+            return String(parseInt(d)).padStart(2, '0') + '/' + String(parseInt(m)).padStart(2, '0');
           }
           // ISO 2026-04-25
           if (/^\d{4}-\d{2}-\d{2}/.test(c)) {
             const parts = c.split('-');
-            return parts[2].substring(0,2) + '/' + parts[1];
+            return parts[2].substring(0, 2) + '/' + parts[1];
           }
         }
         return null;
@@ -1582,7 +1611,7 @@ function importMonthlyAttendance() {
       // Row 1 = CHOOSE/WEEKDAY formula row → skip
       // Row 2+ = staff data
       const headerRow = rows[0];
-      const dateCols  = [];
+      const dateCols = [];
 
       headerRow.forEach((h, i) => {
         if (i < 4) return; // skip No./Emp#/Name/Position
@@ -1591,10 +1620,10 @@ function importMonthlyAttendance() {
       });
 
       console.log('[att import] first 5 dateCols:',
-        dateCols.slice(0,5).map(c => `[${c.index}]=${c.dateKey}`).join(' '));
+        dateCols.slice(0, 5).map(c => `[${c.index}]=${c.dateKey}`).join(' '));
 
       if (dateCols.length === 0) {
-        const sample = headerRow.slice(4,8)
+        const sample = headerRow.slice(4, 8)
           .map(h => `${typeof h}:${h}`).join(' | ');
         statusEl.innerHTML = `<span style="color:var(--err);">No date columns detected. Header: ${sample}</span>`;
         return;
@@ -1606,29 +1635,29 @@ function importMonthlyAttendance() {
       rows.slice(2).forEach(row => {
         if (!row) return;
         const nameVal = String(row[2] || '').trim();
-        const empNo   = String(row[1] || '').trim();
+        const empNo = String(row[1] || '').trim();
         if (!nameVal && !empNo) return;
 
         let user = state.users.find(u =>
           u.name === nameVal ||
-          (u.name||'').toLowerCase() === nameVal.toLowerCase()
+          (u.name || '').toLowerCase() === nameVal.toLowerCase()
         );
         if (!user && empNo) {
-          const si = Object.entries(state.staffInfo||{})
+          const si = Object.entries(state.staffInfo || {})
             .find(([, v]) => v.empNo === empNo);
           if (si) user = state.users.find(u => u.username === si[0]);
         }
         if (!user) {
-          const si = Object.entries(state.staffInfo||{}).find(([, v]) =>
+          const si = Object.entries(state.staffInfo || {}).find(([, v]) =>
             v.name === nameVal ||
-            (v.name||'').toLowerCase() === nameVal.toLowerCase()
+            (v.name || '').toLowerCase() === nameVal.toLowerCase()
           );
           if (si) user = { username: si[0], name: si[1].name, id: null };
         }
         if (!user) { skipped++; return; }
 
         const uname = user.username;
-        if (!state.monthlyAttendance[uname])           state.monthlyAttendance[uname] = {};
+        if (!state.monthlyAttendance[uname]) state.monthlyAttendance[uname] = {};
         if (!state.monthlyAttendance[uname][monthKey]) state.monthlyAttendance[uname][monthKey] = {};
 
         dateCols.forEach(({ index, dateKey }) => {
@@ -1650,50 +1679,50 @@ function importMonthlyAttendance() {
       if (typeof syncWrite === 'function') syncWrite();
       statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff · ${dateCols.length} dates · ${skipped} not matched</span>`;
       // After import: scan for attendance records that now conflict with OFF/HD codes
-const conflicts = [];
-Object.keys(state.attendance || {}).forEach(key => {
-  const rec = state.attendance[key];
-  if (!rec || rec._deleted || (!rec.start && !rec.end)) return;
-  const [uidStr, dk] = key.split('_');
-  const uid = parseInt(uidStr);
-  const u = state.users.find(x => x.id === uid);
-  if (!u) return;
-  const [_d, _m] = dk.split('/');
-  const mk = `${new Date().getFullYear()}-${String(_m).padStart(2,'0')}`;
-  const code = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
-  if (!code) return;
-  const parsed = _parseAttCode(code);
-  if (parsed?.type === 'OFF' || parsed?.type === 'HD1' || parsed?.type === 'HD2') {
-    conflicts.push({ name: u.name, dk, code, reason: parsed.reason || parsed.type });
-  }
-});
+      const conflicts = [];
+      Object.keys(state.attendance || {}).forEach(key => {
+        const rec = state.attendance[key];
+        if (!rec || rec._deleted || (!rec.start && !rec.end)) return;
+        const [uidStr, dk] = key.split('_');
+        const uid = parseInt(uidStr);
+        const u = state.users.find(x => x.id === uid);
+        if (!u) return;
+        const [_d, _m] = dk.split('/');
+        const mk = `${new Date().getFullYear()}-${String(_m).padStart(2, '0')}`;
+        const code = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+        if (!code) return;
+        const parsed = _parseAttCode(code);
+        if (parsed?.type === 'OFF' || parsed?.type === 'HD1' || parsed?.type === 'HD2') {
+          conflicts.push({ name: u.name, dk, code, reason: parsed.reason || parsed.type });
+        }
+      });
 
-if (conflicts.length > 0) {
-  const lines = conflicts.map(c => `• ${c.name} on ${c.dk} → ${c.code} (${c.reason})`).join('\n');
-  statusEl.innerHTML += `<div style="margin-top:10px;padding:8px 12px;background:var(--D-bg);
+      if (conflicts.length > 0) {
+        const lines = conflicts.map(c => `• ${c.name} on ${c.dk} → ${c.code} (${c.reason})`).join('\n');
+        statusEl.innerHTML += `<div style="margin-top:10px;padding:8px 12px;background:var(--D-bg);
     border:1px solid var(--err);border-radius:6px;font-size:11px;color:var(--err);line-height:1.8;">
     ⚠ <b>${conflicts.length} retroactive conflict${conflicts.length > 1 ? 's' : ''} found</b> —
     time was already logged on these OFF/half-day dates:<br>
     ${conflicts.map(c => `<b>${c.name}</b> ${c.dk} (${c.code}: ${c.reason})`).join(' · ')}
     <br><span style="color:var(--text3);">Go to Logbook to review and clear these entries.</span>
   </div>`;
-  // Don't auto-nav — let the leader see the warning first
-} else {
-  nav('staff');
-}
+        // Don't auto-nav — let the leader see the warning first
+      } else {
+        nav('staff');
+      }
       nav('staff');
-    } catch(ex) {
+    } catch (ex) {
       console.error('[att import]', ex);
       statusEl.innerHTML = `<span style="color:var(--err);">Error: ${ex.message}</span>`;
     }
   };
   reader.readAsArrayBuffer(fileInput.files[0]);
 }
- 
+
 function clearMonthlyAttendance(year, month) {
-  const label = new Date(year, month-1).toLocaleString('en-US',{month:'long',year:'numeric'});
+  const label = new Date(year, month - 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
   if (!confirm(`Clear attendance data for ${label}?`)) return;
-  const mk = `${year}-${String(month).padStart(2,'0')}`;
+  const mk = `${year}-${String(month).padStart(2, '0')}`;
   if (state.monthlyAttendance) {
     Object.keys(state.monthlyAttendance).forEach(u => {
       if (state.monthlyAttendance[u]) delete state.monthlyAttendance[u][mk];
@@ -1705,23 +1734,23 @@ function clearMonthlyAttendance(year, month) {
 
 function renderStaffRows(users, displayDates) {
   return users.map(u => `<tr>
-    <td class="mono" style="font-size:11px;">${u.team||'—'}</td>
+    <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
     <td style="font-weight:600">${u.name}</td>
-    <td class="mono" style="color:var(--accent);font-size:11px;">${u.username||''}</td>
+    <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
     <td style="font-size:11px;color:var(--text2)">${u.role}</td>
-    ${displayDates.map(d=>{const s=u.schedule[d]||'0';return`<td class="c"><span class="sh sh-${s}">${s==='0'?'—':s}</span></td>`;}).join('')}
+    ${displayDates.map(d => { const s = u.schedule[d] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`).join('');
 }
 
 function _liveFilter() {
-  const allDates     = Object.keys(state.users[0]?.schedule||{});
-  const weekRange    = getWeekRange(activeMonday);
+  const allDates = Object.keys(state.users[0]?.schedule || {});
+  const weekRange = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
-  const filtered     = state.users.filter(u =>
-    (u.team||'').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name||'').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username||'').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (u.role||'').toLowerCase().includes(staffFilters.role.toLowerCase())
+  const filtered = state.users.filter(u =>
+    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+    (u.role || '').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
@@ -1734,7 +1763,7 @@ function _liveFilter() {
 // ═══════════════════════════════════════════════
 function importExcelStaffInfo() {
   const fileInput = document.getElementById('excel-file-input');
-  const statusEl  = document.getElementById('excel-import-status');
+  const statusEl = document.getElementById('excel-import-status');
   if (!fileInput || !fileInput.files || !fileInput.files[0]) {
     statusEl.innerHTML = '<span style="color:var(--err);">⚠ Please choose a file first.</span>';
     return;
@@ -1749,8 +1778,8 @@ function importExcelStaffInfo() {
         statusEl.innerHTML = '<span style="color:var(--err);">SheetJS not loaded. Check internet connection.</span>';
         return;
       }
-      const wb   = XLSX.read(e.target.result, { type: 'array' });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
       if (!rows.length) {
@@ -1760,38 +1789,38 @@ function importExcelStaffInfo() {
 
       // Detect column names flexibly (first row keys)
       const firstRow = rows[0];
-      const keys     = Object.keys(firstRow);
+      const keys = Object.keys(firstRow);
 
       // Helper: find key containing substring (case-insensitive)
       function col(sub) {
-        return keys.find(k => k.toLowerCase().replace(/\s+/g,'').replace(/\n/g,'').includes(sub.toLowerCase())) || null;
+        return keys.find(k => k.toLowerCase().replace(/\s+/g, '').replace(/\n/g, '').includes(sub.toLowerCase())) || null;
       }
 
-      const nameCol   = col('name');
-      const userCol   = col('username');
+      const nameCol = col('name');
+      const userCol = col('username');
       const genderCol = col('gender');
-      const dobCol    = col('birth') || col('dob');
-      const posCol    = col('position') || col('role');
-      const empCol    = col('employee') || col('empno') || col('number');
+      const dobCol = col('birth') || col('dob');
+      const posCol = col('position') || col('role');
+      const empCol = col('employee') || col('empno') || col('number');
 
       if (!nameCol || !userCol) {
-        statusEl.innerHTML = `<span style="color:var(--err);">⚠ Could not find Name/Username columns. Found: ${keys.slice(0,6).join(', ')}</span>`;
+        statusEl.innerHTML = `<span style="color:var(--err);">⚠ Could not find Name/Username columns. Found: ${keys.slice(0, 6).join(', ')}</span>`;
         return;
       }
 
       let count = 0;
       rows.forEach(row => {
         const username = String(row[userCol] || '').trim();
-        const name     = String(row[nameCol]  || '').trim();
+        const name = String(row[nameCol] || '').trim();
         if (!username || !name) return;
 
-        const gRaw  = String(row[genderCol] || '').trim().toLowerCase();
+        const gRaw = String(row[genderCol] || '').trim().toLowerCase();
         const gender = gRaw.includes('female') || gRaw === 'f' ? 'F'
-                     : gRaw.includes('male')   || gRaw === 'm' ? 'M' : '';
+          : gRaw.includes('male') || gRaw === 'm' ? 'M' : '';
 
-        const dob  = String(row[dobCol]  || '').trim();
-        const role = String(row[posCol]  || '').trim();
-        const empNo= String(row[empCol]  || '').trim();
+        const dob = String(row[dobCol] || '').trim();
+        const role = String(row[posCol] || '').trim();
+        const empNo = String(row[empCol] || '').trim();
 
         DB.setStaffInfo(username, { empNo, name, gender, dob, role });
 
@@ -1824,7 +1853,7 @@ function openAssignModal(uid, day) {
   const u = state.users.find(x => x.id === uid);
   document.getElementById('assign-title').textContent = `Assign break — ${u?.name || '?'} (${day})`;
   const slots = BREAK_SLOTS[currentShift] || [];
-  const cur   = getAssigned(uid, day);
+  const cur = getAssigned(uid, day);
   document.getElementById('assign-slot').innerHTML = slots.map(s =>
     `<option value="${s}"${cur?.slot === s ? ' selected' : ''}>${s}</option>`
   ).join('');
@@ -1843,7 +1872,7 @@ function confirmAssign() {
 }
 
 function openRequestModal() {
-  const allDates  = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
   const weekDates = getWeekDates();
 
   // Build list of days this user is on THIS shift
@@ -1853,17 +1882,32 @@ function openRequestModal() {
     WEEK_DAYS.forEach((d, i) => { if (currentUser.schedule[d] === currentShift) myShiftDays.push(weekDates[i]); });
   }
 
+  const today = new Date();
+  const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+  // Filter to only show current + future days in the current working week
+  const futureShiftDays = myShiftDays.filter(dk => dk >= todayStr);
+  const displayDays = futureShiftDays.length > 0 ? futureShiftDays : myShiftDays; // fallback to all if all past
+
+  const daySelect = document.getElementById('req-day');
+  daySelect.innerHTML = displayDays.length > 0
+    ? displayDays.map(d => {
+      const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
+      const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
+      return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
+    }).join('')
+    : `<option value="">No shift days found</option>`;
+
   const daySelect = document.getElementById('req-day');
   daySelect.innerHTML = myShiftDays.length > 0
     ? myShiftDays.map(d => {
-        const br   = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
-        const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
-        return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
-      }).join('')
+      const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
+      const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
+      return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
+    }).join('')
     : `<option value="">No shift days found</option>`;
 
   // Reset scope toggle to 'day'
-  document.getElementById('req-scope-day').checked  = true;
+  document.getElementById('req-scope-day').checked = true;
   document.getElementById('req-scope-week').checked = false;
   document.getElementById('req-week-note').style.display = 'none';
 
@@ -1880,17 +1924,17 @@ function _toggleReqScope() {
 
 function _updateReqDay() {
   const day = document.getElementById('req-day').value;
-  const br  = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  const br = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   document.getElementById('req-cur').value = br ? br.slot : 'Not assigned';
   _updateReqPartners();
 }
 
 function _updateReqPartners() {
-  const day    = document.getElementById('req-day').value;
+  const day = document.getElementById('req-day').value;
   const isWeek = document.getElementById('req-scope-week')?.checked;
   if (!day) return;
 
-  const myBr   = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
+  const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   const mySlot = myBr ? myBr.slot : null;
 
   // If week swap: partner must have same slot mismatch on ALL days they share this shift
@@ -1923,36 +1967,36 @@ function _updateReqPartners() {
 
 function _updateReqSlot() {
   const partnerSel = document.getElementById('req-partner');
-  const chosen     = partnerSel.options[partnerSel.selectedIndex];
-  const theirSlot  = chosen?.dataset?.slot || '';
-  const reqNew     = document.getElementById('req-new');
+  const chosen = partnerSel.options[partnerSel.selectedIndex];
+  const theirSlot = chosen?.dataset?.slot || '';
+  const reqNew = document.getElementById('req-new');
   reqNew.innerHTML = theirSlot
     ? `<option value="${theirSlot}" selected>${theirSlot}</option>`
     : `<option value="">— pick partner first —</option>`;
 }
 
 function submitRequest() {
-  const day       = document.getElementById('req-day').value;
+  const day = document.getElementById('req-day').value;
   const requested = document.getElementById('req-new').value;
-  const reason    = document.getElementById('req-reason').value.trim();
-  const partnerSel= document.getElementById('req-partner');
+  const reason = document.getElementById('req-reason').value.trim();
+  const partnerSel = document.getElementById('req-partner');
   const partnerId = partnerSel.value ? parseInt(partnerSel.value) : null;
   const partnerSlot = partnerSel.options[partnerSel.selectedIndex]?.dataset?.slot || '';
-  const isWeek    = document.getElementById('req-scope-week')?.checked || false;
+  const isWeek = document.getElementById('req-scope-week')?.checked || false;
 
-  if (!day)       { toast('Select a day first.', 'err'); return; }
+  if (!day) { toast('Select a day first.', 'err'); return; }
   if (!partnerId) { toast('Select a swap partner.', 'err'); return; }
   if (!requested) { toast('No swap slot available.', 'err'); return; }
 
   // ── Conflict detection: check if partner already has a PENDING request for the same day(s) ──
-  const allDates   = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
-  let swapDays     = [day];
+  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  let swapDays = [day];
   if (isWeek) {
     // Collect all dates where BOTH users are on this shift
     const partner = state.users.find(u => u.id === partnerId);
     swapDays = allDates.filter(dk => {
       const myShift = currentUser.schedule[dk] || currentUser.schedule[getWkDay(dk)] || '0';
-      const ptShift = partner?.schedule[dk]   || partner?.schedule[getWkDay(dk)]   || '0';
+      const ptShift = partner?.schedule[dk] || partner?.schedule[getWkDay(dk)] || '0';
       return myShift === currentShift && ptShift === currentShift;
     });
     if (swapDays.length === 0) { toast('No matching shift days found for week swap.', 'err'); return; }
@@ -1962,7 +2006,7 @@ function submitRequest() {
   const conflicts = state.requests.filter(r =>
     r.status === 'pending' &&
     r.swapPartnerId === partnerId &&
-    (isWeek ? (r.swapDays||[r.day]).some(d => swapDays.includes(d)) : swapDays.includes(r.day))
+    (isWeek ? (r.swapDays || [r.day]).some(d => swapDays.includes(d)) : swapDays.includes(r.day))
   );
   if (conflicts.length > 0) {
     toast('⚠ A pending request already involves this partner on those days. Yours will be auto-denied.', 'warn');
@@ -1998,7 +2042,7 @@ function submitRequest() {
 
 function resolveRequest(idx, status) {
   const r = state.requests[idx];
-  r.status     = status;
+  r.status = status;
   r.resolvedBy = currentUser.id;
   r.resolvedAt = Date.now();
 
@@ -2022,8 +2066,8 @@ function resolveRequest(idx, status) {
       const otherDays = other.swapDays || [other.day];
       const days2 = r.swapDays || [r.day];
       if (otherDays.some(d => days2.includes(d))) {
-        other.status     = 'rejected';
-        other.respNote   = `Auto-denied: swap partner's break was already committed to another approved request.`;
+        other.status = 'rejected';
+        other.respNote = `Auto-denied: swap partner's break was already committed to another approved request.`;
         other.resolvedBy = currentUser.id;
         other.resolvedAt = Date.now();
       }
@@ -2042,20 +2086,20 @@ function resolveRequest(idx, status) {
 //  Leaders see everyone's registrations for current shift
 // ═══════════════════════════════════════════════
 function renderExtBreak() {
-    const isFemale   = currentUser.gender === 'F';
-    if (isTraining(currentUser)) {
+  const isFemale = currentUser.gender === 'F';
+  if (isTraining(currentUser)) {
     if (typeof renderExtBreakTraining === 'function') return renderExtBreakTraining();
     return '<div class="empty">Loading…</div>';
   }
-    const canApprove = isLeader(currentUser) || isTraining(currentUser);
-    const pendingCount = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
-    const mk         = currentMonthKey();
+  const canApprove = isLeader(currentUser) || isTraining(currentUser);
+  const pendingCount = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
+  const mk = currentMonthKey();
   const [yr, mo] = mk.split('-');
-  const monthLabel = new Date(parseInt(yr), parseInt(mo)-1, 1)
+  const monthLabel = new Date(parseInt(yr), parseInt(mo) - 1, 1)
     .toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   // All female users in current shift this week
-  const weekDates  = getWeekDates();
+  const weekDates = getWeekDates();
   const femaleShiftUsers = state.users.filter(u =>
     u.gender === 'F' &&
     weekDates.some(dk => {
@@ -2065,30 +2109,30 @@ function renderExtBreak() {
   );
 
   // My registrations this month
-  const myEntries    = DB.getExtBreaks(currentUser.id, mk);
-  const myUsed       = myEntries.length;
-  const myRemaining  = Math.max(0, 3 - myUsed);
+  const myEntries = DB.getExtBreaks(currentUser.id, mk);
+  const myUsed = myEntries.length;
+  const myRemaining = Math.max(0, 3 - myUsed);
 
   // Build registration list for current user (female) or full view (leader)
   const viewUsers = isLeader(currentUser) ? femaleShiftUsers : (isFemale ? [currentUser] : []);
 
   const userCards = viewUsers.map(u => {
     const entries = DB.getExtBreaks(u.id, mk);
-    const used    = entries.length;
+    const used = entries.length;
     const genderIcon = '♀';
 
     const entryRows = entries.length === 0
       ? `<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>`
       : entries.map((e, i) => {
-          // Who registered this entry?
-          const registrar = e.registeredBy ? (state.users.find(x=>x.id===e.registeredBy) || (() => { const si=DB.getStaffInfo(Object.keys(state.staffInfo||{}).find(k=>state.staffInfo[k] && _stableId && _stableId(k)===e.registeredBy)); return si?{name:si.name}:null; })()) : null;
-          const isSelfReg  = !registrar || registrar.id === u.id;
-          const regByLine  = !isSelfReg && registrar
-            ? `<span style="font-size:10px;background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);border-radius:4px;padding:1px 7px;margin-left:6px;">Reg. by ${registrar.name}</span>`
-            : '';
-          // Who approved (leaders can only view/cancel; registration itself IS the approval for female staff)
-          // For now show reg. source clearly
-          return `
+        // Who registered this entry?
+        const registrar = e.registeredBy ? (state.users.find(x => x.id === e.registeredBy) || (() => { const si = DB.getStaffInfo(Object.keys(state.staffInfo || {}).find(k => state.staffInfo[k] && _stableId && _stableId(k) === e.registeredBy)); return si ? { name: si.name } : null; })()) : null;
+        const isSelfReg = !registrar || registrar.id === u.id;
+        const regByLine = !isSelfReg && registrar
+          ? `<span style="font-size:10px;background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);border-radius:4px;padding:1px 7px;margin-left:6px;">Reg. by ${registrar.name}</span>`
+          : '';
+        // Who approved (leaders can only view/cancel; registration itself IS the approval for female staff)
+        // For now show reg. source clearly
+        return `
           <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap;">
             <span style="font-family:'IBM Plex Mono',monospace;color:var(--accent);min-width:70px;">${e.day}</span>
             <span style="color:var(--text2);min-width:50px;">${getWkDay(e.day)}</span>
@@ -2100,23 +2144,23 @@ function renderExtBreak() {
             ${regByLine}
             <span style="font-size:10px;color:var(--text3);margin-left:auto;">${timeSince(e.at)}</span>
             ${(() => {
-              const status = e.status || 'pending';
-              const badge = status === 'approved'
-                ? `<span style="font-size:10px;background:var(--C-bg);color:var(--ok);border-radius:4px;padding:2px 8px;">✓ Approved</span>`
-                : status === 'rejected'
-                ? `<span style="font-size:10px;background:var(--D-bg);color:var(--err);border-radius:4px;padding:2px 8px;" title="${e.rejectedReason||''}">✗ Rejected${e.rejectedReason?' — '+e.rejectedReason:''}</span>`
+            const status = e.status || 'pending';
+            const badge = status === 'approved'
+              ? `<span style="font-size:10px;background:var(--C-bg);color:var(--ok);border-radius:4px;padding:2px 8px;">✓ Approved</span>`
+              : status === 'rejected'
+                ? `<span style="font-size:10px;background:var(--D-bg);color:var(--err);border-radius:4px;padding:2px 8px;" title="${e.rejectedReason || ''}">✗ Rejected${e.rejectedReason ? ' — ' + e.rejectedReason : ''}</span>`
                 : `<span style="font-size:10px;background:rgba(245,158,11,.15);color:var(--warn);border-radius:4px;padding:2px 8px;">⏳ Pending</span>`;
-              const approveBtn = canApprove && (status === 'pending') ? `
+            const approveBtn = canApprove && (status === 'pending') ? `
                 <button class="btn btn-xs" style="background:var(--C-bg);color:var(--ok);border:1px solid var(--ok);"
                   onclick="approveExtBreak(${u.id},'${mk}',${i})">✓ Approve</button>
                 <button class="btn btn-xs btn-err"
                   onclick="rejectExtBreakPrompt(${u.id},'${mk}',${i})">✗ Reject</button>` : '';
-              const delBtn = (u.id === currentUser.id || isLeader(currentUser)) ? `
+            const delBtn = (u.id === currentUser.id || isLeader(currentUser)) ? `
                 <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i},${currentUser.id})">🗑</button>` : '';
-              return badge + approveBtn + delBtn;
-            })()}
+            return badge + approveBtn + delBtn;
+          })()}
           </div>`;
-        }).join('');
+      }).join('');
 
     return `
 <div class="card" style="margin-bottom:14px;">
@@ -2129,16 +2173,16 @@ function renderExtBreak() {
     <div style="display:flex;align-items:center;gap:10px;">
       <!-- Quota dots -->
       <div style="display:flex;gap:4px;">
-        ${[0,1,2].map(i => `<span style="width:10px;height:10px;border-radius:50%;
+        ${[0, 1, 2].map(i => `<span style="width:10px;height:10px;border-radius:50%;
           background:${i < used ? 'var(--A-color)' : 'var(--border)'};
           border:1px solid ${i < used ? 'var(--A-color)' : 'var(--border2)'};"
           title="${i < used ? 'Used' : 'Available'}"></span>`).join('')}
       </div>
-      <span style="font-size:11px;color:${myRemaining===0?'var(--err)':'var(--text2)'};">
+      <span style="font-size:11px;color:${myRemaining === 0 ? 'var(--err)' : 'var(--text2)'};">
         ${used}/3 used
       </span>
       ${u.id === currentUser.id && isFemale && used < 3 ? `
-        <button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">+ Register</button>` : ''}
+        <button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">Register</button>` : ''}
     </div>
   </div>
   ${entryRows}
@@ -2151,24 +2195,47 @@ function renderExtBreak() {
         <div style="font-size:11px;color:var(--text3);margin-top:6px;">Female staff can register up to 3 extra 30-min breaks per month.</div>
       </div>` : '';
 
+  const myPendingHtml = (!isLeader(currentUser) && isFemale) ? (() => {
+    const mk2 = currentMonthKey();
+    const myEntries = DB.getExtBreaks(currentUser.id, mk2) || [];
+    const myPending = myEntries.filter((e, i) => (e.status || 'pending') === 'pending');
+    if (!myPending.length) return '';
+    return `
+    
+    <div style="padding:10px 14px;background:rgba(245,158,11,.10);border:1px solid var(--warn);
+      border-radius:8px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+        color:var(--warn);margin-bottom:8px;">⏳ Your pending requests</div>
+      ${myPending.map((e, i) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;
+          border-bottom:1px solid var(--border);font-size:12px;">
+          <span style="color:var(--text3);">${e.day}</span>
+          <span style="color:var(--A-color);font-size:11px;">${e.position === 'before' ? '← Before' : 'After →'}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:var(--text2);font-size:11px;">${e.time}</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--text3);">${timeSince(e.at)}</span>
+        </div>`).join('')}
+    </div>`;
+  })() : '';
   return `
 <div class="page-header">
   <div>
     <div class="page-title">🌸 30-Min Extra Break</div>
-    <div class="page-sub">${monthLabel} · Shift ${currentShift} · ${isFemale&&!isLeader(currentUser)?`${myRemaining} registration${myRemaining!==1?'s':''} remaining`:'All female staff'}</div>
+    <div class="page-sub">${monthLabel} · Shift ${currentShift} · ${isFemale && !isLeader(currentUser) ? `${myRemaining} registration${myRemaining !== 1 ? 's' : ''} remaining` : 'All female staff'}</div>
   </div>
-  ${isFemale && !isLeader(currentUser) && myUsed < 3 ? `
-    <button class="btn btn-accent" onclick="openExtBreakModal()">+ Register Extra Break</button>` : ''}
+  
 </div>
 
 ${noAccessMsg}
+${myPendingHtml}
+
+  
  
   ${canApprove && pendingCount > 0 ? `
   <div style="padding:10px 16px;background:rgba(245,158,11,.12);border:1px solid var(--warn);
     border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
     <span style="font-size:20px;">⏳</span>
     <div>
-      <div style="font-weight:600;color:var(--warn);">${pendingCount} pending request${pendingCount>1?'s':''}</div>
+      <div style="font-weight:600;color:var(--warn);">${pendingCount} pending request${pendingCount > 1 ? 's' : ''}</div>
       <div style="font-size:11px;color:var(--text2);">Review below — approve or reject each request</div>
     </div>
   </div>` : ''}
@@ -2192,22 +2259,20 @@ ${noAccessMsg}
 // ── ExtBreak Modal ──
 function openExtBreakModal() {
   if (currentUser.gender !== 'F') { toast('Only female staff can register.', 'err'); return; }
-  const mk      = currentMonthKey();
-  const used    = DB.countExtBreaks(currentUser.id, mk);
-  if (used >= 3) { toast('You have used all 3 registrations this month.', 'err'); return; }
+  const mk = currentMonthKey();
+  const used = DB.countExtBreaks(currentUser.id, mk);
+  const remaining = 3 - used;
+  if (remaining <= 0) { toast('You have used all 3 registrations this month.', 'err'); return; }
 
-  // Days where user is on shift and has a break assigned
   const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
   const weekDates = getWeekDates();
   const eligibleDays = [];
   allDates.forEach(dk => {
-    if (monthKeyFromDate(dk) !== mk) return;  // only this month
-    const shiftVal = currentUser.schedule[dk];
-    if (shiftVal !== currentShift) return;
+    if (monthKeyFromDate(dk) !== mk) return;
+    if (currentUser.schedule[dk] !== currentShift) return;
     const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, getWkDay(dk));
     if (br) eligibleDays.push({ dk, slot: br.slot });
   });
-  // Fallback to week day-names
   if (eligibleDays.length === 0) {
     weekDates.forEach((dk, i) => {
       const dn = WEEK_DAYS[i];
@@ -2217,39 +2282,71 @@ function openExtBreakModal() {
     });
   }
 
-  const daySelect = document.getElementById('eb-day');
-  daySelect.innerHTML = eligibleDays.length > 0
-    ? eligibleDays.map(({ dk, slot }) => `<option value="${dk}" data-slot="${slot}">${dk} ${getWkDay(dk)} — ${slot}</option>`).join('')
-    : `<option value="">No days with assigned break found</option>`;
+  const listEl = document.getElementById('eb-day-list');
+  listEl.innerHTML = eligibleDays.length > 0
+    ? eligibleDays.map(({ dk, slot }) => `
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+        background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;">
+        <input type="checkbox" name="eb-day-check" value="${dk}" data-slot="${slot}"
+          onchange="_updateEbMultiChange(${remaining})">
+        <span style="font-size:12px;font-weight:500;">${dk} <span style="color:var(--text3);">${getWkDay(dk)}</span></span>
+        <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);">${slot}</span>
+      </label>`).join('')
+    : `<div style="font-size:12px;color:var(--text3);">No days with assigned break found.</div>`;
 
-  _updateEbDayChange();
+  document.getElementById('eb-main-slot').value = '';
+  document.getElementById('eb-main-slot-wrap').style.display = 'none';
+  document.getElementById('eb-preview').style.display = 'none';
+  document.getElementById('eb-before').checked = false;
+  document.getElementById('eb-after').checked = false;
 
   const quota = document.getElementById('eb-quota-info');
-  quota.innerHTML = `<span style="color:${used>=2?'var(--warn)':'var(--ok)'};">
-    ${3 - used} registration${3-used!==1?'s':''} remaining this month (${used}/3 used)</span>`;
+  quota.innerHTML = `<span style="color:${remaining <= 1 ? 'var(--warn)' : 'var(--ok)'};">
+    ${remaining} registration${remaining !== 1 ? 's' : ''} remaining this month (${used}/3 used)</span>`;
 
   document.getElementById('eb-submit-btn').disabled = eligibleDays.length === 0;
   document.getElementById('modal-extbreak').classList.add('show');
 }
 
+function _updateEbMultiChange(remaining) {
+  const checked = [...document.querySelectorAll('input[name="eb-day-check"]:checked')];
+  // Enforce max = remaining quota
+  if (checked.length > remaining) {
+    event.target.checked = false;
+    toast(`You can only select up to ${remaining} day${remaining !== 1 ? 's' : ''}.`, 'warn');
+    return;
+  }
+  // Show slot of first checked day
+  const slotWrap = document.getElementById('eb-main-slot-wrap');
+  if (checked.length > 0) {
+    const slots = [...new Set(checked.map(c => c.dataset.slot))];
+    document.getElementById('eb-main-slot').value = slots.length === 1 ? slots[0] : 'Multiple slots';
+    slotWrap.style.display = '';
+    _updateEbPreview();
+  } else {
+    slotWrap.style.display = 'none';
+    document.getElementById('eb-preview').style.display = 'none';
+  }
+}
+
 function _updateEbDayChange() {
-  const sel    = document.getElementById('eb-day');
+  const sel = document.getElementById('eb-day');
   const chosen = sel.options[sel.selectedIndex];
-  const slot   = chosen?.dataset?.slot || '';
+  const slot = chosen?.dataset?.slot || '';
   document.getElementById('eb-main-slot').value = slot || '—';
   document.getElementById('eb-preview').style.display = 'none';
   // Reset radio
   document.getElementById('eb-before').checked = false;
-  document.getElementById('eb-after').checked  = false;
+  document.getElementById('eb-after').checked = false;
 }
 
 function _updateEbPreview() {
-  const sel    = document.getElementById('eb-day');
+  const sel = document.getElementById('eb-day');
   const chosen = sel.options[sel.selectedIndex];
-  const slot   = chosen?.dataset?.slot || '';
+  const slot = chosen?.dataset?.slot || '';
   if (!slot) return;
 
-  const pos    = document.querySelector('input[name="eb-pos"]:checked')?.value;
+  const pos = document.querySelector('input[name="eb-pos"]:checked')?.value;
   if (!pos) return;
 
   // Parse slot times like "09:30–11:00"
@@ -2259,16 +2356,16 @@ function _updateEbPreview() {
 
   function addMins(timeStr, mins) {
     const [h, m] = timeStr.split(':').map(Number);
-    const total  = h * 60 + m + mins;
-    const nh     = Math.floor(total / 60) % 24;
-    const nm     = total % 60;
-    return `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+    const total = h * 60 + m + mins;
+    const nh = Math.floor(total / 60) % 24;
+    const nm = total % 60;
+    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
   }
   function subMins(timeStr, mins) { return addMins(timeStr, -mins); }
 
   let extraLabel;
   if (pos === 'before') extraLabel = `${subMins(start, 30)}–${start}`;
-  else                  extraLabel = `${end}–${addMins(end, 30)}`;
+  else extraLabel = `${end}–${addMins(end, 30)}`;
 
   const preview = document.getElementById('eb-preview');
   preview.style.display = 'block';
@@ -2283,36 +2380,42 @@ function _updateEbPreview() {
 }
 
 function submitExtBreak() {
-  const sel    = document.getElementById('eb-day');
-  const chosen = sel.options[sel.selectedIndex];
-  const day    = sel.value;
-  const slot   = chosen?.dataset?.slot || '';
-  const pos    = document.querySelector('input[name="eb-pos"]:checked')?.value;
+  const checked = [...document.querySelectorAll('input[name="eb-day-check"]:checked')];
+  const pos = document.querySelector('input[name="eb-pos"]:checked')?.value;
 
-  if (!day)  { toast('Choose a day first.', 'err'); return; }
-  if (!pos)  { toast('Choose Before or After.', 'err'); return; }
-  if (!slot) { toast('No main break found on that day.', 'err'); return; }
+  if (!checked.length) { toast('Select at least one day.', 'err'); return; }
+  if (!pos) { toast('Choose Before or After.', 'err'); return; }
 
-  const mk   = currentMonthKey();
+  const mk = currentMonthKey();
   const used = DB.countExtBreaks(currentUser.id, mk);
-  if (used >= 3) { toast('Monthly quota reached (3/3).', 'err'); return; }
+  if (used + checked.length > 3) {
+    toast(`Only ${3 - used} registration${3 - used !== 1 ? 's' : ''} remaining.`, 'err'); return;
+  }
 
-  // Compute time label
-  const parts = slot.split('–');
-  const [start, end] = parts.map(t => t.trim());
   function addMins(t, m) {
     const [h, mi] = t.split(':').map(Number);
-    const tot = h*60+mi+m;
-    return `${String(Math.floor(tot/60)%24).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`;
+    const tot = h * 60 + mi + m;
+    return `${String(Math.floor(tot / 60) % 24).padStart(2, '0')}:${String(tot % 60).padStart(2, '0')}`;
   }
-  const time = pos === 'before'
-    ? `${addMins(start,-30)}–${start}`
-    : `${end}–${addMins(end, 30)}`;
 
-  DB.addExtBreak(currentUser.id, mk, { day, time, position: pos, at: Date.now(), registeredBy: currentUser.id });
+  const days = checked.map(c => ({ dk: c.value, slot: c.dataset.slot }));
+  const firstSlot = days[0].slot;
+  const parts = firstSlot.split('–');
+  if (parts.length !== 2) { toast('Could not parse slot time.', 'err'); return; }
+  const [start, end] = parts.map(t => t.trim());
+  const time = pos === 'before' ? `${addMins(start, -30)}–${start}` : `${end}–${addMins(end, 30)}`;
+
+  // Store as one request with days array
+  DB.addExtBreak(currentUser.id, mk, {
+    days: days.map(d => d.dk),
+    day: days[0].dk,           // keep for backwards compat display
+    time, position: pos,
+    status: 'pending',
+    at: Date.now(), registeredBy: currentUser.id
+  });
   if (typeof syncWrite === 'function') syncWrite(); else save();
   closeModal('modal-extbreak');
-  toast('Extra 30-min break registered! 🌸', 'ok');
+  toast(`Extra break registered for ${days.length} day${days.length > 1 ? 's' : ''} 🌸`, 'ok');
   nav('extbreak');
 }
 
@@ -2340,7 +2443,7 @@ function approveExtBreak(uid, mk, idx) {
   toast('✓ Extra break approved.', 'ok');
   nav('extbreak');
 }
- 
+
 function rejectExtBreakPrompt(uid, mk, idx) {
   const reason = prompt('Rejection reason (optional):');
   if (reason === null) return; // user cancelled prompt
@@ -2357,7 +2460,7 @@ function rejectExtBreakPrompt(uid, mk, idx) {
 //  Shown inside Cloud Sync page
 // ═══════════════════════════════════════════════
 function renderRotationPanel() {
-  const summary    = typeof getRotationSummary === 'function' ? getRotationSummary() : [];
+  const summary = typeof getRotationSummary === 'function' ? getRotationSummary() : [];
   const tierLabels = { agent: 'Agent + Sr Agent', qa: 'QA', sr_qa: 'Sr QA' };
 
   if (summary.length === 0) {
