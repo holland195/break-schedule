@@ -453,47 +453,7 @@ function renderSchedule() {
       </td>${cells}
     </tr>`;
   }).join('');
-
-
-  // ── Per-day slot totals by role tier (tfoot) ──
-  const ROLE_TIERS = [
-    { label: 'Agent',  match: u => ['Agent','Sr Agent','Sr. Agent'].includes(u.role) },
-    { label: 'QA',     match: u => u.role === 'QA' },
-    { label: 'Sr QA',  match: u => ['Sr QA','Sr. QA'].includes(u.role) },
-  ];
-
-  const tfootRows = ROLE_TIERS.map(tier => {
-    const tierUsers = allShiftUsers.filter(tier.match);
-    if (!tierUsers.length) return '';
-    const dayCells = weekDates.map(dk => {
-      let s1 = 0, s2 = 0;
-      tierUsers.forEach(u => {
-        if (getUserShift(u, dk) !== shiftToShow) return;
-        const br = DB.getBreak(u.id, dk);
-        if (!br) return;
-        const idx = shiftSlots.indexOf(br.slot);
-        if (idx === 0) s1++;
-        else if (idx === 1) s2++;
-      });
-      return `<td style="text-align:center;padding:4px 2px;border-right:1px solid var(--border);">
-        <span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">${s1}</span>
-        <span style="color:var(--text3);font-size:9px;margin:0 2px;">·</span>
-        <span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">${s2}</span>
-      </td>`;
-    }).join('');
-    return `<tr style="background:var(--bg4);border-top:1px solid var(--border2);">
-      <td class="sched-name-col" style="font-size:10px;font-weight:700;color:var(--text3);
-        font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;padding:4px 14px;">
-        ${tier.label}
-      </td>
-      ${dayCells}
-    </tr>`;
-  }).filter(Boolean).join('');
-
-  const tfootHTML = (tfootRows && isLeader(currentUser))
-    ? `<tfoot style="position:sticky;bottom:0;z-index:5;">${tfootRows}</tfoot>`
-    : '';
-
+  
   const emptyMsg = shiftUsers.length === 0
     ? `<div class="empty" style="padding:40px;">
         <div class="empty-ico">👥</div>
@@ -536,8 +496,7 @@ ${shiftUsers.length > 0 ? `
       <th class="sched-th-name">Name / Group</th>
       ${theadCells}
     </tr></thead>
-    <tbody id="sched-tbody">${tbodyRows}</tbody>
-    ${tfootHTML}
+    <tbody id="sched-tbody">${tbodyRows}</tbody>    
   </table>
 </div>`: ''}`;
 }
@@ -1086,6 +1045,40 @@ function getArrangeDayMemberList(_unused) {
     </tr>`;
   }).join('');
 
+  // Per-day slot totals footer (leader/training only)
+  const slots = BREAK_SLOTS[currentShift] || [];
+  const footCells = weekRange.map(d => {
+    let s1 = 0, s2 = 0;
+    allMates.forEach(u => {
+      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      const onShift = u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
+      if (!onShift) return;
+      const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
+      if (!br) return;
+      const idx = slots.indexOf(br.slot);
+      if (idx === 0) s1++;
+      else if (idx === 1) s2++;
+    });
+    const isToday = d === todayDk;
+    return `<td style="text-align:center;padding:5px 4px;border-right:1px solid var(--border);
+      background:${isToday ? 'rgba(31,102,241,.06)' : 'var(--bg4)'};">
+      <span class="arr-slot arr-slot-1 arr-slot-on" style="font-size:10px;padding:2px 7px;cursor:default;">${currentShift}1: ${s1}</span>
+      <span style="color:var(--text3);font-size:9px;margin:0 2px;">·</span>
+      <span class="arr-slot arr-slot-2 arr-slot-on" style="font-size:10px;padding:2px 7px;cursor:default;">${currentShift}2: ${s2}</span>
+    </td>`;
+  }).join('');
+
+  const tfoot = `
+  <tfoot style="position:sticky;bottom:0;z-index:5;">
+    <tr style="border-top:2px solid var(--border2);">
+      <td class="arr-name-col" style="font-size:10px;font-weight:700;color:var(--text3);
+        font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;padding:6px 14px;">
+        Total per day
+      </td>
+      ${footCells}
+    </tr>
+  </tfoot>`;
+
   return `
   <div class="arr-table-wrap">
     <table class="arr-table">
@@ -1096,6 +1089,7 @@ function getArrangeDayMemberList(_unused) {
         </tr>
       </thead>
       <tbody>${tbRows}</tbody>
+      ${tfoot}
     </table>
   </div>`;
 }
