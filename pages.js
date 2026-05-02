@@ -1918,12 +1918,14 @@ function openRequestModal() {
   // Filter out past dates — only show today and future scheduled days
   const todayObj = new Date();
   todayObj.setHours(0, 0, 0, 0);
+  const todayYear = todayObj.getFullYear();
+  const todayMMDD = todayObj.getMonth() * 100 + todayObj.getDate(); // e.g. 404 for 04/04
   const futureDays = myShiftDays.filter(dk => {
     const [d, m] = dk.split('/').map(Number);
-    const y = m >= todayObj.getMonth() + 1 ? todayObj.getFullYear() : todayObj.getFullYear() + 1;
-    return new Date(y, m - 1, d) >= todayObj;
+    const dkMMDD = (m - 1) * 100 + d; // same format: month*100 + day
+    return dkMMDD >= todayMMDD;
   });
-  const displayDays = futureDays.length > 0 ? futureDays : myShiftDays; // fallback if all past
+  const displayDays = futureDays.length > 0 ? futureDays : myShiftDays;
 
   const daySelect = document.getElementById('req-day');
   daySelect.innerHTML = displayDays.length > 0
