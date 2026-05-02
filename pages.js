@@ -475,23 +475,23 @@ function renderSchedule() {
         if (idx === 0) s1++;
         else if (idx === 1) s2++;
       });
-      return '<td style="text-align:center;padding:4px 2px;border-right:1px solid var(--border);">'
-        + '<span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">' + s1 + '</span>'
-        + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">·</span>'
-        + '<span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">' + s2 + '</span>'
-        + '</td>';
+      return `<td style="text-align:center;padding:4px 2px;border-right:1px solid var(--border);">
+        <span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">${s1}</span>
+        <span style="color:var(--text3);font-size:9px;margin:0 2px;">·</span>
+        <span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">${s2}</span>
+      </td>`;
     }).join('');
-    return '<tr style="background:var(--bg4);border-top:1px solid var(--border2);">'
-      + '<td class="sched-name-col" style="font-size:10px;font-weight:700;color:var(--text3);'
-      + 'font-family:\'IBM Plex Mono\',monospace;letter-spacing:.03em;padding:4px 14px;">'
-      + tier.label
-      + '</td>'
-      + dayCells
-      + '</tr>';
+    return `<tr style="background:var(--bg4);border-top:1px solid var(--border2);">
+      <td class="sched-name-col" style="font-size:10px;font-weight:700;color:var(--text3);
+        font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;padding:4px 14px;">
+        ${tier.label}
+      </td>
+      ${dayCells}
+    </tr>`;
   }).filter(Boolean).join('');
 
   const tfootHTML = tfootRows
-    ? '<tfoot style="position:sticky;bottom:0;z-index:5;">' + tfootRows + '</tfoot>'
+    ? `<tfoot style="position:sticky;bottom:0;z-index:5;">${tfootRows}</tfoot>`
     : '';
 
   const emptyMsg = shiftUsers.length === 0
