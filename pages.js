@@ -496,8 +496,6 @@ function renderSchedule() {
 
   const emptyMsg = shiftUsers.length === 0
     ? `<div class="empty" style="padding:40px;">
-  const emptyMsg = shiftUsers.length === 0
-    ? `<div class="empty" style="padding:40px;">
         <div class="empty-ico">👥</div>
         ${schedSearch ? `No results for "${schedSearch}"` : `No staff on Shift ${shiftToShow} this week.`}
       </div>`
