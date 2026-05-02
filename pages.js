@@ -1032,7 +1032,7 @@ function getArrangeDayMemberList(_unused) {
     }).join('');
 
     return `<tr class="arr-row">
-      <td class="arr-name-col">
+      <td>
         <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;">
           ${u.name}
         </div>
