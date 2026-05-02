@@ -1045,39 +1045,61 @@ function getArrangeDayMemberList(_unused) {
     </tr>`;
   }).join('');
 
-  // Per-day slot totals footer (leader/training only)
-  
-  const footCells = weekRange.map(d => {
-    let s1 = 0, s2 = 0;
-    allMates.forEach(u => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
-      const onShift = u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
-      if (!onShift) return;
-      const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
-      if (!br) return;
-      const idx = slots.indexOf(br.slot);
-      if (idx === 0) s1++;
-      else if (idx === 1) s2++;
-    });
-    const isToday = d === todayDk;
-    return `<td style="text-align:center;padding:5px 4px;border-right:1px solid var(--border);
-      background:${isToday ? 'rgba(31,102,241,.06)' : 'var(--bg4)'};">
-      <span class="arr-slot arr-slot-1 arr-slot-on" style="font-size:10px;padding:2px 7px;cursor:default;">${currentShift}1: ${s1}</span>
-      <span style="color:var(--text3);font-size:9px;margin:0 2px;">·</span>
-      <span class="arr-slot arr-slot-2 arr-slot-on" style="font-size:10px;padding:2px 7px;cursor:default;">${currentShift}2: ${s2}</span>
-    </td>`;
-  }).join('');
+  // Per-day slot totals by role tier — sticky tfoot
+  const ARR_TIERS = [
+    { label: 'Agent',  match: u => ['Agent','Sr Agent','Sr. Agent'].includes(u.role) },
+    { label: 'QA',     match: u => u.role === 'QA' },
+    { label: 'Sr QA',  match: u => ['Sr QA','Sr. QA'].includes(u.role) },
+    { label: 'Total',  match: u => ['Agent','Sr Agent','Sr. Agent','QA','Sr QA','Sr. QA'].includes(u.role) },
+  ];
 
-  const tfoot = `
-  <tfoot style="position:sticky;bottom:0;z-index:5;">
-    <tr style="border-top:2px solid var(--border2);">
-      <td class="arr-name-col" style="font-size:10px;font-weight:700;color:var(--text3);
-        font-family:'IBM Plex Mono',monospace;letter-spacing:.03em;padding:6px 14px;">
-        Total per day
+  const tierFootRows = ARR_TIERS.map((tier, tierIdx) => {
+    const tierUsers = allMates.filter(tier.match);
+    if (!tierUsers.length) return '';
+    const isTotal = tier.label === 'Total';
+
+    const footCells = weekRange.map(d => {
+      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      let s1 = 0, s2 = 0;
+      tierUsers.forEach(u => {
+        const onShift = u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
+        if (!onShift) return;
+        const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
+        if (!br) return;
+        const idx = slots.indexOf(br.slot);
+        if (idx === 0) s1++;
+        else if (idx === 1) s2++;
+      });
+      const isToday = d === todayDk;
+      return `<td style="text-align:center;padding:${isTotal ? '6px' : '4px'} 4px;
+        border-right:1px solid var(--border);
+        background:${isToday ? 'rgba(31,102,241,.08)' : isTotal ? 'var(--bg3)' : 'var(--bg4)'};">
+        <span class="arr-slot arr-slot-1 arr-slot-on"
+          style="font-size:${isTotal ? '11px' : '10px'};padding:2px 7px;cursor:default;
+            ${isTotal ? 'font-weight:700;' : ''}">${currentShift}1·${s1}</span>
+        <span class="arr-slot arr-slot-2 arr-slot-on"
+          style="font-size:${isTotal ? '11px' : '10px'};padding:2px 7px;cursor:default;margin-left:3px;
+            ${isTotal ? 'font-weight:700;' : ''}">${currentShift}2·${s2}</span>
+      </td>`;
+    }).join('');
+
+    return `<tr style="border-top:${isTotal ? '2px solid var(--border2)' : '0.5px solid var(--border)'};">
+      <td class="arr-name-col" style="font-size:${isTotal ? '11px' : '10px'};
+        font-weight:${isTotal ? '700' : '600'};
+        color:${isTotal ? 'var(--text)' : 'var(--text3)'};
+        font-family:'IBM Plex Mono',monospace;
+        letter-spacing:.03em;
+        padding:${isTotal ? '6px' : '4px'} 14px;
+        background:${isTotal ? 'var(--bg3)' : 'var(--bg4)'};">
+        ${tier.label}
       </td>
       ${footCells}
-    </tr>
-  </tfoot>`;
+    </tr>`;
+  }).filter(Boolean).join('');
+
+  const tfoot = tierFootRows
+    ? `<tfoot style="position:sticky;bottom:0;z-index:5;">${tierFootRows}</tfoot>`
+    : '';
 
   return `
   <div class="arr-table-wrap">
