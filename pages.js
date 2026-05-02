@@ -1046,7 +1046,7 @@ function getArrangeDayMemberList(_unused) {
   }).join('');
 
   // Per-day slot totals footer (leader/training only)
-  const slots = BREAK_SLOTS[currentShift] || [];
+  
   const footCells = weekRange.map(d => {
     let s1 = 0, s2 = 0;
     allMates.forEach(u => {
