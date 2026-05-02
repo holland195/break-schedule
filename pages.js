@@ -1034,7 +1034,8 @@ function getArrangeDayMemberList(_unused) {
       ? `<span style="font-size:9px;color:var(--A-color);margin-left:3px;">♀</span>` : '';
 
     return `<tr class="arr-row">
-      <td class="arr-name-col">
+      
+      <td>
         <div style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:1px;">${u.team}</div>
         <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           ${u.name}${genderBadge}
