@@ -355,47 +355,59 @@ function renderExtBreakTraining() {
           background:${i<used?c.color||'var(--accent)':'var(--border2)'};"></span>`
       ).join('');
 
-      const entryList = entries.length===0
-        ? `<div style="font-size:11px;color:var(--text3);padding:8px 0;">No registrations this month.</div>`
-        : entries.map((e,i)=>{
-            const status = e.status||'pending';
-            const isPending = status==='pending';
-            return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;
-              border-top:0.5px solid var(--border);flex-wrap:wrap;font-size:12px;">
-              <span style="font-family:'IBM Plex Mono',monospace;color:var(--accent);min-width:58px;">${e.day||'—'}</span>
-              <span style="color:var(--text2);">${e.day?getWkDay(e.day):''}</span>
-              <span style="background:${c.bg};color:${c.color};border:0.5px solid ${c.color};
-                border-radius:4px;padding:2px 8px;font-size:11px;">
-                ${e.position==='before'?'← Before':'After →'}
-              </span>
-              <span style="font-size:11px;color:var(--text2);">${e.time||''}</span>
-              ${_statusBadge(status, e.rejectedReason)}
-              <div style="margin-left:auto;display:flex;gap:5px;align-items:center;">
-                ${isPending?`
-                  <button class="btn btn-xs" style="background:var(--C-bg);color:var(--ok);border-color:var(--ok);padding:2px 8px;font-size:11px;"
-                    onclick="approveExtBreak(${u.id},'${mk}',${i})">✓</button>
-                  <button class="btn btn-xs btn-err" style="padding:2px 8px;font-size:11px;"
-                    onclick="rejectExtBreakPrompt(${u.id},'${mk}',${i})">✗</button>`:''}
-                <button class="btn btn-xs" style="padding:2px 6px;font-size:11px;color:var(--text3);"
-                  onclick="deleteExtBreak(${u.id},'${mk}',${i},${u.id})">🗑</button>
-              </div>
-            </div>`;
+      const entryList = entries.length === 0
+        ? '<div style="font-size:11px;color:var(--text3);padding:8px 0;">No registrations this month.</div>'
+        : entries.map((e, i) => {
+            const status    = e.status || 'pending';
+            const isPending = status === 'pending';
+            const statusBadge = status === 'approved'
+              ? '<span class="req-status approved">APPROVED</span>'
+              : status === 'rejected'
+              ? '<span class="req-status rejected">REJECTED</span>'
+              : '<span class="req-status pending">PENDING</span>';
+            const resolvedBox = (!isPending && e.approvedBy)
+              ? '<div class="req-resolved ' + status + '" style="margin-top:6px;">'
+                + (status === 'approved' ? '✓ Approved' : '✗ Rejected')
+                + (e.rejectedReason ? ' · <span style="opacity:.8">' + e.rejectedReason + '</span>' : '')
+                + '</div>'
+              : '';
+            const daysLabel = (e.days && e.days.length > 1) ? e.days.join(', ') : (e.day || '—');
+            return '<div class="req-card ' + status + '" style="width:220px;">'
+              + '<div class="req-card-top">'
+              +   '<div><div class="req-card-name" style="font-size:12px;">' + daysLabel + '</div>'
+              +   '<div class="req-card-meta">' + (e.position === 'before' ? '← Before' : 'After →') + ' · ' + timeSince(e.at) + '</div></div>'
+              +   statusBadge
+              + '</div>'
+              + '<hr class="req-card-divider">'
+              + '<div class="req-card-row"><span class="req-card-lbl">Time</span>'
+              +   '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--A-color);">' + (e.time || '—') + '</span>'
+              + '</div>'
+              + resolvedBox
+              + (isPending
+                ? '<div class="req-actions">'
+                  + '<button class="btn btn-xs" style="background:var(--C-bg);color:var(--ok);border:1px solid var(--ok);" '
+                  + 'onclick="approveExtBreak(' + u.id + ',\'' + mk + '\',' + i + ')">✓</button>'
+                  + '<button class="btn btn-xs btn-err" '
+                  + 'onclick="rejectExtBreakPrompt(' + u.id + ',\'' + mk + '\',' + i + ')">✗</button>'
+                  + '</div>'
+                : '')
+              + '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
+              + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + u.id + ')">🗑</button>'
+              + '</div>';
           }).join('');
 
-      return `<div style="border:0.5px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;">
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);">
-          <span style="font-size:12px;font-weight:600;">${u.name}</span>
-          <span style="color:${c.color};font-size:11px;">♀</span>
-          <span style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</span>
-          <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-            <div>${dots}</div>
-            <span style="font-size:11px;color:${rem===0?'var(--err)':rem===1?'var(--warn)':'var(--text2)'};">${used}/3</span>
-          </div>
-        </div>
-        <div style="padding:0 12px 8px;">
-          ${entryList}
-        </div>
-      </div>`;
+      return '<div style="border:0.5px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;">'
+        + '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);">'
+        +   '<span style="font-size:12px;font-weight:600;">' + u.name + '</span>'
+        +   '<span style="color:' + (c.color || 'var(--A-color)') + ';font-size:11px;">♀</span>'
+        +   '<span style="font-size:10px;color:var(--text3);">' + (u.team || '') + ' · ' + getRoleInfo(u.role).label + '</span>'
+        +   '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">'
+        +     '<div style="display:flex;gap:3px;">' + dots + '</div>'
+        +     '<span style="font-size:11px;color:' + (rem === 0 ? 'var(--err)' : rem === 1 ? 'var(--warn)' : 'var(--text2)') + ';">' + used + '/3</span>'
+        +   '</div>'
+        + '</div>'
+        + '<div style="padding:8px 12px 10px;"><div class="req-cards-grid">' + entryList + '</div></div>'
+        + '</div>';
     }).join('');
 
     return `<div class="t-sb" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;">

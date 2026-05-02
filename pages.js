@@ -2134,50 +2134,90 @@ function renderExtBreak() {
   const viewUsers = isLeader(currentUser) ? femaleShiftUsers : (isFemale ? [currentUser] : []);
 
   const userCards = viewUsers.map(u => {
-    const entries = DB.getExtBreaks(u.id, mk);
-    const used = entries.length;
-    const genderIcon = '♀';
+    const entries   = DB.getExtBreaks(u.id, mk) || [];
+    const used      = entries.length;
+    const myRemaining = Math.max(0, 3 - used);
 
-    const entryRows = entries.length === 0
-      ? `<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>`
+    const entryCards = entries.length === 0
+      ? '<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>'
       : entries.map((e, i) => {
-        // Who registered this entry?
-        const registrar = e.registeredBy ? (state.users.find(x => x.id === e.registeredBy) || (() => { const si = DB.getStaffInfo(Object.keys(state.staffInfo || {}).find(k => state.staffInfo[k] && _stableId && _stableId(k) === e.registeredBy)); return si ? { name: si.name } : null; })()) : null;
-        const isSelfReg = !registrar || registrar.id === u.id;
-        const regByLine = !isSelfReg && registrar
-          ? `<span style="font-size:10px;background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);border-radius:4px;padding:1px 7px;margin-left:6px;">Reg. by ${registrar.name}</span>`
-          : '';
-        // Who approved (leaders can only view/cancel; registration itself IS the approval for female staff)
-        // For now show reg. source clearly
-        return `
-          <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap;">
-            <span style="font-family:'IBM Plex Mono',monospace;color:var(--accent);min-width:70px;">${e.day}</span>
-            <span style="color:var(--text2);min-width:50px;">${getWkDay(e.day)}</span>
-            <span style="background:var(--A-bg);color:var(--A-color);border:1px solid var(--A-color);
-              border-radius:4px;padding:2px 8px;font-size:11px;font-family:'IBM Plex Mono',monospace;">
-              ${e.position === 'before' ? '← Before' : 'After →'}
-            </span>
-            <span style="color:var(--text2);font-size:11px;">${e.time}</span>
-            ${regByLine}
-            <span style="font-size:10px;color:var(--text3);margin-left:auto;">${timeSince(e.at)}</span>
-            ${(() => {
-            const status = e.status || 'pending';
-            const badge = status === 'approved'
-              ? `<span style="font-size:10px;background:var(--C-bg);color:var(--ok);border-radius:4px;padding:2px 8px;">✓ Approved</span>`
-              : status === 'rejected'
-                ? `<span style="font-size:10px;background:var(--D-bg);color:var(--err);border-radius:4px;padding:2px 8px;" title="${e.rejectedReason || ''}">✗ Rejected${e.rejectedReason ? ' — ' + e.rejectedReason : ''}</span>`
-                : `<span style="font-size:10px;background:rgba(245,158,11,.15);color:var(--warn);border-radius:4px;padding:2px 8px;">⏳ Pending</span>`;
-            const approveBtn = canApprove && (status === 'pending') ? `
-                <button class="btn btn-xs" style="background:var(--C-bg);color:var(--ok);border:1px solid var(--ok);"
-                  onclick="approveExtBreak(${u.id},'${mk}',${i})">✓ Approve</button>
-                <button class="btn btn-xs btn-err"
-                  onclick="rejectExtBreakPrompt(${u.id},'${mk}',${i})">✗ Reject</button>` : '';
-            const delBtn = (u.id === currentUser.id || isLeader(currentUser)) ? `
-                <button class="btn btn-xs btn-err" onclick="deleteExtBreak(${u.id},'${mk}',${i},${currentUser.id})">🗑</button>` : '';
-            return badge + approveBtn + delBtn;
-          })()}
-          </div>`;
-      }).join('');
+          const status    = e.status || 'pending';
+          const isPending = status === 'pending';
+          const borderCol = status === 'approved' ? 'var(--ok)' : status === 'rejected' ? 'var(--err)' : 'var(--warn)';
+          const statusBadge = status === 'approved'
+            ? '<span class="req-status approved">APPROVED</span>'
+            : status === 'rejected'
+            ? '<span class="req-status rejected">REJECTED</span>'
+            : '<span class="req-status pending">PENDING</span>';
+
+          const resolvedBy = e.approvedBy
+            ? state.users.find(x => x.id === e.approvedBy)?.name || 'Leader'
+            : null;
+
+          const resolvedBox = (!isPending && resolvedBy)
+            ? '<div class="req-resolved ' + status + '" style="margin-top:8px;">'
+              + (status === 'approved' ? '✓ ' : '✗ ')
+              + (status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + resolvedBy + '</b>'
+              + (e.rejectedReason ? ' · <span style="opacity:.8">' + e.rejectedReason + '</span>' : '')
+              + '</div>'
+            : '';
+
+          const actions = (canApprove && isPending)
+            ? '<div class="req-actions">'
+              + '<button class="btn btn-sm btn-ok" onclick="approveExtBreak(' + u.id + ',\'' + mk + '\',' + i + ')">✓ Approve</button>'
+              + '<button class="btn btn-sm btn-err" onclick="rejectExtBreakPrompt(' + u.id + ',\'' + mk + '\',' + i + ')">✗ Reject</button>'
+              + '</div>'
+            : '';
+
+          const delBtn = (u.id === currentUser.id || isLeader(currentUser))
+            ? '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
+              + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
+            : '';
+
+          const daysLabel = (e.days && e.days.length > 1)
+            ? e.days.join(', ')
+            : (e.day || '—');
+
+          return '<div class="req-card ' + status + '" style="width:240px;">'
+            + '<div class="req-card-top">'
+            +   '<div>'
+            +     '<div class="req-card-name" style="font-size:12px;">' + daysLabel + '</div>'
+            +     '<div class="req-card-meta">' + (e.position === 'before' ? '← Before' : 'After →') + ' · ' + timeSince(e.at) + '</div>'
+            +   '</div>'
+            +   statusBadge
+            + '</div>'
+            + '<hr class="req-card-divider">'
+            + '<div class="req-card-row"><span class="req-card-lbl">Time</span>'
+            +   '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--A-color);">' + (e.time || '—') + '</span>'
+            + '</div>'
+            + resolvedBox
+            + actions
+            + delBtn
+            + '</div>';
+        }).join('');
+
+    const dots = [0, 1, 2].map(i =>
+      '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;'
+      + 'background:' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';'
+      + 'border:1px solid ' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';"></span>'
+    ).join('');
+
+    return '<div style="margin-bottom:18px;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      +   '<span style="font-weight:600;font-size:13px;color:var(--text);">' + u.name + '</span>'
+      +   '<span style="color:var(--A-color);font-size:12px;">♀</span>'
+      +   '<span style="font-size:11px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role).label + '</span>'
+      +   '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">'
+      +     '<div style="display:flex;gap:3px;">' + dots + '</div>'
+      +     '<span style="font-size:11px;color:' + (myRemaining === 0 ? 'var(--err)' : 'var(--text3)') + ';">' + used + '/3</span>'
+      +     (u.id === currentUser.id && isFemale && used < 3
+              ? '<button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">Register</button>'
+              : '')
+      +   '</div>'
+      + '</div>'
+      + '<div class="req-cards-grid">' + entryCards + '</div>'
+      + '</div>';
+  }).join('');
 
     return `
 <div class="card" style="margin-bottom:14px;">
