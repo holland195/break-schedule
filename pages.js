@@ -429,7 +429,11 @@ function renderSchedule() {
           <span style="font-size:10px;color:var(--text3);">—</span></td>`;
       }
       const br = DB.getBreak(u.id, dk);
-      const hasExt = DB.countExtBreaks(u.id, currentMonthKey()) > 0;
+      const _extEntries = DB.getExtBreaks(u.id, currentMonthKey()) || [];
+      const hasExt = _extEntries.some(e => {
+        const _days = (e.days && e.days.length > 0) ? e.days : (e.day ? [e.day] : []);
+        return _days.includes(dk);
+      });
       const slotIdx = br ? shiftSlots.indexOf(br.slot) : -1;
       const slotCls = slotIdx >= 0 ? `slot-${slotIdx + 1}` : '';
       const shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
