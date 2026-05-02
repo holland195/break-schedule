@@ -1897,14 +1897,7 @@ function openRequestModal() {
     }).join('')
     : `<option value="">No shift days found</option>`;
 
-  const daySelect = document.getElementById('req-day');
-  daySelect.innerHTML = myShiftDays.length > 0
-    ? myShiftDays.map(d => {
-      const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
-      const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
-      return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
-    }).join('')
-    : `<option value="">No shift days found</option>`;
+  
 
   // Reset scope toggle to 'day'
   document.getElementById('req-scope-day').checked = true;
