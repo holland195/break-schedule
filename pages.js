@@ -510,130 +510,128 @@ function renderRequests() {
   const rest = myReqs.filter(r => r.status !== 'pending');
 
   const card = (r) => {
-    const emp = state.users.find(u => u.id === r.userId);
-    const partner = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
-    const approver = r.resolvedBy
-      ? (state.users.find(u => u.id === r.resolvedBy) ||
-        (() => {
-          // fallback: search staffInfo by stable ID
-          const uname = Object.keys(state.staffInfo || {}).find(k => {
-            let h = 0; for (let i = 0; i < k.length; i++) h = (Math.imul(31, h) + k.charCodeAt(i)) | 0; return Math.abs(h) === r.resolvedBy;
-          });
-          return uname ? { name: state.staffInfo[uname].name } : null;
-        })())
-      : null;
-    const isOwn = r.userId === currentUser.id;
-    const idx = state.requests.indexOf(r);
-    const isWeek = r.swapWeek === true;
+  const emp      = state.users.find(u => u.id === r.userId);
+  const partner  = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
+  const approver = r.resolvedBy
+    ? (state.users.find(u => u.id === r.resolvedBy) || (() => {
+        const uname = Object.keys(state.staffInfo || {}).find(k => {
+          let h = 0; for (let i = 0; i < k.length; i++) h = (Math.imul(31, h) + k.charCodeAt(i)) | 0;
+          return Math.abs(h) === r.resolvedBy;
+        });
+        return uname ? { name: state.staffInfo[uname].name } : null;
+      })())
+    : null;
+  const isOwn  = r.userId === currentUser.id;
+  const idx    = state.requests.indexOf(r);
+  const isWeek = r.swapWeek === true;
 
-    // Build week-swap impact table for pending leader view
-    let impactHTML = '';
-    if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
-      const allDays = r.swapDays || [];
+  const scopeTag = '<span class="req-scope-tag ' + (isWeek ? 'week' : 'day') + '">' + (isWeek ? 'WEEK' : 'DAY') + '</span>';
 
-      // Only show current week days (using getWeekDates for current week range)
-      const weekDates = getWeekDates();
-      const weekSet = new Set(weekDates);
-      const currentWeekDays = allDays.filter(d => weekSet.has(d));
-      const displayDays = currentWeekDays.length > 0 ? currentWeekDays : allDays;
+  // Impact table
+  let impactHTML = '';
+  if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
+    const allDays    = r.swapDays || [];
+    const weekDates  = getWeekDates();
+    const weekSet    = new Set(weekDates);
+    const displayDays = allDays.filter(d => weekSet.has(d));
+    const todayMMDD  = new Date().getMonth() * 100 + new Date().getDate();
+    let futureCount  = 0;
 
-      // Today comparison using MM*100+DD
-      const todayObj = new Date();
-      const todayMMDD = todayObj.getMonth() * 100 + todayObj.getDate();
+    const impactRows = displayDays.map(d => {
+      const [dd, mm] = d.split('/').map(Number);
+      const isPast   = (mm - 1) * 100 + dd < todayMMDD;
+      if (!isPast) futureCount++;
+      const myBr   = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
+      const ptBr   = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
+      const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : '—';
+      const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : '—';
+      const dim    = isPast ? 'opacity:.35;' : '';
+      return '<tr class="req-impact-row" style="' + dim + '">'
+        + '<td class="req-impact-day">' + d + ' <span style="color:var(--text3)">' + getWkDay(d) + '</span>'
+        + (isPast ? ' <span style="font-size:9px">past</span>' : '') + '</td>'
+        + '<td class="req-impact-who">Requester</td>'
+        + '<td><span class="req-slot-pill">' + myCode + '</span>'
+        + ' <span style="color:var(--text3);font-size:10px;">→</span> '
+        + '<span class="req-slot-pill" style="color:var(--warn);border-color:var(--warn)">' + ptCode + '</span></td>'
+        + '</tr>'
+        + '<tr class="req-impact-row" style="' + dim + '">'
+        + '<td class="req-impact-day"></td>'
+        + '<td class="req-impact-who" style="color:var(--text3)">Partner</td>'
+        + '<td><span class="req-slot-pill">' + ptCode + '</span>'
+        + ' <span style="color:var(--text3);font-size:10px;">→</span> '
+        + '<span class="req-slot-pill" style="color:var(--warn);border-color:var(--warn)">' + myCode + '</span></td>'
+        + '</tr>';
+    }).join('');
 
-      const rows = displayDays.map(d => {
-        const [dd, mm] = d.split('/').map(Number);
-        const dMMDD = (mm - 1) * 100 + dd;
-        const isPast = dMMDD < todayMMDD;
-
-        const myBr   = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
-        const ptBr   = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
-        const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : '—';
-        const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : '—';
-        const dimStyle = isPast ? 'opacity:.35;' : '';
-
-        return '<tr style="border-bottom:1px solid var(--border);' + dimStyle + '">'
-          + '<td style="padding:3px 8px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;white-space:nowrap;">'
-          +   d + ' <span style="color:var(--text3);font-size:10px;">' + getWkDay(d) + '</span>'
-          +   (isPast ? ' <span style="font-size:9px;color:var(--text3);">past</span>' : '')
-          + '</td>'
-          + '<td style="padding:3px 8px;font-size:11px;color:var(--text3);">Requester</td>'
-          + '<td style="padding:3px 8px;">'
-          +   '<span class="break-slot assigned" style="font-size:10px;">' + myCode + '</span>'
-          +   ' <span style="color:var(--text3);font-size:10px;">→</span> '
-          +   '<span class="break-slot" style="font-size:10px;color:var(--warn);">' + ptCode + '</span>'
-          + '</td>'
-          + '</tr>'
-          + '<tr style="border-bottom:1px solid var(--border2);' + dimStyle + '">'
-          + '<td style="padding:3px 8px 5px;"></td>'
-          + '<td style="padding:3px 8px 5px;font-size:11px;color:var(--text3);">Partner</td>'
-          + '<td style="padding:3px 8px 5px;">'
-          +   '<span class="break-slot assigned" style="font-size:10px;">' + ptCode + '</span>'
-          +   ' <span style="color:var(--text3);font-size:10px;">→</span> '
-          +   '<span class="break-slot" style="font-size:10px;color:var(--warn);">' + myCode + '</span>'
-          + '</td>'
-          + '</tr>';
-      }).join('');
-
-      const futureCount = displayDays.filter(d => {
-        const [dd, mm] = d.split('/').map(Number);
-        return (mm - 1) * 100 + dd >= todayMMDD;
-      }).length;
-
-      impactHTML = rows ? (
-        '<div style="margin:10px 0 4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;">'
-        + '<div style="padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;'
-        +   'color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg4);">'
-        +   '📊 Swap Impact — ' + futureCount + ' upcoming day' + (futureCount !== 1 ? 's' : '') + ' this week'
-        + '</div>'
-        + '<table style="border-collapse:collapse;width:100%;max-width:420px;">'
-        +   '<thead><tr style="background:var(--bg4);">'
-        +     '<th style="padding:4px 8px;font-size:10px;color:var(--text3);text-align:left;min-width:80px;">Day</th>'
-        +     '<th style="padding:4px 8px;font-size:10px;color:var(--text3);text-align:left;min-width:70px;">Role</th>'
-        +     '<th style="padding:4px 8px;font-size:10px;color:var(--text3);text-align:left;">Slot change</th>'
-        +   '</tr></thead>'
-        +   '<tbody>' + rows + '</tbody>'
-        + '</table>'
-        + '</div>'
-      ) : '';
+    if (impactRows) {
+      impactHTML = '<div class="req-impact">'
+        + '<div class="req-impact-title">Swap impact — ' + futureCount + ' upcoming day' + (futureCount !== 1 ? 's' : '') + ' this week</div>'
+        + '<table style="border-collapse:collapse;width:100%;max-width:400px;">'
+        + '<tbody>' + impactRows + '</tbody>'
+        + '</table></div>';
     }
+  }
 
-    const scopeTag = isWeek
-      ? `<span style="background:var(--B-bg);color:var(--B-color);border:1px solid var(--B-color);font-size:9px;padding:1px 7px;border-radius:99px;font-family:'IBM Plex Mono',monospace;font-weight:700;">WEEK</span>`
-      : `<span style="background:var(--bg4);color:var(--text3);border:1px solid var(--border);font-size:9px;padding:1px 7px;border-radius:99px;font-family:'IBM Plex Mono',monospace;">DAY</span>`;
+  // Resolved box (full info for approved/rejected)
+  const resolvedHTML = (approver && r.status !== 'pending')
+    ? '<div class="req-resolved ' + r.status + '">'
+      + (r.status === 'approved' ? '✓' : '✗')
+      + ' <span>' + (r.status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + approver.name + '</b>'
+      + ' · ' + timeSince(r.resolvedAt)
+      + (r.respNote ? ' · <span style="opacity:.8">' + r.respNote + '</span>' : '')
+      + '</span></div>'
+    : '';
 
-    const partnerLine = partner
-      ? `<br><span style="color:var(--text3)">Swap with:</span> <b>${partner.name}</b> (${partner.team}) — their slot: <b style="color:var(--B-color)">${r.partnerSlot || '?'}</b>`
-      : '';
+  // Info grid
+  const dateLabel = isWeek
+    ? ((r.swapDays || []).length > 0 ? (r.swapDays[0] + '–' + r.swapDays[r.swapDays.length - 1]) : 'Week')
+    : (r.day || '—');
 
-    const approverLine = approver && r.status !== 'pending'
-      ? `<br><span style="color:var(--text3)">${r.status === 'approved' ? 'Approved' : 'Rejected'} by:</span> <b style="color:${r.status === 'approved' ? 'var(--ok)' : 'var(--err)'};">${approver.name}</b> · <span style="color:var(--text3);font-size:10px;">${timeSince(r.resolvedAt)}</span>`
-      : '';
+  return '<div class="req-card ' + r.status + '" data-status="' + r.status + '">'
+    + '<div class="req-header">'
+    +   '<div>'
+    +     '<div class="req-title">' + (emp?.name || 'Unknown') + ' ' + scopeTag + '</div>'
+    +     '<div class="req-meta">' + (emp?.team || '—') + ' · ' + dateLabel + ' · submitted ' + timeSince(r.at) + '</div>'
+    +   '</div>'
+    +   '<span class="req-status ' + r.status + '">' + r.status.toUpperCase() + '</span>'
+    + '</div>'
+    + '<hr class="req-divider">'
+    + '<div class="req-info-grid">'
+    +   '<div><div class="req-info-label">Slot change</div>'
+    +   '<span class="req-slot-pill">' + (r.current || '—') + '</span>'
+    +   ' <span style="color:var(--text3);font-size:10px;">→</span> '
+    +   '<span class="req-slot-pill" style="color:var(--warn);border-color:var(--warn)">' + (r.requested || '—') + '</span></div>'
+    +   '<div><div class="req-info-label">Partner</div>'
+    +   '<div style="font-size:12px;color:var(--text);">'
+    +   (partner ? partner.name + ' <span style="color:var(--text3);font-size:11px;">(' + (partner.team || '?') + ')</span>' : '—')
+    +   '</div></div>'
+    +   '<div><div class="req-info-label">Reason</div>'
+    +   '<div style="font-size:12px;color:var(--text2);">' + (r.reason || 'No reason given') + '</div></div>'
+    +   '<div><div class="req-info-label">Submitted</div>'
+    +   '<div style="font-size:12px;color:var(--text2);">' + timeSince(r.at) + '</div></div>'
+    + '</div>'
+    + impactHTML
+    + resolvedHTML
+    + (r.status === 'pending' && isLeader(currentUser) && !isOwn
+      ? '<div class="req-actions">'
+        + '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">✓ Approve</button>'
+        + '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">✗ Reject</button>'
+        + '</div>'
+      : '')
+    + '</div>';
+};
 
-    return `<div class="req-card ${r.status}">
-      <div class="req-header">
-        <div>
-          <div class="req-title">${emp?.name || 'Unknown'} ${scopeTag}</div>
-          <div class="req-meta">${emp?.team || '—'} · ${isWeek ? (r.swapDays || []).join(', ') : r.day} · submitted ${timeSince(r.at)}</div>
-        </div>
-        <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
-      </div>
-      <div class="req-body">
-        <span style="color:var(--text3)">Current slot:</span> <b>${r.current}</b> &nbsp;→&nbsp;
-        <span style="color:var(--text3)">Requested:</span> <b style="color:var(--warn)">${r.requested}</b>
-        ${partnerLine}
-        <br><span style="color:var(--text3)">Reason:</span> ${r.reason || 'No reason given'}
-        ${approverLine}
-        ${r.status !== 'pending' && r.respNote ? `<br><span style="color:var(--text3)">Note:</span> ${r.respNote}` : ''}
-      </div>
-      ${impactHTML}
-      ${r.status === 'pending' && isLeader(currentUser) && !isOwn ? `
-        <div class="req-actions">
-          <button class="btn btn-sm btn-ok"  onclick="resolveRequest(${idx},'approved')">✓ Approve</button>
-          <button class="btn btn-sm btn-err" onclick="resolveRequest(${idx},'rejected')">✗ Reject</button>
-        </div>` : ''}
-    </div>`;
-  };
+  const cntAll     = myReqs.length;
+  const cntPending = pending.length;
+  const cntApproved = myReqs.filter(r => r.status === 'approved').length;
+  const cntRejected = myReqs.filter(r => r.status === 'rejected').length;
+
+  const filterBar = '<div class="req-filter-bar">'
+    + '<button class="req-filter-btn f-all" onclick="_reqSetFilter(\'all\')">All <span class="req-filter-count">' + cntAll + '</span></button>'
+    + '<button class="req-filter-btn" onclick="_reqSetFilter(\'pending\')">Pending <span class="req-filter-count">' + cntPending + '</span></button>'
+    + '<button class="req-filter-btn" onclick="_reqSetFilter(\'approved\')">Approved <span class="req-filter-count">' + cntApproved + '</span></button>'
+    + '<button class="req-filter-btn" onclick="_reqSetFilter(\'rejected\')">Rejected <span class="req-filter-count">' + cntRejected + '</span></button>'
+    + '</div>';
 
   return `
 <div class="page-header">
@@ -643,80 +641,40 @@ function renderRequests() {
   </div>
   ${!isLeader(currentUser) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ New swap</button>` : ''}
 </div>
-
-${pending.length > 0 ? `
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);margin-bottom:10px;font-family:'IBM Plex Mono',monospace">⏳ Pending (${pending.length})</div>
-  ${pending.map(r => card(r)).join('')}` : ''}
-
-${(() => {
-  if (!rest.length) return '';
-  const now    = new Date();
-  const hMonth = window._reqHistMonth != null ? window._reqHistMonth : (now.getMonth() + 1);
-  const hYear  = window._reqHistYear  != null ? window._reqHistYear  : now.getFullYear();
-  window._reqHistMonth = hMonth;
-  window._reqHistYear  = hYear;
-
-  const filtered = rest.filter(r => {
-    const d = new Date(r.resolvedAt || r.at);
-    return d.getFullYear() === hYear && (d.getMonth() + 1) === hMonth;
-  });
-
-  const monthOpts = Array.from({length: 12}, (_, i) =>
-    '<option value="' + (i+1) + '"' + (i+1 === hMonth ? ' selected' : '') + '>' +
-    new Date(hYear, i, 1).toLocaleString('en-US', {month: 'long'}) + '</option>'
-  ).join('');
-
-  const yearOpts = [now.getFullYear() - 1, now.getFullYear()].map(y =>
-    '<option value="' + y + '"' + (y === hYear ? ' selected' : '') + '>' + y + '</option>'
-  ).join('');
-
-  const rows = filtered.map((r, i) => {
-    const emp         = state.users.find(u => u.id === r.userId);
-    const partner     = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
-    const isWeek      = r.swapWeek === true;
-    const statusColor = r.status === 'approved' ? 'var(--ok)' : 'var(--err)';
-    const statusBg    = r.status === 'approved' ? 'var(--C-bg)' : 'var(--D-bg)';
-    const borderBot   = i < filtered.length - 1 ? '1px solid var(--border)' : 'none';
-    const rowBg       = i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)';
-    const partnerSpan = partner
-      ? '<span style="font-size:11px;color:var(--text3);">w/ ' + partner.name + '</span>'
-      : '';
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;' +
-      'border-bottom:' + borderBot + ';background:' + rowBg + ';">' +
-      '<span style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);min-width:52px;">' +
-        (isWeek ? 'WEEK' : r.day) + '</span>' +
-      '<span style="font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
-        (emp ? emp.name : '?') + '</span>' +
-      '<span style="color:var(--text3);font-size:11px;">→</span>' +
-      '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--warn);">' +
-        (r.requested || '?') + '</span>' +
-      partnerSpan +
-      '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:' + statusBg +
-        ';color:' + statusColor + ';font-weight:600;flex-shrink:0;">' +
-        (r.status === 'approved' ? '✓' : '✗') + ' ' + r.status.toUpperCase() + '</span>' +
-      '<span style="font-size:10px;color:var(--text3);flex-shrink:0;min-width:50px;text-align:right;">' +
-        timeSince(r.resolvedAt || r.at) + '</span>' +
-      '</div>';
-  }).join('');
-
-  const tableHtml = filtered.length > 0
-    ? '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">' + rows + '</div>'
-    : '<div style="font-size:12px;color:var(--text3);padding:12px 0;">No history for this month.</div>';
-
-  return '<div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;flex-wrap:wrap;">' +
-    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;' +
-      'color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">History</div>' +
-    '<select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"' +
-      ' onchange="window._reqHistMonth=+this.value;nav(\'requests\')">' + monthOpts + '</select>' +
-    '<select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"' +
-      ' onchange="window._reqHistYear=+this.value;nav(\'requests\')">' + yearOpts + '</select>' +
-    '<span style="font-size:11px;color:var(--text3);">' + filtered.length +
-      ' record' + (filtered.length !== 1 ? 's' : '') + '</span>' +
-    '</div>' + tableHtml;
-})()}
-
-${myReqs.length === 0 ? '<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>' : ''}
+${filterBar}
+<div id="req-cards-list">
+  ${myReqs.length > 0 ? myReqs.map(r => card(r)).join('') : '<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>'}
+</div>
 `;
+}
+
+function _reqSetFilter(f) {
+  window._reqFilter = f;
+  document.querySelectorAll('.req-filter-btn').forEach(b => {
+    b.className = 'req-filter-btn';
+    const label = b.textContent.trim().toLowerCase();
+    if (f === 'all' && label.startsWith('al')) b.classList.add('f-all');
+    else if (f === 'pending'  && label.startsWith('pe')) b.classList.add('f-pending');
+    else if (f === 'approved' && label.startsWith('ap')) b.classList.add('f-approved');
+    else if (f === 'rejected' && label.startsWith('re')) b.classList.add('f-rejected');
+  });
+  document.querySelectorAll('#req-cards-list .req-card').forEach(c => {
+    c.style.display = (f === 'all' || c.dataset.status === f) ? '' : 'none';
+  });
+  const visible = [...document.querySelectorAll('#req-cards-list .req-card')]
+    .filter(c => c.style.display !== 'none').length;
+  let emptyMsg = document.getElementById('req-filter-empty');
+  if (visible === 0) {
+    if (!emptyMsg) {
+      emptyMsg = document.createElement('div');
+      emptyMsg.id = 'req-filter-empty';
+      emptyMsg.className = 'empty';
+      emptyMsg.innerHTML = '<div class="empty-ico">🔍</div>No ' + f + ' requests.';
+      document.getElementById('req-cards-list').appendChild(emptyMsg);
+    }
+  } else if (emptyMsg) {
+    emptyMsg.remove();
+  }
 }
 
 // ═══════════════════════════════════════════════
