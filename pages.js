@@ -2437,12 +2437,13 @@ function submitExtBreak() {
 
       // Store as one request with days array
       DB.addExtBreak(currentUser.id, mk, {
-        days: days.map(d => d.dk),
-        day: days[0].dk,           // keep for backwards compat display
-        time, position: pos,
-        status: 'pending',
-        at: Date.now(), registeredBy: currentUser.id
-      });
+    days: days.map(d => d.dk),
+    day: days[0].dk,
+    mk,   // ← store month key on entry
+    time, position: pos,
+    status: 'pending',
+    at: Date.now(), registeredBy: currentUser.id
+  });
       if (typeof syncWrite === 'function') syncWrite(); else save();
       closeModal('modal-extbreak');
       toast(`Extra break registered for ${days.length} day${days.length > 1 ? 's' : ''} 🌸`, 'ok');
@@ -2450,21 +2451,41 @@ function submitExtBreak() {
     }
 
 function deleteExtBreak(uid, mk, idx, cancelledById) {
-      const entry = DB.getExtBreaks(uid, mk)[idx];
-      if (!entry) return;
-      const u = state.users.find(x => x.id === uid);
-      const cancelledBy = cancelledById && cancelledById !== uid
-        ? state.users.find(x => x.id === cancelledById)
-        : null;
-      const msg = cancelledBy
-        ? `Cancel this extra break for ${u?.name || '?'} (cancelled by ${cancelledBy.name})?`
-        : 'Cancel this extra break registration?';
-      if (!confirm(msg)) return;
-      DB.deleteExtBreak(uid, mk, idx);
-      if (typeof syncWrite === 'function') syncWrite(); else save();
-      toast('Registration cancelled.', 'warn');
-      nav('extbreak');
+  // mk may be wrong if entry is from a past month — try to resolve from the entry's stored 'at'
+  let entries = DB.getExtBreaks(uid, mk);
+  let entry   = entries[idx];
+
+  // Fallback: scan all months for this user to find the right entry
+  if (!entry) {
+    const allKeys = Object.keys(state.extBreaks || {})
+      .filter(k => k.startsWith(uid + '_'));
+    for (const key of allKeys) {
+      const [, entryMk] = key.split('_');
+      const arr = DB.getExtBreaks(uid, entryMk);
+      if (arr[idx] !== undefined) {
+        mk      = entryMk;
+        entries = arr;
+        entry   = arr[idx];
+        break;
+      }
     }
+  }
+
+  if (!entry) { toast('Entry not found.', 'err'); return; }
+
+  const u           = state.users.find(x => x.id === uid);
+  const cancelledBy = cancelledById && cancelledById !== uid
+    ? state.users.find(x => x.id === cancelledById)
+    : null;
+  const msg = cancelledBy
+    ? `Cancel this extra break for ${u?.name || '?'} (cancelled by ${cancelledBy.name})?`
+    : 'Cancel this extra break registration?';
+  if (!confirm(msg)) return;
+  DB.deleteExtBreak(uid, mk, idx);
+  if (typeof syncWrite === 'function') syncWrite(); else save();
+  toast('Registration cancelled.', 'warn');
+  nav('extbreak');
+}
 
 function approveExtBreak(uid, mk, idx) {
       DB.approveExtBreak(uid, mk, idx, currentUser.id);
