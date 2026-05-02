@@ -542,9 +542,20 @@ function openAttendanceModal(uid, dateKey) {
   document.getElementById('attend-start').value = rec.start || '';
   document.getElementById('attend-end').value = rec.end || '';
   document.getElementById('attend-note').value = rec.note || '';
-  const lastEditHtml = (rec.by && rec.at) ? (() => {
-  const editor = state.users.find(x => x.id === rec.by);
-  const editorName = editor?.name || `ID ${rec.by}`;
+  const lastEditHtml = (rec.at) ? (() => {
+  // Resolve editor name: stored name > state.users > staffInfo > ID fallback
+  let editorName = rec.byName || null;
+  if (!editorName && rec.by) {
+    const found = state.users.find(x => x.id == rec.by); // loose == handles string/number mismatch
+    if (found) editorName = found.name;
+  }
+  if (!editorName && rec.by) {
+    // Check staffInfo by username hash (same pattern used elsewhere in codebase)
+    const si = Object.entries(state.staffInfo || {}).find(([, v]) => v.name && state.users.find(u => u.id == rec.by && u.username));
+    if (si) editorName = si[1].name;
+  }
+  if (!editorName) editorName = rec.by ? `ID ${rec.by}` : 'Unknown';
+
   const elapsed = Math.round((Date.now() - rec.at) / 60000);
   const timeAgo = elapsed < 2 ? 'just now'
     : elapsed < 60 ? `${elapsed}m ago`
@@ -616,7 +627,7 @@ if (start && end) {
     // Write tombstone so other browsers know this was deleted
     DB.setAttendance(uid, dateKey, { _deleted: true, at: Date.now() });
   } else {
-    DB.setAttendance(uid, dateKey, { start, end, note, by: currentUser?.id, at: Date.now() });
+    DB.setAttendance(uid, dateKey, { start, end, note, by: currentUser?.id, byName: currentUser?.name, at: Date.now() });
   }
   closeModal('modal-attend');
   await syncWrite();
