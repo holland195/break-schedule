@@ -235,7 +235,7 @@ function renderTrainingDashboard() {
 let reportYear  = new Date().getFullYear();
 let reportMonth = new Date().getMonth() + 1;
 
-function renderReport() {
+function renderReport(hideHeader = false) {
   if (!isLeader(currentUser)) {
     return '<div class="empty">Access denied.</div>';
   }
@@ -344,64 +344,64 @@ function renderReport() {
     ${logRows}`;
   }).join('');
  
-  return `
-<div class="page-header" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
-  <div><div class="page-title">Monthly Report</div></div>
-  <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;">
-    <select class="login-select" style="padding:5px 10px;font-size:12px;"
-      onchange="reportMonth=+this.value;attendanceTab='report';nav('attendance')">${months.join('')}</select>
-    <select class="login-select" style="padding:5px 10px;font-size:12px;"
-      onchange="reportYear=+this.value;attendanceTab='report';nav('attendance')">
-      ${[2024,2025,2026,2027].map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
-    </select>
-    <button class="btn btn-sm" onclick="exportReportCSV()">⬇ Export CSV</button>
+  
+return `
+${hideHeader ? '' : `
+<div class="page-header">
+  <div><div class="page-title">⏱ Logbook & Reports</div></div>
+</div>`}
+
+<!-- Month picker bar -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+  <select class="login-select" style="padding:5px 10px;font-size:12px;"
+    onchange="reportMonth=+this.value;attendanceTab='report';nav('attendance')">${months.join('')}</select>
+  <select class="login-select" style="padding:5px 10px;font-size:12px;"
+    onchange="reportYear=+this.value;attendanceTab='report';nav('attendance')">
+    ${[2024,2025,2026,2027].map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+  </select>
+  <span style="font-size:12px;color:var(--text3);">${monthLabel}</span>
+  <button class="btn btn-sm" onclick="exportMonthlyReport(${month},${year})" style="margin-left:auto;">⬇ CSV</button>
+</div>
+
+<!-- Summary strip -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;">
+  <div style="padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;">Staff</div>
+    <div style="font-size:22px;font-weight:700;color:var(--text);">${totalStaff}</div>
   </div>
-</div>
- 
-<div class="stats" style="margin-bottom:20px;">
-  <div class="stat"><div class="stat-label">Staff tracked</div><div class="stat-num">${totalStaff}</div></div>
-  <div class="stat"><div class="stat-label">Late incidents</div><div class="stat-num" style="color:${totalLate>0?'var(--err)':'var(--ok)'}">${totalLate}</div></div>
-  <div class="stat"><div class="stat-label">Early out</div><div class="stat-num" style="color:${totalEarly>0?'var(--warn)':'var(--ok)'}">${totalEarly}</div></div>
-  <div class="stat"><div class="stat-label">Breaks coverage</div><div class="stat-num" style="color:${breakPct<80?'var(--warn)':'var(--ok)'}">${breakPct}%</div></div>
-</div>
- 
-${top5.length>0?`
-<div class="card" style="margin-bottom:20px;">
-  <div class="card-title">🏆 Top incidents this month</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:8px;">
-    ${top5.map((s,i) => `
-      <div style="padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);">
-        <div style="font-size:11px;color:var(--text3);">#${i+1}</div>
-        <div style="font-weight:600;margin:2px 0;">${s.u.name}</div>
-        <div style="font-size:11px;color:var(--err);">Late: ${s.lateDays}d</div>
-        <div style="font-size:11px;color:var(--warn);">Early: ${s.earlyDays}d</div>
-      </div>`).join('')}
+  <div style="padding:12px 14px;background:var(--D-bg);border:1px solid var(--err);border-radius:8px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--err);margin-bottom:4px;">Late days</div>
+    <div style="font-size:22px;font-weight:700;color:var(--err);">${totalLate}</div>
   </div>
-</div>`:''}
- 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-  <div class="card">
-    <div class="card-title">Late incidents by shift</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">${shiftBars}</div>
+  <div style="padding:12px 14px;background:rgba(245,158,11,.08);border:1px solid var(--warn);border-radius:8px;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);margin-bottom:4px;">Early out</div>
+    <div style="font-size:22px;font-weight:700;color:var(--warn);">${totalEarly}</div>
   </div>
+  ${top5.length > 0 ? `
+  <div style="padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;grid-column:span 2;">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px;">Top incidents</div>
+    ${top5.map(s=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <span class="sh sh-${s.primaryShift}" style="width:18px;height:18px;font-size:9px;flex-shrink:0;">${s.primaryShift}</span>
+      <span style="font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.u.name}</span>
+      ${s.lateDays>0?`<span style="font-size:10px;color:var(--err);font-weight:600;">${s.lateDays}L</span>`:''}
+      ${s.earlyDays>0?`<span style="font-size:10px;color:var(--warn);font-weight:600;">${s.earlyDays}E</span>`:''}
+    </div>`).join('')}
+  </div>` : ''}
 </div>
- 
-<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">
-  Click a row with incidents <span style="color:var(--accent);">▶</span> to expand date/time log.
-</div>
- 
-<div style="overflow-x:auto;">
-  <table style="width:100%;border-collapse:collapse;min-width:680px;">
-    <thead style="position:sticky;top:0;z-index:2;background:var(--bg3);">
-      <tr style="border-bottom:2px solid var(--border2);">
-        <th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--text2);min-width:180px;">NAME</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text2);">SHIFT</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text2);">DAYS</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--err);">LATE</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--err);">AVG LATE</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--warn);">EARLY OUT</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--warn);">AVG EARLY</th>
-        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text3);">LOG</th>
+
+<!-- Main table -->
+<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
+  <table style="width:100%;border-collapse:collapse;min-width:680px;font-size:12px;">
+    <thead>
+      <tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">
+        <th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--text2);min-width:180px;position:sticky;top:0;background:var(--bg3);z-index:2;">NAME</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text2);position:sticky;top:0;background:var(--bg3);z-index:2;">SHIFT</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text2);position:sticky;top:0;background:var(--bg3);z-index:2;">DAYS</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--err);position:sticky;top:0;background:var(--bg3);z-index:2;">LATE</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--err);position:sticky;top:0;background:var(--bg3);z-index:2;">AVG</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--warn);position:sticky;top:0;background:var(--bg3);z-index:2;">EARLY</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--warn);position:sticky;top:0;background:var(--bg3);z-index:2;">AVG</th>
+        <th style="text-align:center;padding:8px;font-size:11px;color:var(--text3);position:sticky;top:0;background:var(--bg3);z-index:2;">▼</th>
       </tr>
     </thead>
     <tbody>${tableRows}</tbody>

@@ -665,13 +665,13 @@ function renderAttendanceTraining() {
 </div>`;
 
   if (attendanceTab === 'report') {
-    return `
-<div style="margin-bottom:12px;">
+  return `
+<div style="margin-bottom:4px;">
   <div class="page-title">⏱ Logbook & Reports</div>
 </div>
 ${tabs}
-${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Report loading…</div>'}`;
-  }
+${typeof renderReport === 'function' ? renderReport(true) : '<div class="empty">Report loading…</div>'}`;
+}
 
   return `
 <div style="margin-bottom:12px;">
