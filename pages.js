@@ -608,66 +608,73 @@ ${pending.length > 0 ? `
   ${pending.map(r => card(r)).join('')}` : ''}
 
 ${(() => {
-      if (!rest.length) return '';
-      // Month picker for history
-      const now = new Date();
-      const hMonth = window._reqHistMonth ?? (now.getMonth() + 1);
-      const hYear = window._reqHistYear ?? now.getFullYear();
-      window._reqHistMonth = hMonth;
-      window._reqHistYear = hYear;
-      const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      const filtered = rest.filter(r => {
-        const d = new Date(r.resolvedAt || r.at);
-        return d.getFullYear() === hYear && (d.getMonth() + 1) === hMonth;
-      });
-      const monthOpts = Array.from({ length: 12 }, (_, i) =>
-        `<option value="${i + 1}" ${i + 1 === hMonth ? 'selected' : ''}>${new Date(hYear, i, 1).toLocaleString('en-US', { month: 'long' })}</option>`
-      ).join('');
-      return `
-<div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px;flex-wrap:wrap;">
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-    color:var(--text3);font-family:'IBM Plex Mono',monospace;">History</div>
-  <select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"
-    onchange="window._reqHistMonth=+this.value;nav('requests')">${monthOpts}</select>
-  <select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"
-    onchange="window._reqHistYear=+this.value;nav('requests')">
-    ${[now.getFullYear() - 1, now.getFullYear()].map(y =>
-        `<option value="${y}" ${y === hYear ? 'selected' : ''}>${y}</option>`).join('')}
-  </select>
-  <span style="font-size:11px;color:var(--text3);">${filtered.length} record${filtered.length !== 1 ? 's' : ''}</span>
-</div>
-${filtered.length > 0
-  ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-      ${filtered.map((r, i) => {
-        const emp     = state.users.find(u => u.id === r.userId);
-        const partner = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
-        const isWeek  = r.swapWeek === true;
-        const statusColor = r.status === 'approved' ? 'var(--ok)' : 'var(--err)';
-        const statusBg    = r.status === 'approved' ? 'var(--C-bg)' : 'var(--D-bg)';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
-          font-size:12px;border-bottom:${i < filtered.length-1 ? '1px solid var(--border)' : 'none'};
-          background:${i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)'};">
-          <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;
-            color:var(--text3);min-width:52px;">${isWeek ? 'WEEK' : r.day}</span>
-          <span style="font-weight:500;flex:1;white-space:nowrap;overflow:hidden;
-            text-overflow:ellipsis;">${emp?.name || '?'}</span>
-          <span style="color:var(--text3);font-size:11px;">→</span>
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;
-            color:var(--warn);">${r.requested || '?'}</span>
-          ${partner ? `<span style="font-size:11px;color:var(--text3);">w/ ${partner.name}</span>` : ''}
-          <span style="font-size:10px;padding:2px 8px;border-radius:4px;
-            background:${statusBg};color:${statusColor};font-weight:600;flex-shrink:0;">
-            ${r.status === 'approved' ? '✓' : '✗'} ${r.status.toUpperCase()}
-          </span>
-          <span style="font-size:10px;color:var(--text3);flex-shrink:0;min-width:50px;
-            text-align:right;">${timeSince(r.resolvedAt || r.at)}</span>
-        </div>`;
-      }).join('')}
-    </div>`
-  : `<div style="font-size:12px;color:var(--text3);padding:12px 0;">No history for this month.</div>`}
-    })()}
+  if (!rest.length) return '';
+  const now    = new Date();
+  const hMonth = window._reqHistMonth != null ? window._reqHistMonth : (now.getMonth() + 1);
+  const hYear  = window._reqHistYear  != null ? window._reqHistYear  : now.getFullYear();
+  window._reqHistMonth = hMonth;
+  window._reqHistYear  = hYear;
 
-${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>` : ''}
+  const filtered = rest.filter(r => {
+    const d = new Date(r.resolvedAt || r.at);
+    return d.getFullYear() === hYear && (d.getMonth() + 1) === hMonth;
+  });
+
+  const monthOpts = Array.from({length: 12}, (_, i) =>
+    '<option value="' + (i+1) + '"' + (i+1 === hMonth ? ' selected' : '') + '>' +
+    new Date(hYear, i, 1).toLocaleString('en-US', {month: 'long'}) + '</option>'
+  ).join('');
+
+  const yearOpts = [now.getFullYear() - 1, now.getFullYear()].map(y =>
+    '<option value="' + y + '"' + (y === hYear ? ' selected' : '') + '>' + y + '</option>'
+  ).join('');
+
+  const rows = filtered.map((r, i) => {
+    const emp         = state.users.find(u => u.id === r.userId);
+    const partner     = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
+    const isWeek      = r.swapWeek === true;
+    const statusColor = r.status === 'approved' ? 'var(--ok)' : 'var(--err)';
+    const statusBg    = r.status === 'approved' ? 'var(--C-bg)' : 'var(--D-bg)';
+    const borderBot   = i < filtered.length - 1 ? '1px solid var(--border)' : 'none';
+    const rowBg       = i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)';
+    const partnerSpan = partner
+      ? '<span style="font-size:11px;color:var(--text3);">w/ ' + partner.name + '</span>'
+      : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;' +
+      'border-bottom:' + borderBot + ';background:' + rowBg + ';">' +
+      '<span style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);min-width:52px;">' +
+        (isWeek ? 'WEEK' : r.day) + '</span>' +
+      '<span style="font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+        (emp ? emp.name : '?') + '</span>' +
+      '<span style="color:var(--text3);font-size:11px;">→</span>' +
+      '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--warn);">' +
+        (r.requested || '?') + '</span>' +
+      partnerSpan +
+      '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:' + statusBg +
+        ';color:' + statusColor + ';font-weight:600;flex-shrink:0;">' +
+        (r.status === 'approved' ? '✓' : '✗') + ' ' + r.status.toUpperCase() + '</span>' +
+      '<span style="font-size:10px;color:var(--text3);flex-shrink:0;min-width:50px;text-align:right;">' +
+        timeSince(r.resolvedAt || r.at) + '</span>' +
+      '</div>';
+  }).join('');
+
+  const tableHtml = filtered.length > 0
+    ? '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">' + rows + '</div>'
+    : '<div style="font-size:12px;color:var(--text3);padding:12px 0;">No history for this month.</div>';
+
+  return '<div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;flex-wrap:wrap;">' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;' +
+      'color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">History</div>' +
+    '<select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"' +
+      ' onchange="window._reqHistMonth=+this.value;nav(\'requests\')">' + monthOpts + '</select>' +
+    '<select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"' +
+      ' onchange="window._reqHistYear=+this.value;nav(\'requests\')">' + yearOpts + '</select>' +
+    '<span style="font-size:11px;color:var(--text3);">' + filtered.length +
+      ' record' + (filtered.length !== 1 ? 's' : '') + '</span>' +
+    '</div>' + tableHtml;
+})()}
+
+${myReqs.length === 0 ? '<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>' : ''}
 `;
 }
 
