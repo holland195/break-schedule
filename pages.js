@@ -627,9 +627,9 @@ ${(() => {
 <div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px;flex-wrap:wrap;">
   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
     color:var(--text3);font-family:'IBM Plex Mono',monospace;">History</div>
-  <select class="login-select" style="font-size:11px;padding:3px 8px;"
+  <select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"
     onchange="window._reqHistMonth=+this.value;nav('requests')">${monthOpts}</select>
-  <select class="login-select" style="font-size:11px;padding:3px 8px;"
+  <select class="login-select" style="font-size:11px;padding:3px 8px;width:auto;"
     onchange="window._reqHistYear=+this.value;nav('requests')">
     ${[now.getFullYear() - 1, now.getFullYear()].map(y =>
         `<option value="${y}" ${y === hYear ? 'selected' : ''}>${y}</option>`).join('')}
@@ -637,8 +637,34 @@ ${(() => {
   <span style="font-size:11px;color:var(--text3);">${filtered.length} record${filtered.length !== 1 ? 's' : ''}</span>
 </div>
 ${filtered.length > 0
-          ? filtered.map(r => card(r)).join('')
-          : `<div style="font-size:12px;color:var(--text3);padding:12px 0;">No history for this month.</div>`}`;
+  ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      ${filtered.map((r, i) => {
+        const emp     = state.users.find(u => u.id === r.userId);
+        const partner = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
+        const isWeek  = r.swapWeek === true;
+        const statusColor = r.status === 'approved' ? 'var(--ok)' : 'var(--err)';
+        const statusBg    = r.status === 'approved' ? 'var(--C-bg)' : 'var(--D-bg)';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+          font-size:12px;border-bottom:${i < filtered.length-1 ? '1px solid var(--border)' : 'none'};
+          background:${i % 2 === 0 ? 'var(--bg2)' : 'var(--bg3)'};">
+          <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;
+            color:var(--text3);min-width:52px;">${isWeek ? 'WEEK' : r.day}</span>
+          <span style="font-weight:500;flex:1;white-space:nowrap;overflow:hidden;
+            text-overflow:ellipsis;">${emp?.name || '?'}</span>
+          <span style="color:var(--text3);font-size:11px;">→</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+            color:var(--warn);">${r.requested || '?'}</span>
+          ${partner ? `<span style="font-size:11px;color:var(--text3);">w/ ${partner.name}</span>` : ''}
+          <span style="font-size:10px;padding:2px 8px;border-radius:4px;
+            background:${statusBg};color:${statusColor};font-weight:600;flex-shrink:0;">
+            ${r.status === 'approved' ? '✓' : '✗'} ${r.status.toUpperCase()}
+          </span>
+          <span style="font-size:10px;color:var(--text3);flex-shrink:0;min-width:50px;
+            text-align:right;">${timeSince(r.resolvedAt || r.at)}</span>
+        </div>`;
+      }).join('')}
+    </div>`
+  : `<div style="font-size:12px;color:var(--text3);padding:12px 0;">No history for this month.</div>`}
     })()}
 
 ${myReqs.length === 0 ? `<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>` : ''}
@@ -1882,20 +1908,24 @@ function openRequestModal() {
     WEEK_DAYS.forEach((d, i) => { if (currentUser.schedule[d] === currentShift) myShiftDays.push(weekDates[i]); });
   }
 
-  const today = new Date();
-  const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-  // Filter to only show current + future days in the current working week
-  const futureShiftDays = myShiftDays.filter(dk => dk >= todayStr);
-  const displayDays = futureShiftDays.length > 0 ? futureShiftDays : myShiftDays; // fallback to all if all past
+  // Filter out past dates — only show today and future scheduled days
+  const todayObj = new Date();
+  todayObj.setHours(0, 0, 0, 0);
+  const futureDays = myShiftDays.filter(dk => {
+    const [d, m] = dk.split('/').map(Number);
+    const y = m >= todayObj.getMonth() + 1 ? todayObj.getFullYear() : todayObj.getFullYear() + 1;
+    return new Date(y, m - 1, d) >= todayObj;
+  });
+  const displayDays = futureDays.length > 0 ? futureDays : myShiftDays; // fallback if all past
 
   const daySelect = document.getElementById('req-day');
   daySelect.innerHTML = displayDays.length > 0
     ? displayDays.map(d => {
-      const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
-      const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
-      return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
-    }).join('')
-    : `<option value="">No shift days found</option>`;
+        const br   = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
+        const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
+        return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
+      }).join('')
+    : `<option value="">No upcoming shift days found</option>`;
 
   
 
