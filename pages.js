@@ -490,7 +490,7 @@ function renderSchedule() {
     </tr>`;
   }).filter(Boolean).join('');
 
-  const tfootHTML = tfootRows
+  const tfootHTML = (tfootRows && isLeader(currentUser))
     ? `<tfoot style="position:sticky;bottom:0;z-index:5;">${tfootRows}</tfoot>`
     : '';
 
