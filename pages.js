@@ -2134,84 +2134,90 @@ function renderExtBreak() {
   const viewUsers = isLeader(currentUser) ? femaleShiftUsers : (isFemale ? [currentUser] : []);
 
   const userCards = viewUsers.map(u => {
-    const entries = DB.getExtBreaks(u.id, mk) || [];
-    const used = entries.length;
+    const entries   = DB.getExtBreaks(u.id, mk) || [];
+    const used      = entries.length;
     const myRemaining = Math.max(0, 3 - used);
 
-    const userCards = viewUsers.map(u => {
-      const entries = DB.getExtBreaks(u.id, mk);
-      const used = entries.length;
-      const myRemaining = Math.max(0, 3 - used);
-      const dots = [0, 1, 2].map(i =>
-        '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;'
-        + 'background:' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';'
-        + 'border:1px solid ' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';"></span>'
-      ).join('');
-
-      const entryCards = entries.length === 0
-        ? '<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>'
-        : entries.map((e, i) => {
-          const status = e.status || 'pending';
+    const entryCards = entries.length === 0
+      ? '<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>'
+      : entries.map((e, i) => {
+          const status    = e.status || 'pending';
           const isPending = status === 'pending';
+          const borderCol = status === 'approved' ? 'var(--ok)' : status === 'rejected' ? 'var(--err)' : 'var(--warn)';
           const statusBadge = status === 'approved'
             ? '<span class="req-status approved">APPROVED</span>'
             : status === 'rejected'
-              ? '<span class="req-status rejected">REJECTED</span>'
-              : '<span class="req-status pending">PENDING</span>';
+            ? '<span class="req-status rejected">REJECTED</span>'
+            : '<span class="req-status pending">PENDING</span>';
+
           const resolvedBy = e.approvedBy
-            ? (state.users.find(x => x.id === e.approvedBy)?.name || 'Leader')
+            ? state.users.find(x => x.id === e.approvedBy)?.name || 'Leader'
             : null;
+
           const resolvedBox = (!isPending && resolvedBy)
             ? '<div class="req-resolved ' + status + '" style="margin-top:8px;">'
-            + (status === 'approved' ? '✓ ' : '✗ ')
-            + (status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + resolvedBy + '</b>'
-            + (e.rejectedReason ? ' · <span style="opacity:.8">' + e.rejectedReason + '</span>' : '')
-            + '</div>'
+              + (status === 'approved' ? '✓ ' : '✗ ')
+              + (status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + resolvedBy + '</b>'
+              + (e.rejectedReason ? ' · <span style="opacity:.8">' + e.rejectedReason + '</span>' : '')
+              + '</div>'
             : '';
+
           const actions = (canApprove && isPending)
             ? '<div class="req-actions">'
-            + '<button class="btn btn-sm btn-ok" onclick="approveExtBreak(' + u.id + ',\'' + mk + '\',' + i + ')">✓ Approve</button>'
-            + '<button class="btn btn-sm btn-err" onclick="rejectExtBreakPrompt(' + u.id + ',\'' + mk + '\',' + i + ')">✗ Reject</button>'
-            + '</div>'
+              + '<button class="btn btn-sm btn-ok" onclick="approveExtBreak(' + u.id + ',\'' + mk + '\',' + i + ')">✓ Approve</button>'
+              + '<button class="btn btn-sm btn-err" onclick="rejectExtBreakPrompt(' + u.id + ',\'' + mk + '\',' + i + ')">✗ Reject</button>'
+              + '</div>'
             : '';
+
           const delBtn = (u.id === currentUser.id || isLeader(currentUser))
             ? '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
-            + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
+              + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
             : '';
-          const daysLabel = (e.days && e.days.length > 1) ? e.days.join(', ') : (e.day || '—');
+
+          const daysLabel = (e.days && e.days.length > 1)
+            ? e.days.join(', ')
+            : (e.day || '—');
 
           return '<div class="req-card ' + status + '" style="width:240px;">'
             + '<div class="req-card-top">'
-            + '<div>'
-            + '<div class="req-card-name" style="font-size:12px;">' + daysLabel + '</div>'
-            + '<div class="req-card-meta">' + (e.position === 'before' ? '← Before' : 'After →') + ' · ' + timeSince(e.at) + '</div>'
-            + '</div>'
-            + statusBadge
+            +   '<div>'
+            +     '<div class="req-card-name" style="font-size:12px;">' + daysLabel + '</div>'
+            +     '<div class="req-card-meta">' + (e.position === 'before' ? '← Before' : 'After →') + ' · ' + timeSince(e.at) + '</div>'
+            +   '</div>'
+            +   statusBadge
             + '</div>'
             + '<hr class="req-card-divider">'
             + '<div class="req-card-row"><span class="req-card-lbl">Time</span>'
-            + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--A-color);">' + (e.time || '—') + '</span>'
+            +   '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--A-color);">' + (e.time || '—') + '</span>'
             + '</div>'
-            + resolvedBox + actions + delBtn
+            + resolvedBox
+            + actions
+            + delBtn
             + '</div>';
         }).join('');
 
-      return '<div style="margin-bottom:18px;">'
-        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-        + '<span style="font-weight:600;font-size:13px;">' + u.name + '</span>'
-        + '<span style="color:var(--A-color);font-size:12px;">♀</span>'
-        + '<span style="font-size:11px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role).label + '</span>'
-        + '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">'
-        + '<div style="display:flex;gap:3px;">' + dots + '</div>'
-        + '<span style="font-size:11px;color:' + (myRemaining === 0 ? 'var(--err)' : 'var(--text3)') + ';">' + used + '/3</span>'
-        + (u.id === currentUser.id && isFemale && used < 3
-          ? '<button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">Register</button>'
-          : '')
-        + '</div>'
-        + '</div>'
-        + '<div class="req-cards-grid">' + entryCards + '</div>'
-        + '</div>';
-    }).join('');
+    const dots = [0, 1, 2].map(i =>
+      '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;'
+      + 'background:' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';'
+      + 'border:1px solid ' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';"></span>'
+    ).join('');
+
+    return '<div style="margin-bottom:18px;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      +   '<span style="font-weight:600;font-size:13px;color:var(--text);">' + u.name + '</span>'
+      +   '<span style="color:var(--A-color);font-size:12px;">♀</span>'
+      +   '<span style="font-size:11px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role).label + '</span>'
+      +   '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">'
+      +     '<div style="display:flex;gap:3px;">' + dots + '</div>'
+      +     '<span style="font-size:11px;color:' + (myRemaining === 0 ? 'var(--err)' : 'var(--text3)') + ';">' + used + '/3</span>'
+      +     (u.id === currentUser.id && isFemale && used < 3
+              ? '<button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">Register</button>'
+              : '')
+      +   '</div>'
+      + '</div>'
+      + '<div class="req-cards-grid">' + entryCards + '</div>'
+      + '</div>';
+  }).join('');
 
     const noAccessMsg = !isFemale && !isLeader(currentUser)
       ? `<div class="empty"><div class="empty-ico">🌸</div>
