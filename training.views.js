@@ -668,6 +668,14 @@ function renderAttendanceTraining() {
     return `
 <div style="margin-bottom:12px;">
   <div class="page-title">⏱ Logbook & Reports</div>
+</div>
+${tabs}
+${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Report loading…</div>'}`;
+  }
+
+  return `
+<div style="margin-bottom:12px;">
+  <div class="page-title">⏱ Logbook & Reports</div>
   <div class="page-sub">${monthLabel} · ${totalStaff} staff · Click any cell to edit</div>
 </div>
 ${tabs}
