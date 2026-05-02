@@ -2171,7 +2171,7 @@ function renderExtBreak() {
 
           const delBtn = (u.id === currentUser.id || isLeader(currentUser))
             ? '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
-              + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
+              + 'onclick="deleteExtBreak(' + u.id + ',\'' + (e.mk || mk) + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
             : '';
 
           const daysLabel = (e.days && e.days.length > 1)

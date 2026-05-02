@@ -392,7 +392,7 @@ function renderExtBreakTraining() {
                   + '</div>'
                 : '')
               + '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
-              + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + u.id + ')">🗑</button>'
+              + 'onclick="deleteExtBreak(' + u.id + ',\'' + (e.mk || mk) + '\',' + i + ',' + u.id + ')">🗑</button>'
               + '</div>';
           }).join('');
 
