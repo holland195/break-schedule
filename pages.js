@@ -438,7 +438,24 @@ function renderSchedule() {
       const slotCls = slotIdx >= 0 ? `slot-${slotIdx + 1}` : '';
       const shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
 
-      // ── Per-day slot totals by role tier ──
+      
+      return `<td style="text-align:center;padding:4px 2px;"${hasExt ? ' class="cell-female-ext"' : ''}>
+        <span class="${br ? `break-slot assigned ${slotCls}` : ''}"
+          style="font-size:10px;padding:3px 8px;${br ? '' : 'color:var(--text3)'}"
+          title="${br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned'}">
+          ${shortCode}${hasExt ? ' 🌸' : ''}
+        </span></td>`;
+    }).join('');
+    return `<tr>
+      <td class="sched-name-col">
+        <div class="sched-name">${u.name}</div>
+        <div class="sched-meta">${u.team || ''} · ${getRoleInfo(u.role).label}</div>
+      </td>${cells}
+    </tr>`;
+  }).join('');
+
+
+  // ── Per-day slot totals by role tier (tfoot) ──
   const ROLE_TIERS = [
     { label: 'Agent',  match: u => ['Agent','Sr Agent','Sr. Agent'].includes(u.role) },
     { label: 'QA',     match: u => u.role === 'QA' },
@@ -460,14 +477,14 @@ function renderSchedule() {
       });
       return '<td style="text-align:center;padding:4px 2px;border-right:1px solid var(--border);">'
         + '<span class="break-slot slot-1" style="font-size:9px;padding:1px 5px;">' + s1 + '</span>'
-        + ' <span style="color:var(--text3);font-size:9px;">·</span> '
+        + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">·</span>'
         + '<span class="break-slot slot-2" style="font-size:9px;padding:1px 5px;">' + s2 + '</span>'
         + '</td>';
     }).join('');
     return '<tr style="background:var(--bg4);border-top:1px solid var(--border2);">'
       + '<td class="sched-name-col" style="font-size:10px;font-weight:700;color:var(--text3);'
-      +   'font-family:\'IBM Plex Mono\',monospace;letter-spacing:.03em;padding:4px 14px;">'
-      +   tier.label
+      + 'font-family:\'IBM Plex Mono\',monospace;letter-spacing:.03em;padding:4px 14px;">'
+      + tier.label
       + '</td>'
       + dayCells
       + '</tr>';
@@ -476,21 +493,9 @@ function renderSchedule() {
   const tfootHTML = tfootRows
     ? '<tfoot style="position:sticky;bottom:0;z-index:5;">' + tfootRows + '</tfoot>'
     : '';
-      return `<td style="text-align:center;padding:4px 2px;"${hasExt ? ' class="cell-female-ext"' : ''}>
-        <span class="${br ? `break-slot assigned ${slotCls}` : ''}"
-          style="font-size:10px;padding:3px 8px;${br ? '' : 'color:var(--text3)'}"
-          title="${br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned'}">
-          ${shortCode}${hasExt ? ' 🌸' : ''}
-        </span></td>`;
-    }).join('');
-    return `<tr>
-      <td class="sched-name-col">
-        <div class="sched-name">${u.name}</div>
-        <div class="sched-meta">${u.team || ''} · ${getRoleInfo(u.role).label}</div>
-      </td>${cells}
-    </tr>`;
-  }).join('');
 
+  const emptyMsg = shiftUsers.length === 0
+    ? `<div class="empty" style="padding:40px;">
   const emptyMsg = shiftUsers.length === 0
     ? `<div class="empty" style="padding:40px;">
         <div class="empty-ico">👥</div>
