@@ -529,32 +529,73 @@ function renderRequests() {
     // Build week-swap impact table for pending leader view
     let impactHTML = '';
     if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
-      const days = r.swapDays || [];
-      const rows = days.map(d => {
-        const myBr = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
-        const ptBr = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
+      const allDays = r.swapDays || [];
+
+      // Only show current week days (using getWeekDates for current week range)
+      const weekDates = getWeekDates();
+      const weekSet = new Set(weekDates);
+      const currentWeekDays = allDays.filter(d => weekSet.has(d));
+      const displayDays = currentWeekDays.length > 0 ? currentWeekDays : allDays;
+
+      // Today comparison using MM*100+DD
+      const todayObj = new Date();
+      const todayMMDD = todayObj.getMonth() * 100 + todayObj.getDate();
+
+      const rows = displayDays.map(d => {
+        const [dd, mm] = d.split('/').map(Number);
+        const dMMDD = (mm - 1) * 100 + dd;
+        const isPast = dMMDD < todayMMDD;
+
+        const myBr   = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
+        const ptBr   = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
         const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : '—';
         const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : '—';
-        return `<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:4px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;">${d} <span style="color:var(--text3)">${getWkDay(d)}</span></td>
-          <td style="padding:4px 10px;text-align:center;"><span class="break-slot assigned" style="font-size:10px;">${myCode}</span> → <span class="break-slot" style="font-size:10px;color:var(--warn);">${ptCode}</span></td>
-          <td style="padding:4px 10px;text-align:center;"><span class="break-slot assigned" style="font-size:10px;">${ptCode}</span> → <span class="break-slot" style="font-size:10px;color:var(--warn);">${myCode}</span></td>
-        </tr>`;
+        const dimStyle = isPast ? 'opacity:.35;' : '';
+
+        return '<tr style="border-bottom:1px solid var(--border);' + dimStyle + '">'
+          + '<td style="padding:3px 8px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;white-space:nowrap;">'
+          +   d + ' <span style="color:var(--text3);font-size:10px;">' + getWkDay(d) + '</span>'
+          +   (isPast ? ' <span style="font-size:9px;color:var(--text3);">past</span>' : '')
+          + '</td>'
+          + '<td style="padding:3px 8px;font-size:11px;color:var(--text3);">Requester</td>'
+          + '<td style="padding:3px 8px;">'
+          +   '<span class="break-slot assigned" style="font-size:10px;">' + myCode + '</span>'
+          +   ' <span style="color:var(--text3);font-size:10px;">→</span> '
+          +   '<span class="break-slot" style="font-size:10px;color:var(--warn);">' + ptCode + '</span>'
+          + '</td>'
+          + '</tr>'
+          + '<tr style="border-bottom:1px solid var(--border2);' + dimStyle + '">'
+          + '<td style="padding:3px 8px 5px;"></td>'
+          + '<td style="padding:3px 8px 5px;font-size:11px;color:var(--text3);">Partner</td>'
+          + '<td style="padding:3px 8px 5px;">'
+          +   '<span class="break-slot assigned" style="font-size:10px;">' + ptCode + '</span>'
+          +   ' <span style="color:var(--text3);font-size:10px;">→</span> '
+          +   '<span class="break-slot" style="font-size:10px;color:var(--warn);">' + myCode + '</span>'
+          + '</td>'
+          + '</tr>';
       }).join('');
-      impactHTML = rows ? `
-        <div style="margin:10px 0 4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-          <div style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg4);">
-            📊 Swap Impact — ${days.length} day${days.length > 1 ? 's' : ''}
-          </div>
-          <table style="border-collapse:collapse;width:100%;">
-            <thead><tr style="background:var(--bg4);">
-              <th style="padding:5px 10px;font-size:10px;color:var(--text3);text-align:left;">Day</th>
-              <th style="padding:5px 10px;font-size:10px;color:var(--accent);">${emp?.name?.split(' ').slice(-1)[0] || 'Req.'}</th>
-              <th style="padding:5px 10px;font-size:10px;color:var(--warn);">${partner?.name?.split(' ').slice(-1)[0] || 'Partner'}</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>` : '';
+
+      const futureCount = displayDays.filter(d => {
+        const [dd, mm] = d.split('/').map(Number);
+        return (mm - 1) * 100 + dd >= todayMMDD;
+      }).length;
+
+      impactHTML = rows ? (
+        '<div style="margin:10px 0 4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden;">'
+        + '<div style="padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;'
+        +   'color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg4);">'
+        +   '📊 Swap Impact — ' + futureCount + ' upcoming day' + (futureCount !== 1 ? 's' : '') + ' this week'
+        + '</div>'
+        + '<table style="border-collapse:collapse;width:100%;max-width:420px;">'
+        +   '<thead><tr style="background:var(--bg4);">'
+        +     '<th style="padding:4px 8px;font-size:10px;color:var(--text3);text-align:left;min-width:80px;">Day</th>'
+        +     '<th style="padding:4px 8px;font-size:10px;color:var(--text3);text-align:left;min-width:70px;">Role</th>'
+        +     '<th style="padding:4px 8px;font-size:10px;color:var(--text3);text-align:left;">Slot change</th>'
+        +   '</tr></thead>'
+        +   '<tbody>' + rows + '</tbody>'
+        + '</table>'
+        + '</div>'
+      ) : '';
     }
 
     const scopeTag = isWeek
@@ -2024,9 +2065,10 @@ function submitRequest() {
   const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
   let swapDays = [day];
   if (isWeek) {
-    // Collect all dates where BOTH users are on this shift
     const partner = state.users.find(u => u.id === partnerId);
-    swapDays = allDates.filter(dk => {
+    // Only use current week dates
+    const weekDates = getWeekDates();
+    swapDays = weekDates.filter(dk => {
       const myShift = currentUser.schedule[dk] || currentUser.schedule[getWkDay(dk)] || '0';
       const ptShift = partner?.schedule[dk] || partner?.schedule[getWkDay(dk)] || '0';
       return myShift === currentShift && ptShift === currentShift;
