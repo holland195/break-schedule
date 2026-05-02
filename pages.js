@@ -1649,6 +1649,38 @@ function importMonthlyAttendance() {
       save();
       if (typeof syncWrite === 'function') syncWrite();
       statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff · ${dateCols.length} dates · ${skipped} not matched</span>`;
+      // After import: scan for attendance records that now conflict with OFF/HD codes
+const conflicts = [];
+Object.keys(state.attendance || {}).forEach(key => {
+  const rec = state.attendance[key];
+  if (!rec || rec._deleted || (!rec.start && !rec.end)) return;
+  const [uidStr, dk] = key.split('_');
+  const uid = parseInt(uidStr);
+  const u = state.users.find(x => x.id === uid);
+  if (!u) return;
+  const [_d, _m] = dk.split('/');
+  const mk = `${new Date().getFullYear()}-${String(_m).padStart(2,'0')}`;
+  const code = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+  if (!code) return;
+  const parsed = _parseAttCode(code);
+  if (parsed?.type === 'OFF' || parsed?.type === 'HD1' || parsed?.type === 'HD2') {
+    conflicts.push({ name: u.name, dk, code, reason: parsed.reason || parsed.type });
+  }
+});
+
+if (conflicts.length > 0) {
+  const lines = conflicts.map(c => `• ${c.name} on ${c.dk} → ${c.code} (${c.reason})`).join('\n');
+  statusEl.innerHTML += `<div style="margin-top:10px;padding:8px 12px;background:var(--D-bg);
+    border:1px solid var(--err);border-radius:6px;font-size:11px;color:var(--err);line-height:1.8;">
+    ⚠ <b>${conflicts.length} retroactive conflict${conflicts.length > 1 ? 's' : ''} found</b> —
+    time was already logged on these OFF/half-day dates:<br>
+    ${conflicts.map(c => `<b>${c.name}</b> ${c.dk} (${c.code}: ${c.reason})`).join(' · ')}
+    <br><span style="color:var(--text3);">Go to Logbook to review and clear these entries.</span>
+  </div>`;
+  // Don't auto-nav — let the leader see the warning first
+} else {
+  nav('staff');
+}
       nav('staff');
     } catch(ex) {
       console.error('[att import]', ex);
