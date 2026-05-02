@@ -2299,23 +2299,33 @@ function openExtBreakModal() {
       const remaining = 3 - used;
       if (remaining <= 0) { toast('You have used all 3 registrations this month.', 'err'); return; }
 
-      const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
-      const weekDates = getWeekDates();
-      const eligibleDays = [];
-      allDates.forEach(dk => {
-        if (monthKeyFromDate(dk) !== mk) return;
-        if (currentUser.schedule[dk] !== currentShift) return;
-        const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, getWkDay(dk));
-        if (br) eligibleDays.push({ dk, slot: br.slot });
-      });
-      if (eligibleDays.length === 0) {
-        weekDates.forEach((dk, i) => {
-          const dn = WEEK_DAYS[i];
-          if (currentUser.schedule[dn] !== currentShift) return;
-          const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, dn);
-          if (br) eligibleDays.push({ dk, slot: br.slot });
-        });
-      }
+      const allDates  = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  const weekDates = getWeekDates();
+  const eligibleDays = [];
+
+  // Past-date check: DD/MM format → compare as (M-1)*100+D vs today
+  const _todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
+  function _isNotPast(dk) {
+    const [d, m] = dk.split('/').map(Number);
+    return (m - 1) * 100 + d >= _todayMMDD;
+  }
+
+  allDates.forEach(dk => {
+    if (monthKeyFromDate(dk) !== mk) return;
+    if (!_isNotPast(dk)) return;                          // ← skip past dates
+    if (currentUser.schedule[dk] !== currentShift) return;
+    const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, getWkDay(dk));
+    if (br) eligibleDays.push({ dk, slot: br.slot });
+  });
+  if (eligibleDays.length === 0) {
+    weekDates.forEach((dk, i) => {
+      if (!_isNotPast(dk)) return;                        // ← skip past dates
+      const dn = WEEK_DAYS[i];
+      if (currentUser.schedule[dn] !== currentShift) return;
+      const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, dn);
+      if (br) eligibleDays.push({ dk, slot: br.slot });
+    });
+  }
 
       const listEl = document.getElementById('eb-day-list');
       listEl.innerHTML = eligibleDays.length > 0
