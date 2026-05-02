@@ -527,6 +527,11 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 .break-slot.slot-2 { background: #1a1a0d; color: #fbbf24; border-color: #f59e0b }  /* slot 2 — amber */
 .break-slot.slot-1.assigned { background: #0d2236; color: #7dd3fc; border-color: #38bdf8 }
 .break-slot.slot-2.assigned { background: #271a0a; color: #fb923c; border-color: #f97316 }
+/* tfoot sticky — both axes */
+.arr-table tfoot { position: sticky; bottom: 0; z-index: 5; }
+.arr-table tfoot td { background: var(--bg4); }
+.arr-table tfoot tr:last-child td { background: var(--bg3); }
+
 /* Female 30-min highlight on break schedule grid */
 .cell-female-ext { position: relative }
 .cell-female-ext::after {

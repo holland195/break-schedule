@@ -1084,13 +1084,17 @@ function getArrangeDayMemberList(_unused) {
     }).join('');
 
     return `<tr style="border-top:${isTotal ? '2px solid var(--border2)' : '0.5px solid var(--border)'};">
-      <td class="arr-name-col" style="font-size:${isTotal ? '11px' : '10px'};
+      <td style="position:sticky;left:0;z-index:11;
+        font-size:${isTotal ? '11px' : '10px'};
         font-weight:${isTotal ? '700' : '600'};
         color:${isTotal ? 'var(--text)' : 'var(--text3)'};
         font-family:'IBM Plex Mono',monospace;
         letter-spacing:.03em;
         padding:${isTotal ? '6px' : '4px'} 14px;
-        background:${isTotal ? 'var(--bg3)' : 'var(--bg4)'};">
+        background:${isTotal ? 'var(--bg3)' : 'var(--bg4)'};
+        border-right:2px solid var(--border2);
+        min-width:200px;
+        box-shadow:3px 0 8px rgba(0,0,0,.1);">
         ${tier.label}
       </td>
       ${footCells}
