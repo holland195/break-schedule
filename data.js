@@ -309,6 +309,7 @@ function updateBadge() {
     extBadge.textContent = pend;
     extBadge.style.display = (isLeader(currentUser) || isTraining(currentUser)) && pend > 0 ? '' : 'none';
   }
+  if (typeof updateFeedbackBadge === 'function') updateFeedbackBadge();
 }
 function timeSince(ts) {
   const d=Date.now()-ts;
