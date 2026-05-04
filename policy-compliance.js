@@ -49,6 +49,8 @@ const _PC_PER = 25;
 let _pcPolYear = '2026';
 let _pcPolQ    = '';   // '' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
 let _pcPolMon  = '';   // '' | '2026-01' etc
+let _pcPolPage = 1;    // Policy 2026 pagination
+const _PC_POL_PER = 25;
 
 // Records tab filters
 let _pcRF = {dateFrom:'',dateTo:'',status:'',role:'',shift:'',event:'',leader:'',search:''};
@@ -60,19 +62,20 @@ let _pcS30Event  = '';
 let _pcS30Leader = '';
 
 // ── Data ──
-const PC_SEED_VERSION = 153;
+const PC_SEED_VERSION = 153; // bump when seed changes
 
 function _pcInit() {
-  var needs = !state.policyCompliance
-    || state.policyCompliance.length === 0
-    || (state._pcSeedVersion || 0) < PC_SEED_VERSION;
+  var stored  = state.policyCompliance || [];
+  var seedLen = PC_SEED_DATA.length;
+  var storedV = state._pcSeedVersion || 0;
 
-  if (needs) {
-    // Preserve any local edits (feedback, status changes) already on the device
-    var existing = state.policyCompliance || [];
+  // Re-seed when stored count is less than seed OR version is old
+  if (stored.length < seedLen || storedV < PC_SEED_VERSION) {
+    // Preserve local edits already on this device
     var overrides = {};
-    existing.forEach(function(r) {
-      if (r.no) overrides[r.no] = {
+    stored.forEach(function(r) {
+      if (!r.no) return;
+      overrides[r.no] = {
         agentFeedback:        r.agentFeedback        || '',
         feedbackReadByLeader: r.feedbackReadByLeader  || false,
         leaderConfirm:        r.leaderConfirm         || '',
@@ -88,10 +91,12 @@ function _pcInit() {
     });
     state._pcSeedVersion = PC_SEED_VERSION;
     save();
+    console.log('[PC] Seeded ' + state.policyCompliance.length + ' records (was ' + stored.length + ')');
   }
 }
 function _pcData() { _pcInit(); return state.policyCompliance; }
 
+// Does NOT reset _pcPage — callers that need page reset do it explicitly
 function _pcApplyFilters() {
   var f = _pcRF;
   _pcFiltered = _pcData().filter(function(r) {
@@ -110,7 +115,6 @@ function _pcApplyFilters() {
     }
     return true;
   });
-  _pcPage = 1;
 }
 
 // ── Helpers ──
@@ -291,12 +295,44 @@ function _pcRenderPolicy() {
       + '</tr>';
   }).join('');
 
+  // Pagination for Policy 2026
+  var polTotal = empList.length;
+  var polPages = Math.max(1, Math.ceil(polTotal / _PC_POL_PER));
+  if (_pcPolPage > polPages) _pcPolPage = polPages;
+  var polStart = (_pcPolPage - 1) * _PC_POL_PER;
+  var polSlice = empList.slice(polStart, polStart + _PC_POL_PER);
+
+  // Rebuild rows for current page slice only
+  rows = polSlice.map(function(e,i) {
+    return '<tr style="border-bottom:1px solid var(--border);">'
+      + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);">'+(polStart+i+1)+'</td>'
+      + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.empNo+'</td>'
+      + '<td style="padding:7px 10px;font-weight:600;font-size:12px;">'+e.name+'</td>'
+      + '<td style="padding:7px 10px;font-size:11px;">'+e.role+'</td>'
+      + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.leader+'</td>'
+      + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
+      + shownMonths.map(function(m){
+          var n = e.months[m]||0;
+          return '<td style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+_pcHeat(n)+'">'+(n||'—')+'</td>';
+        }).join('')
+      + '</tr>';
+  }).join('');
+
+  var polPager = polTotal > _PC_POL_PER
+    ? '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:8px;">'
+      + '<span style="font-size:11px;color:var(--text3);">Page '+_pcPolPage+'/'+polPages+' ('+polTotal+' employees)</span>'
+      + '<button class="btn btn-sm" onclick="_pcPolPage=Math.max(1,_pcPolPage-1);_pcRerender()" '+(_pcPolPage<=1?'disabled':'')+'>Prev</button>'
+      + '<button class="btn btn-sm" onclick="_pcPolPage=Math.min('+polPages+',_pcPolPage+1);_pcRerender()" '+(_pcPolPage>=polPages?'disabled':'')+'>Next</button>'
+      + '</div>'
+    : '';
+
   var table = empList.length===0
     ? '<div class="empty"><div class="empty-ico">&#x1F4CB;</div>No records for the selected period.</div>'
     : '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
       + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px;">'
       + thead + '<tbody>'+rows+'</tbody></table></div>'
-      + '<div style="font-size:11px;color:var(--text3);margin-top:6px;">Heat: <span style="color:var(--accent);font-weight:600;">1–2</span> &nbsp;&middot;&nbsp; <span style="color:var(--warn);font-weight:600;">3–5</span> &nbsp;&middot;&nbsp; <span style="color:var(--err);font-weight:700;">6+</span></div>';
+      + '<div style="font-size:11px;color:var(--text3);margin-top:6px;">Heat: <span style="color:var(--accent);font-weight:600;">1–2</span> &nbsp;&middot;&nbsp; <span style="color:var(--warn);font-weight:600;">3–5</span> &nbsp;&middot;&nbsp; <span style="color:var(--err);font-weight:700;">6+</span></div>'
+      + polPager;
 
   return filterBar + stats + table;
 }
@@ -321,7 +357,9 @@ async function _pcAdminImport() {
 //  TAB 2: ALL RECORDS
 // ════════════════════════════════════════════
 function _pcRenderRecords() {
-  _pcApplyFilters();
+  // Only re-apply filters if _pcFiltered is empty (first load or filter changed)
+  // Pagination buttons call _pcRerender() directly without resetting filters
+  if (!_pcFiltered || _pcFiltered.length === 0) _pcApplyFilters();
   var all = _pcData();
   var res = all.filter(function(r){return r.status==='Resolved';}).length;
   var rev = all.filter(function(r){return r.status==='To Be Reviewed';}).length;
@@ -331,7 +369,7 @@ function _pcRenderRecords() {
   var leaders = [...new Set(all.map(function(r){return r.leader;}).filter(Boolean))].sort();
 
   var mkSel = function(fld, val, opts, ph) {
-    return '<select style="'+ss+'" onchange="_pcRF.'+fld+'=this.value;_pcApplyFilters();_pcRerender()">'
+    return '<select style="'+ss+'" onchange="_pcRF.'+fld+'=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()">'
       + '<option value="">'+ph+'</option>'
       + opts.map(function(o){
           var v=o.v||o, l=o.l||o;
@@ -349,8 +387,8 @@ function _pcRenderRecords() {
 
   var filterRow = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;">'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">From</div><input type="date" value="'+(f.dateFrom||'')+'" onchange="_pcRF.dateFrom=this.value;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">To</div><input type="date" value="'+(f.dateTo||'')+'" onchange="_pcRF.dateTo=this.value;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">From</div><input type="date" value="'+(f.dateFrom||'')+'" onchange="_pcRF.dateFrom=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">To</div><input type="date" value="'+(f.dateTo||'')+'" onchange="_pcRF.dateTo=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Resolved','To Be Reviewed'],'All statuses')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Agent','Agent Leader','Agent Supervisor','QA','Sr Agent','Sr QA'],'All roles')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shift</div>'+mkSel('shift',f.shift,['A','B','C','D','E'],'All')+'</div>'
@@ -358,8 +396,8 @@ function _pcRenderRecords() {
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Leader</div>'+mkSel('leader',f.leader,leaders,'All leaders')+'</div>'
     + '</div>'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-    + '<input type="text" value="'+(f.search||'')+'" placeholder="Search name / emp no / username..." oninput="_pcRF.search=this.value;_pcApplyFilters();_pcRerender()" style="'+ss+'width:250px;">'
-    + '<button onclick="_pcRF={dateFrom:\'\',dateTo:\'\',status:\'\',role:\'\',shift:\'\',event:\'\',leader:\'\',search:\'\'};_pcApplyFilters();_pcRerender()" style="'+ss+'color:var(--text2);">Reset</button>'
+    + '<input type="text" value="'+(f.search||'')+'" placeholder="Search name / emp no / username..." oninput="_pcRF.search=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'width:250px;">'
+    + '<button onclick="_pcRF={dateFrom:\'\',dateTo:\'\',status:\'\',role:\'\',shift:\'\',event:\'\',leader:\'\',search:\'\'};_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'color:var(--text2);">Reset</button>'
     + '<button onclick="_pcOpenAddModal()" class="btn btn-accent btn-sm" style="margin-left:auto;font-size:12px;padding:5px 14px;">+ Add Record</button>'
     + '</div></div>';
 
