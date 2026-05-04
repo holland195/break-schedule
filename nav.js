@@ -33,6 +33,7 @@ function nav(page) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;
   }
+  // policy — no guard, all roles can access
   if (page === 'policy' && !isLeader(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>'; return;
   }
