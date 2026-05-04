@@ -60,9 +60,33 @@ let _pcS30Event  = '';
 let _pcS30Leader = '';
 
 // ── Data ──
+const PC_SEED_VERSION = 153;
+
 function _pcInit() {
-  if (!state.policyCompliance || state.policyCompliance.length === 0) {
-    state.policyCompliance = PC_SEED_DATA.map(function(r){ return Object.assign({},r); });
+  var needs = !state.policyCompliance
+    || state.policyCompliance.length === 0
+    || (state._pcSeedVersion || 0) < PC_SEED_VERSION;
+
+  if (needs) {
+    // Preserve any local edits (feedback, status changes) already on the device
+    var existing = state.policyCompliance || [];
+    var overrides = {};
+    existing.forEach(function(r) {
+      if (r.no) overrides[r.no] = {
+        agentFeedback:        r.agentFeedback        || '',
+        feedbackReadByLeader: r.feedbackReadByLeader  || false,
+        leaderConfirm:        r.leaderConfirm         || '',
+        mailCheck:            r.mailCheck             || false,
+        status:               r.status                || 'To Be Reviewed',
+        warningMailDate:      r.warningMailDate        || '',
+      };
+    });
+    state.policyCompliance = PC_SEED_DATA.map(function(r) {
+      var rec = Object.assign({}, r);
+      if (overrides[r.no]) Object.assign(rec, overrides[r.no]);
+      return rec;
+    });
+    state._pcSeedVersion = PC_SEED_VERSION;
     save();
   }
 }
