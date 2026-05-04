@@ -357,7 +357,7 @@ function _pcRenderRecords() {
           + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:12px;color:var(--accent);">'+r.event+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
           + '<td style="padding:7px 10px;">'+_pcStatusBadge(r.status)+'</td>'
-          + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);" title="'+r.agentFeedback.replace(/"/g,\'&quot;\')+'">&#x1F4AC;</span>':'')+'</td>'
+          + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'')+'</td>'
           + '</tr>';
       }).join('');
 
