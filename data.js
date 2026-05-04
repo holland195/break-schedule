@@ -309,6 +309,7 @@ function updateBadge() {
     extBadge.textContent = pend;
     extBadge.style.display = (isLeader(currentUser) || isTraining(currentUser)) && pend > 0 ? '' : 'none';
   }
+  if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
   if (typeof updateFeedbackBadge === 'function') updateFeedbackBadge();
 }
 function timeSince(ts) {
