@@ -223,6 +223,33 @@ function _applyRemoteData(remote) {
       });
     });
   }
+
+  // Policy Compliance records
+if (remote.policyCompliance && remote.policyCompliance.length > 0) {
+  // Only overwrite local if remote has more records or local is empty
+  if (!state.policyCompliance || state.policyCompliance.length === 0
+      || remote.policyCompliance.length >= state.policyCompliance.length) {
+    // Preserve local agent feedback / status edits that are newer
+    var pcMap = {};
+    (state.policyCompliance || []).forEach(function(r) {
+      if (r.no) pcMap[r.no] = r;
+    });
+    state.policyCompliance = remote.policyCompliance.map(function(r) {
+      var local = pcMap[r.no];
+      if (local) {
+        // Keep whichever feedback/status was set more recently
+        return Object.assign({}, r, {
+          agentFeedback:        local.agentFeedback || r.agentFeedback,
+          feedbackReadByLeader: local.feedbackReadByLeader || r.feedbackReadByLeader,
+          leaderConfirm:        local.leaderConfirm || r.leaderConfirm,
+          status:               local.status || r.status,
+          mailCheck:            local.mailCheck || r.mailCheck,
+        });
+      }
+      return Object.assign({}, r);
+    });
+  }
+}
   // Restore full staff profiles (name, role, gender, empNo, dob) from cloud
   if (remote.staffInfo) {
    Object.entries(remote.staffInfo).forEach(([uname, si]) => {
@@ -263,17 +290,18 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
       schedule: u.schedule || {},
     }));
     const payload = {
-      breaks:             state.breaks,
-      requests:           state.requests,
-      extBreaks:          state.extBreaks,
-      attendance:         state.attendance || {},
-      monthlyAttendance:  state.monthlyAttendance || {},
-      users:              usersCompact,
-      staffInfo:          staffInfoCloud,
-      _updated:           Date.now(),
-      _breaksUpdatedAt:   state._breaksUpdatedAt || Date.now(),
-      _usersUpdatedAt:    state._usersUpdatedAt  || 0,
-    };
+  breaks:            state.breaks,
+  requests:          state.requests,
+  extBreaks:         state.extBreaks,
+  attendance:        state.attendance || {},
+  monthlyAttendance: state.monthlyAttendance || {},
+  users:             usersCompact,
+  staffInfo:         staffInfoCloud,
+  policyCompliance:  state.policyCompliance || [],   // ← ADD THIS
+  _updated:          Date.now(),
+  _breaksUpdatedAt:  state._breaksUpdatedAt || Date.now(),
+  _usersUpdatedAt:   state._usersUpdatedAt  || 0,
+};
     const kb = (JSON.stringify(payload).length / 1024).toFixed(1);
     console.log(`[sync] push payload: ${kb}kb`);
     // Wrap entire payload as a JSON string — avoids Firebase key restrictions
