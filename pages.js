@@ -1400,28 +1400,27 @@ function importFromPaste() {
   previewSection.style.display = 'block';
 }
 
-function confirmScheduleImport() {
+async function confirmScheduleImport() {
   if (_tempImportedUsers.length === 0) return;
 
-  // Replace existing users or merge (standard is replace for full schedule import)
-  state.users = _tempImportedUsers.map((u, index) => ({
-    id: index + 1, // Simple ID generation
-    ...u
-  }));
-
+  // 1. Save the parsed users to state
+  state.users = _tempImportedUsers;
   state._usersUpdatedAt = Date.now();
   
-  if (typeof syncWrite === 'function') syncWrite();
-  else save();
+  // 2. TRIGGER THE AUTO-ASSIGN LOGIC
+  console.log("Starting Auto-Assignment...");
+  const result = autoAssignBreaks(state.users); 
+  console.log(`Auto-assign complete: ${result.assigned} breaks set across ${result.weekCount} weeks.`);
 
-  toast(`Successfully imported ${state.users.length} staff schedules.`, 'ok');
+  // 3. Save to LocalStorage and Sync to Cloud
+  save(); 
+  if (typeof syncWrite === 'function') await syncWrite();
+
+  toast(`Imported ${state.users.length} staff. Auto-assigned ${result.assigned} breaks.`, 'ok');
   
-  // Reset UI
-  _pasteContent = '';
+  // 4. Refresh UI
   document.getElementById('sched-preview-section').style.display = 'none';
-  document.getElementById('paste-area').value = '';
-  
-  nav('staff'); // Refresh the view
+  nav('staff'); 
 }
 // ── Sub-tab 2: Staff Schedule ──
 function _renderStaffSchedule() {
