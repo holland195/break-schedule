@@ -117,6 +117,7 @@ function _resolvePhase(rot, shift, tier, monday) {
 // importedUsers: array of user objects from the import.
 // Returns { assigned, weekCount }
 function autoAssignBreaks(importedUsers) {
+  console.log("Auto-assign started with users:", importedUsers.length);
   if (!importedUsers || importedUsers.length === 0) {
     return { assigned: 0, weekCount: 0 };
   }
@@ -135,7 +136,7 @@ function autoAssignBreaks(importedUsers) {
 
   // Find all Monday dates, sort chronologically
   const mondays = [...allDates]
-    .filter(d => /^\d{2}\/\d{2}$/.test(d) && getWkDay(d) === 'Mon')
+    .filter(d => /^\d{1,2}\/\d{1,2}$/.test(d) && getWkDay(d) === 'Mon')
     .sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
 
   if (mondays.length === 0) return { assigned: 0, weekCount: 0 };
