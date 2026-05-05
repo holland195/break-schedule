@@ -970,9 +970,15 @@ function _renderArrangeOverviewTab(weekRange) {
 
 function getShortSlot(shift, slotTime) {
   if (!slotTime || !shift) return '?';
+  
   const slots = BREAK_SLOTS[shift] || [];
-  const idx = slots.indexOf(slotTime);
-  // Returns something like 'D1' if shift is 'D' and index is 0
+  
+  // Normalize strings: remove spaces and force consistent casing
+  const cleanSlotTime = slotTime.trim().replace(/\s/g, '');
+  
+  const idx = slots.findIndex(s => s.trim().replace(/\s/g, '') === cleanSlotTime);
+  
+  // If found, return legend (e.g., D1), otherwise return the original time for debugging
   return idx >= 0 ? `${shift}${idx + 1}` : '?';
 }
 
