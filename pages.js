@@ -1323,7 +1323,7 @@ function importFromPaste() {
   const lines = pasteArea.value.trim().split('\n');
   const header = lines[0].split('\t');
   
-  // 1. Identify Date Columns (looking for DD/MM format starting from Col 5)
+  // Identify date columns starting specifically from column 5
   const dateCols = [];
   header.forEach((h, i) => {
     if (h.match(/^\d{1,2}\/\d{1,2}$/)) {
@@ -1331,31 +1331,23 @@ function importFromPaste() {
     }
   });
 
-  if (dateCols.length === 0) {
-    statusEl.innerHTML = '<span style="color:var(--err);">⚠ No date headers (DD/MM) found.</span>';
-    return;
-  }
-
   _tempImportedUsers = [];
-  
-  // 2. Parse Rows
   lines.slice(1).forEach(line => {
     const cols = line.split('\t');
     if (cols.length < 5) return;
 
-    // Mapping based on your Google Sheet columns
     const user = {
-      team: cols[1]?.trim() || '—',
-      name: cols[2]?.trim() || '—',
-      username: cols[3]?.trim().toLowerCase() || '',
-      role: cols[4]?.trim() || '—',
+      team: cols[1]?.trim() || '—',       // Column B
+      name: cols[2]?.trim() || '—',       // Column C
+      username: cols[3]?.trim().toLowerCase() || '', // Column D
+      role: cols[4]?.trim() || '—',       // Column E
       schedule: {}
     };
 
-    if (!user.username || user.username === 'username') return;
+    if (!user.username) return;
 
-    // Map shift characters to specific dates
     dateCols.forEach(col => {
+      // Capture the exact shift code (A, D, E, 0) from the mapped column
       user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
     });
 
@@ -1383,12 +1375,17 @@ function importFromPaste() {
       <td style="padding:6px; border:1px solid var(--border); color:var(--accent); font-family:monospace;">${u.username}</td>
       <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${u.role}</td>
       ${dateCols.map(d => {
-        const shift = u.schedule[d.dateKey] || '0';
-        let colorStyle = "";
-        if (shift === 'D') colorStyle = "background:#fecaca; color:#b91c1c;"; 
-        if (shift === 'A') colorStyle = "background:#fef08a; color:#a16207;";
-        return `<td style="padding:4px; border:1px solid var(--border); text-align:center; font-weight:bold; ${colorStyle}">${shift}</td>`;
-      }).join('')}
+  const shift = u.schedule[d.dateKey] || '0';
+  let colorStyle = "";
+  
+  // Apply specific styles for each shift type
+  if (shift === 'D') colorStyle = "background:#fecaca; color:#b91c1c;"; // Red
+  else if (shift === 'A') colorStyle = "background:#fef08a; color:#a16207;"; // Yellow
+  else if (shift === 'E') colorStyle = "background:#d8b4fe; color:#6b21a8;"; // Purple for Shift E
+  else if (shift === '0') colorStyle = "background:white; color:#9ca3af;"; // Day off
+  
+  return `<td style="padding:4px; border:1px solid var(--border); text-align:center; font-weight:bold; ${colorStyle}">${shift}</td>`;
+}).join('')}
     </tr>`).join('');
 
   previewList.innerHTML = `
