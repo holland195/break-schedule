@@ -968,22 +968,6 @@ function _renderArrangeOverviewTab(weekRange) {
 </div>`;
 }
 
-function getShortSlot(shift, slotTime) {
-  if (!slotTime || !shift) return '?';
-  
-  const slots = BREAK_SLOTS[shift] || [];
-  
-  // Normalize: removes all spaces and converts long dashes to standard hyphens
-  const normalize = (str) => str.replace(/\s+/g, '').replace(/–/g, '-').trim();
-  
-  const cleanSlotTime = normalize(slotTime);
-  
-  // Find the index using normalized strings
-  const idx = slots.findIndex(s => normalize(s) === cleanSlotTime);
-  
-  // Return legend (e.g., D1) if found, otherwise show the time for debugging
-  return idx >= 0 ? `${shift}${idx + 1}` : slotTime; 
-}
 
 function switchArrangeDay(day) {
   arrangeActiveDay = day;
