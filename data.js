@@ -268,10 +268,26 @@ function monthKeyFromDate(ds) {
   const [,m]=ds.split('/'); return `2026-${m.padStart(2,'0')}`;
 }
 
-function getShortSlot(shift,fullTime) {
-  if(!fullTime||fullTime==='—') return '';
-  const idx=(BREAK_SLOTS[shift]||[]).indexOf(fullTime);
-  return idx!==-1?`${shift}${idx+1}`:fullTime;
+// function getShortSlot(shift,fullTime) {
+//   if(!fullTime||fullTime==='—') return '';
+//   const idx=(BREAK_SLOTS[shift]||[]).indexOf(fullTime);
+//   return idx!==-1?`${shift}${idx+1}`:fullTime;
+// }
+
+function getShortSlot(shift, slotTime) {
+  if (!slotTime || slotTime === '—') return '';
+  
+  const slots = BREAK_SLOTS[shift] || [];
+  
+  // Normalization: Removes all spaces and converts long dashes (–) to standard hyphens (-)
+  const normalize = (str) => str.replace(/\s+/g, '').replace(/–/g, '-').trim();
+  const cleanSlotTime = normalize(slotTime);
+  
+  // Use findIndex with normalized comparison
+  const idx = slots.findIndex(s => normalize(s) === cleanSlotTime);
+  
+  // Returns D1/D2 if found; otherwise returns raw time for debugging
+  return idx !== -1 ? `${shift}${idx + 1}` : slotTime;
 }
 
 
