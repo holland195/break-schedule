@@ -283,7 +283,7 @@ function getShortSlot(shift, slotTime) {
   const normalize = (str) => str.replace(/\s+/g, '').replace(/–/g, '-').trim();
   const cleanSlotTime = normalize(slotTime);
   
-  // Use findIndex with normalized comparison
+  // Use findIndex with normalized comparison to find the correct index
   const idx = slots.findIndex(s => normalize(s) === cleanSlotTime);
   
   // Returns D1/D2 if found; otherwise returns raw time for debugging
