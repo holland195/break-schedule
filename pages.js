@@ -973,16 +973,15 @@ function getShortSlot(shift, slotTime) {
   
   const slots = BREAK_SLOTS[shift] || [];
   
-  // Normalize function: removes all spaces and converts long dashes to standard hyphens
+  // Normalize: removes all spaces and converts long dashes to standard hyphens
   const normalize = (str) => str.replace(/\s+/g, '').replace(/–/g, '-').trim();
   
   const cleanSlotTime = normalize(slotTime);
   
-  // Use findIndex with the normalized strings
+  // Find the index using normalized strings
   const idx = slots.findIndex(s => normalize(s) === cleanSlotTime);
   
-  // If found, return legend (D1, D2, etc.)
-  // If NOT found, return the time itself so you can see why it failed
+  // Return legend (e.g., D1) if found, otherwise show the time for debugging
   return idx >= 0 ? `${shift}${idx + 1}` : slotTime; 
 }
 
