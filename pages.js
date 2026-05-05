@@ -968,13 +968,13 @@ function _renderArrangeOverviewTab(weekRange) {
 </div>`;
 }
 
-// function getShortSlot(shift, slotTime) {
-//   if (!slotTime || !shift) return '?';
-//   const slots = BREAK_SLOTS[shift] || [];
-//   const idx = slots.indexOf(slotTime);
-//   // Returns something like 'D1' if shift is 'D' and index is 0
-//   return idx >= 0 ? `${shift}${idx + 1}` : '?';
-// }
+function getShortSlot(shift, slotTime) {
+  if (!slotTime || !shift) return '?';
+  const slots = BREAK_SLOTS[shift] || [];
+  const idx = slots.indexOf(slotTime);
+  // Returns something like 'D1' if shift is 'D' and index is 0
+  return idx >= 0 ? `${shift}${idx + 1}` : '?';
+}
 
 function switchArrangeDay(day) {
   arrangeActiveDay = day;
