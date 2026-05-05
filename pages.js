@@ -895,30 +895,36 @@ function _renderArrangeOverviewTab(weekRange) {
 
   const summaryRows = shiftUsers.map(u => {
     const dayCells = weekRange.map((d, i) => {
-      const dn = WEEK_DAYS[i];
-      const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
-      const onShift = shiftVal === currentShift;
-      const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
+  const dn = WEEK_DAYS[i];
+  const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
+  const onShift = shiftVal === currentShift;
+  const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
 
-      if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
-      if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
+  if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
+  if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
 
-      const code = br ? getShortSlot(currentShift, br.slot) : '?';
-      const ov_si = br ? (BREAK_SLOTS[currentShift] || []).indexOf(br.slot) : -1;
-      const isActive = d === arrangeActiveDay;
-      const ov_class = br
-        ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned${isActive ? ' overview-cell-active' : ''}`
-        : `break-slot overview-cell-pending${isActive ? ' overview-cell-active' : ''}`;
-      return `<td style="text-align:center;padding:6px 4px;background:${isActive ? 'rgba(200,212,0,0.06)' : ''};">
-        <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
-          class="${ov_class}"
-          style="display:inline-flex;align-items:center;justify-content:center;
-            width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
-            font-family:'IBM Plex Mono',monospace;cursor:pointer;
-            ${isActive ? 'outline:2px solid var(--accent);outline-offset:2px;' : ''}"
-          title="${br ? br.slot : 'Not assigned — click to assign'}">${code}</span>
-      </td>`;
-    }).join('');
+  // USE getShortSlot TO GET "D1", "D2", ETC.
+  const code = br ? getShortSlot(currentShift, br.slot) : '?'; 
+  
+  const ov_si = br ? (BREAK_SLOTS[currentShift] || []).indexOf(br.slot) : -1;
+  const isActive = d === arrangeActiveDay;
+  
+  const ov_class = br
+    ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned${isActive ? ' overview-cell-active' : ''}`
+    : `break-slot overview-cell-pending${isActive ? ' overview-cell-active' : ''}`;
+
+  return `<td style="text-align:center;padding:6px 4px;background:${isActive ? 'rgba(200,212,0,0.06)' : ''};">
+    <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
+      class="${ov_class}"
+      style="display:inline-flex;align-items:center;justify-content:center;
+        width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
+        font-family:'IBM Plex Mono',monospace;cursor:pointer;
+        ${isActive ? 'outline:2px solid var(--accent);outline-offset:2px;' : ''}"
+      title="${br ? br.slot : 'Not assigned'}">
+      ${code} 
+    </span>
+  </td>`;
+}).join('');
 
     return `<tr style="border-bottom:1px solid var(--border);">
       <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
