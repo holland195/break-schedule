@@ -1313,38 +1313,37 @@ function importFromPaste() {
   const statusEl = document.getElementById('paste-status');
   const previewSection = document.getElementById('sched-preview-section');
   const previewList = document.getElementById('sched-preview-list');
+  const previewCount = document.getElementById('sched-preview-count');
 
   if (!pasteArea || !pasteArea.value.trim()) {
-    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Paste data first.</span>';
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Paste data from Sheets first.</span>';
     return;
   }
 
   const lines = pasteArea.value.trim().split('\n');
   const header = lines[0].split('\t');
   
-  // 1. Identify date columns starting from index 5
+  // 1. Identify Date Columns (looking for DD/MM format starting from Col 5)
   const dateCols = [];
   header.forEach((h, i) => {
-    // Matches DD/MM format (e.g., 27/04) as seen in Screenshot 1
     if (h.match(/^\d{1,2}\/\d{1,2}$/)) {
       dateCols.push({ index: i, dateKey: h });
     }
   });
 
   if (dateCols.length === 0) {
-    statusEl.innerHTML = '<span style="color:var(--err);">⚠ No date columns (DD/MM) detected. Check header.</span>';
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ No date headers (DD/MM) found.</span>';
     return;
   }
 
   _tempImportedUsers = [];
   
-  // 2. Parse data rows (skipping header)
+  // 2. Parse Rows
   lines.slice(1).forEach(line => {
     const cols = line.split('\t');
     if (cols.length < 5) return;
 
-    // Alignment based on Screenshot 1:
-    // [0]No. | [1]Group | [2]NAME | [3]Username | [4]Roles
+    // Mapping based on your Google Sheet columns
     const user = {
       team: cols[1]?.trim() || '—',
       name: cols[2]?.trim() || '—',
@@ -1355,9 +1354,8 @@ function importFromPaste() {
 
     if (!user.username || user.username === 'username') return;
 
-    // 3. Map shift codes to the correct dates
+    // Map shift characters to specific dates
     dateCols.forEach(col => {
-      // Captures the shift character (A, D, 0, etc.) from the correct column index
       user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
     });
 
