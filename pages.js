@@ -1337,27 +1337,33 @@ function importFromPaste() {
     return;
   }
 
-  _tempImportedUsers = [];
-  lines.slice(1).forEach(line => {
+ _tempImportedUsers = [];
+  
+  // Start from line 1 if you included the header, or line 0 if you only pasted data
+  lines.forEach((line, lineIdx) => {
     const cols = line.split('\t');
-    if (cols.length < 5) return;
+    
+    // Skip empty lines or header lines that don't start with a number
+    if (cols.length < 5 || !cols[0].trim().match(/^\d+$/)) return;
 
-    // Based on your UI requirements: Row# | Group | Name | Username | Role
     const user = {
-      team: cols[1]?.trim() || 'No Group',
-      name: cols[2]?.trim(),
-      username: cols[3]?.trim().toLowerCase(),
-      role: cols[4]?.trim(),
+      // Adjusted indexes based on: [0]Row# | [1]Group | [2]Name | [3]Username | [4]Role
+      team: cols[1]?.trim() || '—',
+      name: cols[2]?.trim() || '—',
+      username: cols[3]?.trim().toLowerCase() || '',
+      role: cols[4]?.trim() || '—',
       schedule: {}
     };
 
-    if (!user.username || !user.name) return;
-
-    dateCols.forEach(col => {
-      user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
-    });
-
-    _tempImportedUsers.push(user);
+    // Only add if we have a valid username
+    if (user.username && user.username !== 'username') {
+      dateCols.forEach(col => {
+        // Shift characters start after column 4
+        user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
+      });
+      _tempImportedUsers.push(user);
+    }
+  
   });
 
   // Render Preview
