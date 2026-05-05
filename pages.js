@@ -973,13 +973,17 @@ function getShortSlot(shift, slotTime) {
   
   const slots = BREAK_SLOTS[shift] || [];
   
-  // Normalize strings: remove spaces and force consistent casing
-  const cleanSlotTime = slotTime.trim().replace(/\s/g, '');
+  // Normalize function: removes all spaces and converts long dashes to standard hyphens
+  const normalize = (str) => str.replace(/\s+/g, '').replace(/–/g, '-').trim();
   
-  const idx = slots.findIndex(s => s.trim().replace(/\s/g, '') === cleanSlotTime);
+  const cleanSlotTime = normalize(slotTime);
   
-  // If found, return legend (e.g., D1), otherwise return the original time for debugging
-  return idx >= 0 ? `${shift}${idx + 1}` : '?';
+  // Use findIndex with the normalized strings
+  const idx = slots.findIndex(s => normalize(s) === cleanSlotTime);
+  
+  // If found, return legend (D1, D2, etc.)
+  // If NOT found, return the time itself so you can see why it failed
+  return idx >= 0 ? `${shift}${idx + 1}` : slotTime; 
 }
 
 function switchArrangeDay(day) {
