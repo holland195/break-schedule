@@ -1313,41 +1313,39 @@ function importFromPaste() {
   const statusEl = document.getElementById('paste-status');
   const previewSection = document.getElementById('sched-preview-section');
   const previewList = document.getElementById('sched-preview-list');
-  const previewCount = document.getElementById('sched-preview-count');
 
   if (!pasteArea || !pasteArea.value.trim()) {
-    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Paste something first.</span>';
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Paste data first.</span>';
     return;
   }
 
-  statusEl.innerHTML = '<span style="color:var(--text2);">Parsing...</span>';
   const lines = pasteArea.value.trim().split('\n');
   const header = lines[0].split('\t');
   
-  // Find date columns (DD/MM format)
+  // 1. Identify date columns starting from index 5
   const dateCols = [];
   header.forEach((h, i) => {
+    // Matches DD/MM format (e.g., 27/04) as seen in Screenshot 1
     if (h.match(/^\d{1,2}\/\d{1,2}$/)) {
       dateCols.push({ index: i, dateKey: h });
     }
   });
 
   if (dateCols.length === 0) {
-    statusEl.innerHTML = '<span style="color:var(--err);">⚠ No date columns (DD/MM) found in header row.</span>';
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ No date columns (DD/MM) detected. Check header.</span>';
     return;
   }
 
- _tempImportedUsers = [];
+  _tempImportedUsers = [];
   
-  // Start from line 1 if you included the header, or line 0 if you only pasted data
-  lines.forEach((line, lineIdx) => {
+  // 2. Parse data rows (skipping header)
+  lines.slice(1).forEach(line => {
     const cols = line.split('\t');
-    
-    // Skip empty lines or header lines that don't start with a number
-    if (cols.length < 5 || !cols[0].trim().match(/^\d+$/)) return;
+    if (cols.length < 5) return;
 
+    // Alignment based on Screenshot 1:
+    // [0]No. | [1]Group | [2]NAME | [3]Username | [4]Roles
     const user = {
-      // Adjusted indexes based on: [0]Row# | [1]Group | [2]Name | [3]Username | [4]Role
       team: cols[1]?.trim() || '—',
       name: cols[2]?.trim() || '—',
       username: cols[3]?.trim().toLowerCase() || '',
@@ -1355,27 +1353,38 @@ function importFromPaste() {
       schedule: {}
     };
 
-    // Only add if we have a valid username
-    if (user.username && user.username !== 'username') {
-      dateCols.forEach(col => {
-        // Shift characters start after column 4
-        user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
-      });
-      _tempImportedUsers.push(user);
-    }
-  
+    if (!user.username || user.username === 'username') return;
+
+    // 3. Map shift codes to the correct dates
+    dateCols.forEach(col => {
+      // Captures the shift character (A, D, 0, etc.) from the correct column index
+      user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
+    });
+
+    _tempImportedUsers.push(user);
   });
 
-  // Render Preview
-  previewCount.textContent = _tempImportedUsers.length;
-  previewList.innerHTML = _tempImportedUsers.map(u => `
-    <div style="padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; display:flex; justify-content:space-between;">
-      <span><b>${u.name}</b> (${u.username})</span>
-      <span style="color:var(--text3);">${u.team} · ${u.role}</span>
-    </div>
-  `).join('');
+  // 4. Update UI Preview
+  document.getElementById('sched-preview-count').textContent = _tempImportedUsers.length;
+  previewList.innerHTML = _tempImportedUsers.map(u => {
+    // Generate a small preview of the first few dates to verify they parsed
+    const datePreview = Object.keys(u.schedule).slice(0, 3)
+      .map(k => `${k}: ${u.schedule[k]}`).join(' | ');
+      
+    return `
+      <div class="preview-row" style="padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; font-size:11px;">
+        <div>
+          <b style="color:var(--accent);">${u.name}</b> (${u.username})
+          <div style="color:var(--text3); font-size:10px;">${datePreview}...</div>
+        </div>
+        <div style="text-align:right;">
+          <span class="role-tag">${u.role}</span>
+          <div style="font-weight:bold;">${u.team}</div>
+        </div>
+      </div>`;
+  }).join('');
 
-  statusEl.innerHTML = '<span style="color:var(--ok);">✓ Parse complete. Review below.</span>';
+  statusEl.innerHTML = '<span style="color:var(--ok);">✓ Parse successful. Dates captured.</span>';
   previewSection.style.display = 'block';
 }
 
