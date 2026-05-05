@@ -1343,6 +1343,98 @@ function _renderStaffSchedule() {
 </div>`;
   }
 
+  // Variable to hold the parsed preview data before final confirmation
+let _tempImportedUsers = [];
+
+function importFromPaste() {
+  const pasteArea = document.getElementById('paste-area');
+  const statusEl = document.getElementById('paste-status');
+  const previewSection = document.getElementById('sched-preview-section');
+  const previewList = document.getElementById('sched-preview-list');
+  const previewCount = document.getElementById('sched-preview-count');
+
+  if (!pasteArea || !pasteArea.value.trim()) {
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Paste something first.</span>';
+    return;
+  }
+
+  statusEl.innerHTML = '<span style="color:var(--text2);">Parsing...</span>';
+  const lines = pasteArea.value.trim().split('\n');
+  const header = lines[0].split('\t');
+  
+  // Find date columns (DD/MM format)
+  const dateCols = [];
+  header.forEach((h, i) => {
+    if (h.match(/^\d{1,2}\/\d{1,2}$/)) {
+      dateCols.push({ index: i, dateKey: h });
+    }
+  });
+
+  if (dateCols.length === 0) {
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ No date columns (DD/MM) found in header row.</span>';
+    return;
+  }
+
+  _tempImportedUsers = [];
+  lines.slice(1).forEach(line => {
+    const cols = line.split('\t');
+    if (cols.length < 5) return;
+
+    // Based on your UI requirements: Row# | Group | Name | Username | Role
+    const user = {
+      team: cols[1]?.trim() || 'No Group',
+      name: cols[2]?.trim(),
+      username: cols[3]?.trim().toLowerCase(),
+      role: cols[4]?.trim(),
+      schedule: {}
+    };
+
+    if (!user.username || !user.name) return;
+
+    dateCols.forEach(col => {
+      user.schedule[col.dateKey] = cols[col.index]?.trim().toUpperCase() || '0';
+    });
+
+    _tempImportedUsers.push(user);
+  });
+
+  // Render Preview
+  previewCount.textContent = _tempImportedUsers.length;
+  previewList.innerHTML = _tempImportedUsers.map(u => `
+    <div style="padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; display:flex; justify-content:space-between;">
+      <span><b>${u.name}</b> (${u.username})</span>
+      <span style="color:var(--text3);">${u.team} · ${u.role}</span>
+    </div>
+  `).join('');
+
+  statusEl.innerHTML = '<span style="color:var(--ok);">✓ Parse complete. Review below.</span>';
+  previewSection.style.display = 'block';
+}
+
+function confirmScheduleImport() {
+  if (_tempImportedUsers.length === 0) return;
+
+  // Replace existing users or merge (standard is replace for full schedule import)
+  state.users = _tempImportedUsers.map((u, index) => ({
+    id: index + 1, // Simple ID generation
+    ...u
+  }));
+
+  state._usersUpdatedAt = Date.now();
+  
+  if (typeof syncWrite === 'function') syncWrite();
+  else save();
+
+  toast(`Successfully imported ${state.users.length} staff schedules.`, 'ok');
+  
+  // Reset UI
+  _pasteContent = '';
+  document.getElementById('sched-preview-section').style.display = 'none';
+  document.getElementById('paste-area').value = '';
+  
+  nav('staff'); // Refresh the view
+}
+
   const allDates = Object.keys(state.users.find(u => Object.keys(u.schedule).some(k => /\d{2}\/\d{2}/.test(k)))?.schedule || state.users[0]?.schedule || {});
   const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
   const weekRange = getWeekRange(activeMonday);
