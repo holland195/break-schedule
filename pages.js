@@ -1364,27 +1364,44 @@ function importFromPaste() {
     _tempImportedUsers.push(user);
   });
 
-  // 4. Update UI Preview
-  document.getElementById('sched-preview-count').textContent = _tempImportedUsers.length;
-  previewList.innerHTML = _tempImportedUsers.map(u => {
-    // Generate a small preview of the first few dates to verify they parsed
-    const datePreview = Object.keys(u.schedule).slice(0, 3)
-      .map(k => `${k}: ${u.schedule[k]}`).join(' | ');
-      
-    return `
-      <div class="preview-row" style="padding:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; font-size:11px;">
-        <div>
-          <b style="color:var(--accent);">${u.name}</b> (${u.username})
-          <div style="color:var(--text3); font-size:10px;">${datePreview}...</div>
-        </div>
-        <div style="text-align:right;">
-          <span class="role-tag">${u.role}</span>
-          <div style="font-weight:bold;">${u.team}</div>
-        </div>
-      </div>`;
-  }).join('');
+  // 3. Render Table Preview (Mirrors Screenshot 1)
+  previewCount.textContent = _tempImportedUsers.length;
+  
+  const tableHeader = `
+    <tr style="background:var(--bg3); position:sticky; top:0; z-index:10;">
+      <th style="padding:8px; border:1px solid var(--border);">No.</th>
+      <th style="padding:8px; border:1px solid var(--border);">Group</th>
+      <th style="padding:8px; border:1px solid var(--border); min-width:150px;">NAME</th>
+      <th style="padding:8px; border:1px solid var(--border);">Username</th>
+      <th style="padding:8px; border:1px solid var(--border);">Roles</th>
+      ${dateCols.map(d => `<th style="padding:4px; border:1px solid var(--border); min-width:40px; color:var(--accent);">${d.dateKey}</th>`).join('')}
+    </tr>`;
 
-  statusEl.innerHTML = '<span style="color:var(--ok);">✓ Parse successful. Dates captured.</span>';
+  const tableRows = _tempImportedUsers.map((u, i) => `
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:6px; border:1px solid var(--border); text-align:center;">${i + 1}</td>
+      <td style="padding:6px; border:1px solid var(--border); text-align:center;">${u.team}</td>
+      <td style="padding:6px; border:1px solid var(--border); font-weight:600;">${u.name}</td>
+      <td style="padding:6px; border:1px solid var(--border); color:var(--accent); font-family:monospace;">${u.username}</td>
+      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${u.role}</td>
+      ${dateCols.map(d => {
+        const shift = u.schedule[d.dateKey] || '0';
+        let colorStyle = "";
+        if (shift === 'D') colorStyle = "background:#fecaca; color:#b91c1c;"; 
+        if (shift === 'A') colorStyle = "background:#fef08a; color:#a16207;";
+        return `<td style="padding:4px; border:1px solid var(--border); text-align:center; font-weight:bold; ${colorStyle}">${shift}</td>`;
+      }).join('')}
+    </tr>`).join('');
+
+  previewList.innerHTML = `
+    <div style="overflow-x:auto; max-height:400px; border:1px solid var(--border); border-radius:8px;">
+      <table style="width:max-content; border-collapse:collapse; background:white; text-align:left;">
+        <thead>${tableHeader}</thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+
+  statusEl.innerHTML = '<span style="color:var(--ok);">✓ Data parsed successfully.</span>';
   previewSection.style.display = 'block';
 }
 
