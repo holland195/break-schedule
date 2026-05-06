@@ -4,7 +4,7 @@
 // ── Bin ID is now discovered automatically from sync-config.json ──
 // No manual edits to data.js needed. See Cloud Sync page for setup.
 const STORAGE  = 'bsched_v6';
-const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WEEK_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 const STAFF_INFO_DB = [
   // ── System Admin (always present, unaffected by data erase) ──
@@ -14,11 +14,13 @@ const STAFF_INFO_DB = [
 
 const SHIFTS = {
   A:{label:'Shift A',start:'15:00',end:'00:00',display:'3:00 PM → 12:00 AM',color:'var(--A-color)',bg:'var(--A-bg)'},
-  B:{label:'Shift B',start:'19:00',end:'04:00',display:'7:00 PM → 4:00 AM', color:'var(--B-color)',bg:'var(--B-bg)'},
-  C:{label:'Shift C',start:'21:00',end:'06:00',display:'9:00 PM → 6:00 AM', color:'var(--C-color)',bg:'var(--C-bg)'},
+  // B and C hidden — use SHIFT_DEFAULTS for any historical records
   D:{label:'Shift D',start:'00:00',end:'09:00',display:'12:00 AM → 9:00 AM',color:'var(--D-color)',bg:'var(--D-bg)'},
   E:{label:'Shift E',start:'06:00',end:'15:00',display:'6:00 AM → 3:00 PM', color:'var(--E-color)',bg:'var(--E-bg)'},
 };
+
+// Visible shifts for UI (login, sidebar, break schedule tabs, arrange)
+const VISIBLE_SHIFTS = ['A', 'D', 'E'];
 
 const BREAK_SLOTS = {
   A:['18:00–19:30','19:30–21:00'],

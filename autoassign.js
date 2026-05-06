@@ -69,44 +69,39 @@ function _saveRotation(rot) {
   try { localStorage.setItem(ROTATION_STORAGE_KEY, JSON.stringify(rot)); } catch(e) {}
 }
 
-// ── Core rotation phase resolver (Option C) ──
-//
-// Called once per (shift, tier, monday) in sorted Monday order.
-// The rotation object is mutated in place across calls so each
-// future Monday sees the already-flipped phase from the previous Monday.
-//
-// rot: the mutable rotation object (shared across all calls in one import run)
-// monday: 'DD/MM' string for this week's Monday
-// Returns the phase (0 or 1) to use for this week
+// _resolvePhase v2: sequential flip per batch
+// Uses a two-phase approach:
+//   1. Calendar-based (past/current week) — never flip, idempotent re-import
+//   2. Sequential (any NEW week in this batch) — flip once per new Monday seen
+//      regardless of calendar position, so 3 weeks in one paste = 3 alternating phases
 function _resolvePhase(rot, shift, tier, monday) {
   const key   = `${shift}_${tier}`;
   const entry = rot[key];
-
+ 
+  // First time ever seen — start at phase 0
   if (!entry) {
-    // First time ever seen — start at phase 0
     rot[key] = { phase: 0, lastWeek: monday };
     return 0;
   }
-
+ 
+  // Same Monday already recorded — idempotent (safe to re-import)
   if (entry.lastWeek === monday) {
-    // Same Monday already recorded in this run or a previous import → idempotent
     return entry.phase;
   }
-
-  if (!_isFutureWeek(monday)) {
-    // Past or current week → DO NOT flip, just use current recorded phase
-    // Update lastWeek only if this monday is newer than recorded
-    // (handles the case where past weeks were imported out of order)
-    const recordedDate = _mondayToDate(entry.lastWeek);
-    const thisDate     = _mondayToDate(monday);
-    if (thisDate > recordedDate) {
-      // More recent past/current week — update lastWeek but keep phase
-      rot[key] = { phase: entry.phase, lastWeek: monday };
-    }
+ 
+  // Check if this monday is newer than what we've recorded
+  const recordedDate = _mondayToDate(entry.lastWeek);
+  const thisDate     = _mondayToDate(monday);
+ 
+  if (thisDate <= recordedDate) {
+    // Older or same week — don't touch the phase, just return current
     return entry.phase;
   }
-
-  // Future week → flip exactly once
+ 
+  // This is a NEW week (newer monday than recorded).
+  // Flip the phase — this handles both future weeks AND same-batch sequential weeks.
+  // Whether it's "future" by calendar or just the next week in the imported paste,
+  // each new week gets a fresh alternating phase.
   const newPhase = entry.phase === 0 ? 1 : 0;
   rot[key] = { phase: newPhase, lastWeek: monday };
   return newPhase;

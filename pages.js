@@ -365,7 +365,7 @@ function renderSchedule() {
   // Shift tab bar for training role
   const shiftTabsHTML = isTrainingUser ? `
     <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
-      ${['A', 'B', 'C', 'D', 'E'].map(sh => {
+      ${['A', 'D', 'E'].map(sh => {
     const active = shiftToShow === sh;
     const cnt = state.users.filter(u => weekDates.some(dk => getUserShift(u, dk) === sh)).length;
     return `<button onclick="window._scheduleShiftTab='${sh}';window._schedSearch='';nav('schedule')"

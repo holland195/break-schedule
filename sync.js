@@ -368,7 +368,7 @@ async function syncTryAutoConnect() {
   return false;
 }
 
-// ── Poll every 2 minutes ──
+// ── Poll every 15 seconds for near-real-time updates ──
 let _syncInterval = null;
 function startSyncPolling() {
   if (_syncInterval) clearInterval(_syncInterval);
@@ -379,14 +379,66 @@ function startSyncPolling() {
       updateSyncBadge('err');
       return;
     }
+ 
+    // Snapshot counts BEFORE pull to detect new arrivals
+    const prevPendingReqs  = (state.requests  || []).filter(r => r.status === 'pending').length;
+    const prevPendingExts  = Object.values(state.extBreaks || {})
+      .flatMap(arr => arr || [])
+      .filter(e => !e.status || e.status === 'pending').length;
+    // Count approvals/rejections the current user is waiting on
+    const prevMyResolved = currentUser ? (state.requests || [])
+      .filter(r => r.userId === currentUser.id && r.status !== 'pending').length : 0;
+    const prevMyExtApproved = currentUser ? Object.entries(state.extBreaks || {})
+      .filter(([k]) => k.startsWith(currentUser.id + '_'))
+      .flatMap(([, arr]) => arr || [])
+      .filter(e => e.status === 'approved' || e.status === 'rejected').length : 0;
+ 
     const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
-    if (ok && typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
+    if (!ok) { updateSyncBadge('err'); return; }
+ 
+    // Detect new items and notify
+    if (typeof currentUser !== 'undefined' && currentUser) {
+      const newPendingReqs = (state.requests || []).filter(r => r.status === 'pending').length;
+      const newPendingExts = Object.values(state.extBreaks || {})
+        .flatMap(arr => arr || [])
+        .filter(e => !e.status || e.status === 'pending').length;
+      const newMyResolved  = (state.requests || [])
+        .filter(r => r.userId === currentUser.id && r.status !== 'pending').length;
+      const newMyExtApproved = Object.entries(state.extBreaks || {})
+        .filter(([k]) => k.startsWith(currentUser.id + '_'))
+        .flatMap(([, arr]) => arr || [])
+        .filter(e => e.status === 'approved' || e.status === 'rejected').length;
+ 
+      // Leader: new swap request arrived
+      if (isLeader(currentUser) && newPendingReqs > prevPendingReqs)
+        toast(`🔄 ${newPendingReqs - prevPendingReqs} new break swap request(s)`, 'warn');
+ 
+      // Leader: new 30-min break request
+      if (isLeader(currentUser) && newPendingExts > prevPendingExts)
+        toast(`🌸 ${newPendingExts - prevPendingExts} new 30-min break request(s)`, 'warn');
+ 
+      // Agent: their swap request was approved/rejected
+      if (newMyResolved > prevMyResolved) {
+        const latest = (state.requests || [])
+          .filter(r => r.userId === currentUser.id && r.status !== 'pending')
+          .sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0))[0];
+        if (latest)
+          toast(`🔄 Your swap request: ${latest.status.toUpperCase()}`, latest.status === 'approved' ? 'ok' : 'err');
+      }
+ 
+      // Agent: their 30-min break was approved/rejected
+      if (newMyExtApproved > prevMyExtApproved)
+        toast('🌸 Your 30-min break request was updated', 'ok');
+    }
+ 
+    if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
       nav(currentPage);
       updateBadge();
     }
-    updateSyncBadge(ok ? 'ok' : 'err');
-  }, 2 * 60 * 1000); // 2 minutes — Firebase has no rate limits
+    updateSyncBadge('ok');
+  }, 15 * 1000); // 15 seconds — Firebase REST has no rate limits
 }
+
 function stopSyncPolling() {
   if (_syncInterval) clearInterval(_syncInterval);
   _syncInterval = null;

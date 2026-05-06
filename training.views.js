@@ -48,7 +48,7 @@ function _tabBar(countFn, page) {
   };
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;">
     ${btn('all','All shifts')}
-    ${['A','B','C','D','E'].map(sh=>btn(sh,`Shift ${sh}`)).join('')}
+    ${['A','D','E'].map(sh=>btn(sh,`Shift ${sh}`)).join('')}
   </div>`;
 }
 
@@ -108,7 +108,7 @@ function renderScheduleTraining() {
 
   // Per-shift data
   const SD = {};
-  ['A','B','C','D','E'].forEach(sh => {
+  ['A','D','E'].forEach(sh => {
     const slots = BREAK_SLOTS[sh]||[];
     const users = state.users.filter(u=>weekDates.some(dk=>getUS(u,dk)===sh));
     // Count slots for SELECTED DAY only
@@ -197,7 +197,7 @@ function renderScheduleTraining() {
         <span style="color:var(--text3);font-size:11px;margin-left:2px;">agents</span>
       </span>
       <span style="color:var(--border2);">|</span>
-      ${['A','B','C','D','E'].map(sh=>{
+      ${['A','D','E'].map(sh=>{
         const d=SD[sh];
         if (!d.users.length) return '';
         const c=SHIFT_COLORS[sh]||{};
@@ -212,7 +212,7 @@ function renderScheduleTraining() {
     </div>`;
 
   // ── Shift blocks ──
-  const blocks = ['A','B','C','D','E'].map(sh=>{
+  const blocks = ['A','D','E'].map(sh=>{
     const d=SD[sh];
     if (!d.users.length) return '';
     if (TS.shiftFilter!=='all'&&TS.shiftFilter!==sh) return '';
@@ -340,7 +340,7 @@ function renderExtBreakTraining() {
     return `<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(245,158,11,.15);color:var(--warn);font-weight:500;">⏳ Pending</span>`;
   }
 
-  const blocks = ['A','B','C','D','E'].map(sh=>{
+  const blocks = ['A','D','E'].map(sh=>{
     const users = femaleByShift[sh].filter(u=>!q||u.name.toLowerCase().includes(q));
     if (!users.length) return '';
     if (TS.shiftFilter!=='all'&&TS.shiftFilter!==sh) return '';
