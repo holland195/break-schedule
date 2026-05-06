@@ -22,6 +22,12 @@ const SHIFTS = {
 // Visible shifts for UI (login, sidebar, break schedule tabs, arrange)
 const VISIBLE_SHIFTS = ['A', 'D', 'E'];
 
+// Ensure currentShift is always a visible shift.
+// Called on login, session restore, and sidebar change.
+function _guardShift(s) {
+  return VISIBLE_SHIFTS.includes(s) ? s : 'E';
+}
+
 const BREAK_SLOTS = {
   A:['18:00–19:30','19:30–21:00'],
   B:['22:00–23:30','23:30–01:00'],
@@ -257,10 +263,12 @@ function getShiftMates(shift,day) {
 }
 function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
 function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
-function assign(uid,day,slot,note) {
+function assign(uid, day, slot, note) {
   const now = Date.now();
-  DB.setBreak(uid, day||todayKey(), {slot, note:note||'', by:currentUser?.id, at:now});
-  state._breaksUpdatedAt = now; // mark when breaks were last written locally
+  // Normalise dash in slot string to en-dash so getShortSlot always matches
+  const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D]/g, '–') : slot;
+  DB.setBreak(uid, day || todayKey(), { slot: normSlot, note: note || '', by: currentUser?.id, at: now });
+  state._breaksUpdatedAt = now;
   if (typeof syncWrite === 'function') syncWrite(); else save();
 }
 function currentMonthKey() {
@@ -270,26 +278,14 @@ function monthKeyFromDate(ds) {
   const [,m]=ds.split('/'); return `2026-${m.padStart(2,'0')}`;
 }
 
-// function getShortSlot(shift,fullTime) {
-//   if(!fullTime||fullTime==='—') return '';
-//   const idx=(BREAK_SLOTS[shift]||[]).indexOf(fullTime);
-//   return idx!==-1?`${shift}${idx+1}`:fullTime;
-// }
-
-function getShortSlot(shift, slotTime) {
-  if (!slotTime || slotTime === '—') return '';
-  
-  const slots = BREAK_SLOTS[shift] || [];
-  
-  // Normalization: Removes all spaces and converts long dashes (–) to standard hyphens (-)
-  const normalize = (str) => str.replace(/\s+/g, '').replace(/–/g, '-').trim();
-  const cleanSlotTime = normalize(slotTime);
-  
-  // Use findIndex with normalized comparison to find the correct index
-  const idx = slots.findIndex(s => normalize(s) === cleanSlotTime);
-  
-  // Returns D1/D2 if found; otherwise returns raw time for debugging
-  return idx !== -1 ? `${shift}${idx + 1}` : slotTime;
+function getShortSlot(shift, fullTime) {
+  if (!fullTime || fullTime === '—') return '';
+  // Normalise dash: replace en-dash, em-dash, and hyphen all to en-dash
+  // so indexOf works regardless of what character was used when storing
+  function normDash(s) { return s.replace(/[\u2012\u2013\u2014\u002D]/g, '–'); }
+  const normalised = normDash(fullTime);
+  const idx = (BREAK_SLOTS[shift] || []).map(normDash).indexOf(normalised);
+  return idx !== -1 ? `${shift}${idx + 1}` : fullTime;
 }
 
 

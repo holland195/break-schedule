@@ -99,7 +99,7 @@ async function doLogin() {
     }
 
     currentUser  = user;
-    currentShift = s || 'E';
+    currentShift = _guardShift(s || 'E');
     err.textContent = '';
 
     // ── Pull cloud data FIRST before checking mustChangePw ──
@@ -287,6 +287,7 @@ function enterApp(fromSession) {
   document.querySelectorAll('.admin-only').forEach(el => el.style.display  = isAdmin(currentUser) ? 'flex' : 'none');
 
   buildDatalist();
+    currentShift = _guardShift(currentShift);
   document.getElementById('sidebar-shift').value = currentShift;
 
   if (typeof updateSyncBadge === 'function') updateSyncBadge(typeof syncEnabled === 'function' && syncEnabled() ? 'ok' : 'err');

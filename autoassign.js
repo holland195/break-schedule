@@ -216,7 +216,7 @@ function autoAssignBreaks(importedUsers) {
             }
 
             DB.setBreak(u.id, d, {
-              slot: assignedSlot,
+              slot: (assignedSlot || '').replace(/[\u2012\u2013\u2014\u002D]/g, '–'),
               note: 'auto',
               by:   null,
               at:   RUN_TIMESTAMP,

@@ -58,11 +58,12 @@ function nav(page) {
   attachPageEvents(page);
 }
 
-function changeSidebarShift(v) {
-  currentShift = v;
-  if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
-  nav(currentPage);
-}
+  function changeSidebarShift(v) {
+    currentShift = _guardShift(v);
+    document.getElementById('sidebar-shift').value = currentShift;
+    if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
+    nav(currentPage);
+  }
 
 function attachPageEvents(page) {
   if (page === 'arrange') {

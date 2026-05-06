@@ -907,9 +907,10 @@ function _renderArrangeOverviewTab(weekRange) {
   // 2. CONVERT TIME TO LEGEND (D1, D2, etc.)
   // This uses your shift code (e.g., 'D') and the time (e.g., '19:30–21:00') 
   // to find the short legend code.
-  const code = br ? getShortSlot(currentShift, br.slot) : '?'; 
-
-  const ov_si = br ? (BREAK_SLOTS[currentShift] || []).indexOf(br.slot) : -1;
+  const code = br ? getShortSlot(currentShift, br.slot) : '?';
+  // Derive slot index from the short code (e.g. 'A1'→0, 'A2'→1)
+  // This uses the already-normalised getShortSlot result so no dash mismatch
+  const ov_si = code.length === 2 ? parseInt(code[1]) - 1 : -1;
   const isActive = d === arrangeActiveDay;
   const ov_class = br
     ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned${isActive ? ' overview-cell-active' : ''}`
