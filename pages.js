@@ -145,7 +145,7 @@ function _roleSort(a, b) {
 // ═══════════════════════════════════════════════
 function renderDashboard() {
   const weekDates = getWeekDates(); // always real current week
-  const todayDk = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const todayDk = weekDates[new Date().getDay()]; 
   const si = DB.getStaffInfo(currentUser.username);
   const gender = si?.gender || currentUser.gender || '';
   const mk = currentMonthKey();
@@ -317,7 +317,8 @@ function renderSchedule() {
 
   const schedSearch = window._schedSearch || '';
   const shiftSlots = BREAK_SLOTS[shiftToShow] || [];
-  const todayDk = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || weekDates[0];
+  const _tNow = new Date();
+const todayDk = `${_tNow.getDate().toString().padStart(2,'0')}/${(_tNow.getMonth()+1).toString().padStart(2,'0')}`;
 
   // All users on this shift (unfiltered, for totals)
   const allShiftUsers = state.users.filter(u =>

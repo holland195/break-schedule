@@ -226,7 +226,7 @@ if (existing && _slotBelongsToShift(existing.slot, shift)) {
 // wrong-shift slot → overwrite it with correct assignment
 
             DB.setBreak(u.id, d, {
-              slot: (assignedSlot || '').replace(/[\u2012\u2013\u2014\u002D]/g, '–'),
+              slot: (assignedSlot || '').replace(/[\u2012\u2013\u2014\u002D]/g, '\u2013'),
               note: 'auto',
               by:   null,
               at:   RUN_TIMESTAMP,

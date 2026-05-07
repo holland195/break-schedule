@@ -302,12 +302,14 @@ function getWkDay(ds) {
   const [d,m]=ds.split('/');
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(2026,parseInt(m)-1,parseInt(d)).getDay()];
 }
+// AFTER — return Sun–Sat:
 function getWeekDates() {
-  const now=new Date(),day=now.getDay();
-  const diff=now.getDate()-day+(day===0?-6:1);
-  const mon=new Date(now.setDate(diff));
-  return WEEK_DAYS.map((_,i)=>{
-    const dt=new Date(mon); dt.setDate(mon.getDate()+i);
+  const now = new Date();
+  const sun = new Date(now);
+  sun.setDate(now.getDate() - now.getDay()); // go back to Sunday
+  return WEEK_DAYS.map((_, i) => {
+    const dt = new Date(sun);
+    dt.setDate(sun.getDate() + i);
     return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}`;
   });
 }
