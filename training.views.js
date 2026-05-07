@@ -118,8 +118,9 @@ function renderScheduleTraining() {
       total++;
       const br = DB.getBreak(u.id, selDay);
       if (!br) return;
-      const idx = slots.indexOf(br.slot);
-      if (idx===0) s1++; else if (idx===1) s2++;
+      const code = getShortSlot(sh, br.slot);
+const idx = code.length === 2 ? parseInt(code[1]) - 1 : -1;
+if (idx===0) s1++; else if (idx===1) s2++;
     });
     SD[sh] = {users, slots, s1, s2, total};
   });
@@ -239,9 +240,9 @@ function renderScheduleTraining() {
         const isSel=dk===selDay;
         if (us!==sh) return `<td style="text-align:center;padding:5px 2px;${isSel?'background:rgba(31,102,241,.03);':''}"><span style="font-size:10px;color:var(--text3);">—</span></td>`;
         const br=DB.getBreak(u.id,dk);
-        const idx=br?d.slots.indexOf(br.slot):-1;
-        const cls=idx>=0?`slot-${idx+1}`:'';
-        const code=br?getShortSlot(sh,br.slot):'?';
+const code=br?getShortSlot(sh,br.slot):'?';
+const slotNum=code.length===2?parseInt(code[1]):0;
+const cls=slotNum>0?`slot-${slotNum}`:'';
         return `<td style="text-align:center;padding:4px 2px;${isSel?'background:rgba(31,102,241,.03);':''}">
           <span class="${br?`break-slot assigned ${cls}`:''}"
             style="font-size:10px;padding:3px 7px;${br?'':'color:var(--text3);'}"

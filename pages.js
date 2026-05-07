@@ -434,8 +434,9 @@ function renderSchedule() {
         const _days = (e.days && e.days.length > 0) ? e.days : (e.day ? [e.day] : []);
         return _days.includes(dk);
       });
-      const slotIdx = br ? shiftSlots.indexOf(br.slot) : -1;
-      const slotCls = slotIdx >= 0 ? `slot-${slotIdx + 1}` : '';
+      const slotIdx = br ? getShortSlot(shiftToShow, br.slot) : '';
+const slotNum = slotIdx.length === 2 ? parseInt(slotIdx[1]) : 0;
+const slotCls = slotNum > 0 ? `slot-${slotNum}` : '';
       const shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
 
       

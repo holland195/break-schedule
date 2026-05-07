@@ -280,12 +280,12 @@ function monthKeyFromDate(ds) {
 
 function getShortSlot(shift, fullTime) {
   if (!fullTime || fullTime === '—') return '';
-  // Normalize: strip spaces, unify ALL dash variants to en-dash
-  function normDash(s) {
-    return s.replace(/\s+/g, '').replace(/[\u2012\u2013\u2014\u002D\uFE58\uFE63\uFF0D]/g, '\u2013');
+  // Normalize: collapse all dash variants (en-dash, em-dash, hyphen, figure-dash)
+  // and remove spaces so any stored format matches BREAK_SLOTS
+  function nd(s) {
+    return s.replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, '');
   }
-  const normalised = normDash(fullTime);
-  const idx = (BREAK_SLOTS[shift] || []).findIndex(s => normDash(s) === normalised);
+  const idx = (BREAK_SLOTS[shift] || []).findIndex(s => nd(s) === nd(fullTime));
   return idx !== -1 ? `${shift}${idx + 1}` : fullTime;
 }
 
