@@ -48,24 +48,19 @@ function _mondayToDate(monStr) {
 }
 
 // Get the Monday of the current real calendar week — in schedule year (2026)
-function _currentWeekMonday() {
-  const now  = new Date();
-  const day  = now.getDay(); // 0=Sun,1=Mon,...6=Sat
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  // Use same year as the schedule (2026) so date comparison is consistent
-  // getWeekDates() and getWeekRange() both use year 2026
-  const mon  = new Date(2026, now.getMonth(), diff);
-  mon.setHours(0, 0, 0, 0);
-  return mon;
+function _currentWeekSunday() {
+  const now = new Date();
+  const sun = new Date(2026, now.getMonth(), now.getDate() - now.getDay());
+  sun.setHours(0, 0, 0, 0);
+  return sun;
 }
 
 // Is a given Monday string strictly in the future (starts after current week)?
 // Both dates use year 2026 so comparison is consistent with getWeekRange()
-function _isFutureWeek(monStr) {
-  const monDate    = _mondayToDate(monStr);   // year 2026
-  const thisMonday = _currentWeekMonday();    // year 2026, real month/day
-  // Strictly after = starts on a later Monday than the current one
-  return monDate > thisMonday;
+function _isFutureWeek(sunStr) {
+  const sunDate      = _mondayToDate(sunStr); // _mondayToDate works for any DD/MM
+  const thisSunday   = _currentWeekSunday();
+  return sunDate > thisSunday;
 }
 
 function _loadRotation() {
@@ -135,12 +130,12 @@ function autoAssignBreaks(importedUsers) {
     Object.keys(u.schedule || {}).forEach(d => allDates.add(d));
   });
 
-  // Find all Monday dates, sort chronologically
-  const mondays = [...allDates]
-    .filter(d => /^\d{1,2}\/\d{1,2}$/.test(d) && getWkDay(d) === 'Mon')
-    .sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
+  // Find all Sunday dates, sort chronologically
+  const sundays = [...allDates]
+  .filter(d => /^\d{1,2}\/\d{1,2}$/.test(d) && getWkDay(d) === 'Sun')
+  .sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
 
-  if (mondays.length === 0) return { assigned: 0, weekCount: 0 };
+if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
   // Load rotation state once — mutate in place across all weeks in this import
   // This ensures future weeks see the correctly accumulated phase from earlier weeks
@@ -148,8 +143,9 @@ function autoAssignBreaks(importedUsers) {
   const shifts = Object.keys(BREAK_SLOTS);
   let totalAssigned = 0;
 
-  mondays.forEach(monday => {
-    const weekDates = getWeekRange(monday);
+  sundays.forEach(sunday => {
+  const weekDates = getWeekRange(sunday); // now returns Sun–Sat
+    
     const isFuture  = _isFutureWeek(monday);
     const weekLabel = isFuture ? '(future)' : '(current/past)';
     console.log(`[autoassign] Processing week ${monday} ${weekLabel}`);
@@ -195,7 +191,7 @@ function autoAssignBreaks(importedUsers) {
         // Resolve phase using Option C logic.
         // IMPORTANT: we resolve the phase even if everyone is already assigned,
         // so that the rotation state is updated correctly for future weeks.
-        const phase      = _resolvePhase(rot, shift, tier, monday);
+        const phase = _resolvePhase(rot, shift, tier, sunday);
         const firstCount = Math.ceil(members.length / 2);
 
         // If all members are already fully assigned this week, skip writing
@@ -244,7 +240,7 @@ function autoAssignBreaks(importedUsers) {
   // Note: syncWrite() is called by confirmScheduleImport() with await
   // Do not call it here — caller handles the push after this returns
 
-  return { assigned: totalAssigned, weekCount: mondays.length };
+  return { assigned: totalAssigned, weekCount: sundays.length };
 }
 
 // ── Admin utilities ──

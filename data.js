@@ -223,12 +223,12 @@ let currentUser  = null;
 let currentShift = 'E';
 let currentPage  = 'dashboard';
 let assigningEmp = null;
-// Default to current real week's Monday
+// Default to current real week's Sunday
 let activeMonday = (() => {
-  const now = new Date(); const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const mon = new Date(now.setDate(diff));
-  return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+  const now = new Date();
+  const sun = new Date(now);
+  sun.setDate(now.getDate() - now.getDay()); // getDay()=0 on Sun → stays same day
+  return `${sun.getDate().toString().padStart(2,'0')}/${(sun.getMonth()+1).toString().padStart(2,'0')}`;
 })();
 let showFullMonth = false;
 let staffFilters  = { team:'', name:'', user:'', role:'' };
@@ -263,14 +263,16 @@ function getShiftMates(shift,day) {
 }
 function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
 function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
+
 function assign(uid, day, slot, note) {
   const now = Date.now();
-  // Normalize dash to en-dash for consistent storage
+  // Normalize all dash variants → en-dash for consistent storage
   const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D]/g, '\u2013') : slot;
   DB.setBreak(uid, day || todayKey(), { slot: normSlot, note: note || '', by: currentUser?.id, at: now });
   state._breaksUpdatedAt = now;
-  save(); // save locally only — cloud push done explicitly via "Save Breaks" button
+  save(); // local only — push via "Save Breaks" button, not on every single click
 }
+
 function currentMonthKey() {
   const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
 }
@@ -279,11 +281,10 @@ function monthKeyFromDate(ds) {
 }
 
 function getShortSlot(shift, fullTime) {
-  if (!fullTime || fullTime === '—') return '';
-  // Normalize: collapse all dash variants (en-dash, em-dash, hyphen, figure-dash)
-  // and remove spaces so any stored format matches BREAK_SLOTS
+  if (!fullTime || fullTime === '\u2014') return ''; // em-dash = —
+  // Normalize ALL dash-like unicode chars to plain hyphen for comparison
   function nd(s) {
-    return s.replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, '');
+    return (s || '').replace(/[\u2012\u2013\u2014\u002D\u2212\uFE58\uFE63\uFF0D]/g, '-').replace(/\s/g, '');
   }
   const idx = (BREAK_SLOTS[shift] || []).findIndex(s => nd(s) === nd(fullTime));
   return idx !== -1 ? `${shift}${idx + 1}` : fullTime;

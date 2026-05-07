@@ -690,18 +690,23 @@ function renderArrange() {
 
   // Build week picker from available schedule dates
   const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
-  const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort((a, b) => {
-    const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-    return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
-  });
-  const weekPickerHTML = mondays.length > 0 ? `
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
-      <select class="login-select" style="padding:4px 8px;font-size:11px;"
-        onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
-        ${mondays.map(m => `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>${m} — ${getWkDay(m)}</option>`).join('')}
-      </select>
-    </div>` : '';
+  const sundays = allDates.filter(d => getWkDay(d) === 'Sun').sort((a, b) => {
+  const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
+  return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
+});
+const weekPickerHTML = sundays.length > 0 ? `
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
+    <select class="login-select" style="padding:4px 8px;font-size:11px;"
+      onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
+      ${sundays.map(s => {
+        const [d, m] = s.split('/');
+        const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
+        const endStr = `${end.getDate().toString().padStart(2,'0')}/${(end.getMonth()+1).toString().padStart(2,'0')}`;
+        return `<option value="${s}" ${s === activeMonday ? 'selected' : ''}>${s} – ${endStr}</option>`;
+      }).join('')}
+    </select>
+  </div>` : '';
 
   return `
 <div class="page-header">
@@ -981,9 +986,12 @@ function switchArrangeDay(day) {
 function getArrangeDayMemberList(_unused) {
   const weekRange = getWeekRange(activeMonday);
   const slots = BREAK_SLOTS[currentShift] || [];
-  const todayDk = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-  // Normalize dashes for slot comparison — handles en-dash vs hyphen variants
-  const _nd = (x) => (x || '').replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, '');
+  const todayDk = (() => {
+  const now = new Date();
+  return `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}`;
+})();
+  // Normalize dashes for robust slot comparison
+  const nd = (x) => (x || '').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, '');
   // All users on this shift in ANY day this week
   const allMates = state.users.filter(u =>
     weekRange.some(d => {
@@ -1027,7 +1035,7 @@ function getArrangeDayMemberList(_unused) {
 
       const slotBtns = slots.map((s, idx) => {
         // Normalize both sides for comparison to handle any dash variant in stored data
-        const isAssigned = br && _nd(br.slot) === _nd(s);
+        const isAssigned = br && nd(br.slot) === nd(s);
         return `<span
     class="arr-slot arr-slot-${idx + 1}${isAssigned ? ' arr-slot-on' : ' arr-slot-off'}"
     onclick="quickAssignByIndex(${u.id},'${d}',${idx})"
@@ -1079,7 +1087,7 @@ function getArrangeDayMemberList(_unused) {
         const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
         if (!br) return;
         //const code = getShortSlot(currentShift, br.slot);
-        const idx = slots.findIndex(s => _nd(s) === _nd(br.slot));
+        const idx = slots.findIndex(s => nd(s) === nd(br.slot));
         if (idx === 0) s1++;
         else if (idx === 1) s2++;
       });
