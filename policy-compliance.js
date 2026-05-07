@@ -388,8 +388,8 @@ function _pcRenderRecords() {
   var rows = slice.length===0
     ? '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3);">No matching records.</td></tr>'
     : slice.map(function(r,i) {
-        var idx = _pcData().indexOf(r);
-        return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="_pcOpenEditModal('+idx+')">'
+        
+        return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="_pcOpenEditModalByNo('+r.no+')">'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.no+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;">'+r.date+'</td>'
           + '<td style="padding:7px 10px;font-weight:600;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+'</td>'
@@ -418,6 +418,12 @@ function _pcRenderRecords() {
       }).join('')
     + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
     + pager;
+}
+
+function _pcOpenEditModalByNo(no) {
+  var idx = _pcData().findIndex(function(r) { return r.no === no; });
+  if (idx === -1) { toast('Record not found — page may have refreshed.', 'warn'); return; }
+  _pcOpenEditModal(idx);
 }
 
 // ════════════════════════════════════════════
@@ -596,7 +602,7 @@ function _pcOpenEditModal(idx) {
       + '</div>'
       + '<div class="fg" style="margin-bottom:12px;"><label>Leader confirm note</label><textarea id="pce-confirm" style="min-height:50px;">'+(r.leaderConfirm||'')+'</textarea></div>'
       + '<div style="display:flex;gap:8px;">'
-      + '<button class="btn btn-accent" onclick="_pcSaveEdit('+idx+')">Save</button>'
+      + '<button class="btn btn-accent" onclick="_pcSaveEdit('+r.no+')">Save</button>'
       + '<button class="btn" onclick="_pcCloseModal()">Cancel</button>'
       + '</div><div id="pce-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>'
       + '</div>' : '')
@@ -605,7 +611,9 @@ function _pcOpenEditModal(idx) {
   document.getElementById('pc-modal').style.display = 'flex';
 }
 
-function _pcSaveEdit(idx) {
+function _pcSaveEdit(no) {
+  var idx = state.policyCompliance.findIndex(function(r) { return r.no === no; });
+  if (idx === -1) { toast('Record not found.', 'err'); _pcCloseModal(); return; }
   var r = state.policyCompliance[idx];
   r.status        = document.getElementById('pce-status').value;
   r.leaderConfirm = document.getElementById('pce-confirm').value;

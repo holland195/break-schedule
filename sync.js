@@ -432,9 +432,14 @@ function startSyncPolling() {
     }
  
     if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
-      nav(currentPage);
-      updateBadge();
-    }
+  // Don't re-render if any modal is open (would destroy it)
+  const anyModalOpen = document.querySelector('.modal-overlay.show') ||
+    (document.getElementById('pc-modal')?.style.display === 'flex');
+  if (!anyModalOpen) {
+    nav(currentPage);
+    updateBadge();
+  }
+}
     updateSyncBadge('ok');
   }, 15 * 1000); // 15 seconds — Firebase REST has no rate limits
 }

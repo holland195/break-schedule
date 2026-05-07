@@ -54,9 +54,11 @@ function _fbMyRecords() {
 }
 
 function _fbUnreadCount() {
-  // For agents: violations without their feedback (new records they haven't responded to)
   if (_fbIsAgent(currentUser)) {
-    return _fbMyRecords().filter(function(r) { return !r.agentFeedback; }).length;
+    // Only count violations that need a response AND are not yet resolved
+    return _fbMyRecords().filter(function(r) {
+      return !r.agentFeedback && r.status !== 'Resolved';
+    }).length;
   }
   // For leaders: records that have new agent feedback not yet acknowledged
   return _fbData().filter(function(r) {
@@ -152,7 +154,9 @@ function _fbRenderMine() {
       + '</div>';
   }
 
-  var pending = records.filter(function(r){return !r.agentFeedback;}).length;
+  var pending = records.filter(function(r){
+  return !r.agentFeedback && r.status !== 'Resolved';
+}).length;
   var banner  = pending > 0
     ? '<div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:rgba(251,191,36,.10);border:1px solid var(--warn);border-radius:8px;margin-bottom:16px;font-size:13px;">'
       + '<span style="font-size:20px;">&#x1F4DD;</span>'
