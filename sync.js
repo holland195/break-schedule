@@ -432,9 +432,8 @@ function startSyncPolling() {
     }
  
     if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
-  // Don't re-render if any modal is open (would destroy it)
-  const anyModalOpen = document.querySelector('.modal-overlay.show') ||
-    (document.getElementById('pc-modal')?.style.display === 'flex');
+  const pcModalOpen = document.getElementById('pc-modal')?.style.display === 'flex';
+  const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
   if (!anyModalOpen) {
     nav(currentPage);
     updateBadge();

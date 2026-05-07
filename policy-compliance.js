@@ -597,7 +597,9 @@ function _pcOpenEditModal(idx) {
     + (ldr ? '<div style="border-top:1px solid var(--border);margin:12px 0;padding-top:12px;">'
       + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:10px;">Leader edit</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
-      + '<div class="fg"><label>Status</label><select id="pce-status"><option '+(r.status==='Resolved'?'selected':'')+'>Resolved</option><option '+(r.status==='To Be Reviewed'?'selected':'')+'>To Be Reviewed</option></select></div>'
+      + (isTraining(currentUser)
+  ? '<div class="fg"><label>Status</label><select id="pce-status"><option '+(r.status==='Resolved'?'selected':'')+'>Resolved</option><option '+(r.status==='To Be Reviewed'?'selected':'')+'>To Be Reviewed</option></select></div>'
+  : '<div class="fg"><label>Status</label><div style="font-size:12px;padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">' + (r.status === 'Resolved' ? '<span style="color:var(--ok);">✓ Resolved</span>' : '<span style="color:var(--warn);">⏳ To Be Reviewed</span>') + '</div></div>')
       + '<div class="fg"><label>Mail check</label><select id="pce-mail"><option value="false" '+(!r.mailCheck?'selected':'')+'>No</option><option value="true" '+(r.mailCheck?'selected':'')+'>Yes</option></select></div>'
       + '</div>'
       + '<div class="fg" style="margin-bottom:12px;"><label>Leader confirm note</label><textarea id="pce-confirm" style="min-height:50px;">'+(r.leaderConfirm||'')+'</textarea></div>'
@@ -615,9 +617,15 @@ function _pcSaveEdit(no) {
   var idx = state.policyCompliance.findIndex(function(r) { return r.no === no; });
   if (idx === -1) { toast('Record not found.', 'err'); _pcCloseModal(); return; }
   var r = state.policyCompliance[idx];
-  r.status        = document.getElementById('pce-status').value;
+
+  // Only Training can update status
+  if (isTraining(currentUser)) {
+    r.status = document.getElementById('pce-status').value;
+    r.mailCheck = document.getElementById('pce-mail').value === 'true';
+  }
+  // Leader can update confirm note
   r.leaderConfirm = document.getElementById('pce-confirm').value;
-  r.mailCheck     = document.getElementById('pce-mail').value==='true';
+
   save();
   if (typeof syncWrite === 'function') syncWrite();
   var msg = document.getElementById('pce-msg');
