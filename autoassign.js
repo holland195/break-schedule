@@ -20,10 +20,16 @@
 const ROTATION_STORAGE_KEY = 'bsched_rotation';
 
 // ── Helpers ──
+
+// Normalize dash variants for slot comparison
+function _nd(s) {
+  return (s || '').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, '');
+}
+
+// Check if a saved slot belongs to the given shift (prevents wrong-shift slots blocking reassignment)
 function _slotBelongsToShift(slot, shift) {
   if (!slot) return false;
-  const nd = (s) => (s || '').replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, '');
-  return (BREAK_SLOTS[shift] || []).some(s => nd(s) === nd(slot));
+  return (BREAK_SLOTS[shift] || []).some(s => _nd(s) === _nd(slot));
 }
 
 function _roleTier(role) {
@@ -40,11 +46,7 @@ function _naturalSort(a, b) {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
-function _getShiftChar(schedVal) {
-  if (!schedVal) return null;
-  const m = String(schedVal).match(/([A-E])/);
-  return m ? m[1] : null;
-}
+
 
 // Convert 'DD/MM' string → JS Date (assume year 2026)
 function _mondayToDate(monStr) {
@@ -151,7 +153,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
   const weekDates = getWeekRange(sunday); // now returns Sun–Sat
     
     const isFuture  = _isFutureWeek(sunday);
-    const phase     = _resolvePhase(rot, shift, tier, sunday);
+    
     const weekLabel = isFuture ? '(future)' : '(current/past)';
     console.log(`[autoassign] Processing week ${sunday} ${weekLabel}`);
 
@@ -164,7 +166,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       const onShift = importedUsers.filter(u => {
   const role = u.role || DB.getStaffInfo(u.username)?.role || '';
   if (!_roleTier(role)) return false;
-  return weekDates.some(d => _getShiftChar(u.schedule[d]) === shift);
+  return weekDates.some(d => u.schedule[d] === shift);
 });
       if (onShift.length === 0) return;
 
@@ -178,7 +180,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
       Object.entries(tiers).forEach(([tier, members]) => {
         if (members.length === 0) return;
-
+const phase = _resolvePhase(rot, shift, tier, sunday);
         // Sort by group name (natural: AT1 < AT9 < AT10)
         members.sort((a, b) => _naturalSort(a.team || '', b.team || ''));
 
@@ -197,7 +199,7 @@ const allAlreadyAssigned = fullyAssigned.length === members.length;
         // Resolve phase using Option C logic.
         // IMPORTANT: we resolve the phase even if everyone is already assigned,
         // so that the rotation state is updated correctly for future weeks.
-        const phase     = _resolvePhase(rot, shift, tier, sunday);
+       
         const firstCount = Math.ceil(members.length / 2);
 
         // If all members are already fully assigned this week, skip writing
@@ -214,7 +216,7 @@ const allAlreadyAssigned = fullyAssigned.length === members.length;
             : (inFirst ? slot2 : slot1);
 
           weekDates.forEach(d => {
-  if (_getShiftChar(u.schedule[d]) !== shift) return; // off or different shift
+  if (u.schedule[d] !== shift) return; // off or different shift
 
             const existing = DB.getBreak(u.id, d);
 if (existing && _slotBelongsToShift(existing.slot, shift)) {
