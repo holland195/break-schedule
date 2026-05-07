@@ -120,10 +120,13 @@ function renderPolicyFeedback() {
   var content = (_fbTab === 'mine') ? _fbRenderMine() : _fbRenderTeam();
 
   var title = isAgent ? 'My Violations' : 'Team Violations';
-  var sub   = isAgent
-    ? (_fbMyRecords().length + ' records · ' + _fbMyRecords().filter(function(r){return !r.agentFeedback;}).length + ' awaiting your response')
-    : (_fbData().length + ' total · ' + _fbData().filter(function(r){return r.agentFeedback&&!r.feedbackReadByLeader;}).length + ' with new agent feedback');
-
+  var sub = isAgent
+  ? (_fbMyRecords().length + ' records · ' + _fbMyRecords().filter(function(r){
+      return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
+    }).length + ' awaiting your response')
+  : (_fbData().length + ' total · ' + _fbData().filter(function(r){
+      return r.agentFeedback && !r.feedbackReadByLeader && r.status !== 'Resolved';
+    }).length + ' with new agent feedback');
   return '<div class="page-header"><div>'
     + '<div class="page-title">&#x1F4AC; ' + title + '</div>'
     + '<div class="page-sub">' + sub + '</div>'
@@ -250,7 +253,9 @@ function _fbRenderTeam() {
     var isMe = g.username === currentUser.username;
     var hasFeedback = g.records.filter(function(r){return r.agentFeedback;}).length;
     var noFeedback  = g.records.length - hasFeedback;
-    var newFb = g.records.filter(function(r){return r.agentFeedback && !r.feedbackReadByLeader;}).length;
+    var newFb = g.records.filter(function(r){
+  return r.agentFeedback && !r.feedbackReadByLeader && r.status !== 'Resolved';
+}).length;
 
     html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;">'
 
@@ -274,7 +279,7 @@ function _fbRenderTeam() {
       + g.records.map(function(r) {
           var realIdx = _fbData().indexOf(r);
           var hasFb   = !!r.agentFeedback;
-          var isNewFb = hasFb && !r.feedbackReadByLeader && isLeader(currentUser);
+          var isNewFb = hasFb && !r.feedbackReadByLeader && isLeader(currentUser) && r.status !== 'Resolved';
 
           var row = '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
             + '<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">'
@@ -302,7 +307,7 @@ function _fbRenderTeam() {
                 + '&#x1F4AC; Agent feedback' + (isNewFb ? ' <span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:99px;font-size:9px;">NEW</span>' : '') + '</div>'
                 + '<div style="font-size:12px;line-height:1.7;color:var(--text);">' + r.agentFeedback + '</div>'
                 + '<div style="font-size:10px;color:var(--text3);margin-top:5px;">' + _fbTimeSince(r.agentFeedbackAt) + '</div>'
-                + (isNewFb && isLeader(currentUser) ? '<button onclick="_fbMarkRead(' + realIdx + ')" style="margin-top:7px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Mark read</button>' : '')
+                + (isNewFb && isLeader(currentUser) && r.status !== 'Resolved' ? '<button onclick="_fbMarkRead(' + realIdx + ')" style="margin-top:7px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Mark read</button>' : '')
                 + '</div>'
               : '<div style="margin-top:6px;font-size:11px;color:var(--text3);font-style:italic;">No agent response yet.</div>'
             )
