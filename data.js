@@ -265,11 +265,11 @@ function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
 function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
 function assign(uid, day, slot, note) {
   const now = Date.now();
-  // Normalize ALL dash variants → en-dash for consistent storage & lookup
-  const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D\uFE58\uFE63\uFF0D]/g, '\u2013') : slot;
+  // Normalize dash to en-dash for consistent storage
+  const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D]/g, '\u2013') : slot;
   DB.setBreak(uid, day || todayKey(), { slot: normSlot, note: note || '', by: currentUser?.id, at: now });
   state._breaksUpdatedAt = now;
-  if (typeof syncWrite === 'function') syncWrite(); else save();
+  save(); // save locally only — cloud push done explicitly via "Save Breaks" button
 }
 function currentMonthKey() {
   const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;

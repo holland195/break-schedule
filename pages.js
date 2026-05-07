@@ -982,7 +982,8 @@ function getArrangeDayMemberList(_unused) {
   const weekRange = getWeekRange(activeMonday);
   const slots = BREAK_SLOTS[currentShift] || [];
   const todayDk = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-
+  // Normalize dashes for slot comparison — handles en-dash vs hyphen variants
+  const _nd = (x) => (x || '').replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, '');
   // All users on this shift in ANY day this week
   const allMates = state.users.filter(u =>
     weekRange.some(d => {
@@ -1077,8 +1078,8 @@ function getArrangeDayMemberList(_unused) {
         if (!onShift) return;
         const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
         if (!br) return;
-        const code = getShortSlot(currentShift, br.slot);
-        const idx = code.length === 2 ? parseInt(code[1]) - 1 : -1;
+        //const code = getShortSlot(currentShift, br.slot);
+        const idx = slots.findIndex(s => _nd(s) === _nd(br.slot));
         if (idx === 0) s1++;
         else if (idx === 1) s2++;
       });
