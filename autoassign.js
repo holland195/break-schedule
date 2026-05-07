@@ -35,6 +35,12 @@ function _naturalSort(a, b) {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
+function _getShiftChar(schedVal) {
+  if (!schedVal) return null;
+  const m = String(schedVal).match(/([A-E])/);
+  return m ? m[1] : null;
+}
+
 // Convert 'DD/MM' string → JS Date (assume year 2026)
 function _mondayToDate(monStr) {
   const [d, m] = monStr.split('/');
@@ -155,10 +161,10 @@ function autoAssignBreaks(importedUsers) {
 
       // Users on this shift in this week
       const onShift = importedUsers.filter(u => {
-        const role = u.role || DB.getStaffInfo(u.username)?.role || '';
-        if (!_roleTier(role)) return false;
-        return weekDates.some(d => u.schedule[d] === shift);
-      });
+  const role = u.role || DB.getStaffInfo(u.username)?.role || '';
+  if (!_roleTier(role)) return false;
+  return weekDates.some(d => _getShiftChar(u.schedule[d]) === shift);
+});
       if (onShift.length === 0) return;
 
       // Split into tiers
@@ -179,11 +185,11 @@ function autoAssignBreaks(importedUsers) {
         // Count how many members in this tier already have ALL their working
         // days assigned this week — used to decide rotation phase recording.
         const fullyAssigned = members.filter(u =>
-          weekDates.every(d => {
-            if (u.schedule[d] !== shift) return true; // not on shift this day → not relevant
-            return !!DB.getBreak(u.id, d);            // has a break → counts as assigned
-          })
-        );
+  weekDates.every(d => {
+    if (_getShiftChar(u.schedule[d]) !== shift) return true;
+    return !!DB.getBreak(u.id, d);
+  })
+);
         const allAlreadyAssigned = fullyAssigned.length === members.length;
 
         // Resolve phase using Option C logic.
@@ -206,7 +212,7 @@ function autoAssignBreaks(importedUsers) {
             : (inFirst ? slot2 : slot1);
 
           weekDates.forEach(d => {
-            if (u.schedule[d] !== shift) return; // off or different shift
+  if (_getShiftChar(u.schedule[d]) !== shift) return; // off or different shift
 
             // ── Option D: skip this specific member+day if already assigned ──
             const existing = DB.getBreak(u.id, d);
