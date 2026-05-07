@@ -1366,13 +1366,21 @@ function importFromPaste() {
     const cols = line.split('\t');
     if (cols.length < 5) return;
 
-    const user = {
-      team: cols[1]?.trim() || '—',       // Column B
-      name: cols[2]?.trim() || '—',       // Column C
-      username: cols[3]?.trim().toLowerCase() || '', // Column D
-      role: cols[4]?.trim() || '—',       // Column E
-      schedule: {}
-    };
+    const username = cols[3]?.trim().toLowerCase() || '';
+// Generate stable ID from username (same hash used elsewhere in codebase)
+const _stableId = (uname) => {
+  let h = 0;
+  for (let i = 0; i < uname.length; i++) h = (Math.imul(31, h) + uname.charCodeAt(i)) | 0;
+  return Math.abs(h);
+};
+const user = {
+  id: _stableId(username),
+  team: cols[1]?.trim() || '—',
+  name: cols[2]?.trim() || '—',
+  username,
+  role: cols[4]?.trim() || '—',
+  schedule: {}
+};
 
     if (!user.username) return;
 
