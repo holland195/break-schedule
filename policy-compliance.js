@@ -122,11 +122,11 @@ function _pcCutoff30() {
 }
 
 function _pcUpdateBadge() {
-  var n = _pcData().filter(function(r){
-    return r.agentFeedback && !r.feedbackReadByLeader;
+  var n = _pcData().filter(function(r) {
+    return r.status === 'To Be Reviewed';
   }).length;
   var el = document.getElementById('pc-badge');
-  if (el) { el.textContent=n; el.style.display=n>0?'':'none'; }
+  if (el) { el.textContent = n; el.style.display = n > 0 ? '' : 'none'; }
 }
 
 // ════════════════════════════════════════════

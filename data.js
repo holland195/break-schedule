@@ -265,8 +265,8 @@ function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
 function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
 function assign(uid, day, slot, note) {
   const now = Date.now();
-  // Normalise dash in slot string to en-dash so getShortSlot always matches
-  const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D]/g, '–') : slot;
+  // Normalize ALL dash variants → en-dash for consistent storage & lookup
+  const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D\uFE58\uFE63\uFF0D]/g, '\u2013') : slot;
   DB.setBreak(uid, day || todayKey(), { slot: normSlot, note: note || '', by: currentUser?.id, at: now });
   state._breaksUpdatedAt = now;
   if (typeof syncWrite === 'function') syncWrite(); else save();
@@ -280,11 +280,12 @@ function monthKeyFromDate(ds) {
 
 function getShortSlot(shift, fullTime) {
   if (!fullTime || fullTime === '—') return '';
-  // Normalise dash: replace en-dash, em-dash, and hyphen all to en-dash
-  // so indexOf works regardless of what character was used when storing
-  function normDash(s) { return s.replace(/[\u2012\u2013\u2014\u002D]/g, '–'); }
+  // Normalize: strip spaces, unify ALL dash variants to en-dash
+  function normDash(s) {
+    return s.replace(/\s+/g, '').replace(/[\u2012\u2013\u2014\u002D\uFE58\uFE63\uFF0D]/g, '\u2013');
+  }
   const normalised = normDash(fullTime);
-  const idx = (BREAK_SLOTS[shift] || []).map(normDash).indexOf(normalised);
+  const idx = (BREAK_SLOTS[shift] || []).findIndex(s => normDash(s) === normalised);
   return idx !== -1 ? `${shift}${idx + 1}` : fullTime;
 }
 
