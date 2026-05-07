@@ -645,6 +645,7 @@ function _pcOpenAddModal() {
 
   document.getElementById('pc-modal-title').textContent = 'Add Violation Record';
   document.getElementById('pc-modal-body').innerHTML = ''
+  
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
 
     // Username
@@ -695,7 +696,11 @@ function _pcOpenAddModal() {
     + '<button class="btn" onclick="_pcCloseModal()" style="margin-top:16px;">Cancel</button>'
     + '</div>'
     + '<div id="pca-msg" style="font-size:11px;margin-top:8px;min-height:16px;"></div>';
-
+// ADD THIS after innerHTML is set:
+setTimeout(function() {
+  var leaderEl = document.getElementById('pca-leader');
+  if (leaderEl) leaderEl.textContent = currentUser.name;
+}, 10);
   window._pcaShift = null;
   document.getElementById('pc-modal').style.display = 'flex';
 
@@ -755,7 +760,7 @@ function _pcaAutoFill() {
     setField('pca-name',   (user&&user.name)   || (si&&si.name)   || val);
     setField('pca-empno',  (user&&user.empNo)   || (si&&si.empNo)  || '');
     setField('pca-role',   (user&&user.role)    || (si&&si.role)   || '');
-    setField('pca-leader', _PC_LEADER_MAP[val]  || '');
+    
 
     // Auto-fill shift from today's schedule
     if (user && user.schedule) {
@@ -801,7 +806,7 @@ function _pcaSaveRecord() {
   d.push({
     no: no,
     date:    document.getElementById('pca-date').value,
-    leader:  leaderEl ? leaderEl.textContent.replace('—','') : '',
+    leader: currentUser.name,
     empNo:   empnoEl  ? empnoEl.textContent.replace('—','')  : '',
     name:    nameEl   ? nameEl.textContent.replace('—','')   : user,
     role:    roleEl   ? roleEl.textContent.replace('—','')   : '',
