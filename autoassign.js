@@ -146,7 +146,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
   sundays.forEach(sunday => {
   const weekDates = getWeekRange(sunday); // now returns Sun–Sat
     
-    const isFuture  = _isFutureWeek(monday);
+    const isFuture  = _isFutureWeek(sunday);
     const weekLabel = isFuture ? '(future)' : '(current/past)';
     console.log(`[autoassign] Processing week ${monday} ${weekLabel}`);
 
