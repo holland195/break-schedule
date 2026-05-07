@@ -55,14 +55,12 @@ function _fbMyRecords() {
 
 function _fbUnreadCount() {
   if (_fbIsAgent(currentUser)) {
-    // Only count "To Be Reviewed" violations with no response yet
     return _fbMyRecords().filter(function(r) {
       return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
     }).length;
   }
-  // Leaders/Training: new agent comments not yet read
   return _fbData().filter(function(r) {
-    return (r.agentFeedback || r.agentDone) && !r.feedbackReadByLeader;
+    return (r.agentFeedback || r.agentDone) && !r.feedbackReadByLeader && r.status !== 'Resolved';
   }).length;
 }
 
