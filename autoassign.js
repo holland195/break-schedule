@@ -20,6 +20,11 @@
 const ROTATION_STORAGE_KEY = 'bsched_rotation';
 
 // ── Helpers ──
+function _slotBelongsToShift(slot, shift) {
+  if (!slot) return false;
+  const nd = (s) => (s || '').replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, '');
+  return (BREAK_SLOTS[shift] || []).some(s => nd(s) === nd(slot));
+}
 
 function _roleTier(role) {
   if (!role) return null;
@@ -47,7 +52,7 @@ function _mondayToDate(monStr) {
   return new Date(2026, parseInt(m) - 1, parseInt(d));
 }
 
-// Get the Monday of the current real calendar week — in schedule year (2026)
+// Replace _currentWeekMonday:
 function _currentWeekSunday() {
   const now = new Date();
   const sun = new Date(2026, now.getMonth(), now.getDate() - now.getDay());
@@ -55,11 +60,10 @@ function _currentWeekSunday() {
   return sun;
 }
 
-// Is a given Monday string strictly in the future (starts after current week)?
-// Both dates use year 2026 so comparison is consistent with getWeekRange()
+// Replace _isFutureWeek:
 function _isFutureWeek(sunStr) {
-  const sunDate      = _mondayToDate(sunStr); // _mondayToDate works for any DD/MM
-  const thisSunday   = _currentWeekSunday();
+  const sunDate    = _mondayToDate(sunStr); // works for any DD/MM
+  const thisSunday = _currentWeekSunday();
   return sunDate > thisSunday;
 }
 
@@ -147,6 +151,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
   const weekDates = getWeekRange(sunday); // now returns Sun–Sat
     
     const isFuture  = _isFutureWeek(sunday);
+    const phase     = _resolvePhase(rot, shift, tier, sunday);
     const weekLabel = isFuture ? '(future)' : '(current/past)';
     console.log(`[autoassign] Processing week ${sunday} ${weekLabel}`);
 
@@ -180,18 +185,19 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
         // ── Option D: check per-member per-day before assigning ──
         // Count how many members in this tier already have ALL their working
         // days assigned this week — used to decide rotation phase recording.
-        const fullyAssigned = members.filter(u =>
+const fullyAssigned = members.filter(u =>
   weekDates.every(d => {
-    if (_getShiftChar(u.schedule[d]) !== shift) return true;
-    return !!DB.getBreak(u.id, d);
+    if (u.schedule[d] !== shift) return true;
+    const existing = DB.getBreak(u.id, d);
+    return existing && _slotBelongsToShift(existing.slot, shift); // must be correct shift's slot
   })
 );
-        const allAlreadyAssigned = fullyAssigned.length === members.length;
+const allAlreadyAssigned = fullyAssigned.length === members.length;
 
         // Resolve phase using Option C logic.
         // IMPORTANT: we resolve the phase even if everyone is already assigned,
         // so that the rotation state is updated correctly for future weeks.
-        const phase = _resolvePhase(rot, shift, tier, sunday);
+        
         const firstCount = Math.ceil(members.length / 2);
 
         // If all members are already fully assigned this week, skip writing
@@ -210,12 +216,12 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
           weekDates.forEach(d => {
   if (_getShiftChar(u.schedule[d]) !== shift) return; // off or different shift
 
-            // ── Option D: skip this specific member+day if already assigned ──
             const existing = DB.getBreak(u.id, d);
-            if (existing) {
-              console.log(`[autoassign] Skip ${u.username} on ${d} — already has ${existing.slot}`);
-              return; // preserve existing break (manual or prior auto-assign)
-            }
+if (existing && _slotBelongsToShift(existing.slot, shift)) {
+  console.log(`[autoassign] Skip ${u.username} on ${d} — already has ${existing.slot}`);
+  return; // only skip if existing slot actually belongs to this shift
+}
+// wrong-shift slot → overwrite it with correct assignment
 
             DB.setBreak(u.id, d, {
               slot: (assignedSlot || '').replace(/[\u2012\u2013\u2014\u002D]/g, '–'),

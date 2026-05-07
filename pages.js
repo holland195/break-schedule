@@ -984,14 +984,14 @@ function switchArrangeDay(day) {
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
-  const weekRange = getWeekRange(activeMonday);
+  const weekRange = getWeekRange(activeMonday); // now Sun–Sat since activeMonday = Sunday
   const slots = BREAK_SLOTS[currentShift] || [];
-  const todayDk = (() => {
-  const now = new Date();
-  return `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}`;
-})();
-  // Normalize dashes for robust slot comparison
-  const nd = (x) => (x || '').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, '');
+  // Compute today's dateKey directly (robust, no index math)
+  const _now = new Date();
+  const todayDk = `${_now.getDate().toString().padStart(2,'0')}/${(_now.getMonth()+1).toString().padStart(2,'0')}`;
+  // Normalize dashes for slot comparison
+  const nd = (x) => (x||'').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, '');
+
   // All users on this shift in ANY day this week
   const allMates = state.users.filter(u =>
     weekRange.some(d => {

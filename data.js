@@ -227,7 +227,7 @@ let assigningEmp = null;
 let activeMonday = (() => {
   const now = new Date();
   const sun = new Date(now);
-  sun.setDate(now.getDate() - now.getDay()); // getDay()=0 on Sun → stays same day
+  sun.setDate(now.getDate() - now.getDay()); // 0=Sun stays, 1=Mon goes back 1, etc.
   return `${sun.getDate().toString().padStart(2,'0')}/${(sun.getMonth()+1).toString().padStart(2,'0')}`;
 })();
 let showFullMonth = false;
@@ -266,11 +266,10 @@ function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
 
 function assign(uid, day, slot, note) {
   const now = Date.now();
-  // Normalize all dash variants → en-dash for consistent storage
   const normSlot = slot ? slot.replace(/[\u2012\u2013\u2014\u002D]/g, '\u2013') : slot;
   DB.setBreak(uid, day || todayKey(), { slot: normSlot, note: note || '', by: currentUser?.id, at: now });
   state._breaksUpdatedAt = now;
-  save(); // local only — push via "Save Breaks" button, not on every single click
+  save(); // local only — cloud push via "Save Breaks" button
 }
 
 function currentMonthKey() {
@@ -281,8 +280,7 @@ function monthKeyFromDate(ds) {
 }
 
 function getShortSlot(shift, fullTime) {
-  if (!fullTime || fullTime === '\u2014') return ''; // em-dash = —
-  // Normalize ALL dash-like unicode chars to plain hyphen for comparison
+  if (!fullTime || fullTime === '\u2014') return '';
   function nd(s) {
     return (s || '').replace(/[\u2012\u2013\u2014\u002D\u2212\uFE58\uFE63\uFF0D]/g, '-').replace(/\s/g, '');
   }
