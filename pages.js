@@ -909,13 +909,11 @@ function _renderArrangeOverviewTab(weekRange) {
       // This uses your shift code (e.g., 'D') and the time (e.g., '19:30–21:00') 
       // to find the short legend code.
       const code = br ? getShortSlot(currentShift, br.slot) : '?';
-      // Derive slot index from the short code (e.g. 'A1'→0, 'A2'→1)
-      // This uses the already-normalised getShortSlot result so no dash mismatch
-      const ov_code = br ? getShortSlot(currentShift, br.slot) : '';
-      const ov_si = ov_code.length === 2 ? parseInt(ov_code[1]) - 1 : -1;
-      const ov_class = br
-        ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned...`
-        : `break-slot overview-cell-pending${isActive ? ' overview-cell-active' : ''}`;
+const ov_si = (code.length === 2 && code[0] === currentShift) ? parseInt(code[1]) - 1 : -1;
+const isActive = d === arrangeActiveDay;
+const ov_class = br
+  ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned${isActive ? ' overview-cell-active' : ''}`
+  : `break-slot overview-cell-pending${isActive ? ' overview-cell-active' : ''}`;
 
       return `<td style="text-align:center;padding:6px 4px;background:${isActive ? 'rgba(200,212,0,0.06)' : ''};">
     <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
