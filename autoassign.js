@@ -148,7 +148,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
     
     const isFuture  = _isFutureWeek(sunday);
     const weekLabel = isFuture ? '(future)' : '(current/past)';
-    console.log(`[autoassign] Processing week ${monday} ${weekLabel}`);
+    console.log(`[autoassign] Processing week ${sunday} ${weekLabel}`);
 
     shifts.forEach(shift => {
       const slots = BREAK_SLOTS[shift];
@@ -197,7 +197,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
         // If all members are already fully assigned this week, skip writing
         // but keep the resolved phase (recorded above) for rotation continuity.
         if (allAlreadyAssigned) {
-          console.log(`[autoassign] ${shift}/${tier}/${monday}: all assigned, skipping (phase=${phase} recorded)`);
+          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping (phase=${phase} recorded)`);
           return;
         }
 
