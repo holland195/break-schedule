@@ -195,6 +195,15 @@ function _applyRemoteData(remote) {
     } else if (remoteUAt > localUAt) {
       state.users = remote.users;
       state._usersUpdatedAt = remoteUAt;
+
+      // ── Auto-assign breaks when GAS pushes a new schedule ──
+      const isLeaderOrAbove = typeof currentUser !== 'undefined' && currentUser &&
+        (isLeader(currentUser) || isTraining(currentUser) || isAdmin(currentUser));
+      if (isLeaderOrAbove && typeof autoAssignBreaks === 'function') {
+        console.log('[sync] new schedule from GAS — running auto-assign');
+        autoAssignBreaks(state.users);
+        setTimeout(() => { if (typeof syncWrite === 'function') syncWrite(); }, 500);
+      }
     }
   }
   if (remote.attendance) {
