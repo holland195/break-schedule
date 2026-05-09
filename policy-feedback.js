@@ -237,24 +237,6 @@ function _fbRenderTeamList() {
     return true;
   });
 
-<<<<<<< HEAD
-  var ss = 'height:30px;padding:0 10px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);';
-
-  var filterBar = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-    + '<input id="fb-team-search" value="' + _search + '" placeholder="Search name..." '
-+ 'oninput="window._fbTeamSearch=this.value;var el=document.getElementById(\'fb-team-list\');if(el)el.innerHTML=_fbRenderTeamList();" '
-
-    + '<select style="' + ss + '" onchange="window._fbTeamStatus=this.value;_fbRerender()">'
-    + '<option value="">All statuses</option>'
-    + '<option value="Resolved"' + (_sfilt==='Resolved'?' selected':'') + '>Resolved</option>'
-    + '<option value="To Be Reviewed"' + (_sfilt==='To Be Reviewed'?' selected':'') + '>To Be Reviewed</option>'
-    + '</select>'
-    + '<span style="font-size:11px;color:var(--text3);">' + filtered.length + ' records</span>'
-    + ((_search||_sfilt) ? '<button onclick="window._fbTeamSearch=\'\';window._fbTeamStatus=\'\';_fbRerender()" style="' + ss + 'cursor:pointer;">Clear</button>' : '')
-    + '</div>';
-
-=======
->>>>>>> 0c0c5c753a7c054d2fb277c6d38e67f7e5c3c869
   if (filtered.length === 0) {
     return '<div class="empty"><div class="empty-ico">&#x1F50D;</div>No records match.</div>';
   }
