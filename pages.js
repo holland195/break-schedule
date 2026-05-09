@@ -2381,8 +2381,19 @@ function renderExtBreak() {
             : '<span class="req-status pending">PENDING</span>';
 
         const resolvedBy = e.approvedBy
-          ? state.users.find(x => x.id === e.approvedBy)?.name || 'Leader'
-          : null;
+  ? (() => {
+      // Try state.users first
+      const u = state.users.find(x => x.id === e.approvedBy);
+      if (u) return u.name;
+      // Fall back to staffInfo by matching hashed ID
+      const uname = Object.keys(state.staffInfo || {}).find(k => {
+        let h = 0;
+        for (let i = 0; i < k.length; i++) h = (Math.imul(31, h) + k.charCodeAt(i)) | 0;
+        return Math.abs(h) === e.approvedBy;
+      });
+      return uname ? (state.staffInfo[uname].name || uname) : 'Leader';
+    })()
+  : null;
 
         const resolvedBox = (!isPending && resolvedBy)
           ? '<div class="req-resolved ' + status + '" style="margin-top:8px;">'
