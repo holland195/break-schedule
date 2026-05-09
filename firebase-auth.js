@@ -86,3 +86,6 @@ async function firebaseGetIdToken() {
     return null;
   }
 }
+
+// Auto-initialize on script load so Firebase is ready before any other script runs
+_initFirebase();
