@@ -314,8 +314,12 @@ function getWeekDates() {
   });
 }
 function buildDatalist() {
-  const dl=document.getElementById('user-list');
-  if(dl) dl.innerHTML=state.users.map(u=>`<option value="${u.username}">${u.name} (${u.team||'—'})</option>`).join('');
+  const dl = document.getElementById('user-datalist');
+  if (!dl) return;
+  if (!state.users || !state.users.length) return; // ← add this guard
+  dl.innerHTML = state.users.map(u =>
+    `<option value="${u.username}">${u.name}</option>`
+  ).join('');
 }
 function updateBadge() {
   const p=state.requests.filter(r=>r.status==='pending').length;
