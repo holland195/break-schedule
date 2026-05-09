@@ -315,8 +315,7 @@ function getWeekDates() {
 }
 function buildDatalist() {
   const dl = document.getElementById('user-datalist');
-  if (!dl) return;
-  if (!state.users || !state.users.length) return; // ← add this guard
+  if (!dl || !state.users?.length) return;
   dl.innerHTML = state.users.map(u =>
     `<option value="${u.username}">${u.name}</option>`
   ).join('');
