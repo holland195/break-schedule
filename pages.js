@@ -307,7 +307,7 @@ function renderSchedule() {
     : currentShift;
 
   let weekDates;
-  if (canPickWeek && scheduleMonday) {
+  if (scheduleMonday) {
     weekDates = getWeekRange(scheduleMonday);
   } else {
     weekDates = getWeekDates();
@@ -398,7 +398,7 @@ let agentWeekPickerHTML = '';
         return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
       });
     const _activeSun = scheduleMonday || weekDates[0];
-    if (_agentSundays.length > 1) {
+    if (_agentSundays.length > 0) {
       agentWeekPickerHTML = `
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
