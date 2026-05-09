@@ -354,9 +354,12 @@ const todayDk = `${_tNow.getDate().toString().padStart(2,'0')}/${(_tNow.getMonth
 
   // Week picker (leaders only)
   let weekPickerHTML = '';
-  if (canPickWeek) {
+    if (canPickWeek) {
     const allDates = Object.keys(state.users[0]?.schedule || {});
-    const sundays = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun'));
+    const sundays = allDates.filter(d => getWkDay(d) === 'Sun').sort((a, b) => {
+      const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
+      return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
+    });
     const activeSun = scheduleMonday || weekDates[0];
     weekPickerHTML = sundays.length > 0 ? `
       <div style="display:flex;align-items:center;gap:8px;">
@@ -364,40 +367,56 @@ const todayDk = `${_tNow.getDate().toString().padStart(2,'0')}/${(_tNow.getMonth
         <select class="login-select" style="padding:4px 8px;font-size:11px;"
           onchange="scheduleMonday=this.value;nav('schedule')">
           ${sundays.map(s => {
-            const end = getWeekRange(s)[6];
-            return `<option value="${s}" ${s === activeSun ? 'selected' : ''}>${s} – ${end}</option>`;
+            const [d, m] = s.split('/');
+            const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
+            const endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
+            return `<option value="${s}" ${s === activeSun ? 'selected' : ''}>${s} – ${endStr}</option>`;
           }).join('')}
         </select>
       </div>` : '';
   }
-  if (canPickWeek && scheduleMonday && !sundays.includes(scheduleMonday)) {
-  scheduleMonday = sundays[0] || null;
-}
+
 
 let agentWeekPickerHTML = '';
-if (canViewFutureWeeks && state.users.length > 0) {
-  const allDates2 = Object.keys(state.users[0]?.schedule || {});
-  const todayDk2 = `${new Date().getDate().toString().padStart(2,'0')}/${(new Date().getMonth()+1).toString().padStart(2,'0')}`;
-  // Only current + future sundays
-  const futureSundays = _sortDateKeys(allDates2.filter(d => getWkDay(d) === 'Sun')).filter(s => {
-    const weekEnd = getWeekRange(s)[6];
-    return weekEnd >= todayDk2 || s === weekDates[0];
-  });
-  const activeSunAgent = scheduleMonday || weekDates[0];
-  if (futureSundays.length > 1) {
-    agentWeekPickerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
-        <select class="login-select" style="padding:4px 8px;font-size:11px;"
-          onchange="scheduleMonday=this.value;nav('schedule')">
-          ${futureSundays.map(s => {
-            const end = getWeekRange(s)[6];
-            return `<option value="${s}" ${s === activeSunAgent ? 'selected' : ''}>${s} – ${end}</option>`;
-          }).join('')}
-        </select>
-        <span style="font-size:11px;color:var(--text3);">read-only</span>
-      </div>`;
+  if (!canPickWeek) {
+    const _allDates = Object.keys(state.users[0]?.schedule || {});
+    const _todayMMDD = (() => { const n = new Date(); return (n.getMonth()+1)*100 + n.getDate(); })();
+    const _agentSundays = _allDates
+      .filter(d => getWkDay(d) === 'Sun')
+      .filter(d => {
+        const [dd, mm] = d.split('/').map(Number);
+        // Show current week (sun that started this week) and future
+        const sundayMMDD = mm * 100 + dd;
+        // Current week's Sunday: go back to this week's Sunday
+        const now = new Date();
+        const thisSun = new Date(now); thisSun.setDate(now.getDate() - now.getDay());
+        const thisSunMMDD = (thisSun.getMonth()+1)*100 + thisSun.getDate();
+        return sundayMMDD >= thisSunMMDD;
+      })
+      .sort((a, b) => {
+        const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
+        return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
+      });
+    const _activeSun = scheduleMonday || weekDates[0];
+    if (_agentSundays.length > 1) {
+      agentWeekPickerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
+          <select class="login-select" style="padding:3px 7px;font-size:11px;"
+            onchange="scheduleMonday=this.value;nav('schedule')">
+            ${_agentSundays.map(s => {
+              const [d, m] = s.split('/');
+              const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
+              const endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
+              return `<option value="${s}" ${s === _activeSun ? 'selected' : ''}>${s} – ${endStr}</option>`;
+            }).join('')}
+          </select>
+        </div>`;
+    }
   }
+
+  if (canPickWeek && scheduleMonday && !sundays.includes(scheduleMonday)) {
+  scheduleMonday = sundays[0] || null;
 }
 
   // Shift tab bar for training role
@@ -504,10 +523,10 @@ if (canViewFutureWeeks && state.users.length > 0) {
 <div class="schedule-title-row">
   <div>
     <div class="page-title">Break Schedule${isTrainingUser ? ' — All Shifts' : ` — Shift ${shiftToShow}`}</div>
-    <div class="page-sub">${SHIFTS[shiftToShow]?.display || ''}${!canPickWeek ? ' · Current week (read-only)' : ''}</div>
+    <div class="page-sub">${SHIFTS[shiftToShow]?.display || ''}</div>
   </div>
   <div class="schedule-legend-inline" style="flex-wrap:wrap;gap:8px;">
-    ${weekPickerHTML}
+    ${canPickWeek ? weekPickerHTML : agentWeekPickerHTML}
     <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Legend:</span>
     ${legendItems || '<span style="color:var(--text3);font-size:11px">—</span>'}
   </div>
