@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm install -g terser && bash build.sh",
+  "outputDirectory": "dist",
+  "installCommand": ""
+}
