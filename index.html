@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body>
+
+  <!-- ─── CHANGE PASSWORD SCREEN ─────────────────────────────── -->
+  <!-- ─── LOGIN SCREEN (contains both login + first-login password change) ── -->
+  <div id="screen-login" class="screen active">
+    <div class="login-card login-card-dark">
+
+      <!-- ── Normal login view ── -->
+      <div id="login-view">
+        <div class="login-logo-wrap" style="margin-bottom:12px;">
+          <div id="login-logo-svg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 614 170" height="38"
+              style="display:block;margin-bottom:10px;">
+              <path fill="#ffffff"
+                d="M105.1,3.8H23.2C10.4,3.8,0,14.2,0,27v94l27.8,0l0-33.1h77.4c20,0,37.5-14.1,41.3-33.8
+	C151.5,27.4,131,3.8,105.1,3.8z M118.7,50.4c-1.8,5.8-7.3,9.7-13.4,9.7H27.7l0-28.5h77.5C114.5,31.6,121.8,40.6,118.7,50.4z" />
+              <path fill="#ffffff" d="M498.4,30h70.5V3.5h-70.5c-32.4,0-58.6,26.3-58.6,58.6s26.3,58.6,58.6,58.6h70.5V94.2h-70.5
+	c-13.3,0-24.7-8.1-29.6-19.5h86.9V49.2h-86.8C473.9,37.9,485.2,30,498.4,30z" />
+              <path fill="#ffffff" d="M386.5,108.5l0.1-0.2L439,4.3c0,0,0-0.1-0.1-0.1h-31c0,0-0.1,0-0.1,0l-45.1,89.5c-0.8,1.6-2.3,2.6-4.1,2.7
+	c-0.1,0-0.1,0-0.2,0c-0.1,0-0.1,0-0.2,0c-1.7-0.1-3.3-1.1-4.1-2.7L309.2,4.3c0,0,0,0-0.1,0h-31c-0.1,0-0.1,0.1-0.1,0.1l52.2,103.5
+	l0.3,0.6l0.3,0.6c5.7,9.1,15.3,14.7,25.9,15.2C368.8,124.8,380.1,118.6,386.5,108.5z" />
+              <path fill="#ffffff" d="M268.7,120.8h31.1L247.1,16.4l-0.7-1.2C240.4,5.7,230.1,0,218.8,0c-11.3,0-21.7,5.7-27.7,15.3
+	c-0.2,0.4-0.5,0.8-0.7,1.2l-52.7,104.4h31.1l45.6-90.4c0.8-1.6,2.4-2.6,4.1-2.7c0.1,0,0.1,0,0.2,0s0.1,0,0.2,0
+	c1.7,0.1,3.3,1.1,4.1,2.7L268.7,120.8z" />
+              <path fill="#ffffff" d="M505.3,144.1H338.2v25.4h167.1V144.1z" />
+              <path fill="#ffffff" d="M588.6,107.6c0,7.1,5.7,12.6,12.6,12.6c7,0,12.7-5.5,12.7-12.7c0-7.1-5.7-12.6-12.7-12.6
+	C594.3,94.9,588.6,100.4,588.6,107.6z M610.8,107.6c0,5.5-4.2,9.7-9.5,9.7c-5.3,0-9.4-4.2-9.4-9.7c0-5.6,4.1-9.9,9.4-9.9
+	C606.6,97.8,610.8,102.1,610.8,107.6z M596.5,114.2h3.2V110h1.5l2.2,4.2h3.6l-2.6-5c1.5-0.8,2.5-2.1,2.5-3.9c0-2.7-2-4.5-5.2-4.5
+	h-5.2V114.2z M601.6,103.6c1.3,0,2,0.7,2,1.8c0,1.1-0.8,1.8-2,1.8h-1.8v-3.7L601.6,103.6L601.6,103.6z" />
+            </svg></div>
+        </div>
+        <div class="login-sub"
+          style="font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.5);margin-bottom:2px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;">
+          Daily Management</div>
+
+        <label class="login-label">Username</label>
+        <input class="login-input" id="li-user" placeholder="e.g. tho.nh" list="user-list" oninput="autoDetectShift()">
+        <datalist id="user-list"></datalist>
+
+        <label class="login-label">Password</label>
+        <input class="login-input" id="li-pass" type="password" placeholder="••••••">
+
+        <label class="login-label" style="margin-top:12px">Your current shift</label>
+        <select class="login-select" id="li-shift">
+          <option value="">— Select shift —</option>
+          <option value="A">Shift A — 3:00 PM → 12:00 AM</option>
+          <option value="D">Shift D — 12:00 AM → 9:00 AM</option>
+          <option value="E">Shift E — 6:00 AM → 3:00 PM</option>
+        </select>
+
+        <div style="margin-top:24px;">
+          <button class="btn btn-accent" id="signin-btn" onclick="doLogin()" style="width:100%">Sign in →</button>
+        </div>
+        <div style="text-align:center;margin-top:14px;">
+          <span onclick="forgotPassword()" style="font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;font-family:'IBM Plex Mono',monospace;
+                 letter-spacing:.04em;transition:color .15s;" onmouseover="this.style.color='rgba(255,255,255,.75)'"
+            onmouseout="this.style.color='rgba(255,255,255,.4)'">
+            Forgot password?
+          </span>
+        </div>
+
+
+      </div>
+
+      <!-- ── First-login password change view (same card, swaps in-place) ── -->
+      <div id="changepw-view" style="display:none;">
+        <div class="login-logo" style="font-size:17px;">🔐 Set New Password</div>
+        <div
+          style="font-size:13px;color:rgba(255,255,255,.85);margin-bottom:20px;line-height:1.8;background:rgba(255,255,255,.06);border-radius:8px;padding:12px 14px;border:1px solid rgba(255,255,255,.1);">
+          First login for
+          <b id="chpw-username" style="color:#7dd3fc;"></b>.<br>
+          Choose a personal password — at least <b style="color:#fff;">6 characters</b>.<br>
+          <span style="font-size:11px;color:rgba(255,255,255,.5);">Cannot be <code
+              style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;color:rgba(255,255,255,.7);">Pave@1234</code>
+            or <code
+              style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;color:rgba(255,255,255,.7);">1234</code></span>
+        </div>
+        <label class="login-label" style="color:rgba(255,255,255,.7);font-size:12px;font-weight:600;">NEW
+          PASSWORD</label>
+        <input class="login-input" id="chpw-new" type="password" placeholder="at least 6 characters"
+          style="font-size:14px;padding:11px 14px;">
+        <label class="login-label"
+          style="margin-top:14px;color:rgba(255,255,255,.7);font-size:12px;font-weight:600;">CONFIRM PASSWORD</label>
+        <input class="login-input" id="chpw-confirm" type="password" placeholder="repeat new password"
+          style="font-size:14px;padding:11px 14px;">
+        <div id="chpw-err" style="font-size:12px;color:var(--err);min-height:18px;margin-top:8px;"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+          <button class="btn" onclick="cancelChangePassword()" style="flex:1">← Back</button>
+          <button class="btn btn-accent" onclick="submitChangePassword()" style="flex:2">Set Password & Enter →</button>
+        </div>
+      </div>
+
+      <div id="import-status" style="margin-top:12px;font-size:12px;min-height:18px;"></div>
+      <div id="login-err" style="font-size:12px;color:var(--err);margin-top:8px;min-height:18px;text-align:center;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MAIN APP ──────────────────────────────────────────── -->
+  <div id="screen-app" class="screen">
+    <div class="topbar">
+      <div class="topbar-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 614 170" height="24" style="display:block;">
+          <path fill="#ffffff"
+            d="M105.1,3.8H23.2C10.4,3.8,0,14.2,0,27v94l27.8,0l0-33.1h77.4c20,0,37.5-14.1,41.3-33.8
+	C151.5,27.4,131,3.8,105.1,3.8z M118.7,50.4c-1.8,5.8-7.3,9.7-13.4,9.7H27.7l0-28.5h77.5C114.5,31.6,121.8,40.6,118.7,50.4z" />
+          <path fill="#ffffff" d="M498.4,30h70.5V3.5h-70.5c-32.4,0-58.6,26.3-58.6,58.6s26.3,58.6,58.6,58.6h70.5V94.2h-70.5
+	c-13.3,0-24.7-8.1-29.6-19.5h86.9V49.2h-86.8C473.9,37.9,485.2,30,498.4,30z" />
+          <path fill="#ffffff" d="M386.5,108.5l0.1-0.2L439,4.3c0,0,0-0.1-0.1-0.1h-31c0,0-0.1,0-0.1,0l-45.1,89.5c-0.8,1.6-2.3,2.6-4.1,2.7
+	c-0.1,0-0.1,0-0.2,0c-0.1,0-0.1,0-0.2,0c-1.7-0.1-3.3-1.1-4.1-2.7L309.2,4.3c0,0,0,0-0.1,0h-31c-0.1,0-0.1,0.1-0.1,0.1l52.2,103.5
+	l0.3,0.6l0.3,0.6c5.7,9.1,15.3,14.7,25.9,15.2C368.8,124.8,380.1,118.6,386.5,108.5z" />
+          <path fill="#ffffff" d="M268.7,120.8h31.1L247.1,16.4l-0.7-1.2C240.4,5.7,230.1,0,218.8,0c-11.3,0-21.7,5.7-27.7,15.3
+	c-0.2,0.4-0.5,0.8-0.7,1.2l-52.7,104.4h31.1l45.6-90.4c0.8-1.6,2.4-2.6,4.1-2.7c0.1,0,0.1,0,0.2,0s0.1,0,0.2,0
+	c1.7,0.1,3.3,1.1,4.1,2.7L268.7,120.8z" />
+          <path fill="#ffffff" d="M505.3,144.1H338.2v25.4h167.1V144.1z" />
+          <path fill="#ffffff" d="M588.6,107.6c0,7.1,5.7,12.6,12.6,12.6c7,0,12.7-5.5,12.7-12.7c0-7.1-5.7-12.6-12.7-12.6
+	C594.3,94.9,588.6,100.4,588.6,107.6z M610.8,107.6c0,5.5-4.2,9.7-9.5,9.7c-5.3,0-9.4-4.2-9.4-9.7c0-5.6,4.1-9.9,9.4-9.9
+	C606.6,97.8,610.8,102.1,610.8,107.6z M596.5,114.2h3.2V110h1.5l2.2,4.2h3.6l-2.6-5c1.5-0.8,2.5-2.1,2.5-3.9c0-2.7-2-4.5-5.2-4.5
+	h-5.2V114.2z M601.6,103.6c1.3,0,2,0.7,2,1.8c0,1.1-0.8,1.8-2,1.8h-1.8v-3.7L601.6,103.6L601.6,103.6z" />
+        </svg>
+        <span class="topbar-divider"></span>
+        <span class="topbar-app-name">DAILY MANAGEMENT</span>
+      </div>
+      <div class="topbar-right">
+        <div class="user-chip">
+          <div class="user-avatar" id="top-avatar">?</div>
+          <span id="top-name">—</span>
+          <span class="role-tag" id="top-role-tag">—</span>
+          <span id="top-gender" style="font-size:14px;margin-left:2px;"></span>
+        </div>
+        <!-- Theme toggle -->
+        <button class="theme-toggle" onclick="toggleTheme();updateAppThemeBtn()" id="theme-toggle-btn"
+          title="Toggle theme">☀</button>
+        <span id="sync-badge"
+          style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none;cursor:pointer;padding:3px 8px;border-radius:4px;transition:opacity .15s;"
+          title="Click to sync now" onmouseenter="this.style.opacity='.7'" onmouseleave="this.style.opacity='1'"
+          onclick="(async()=>{
+          updateSyncBadge('busy');
+          const ok = typeof syncEnabled==='function'&&syncEnabled() ? await syncPull() : await syncPublicPull();
+          if(ok){ nav(currentPage); updateBadge(); }
+          updateSyncBadge(ok?'ok':'err');
+          if(ok) { const el=document.getElementById('sync-badge'); const old=el.textContent; el.textContent='✓ Updated'; setTimeout(()=>updateSyncBadge('ok'),1500); }
+        })()">
+        </span>
+        <button class="btn btn-sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <nav class="sidebar">
+        <div class="sidebar-label">Navigation</div>
+        <div class="nav-item active" onclick="nav('dashboard')" data-page="dashboard"><span class="nav-ico">⬛</span>
+          Dashboard</div>
+        <div class="nav-item" onclick="nav('schedule')" data-page="schedule"><span class="nav-ico">📅</span> Break
+          Schedule</div>
+        <div class="nav-item" onclick="nav('requests')" data-page="requests">
+          <span class="nav-ico">🔄</span> Break Swap
+          <span class="nav-badge" id="req-badge" style="display:none">0</span>
+        </div>
+        <div class="nav-item" onclick="nav('extbreak')" data-page="extbreak">
+          <span class="nav-ico">🌸</span> 30-min Break
+          <span class="nav-badge" id="ext-badge" style="display:none">0</span>
+        </div>
+        <div class="nav-item leader-only" onclick="nav('attendance')" data-page="attendance"><span
+            class="nav-ico">⏱</span> Logbook & Reports</div>
+        <div class="nav-item leader-only arrange-nav" onclick="nav('arrange')" data-page="arrange"><span
+            class="nav-ico">✏️</span> Arrange Breaks</div>
+        
+        <div class="nav-item leader-only" onclick="nav('policy')" data-page="policy">
+  <span class="nav-ico">📋</span> Policy Compliance
+  <span class="nav-badge" id="pc-badge" style="display:none">0</span>
+</div>
+        <div class="nav-item" onclick="nav('feedback')" data-page="feedback">
+          <span class="nav-ico">💬</span> My Violations
+          <span class="nav-badge" id="fb-badge" style="display:none">0</span>
+        </div>
+        <div class="nav-item leader-only" onclick="nav('staff')" data-page="staff"><span class="nav-ico">👥</span> Staff
+        </div>
+        <div class="nav-item admin-only" onclick="nav('sync')" data-page="sync"><span class="nav-ico">☁</span> Cloud
+          Sync</div>
+
+        <div class="sidebar-label" style="margin-top:8px">Shift</div>
+        <div style="padding:0 12px">
+          <select id="sidebar-shift" class="fg" onchange="changeSidebarShift(this.value)" style="width:100%;margin:0">
+            <option value="A">A — 3PM→12AM</option>
+            <option value="D">D — 12AM→9AM</option>
+            <option value="E">E — 6AM→3PM</option>
+          </select>
+        </div>
+      </nav>
+      <main class="content" id="main-content"></main>
+    </div>
+  </div>
+
+  <!-- ─── MODAL: ATTENDANCE ───────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-attend" onclick="if(event.target===this){
+      const s=document.getElementById('attend-start')?.value?.trim();
+      const e=document.getElementById('attend-end')?.value?.trim();
+      const n=document.getElementById('attend-note')?.value?.trim();
+      if(s||e||n) saveAttendance();
+      else closeModal('modal-attend');
+    }">
+    <div class="modal" style="width:420px;" onclick="event.stopPropagation()">
+      <div class="modal-title">⏱ Fill Attendance</div>
+      <div id="attend-modal-title" style="font-size:13px;font-weight:600;margin-bottom:4px;"></div>
+      <div id="attend-modal-default" style="font-size:11px;color:var(--text3);margin-bottom:14px;"></div>
+      <div
+        style="font-size:11px;color:var(--text3);margin-bottom:10px;padding:6px 10px;background:var(--bg3);border-radius:6px;line-height:1.8;">
+        Paste directly from the Action Log — any format works:<br>
+        <code style="color:var(--accent);">12:00:03 AM</code> &nbsp;·&nbsp;
+        <code style="color:var(--accent);">09:00:52 AM</code> &nbsp;·&nbsp;
+        <code style="color:var(--accent);">15:00</code>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="fg">
+          <label>Login time (Start)</label>
+          <input id="attend-start" class="login-input" type="text" placeholder="e.g. 12:00:03 AM"
+            oninput="previewAttendance()" style="font-family:'IBM Plex Mono',monospace;font-size:12px;">
+        </div>
+        <div class="fg">
+          <label>Logout time (End)</label>
+          <input id="attend-end" class="login-input" type="text" placeholder="e.g. 09:00:52 AM"
+            oninput="previewAttendance()" style="font-family:'IBM Plex Mono',monospace;font-size:12px;">
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:12px;">
+        <label>Note (optional)</label>
+        <input id="attend-note" class="login-input" type="text" placeholder="e.g. traffic, sick, personal…">
+      </div>
+      <div id="attend-result" style="min-height:20px;font-size:12px;margin-bottom:14px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm btn-err" onclick="deleteAttendance()" style="margin-right:auto;">🗑 Clear</button>
+        <button class="btn btn-sm" onclick="closeModal('modal-attend')">Cancel</button>
+        <button class="btn btn-sm btn-accent" onclick="saveAttendance()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODAL: REQUEST ────────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-request">
+    <div class="modal" style="width:560px;">
+      <div class="modal-title">🔄 Break Swap Request</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+        Choose a partner with the <b>same exact role</b> on the same shift. A leader must approve before slots are
+        swapped.
+      </p>
+      <!-- Scope -->
+      <div class="fg" style="margin-bottom:12px;">
+        <label>① Swap scope</label>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <label
+            style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:6px 14px;border-radius:6px;flex:1;">
+            <input type="radio" name="req-scope" id="req-scope-day" value="day" onchange="_toggleReqScope()" checked>
+            <span>Single day</span>
+          </label>
+          <label
+            style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:6px 14px;border-radius:6px;flex:1;">
+            <input type="radio" name="req-scope" id="req-scope-week" value="week" onchange="_toggleReqScope()">
+            <span>Whole week</span>
+          </label>
+        </div>
+        <div id="req-week-note" style="font-size:11px;color:var(--B-color);margin-top:6px;display:none;">
+          📅 Week swap applies to <b>all days both of you share the same shift</b> this week.
+        </div>
+      </div>
+      <div class="fg"><label>② Reference day</label>
+        <select id="req-day" onchange="_updateReqDay()">
+          <option value="">— loading… —</option>
+        </select>
+      </div>
+      <div class="fg"><label>Your break on that day</label>
+        <input id="req-cur" readonly style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
+      </div>
+      <div class="fg"><label>③ Swap partner (same shift · same role · different slot)</label>
+        <select id="req-partner" onchange="_updateReqSlot()">
+          <option value="">— choose day first —</option>
+        </select>
+      </div>
+      <div class="fg"><label>You will receive their slot</label>
+        <select id="req-new" style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warn);">
+          <option value="">— pick partner first —</option>
+        </select>
+      </div>
+      <div class="fg"><label>④ Reason</label>
+        <textarea id="req-reason" placeholder="Please explain why you need to swap…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-request')">Cancel</button>
+        <button class="btn btn-warn" onclick="submitRequest()">Submit swap request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODAL: ASSIGN ─────────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-assign">
+    <div class="modal">
+      <div class="modal-title" id="assign-title">Assign Break</div>
+      <div class="fg"><label>Break slot</label><select id="assign-slot"></select></div>
+      <div class="fg"><label>Note (optional)</label>
+        <textarea id="assign-note" placeholder="Any notes for this assignment…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-assign')">Cancel</button>
+        <button class="btn btn-accent" onclick="confirmAssign()">Assign →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODAL: EXTBREAK ───────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-extbreak">
+    <div class="modal" style="width:480px;">
+      <div class="modal-title">🌸 Register Extra 30-min Break</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+        Female staff may register up to <b style="color:var(--accent);">3 times per month</b>.
+        The extra 30 min is added immediately before or after your main break slot.
+      </p>
+      <div class="fg"><label>Select day(s) — max 3 remaining</label>
+        <div id="eb-day-list" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;
+    max-height:180px;overflow-y:auto;padding-right:4px;"></div>
+      </div>
+      <div class="fg" id="eb-main-slot-wrap"><label>Your main break on selected day(s)</label>
+        <input id="eb-main-slot" readonly
+          style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
+      </div>
+      <div class="fg"><label>Extra 30-min position</label>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <label
+            style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:7px 14px;border-radius:6px;flex:1;"
+            id="eb-lbl-before">
+            <input type="radio" name="eb-pos" value="before" id="eb-before" onchange="_updateEbPreview()">
+            <span>Before break</span>
+          </label>
+          <label
+            style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);padding:7px 14px;border-radius:6px;flex:1;"
+            id="eb-lbl-after">
+            <input type="radio" name="eb-pos" value="after" id="eb-after" onchange="_updateEbPreview()">
+            <span>After break</span>
+          </label>
+        </div>
+      </div>
+      <div id="eb-preview"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2);min-height:38px;margin-bottom:12px;display:none;">
+      </div>
+      <div id="eb-quota-info" style="font-size:11px;margin-bottom:12px;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-extbreak')">Cancel</button>
+        <button class="btn btn-accent" onclick="submitExtBreak()" id="eb-submit-btn">Register</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TOAST ─────────────────────────────────────────────── -->
+  <div class="msg-bar" id="toast"></div>
+
+<!-- ─── SCRIPTS ───────────────────────────────────────────── -->
+
+<!-- 1. Third party -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- 2. Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- 3. Firebase config + wrapper -->
+<script src="firebase-config.js"></script>
+<script src="firebase-auth.js"></script>
+
+<!-- 4. App scripts -->
+<script src="data.js"></script>
+<script src="sync.js"></script>
+<script src="autoassign.js"></script>
+<script src="auth.js"></script>
+<script src="pages.js"></script>
+<script src="training.views.js"></script>
+<script src="attendance.js"></script>
+<script src="report.js"></script>
+<script src="policy-compliance.js"></script>
+<script src="policy-feedback.js"></script>
+<script src="nav.js"></script>
+  
+
+  <script>
+    // Modal overlay click to close
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+    });
+    // Enter key on password field
+    document.getElementById('li-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    // Theme labels
+    function updateLoginThemeBtn() { /* removed */ }
+    function updateAppThemeBtn() {
+      const btn = document.getElementById('theme-toggle-btn');
+      if (btn) {
+        btn.textContent = currentTheme === 'dark' ? '☀' : '☾';
+        btn.title = currentTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+      }
+    }
+    updateAppThemeBtn();
+
+    // ── Boot: Firebase Auth handles session restore ──
+    // onAuthStateChanged fires on every page load.
+    // If the user has a valid Firebase session token, they are
+    // automatically logged in without seeing the login screen.
+    async function bootApp() {
+      const btn = document.getElementById('signin-btn');
+      const err = document.getElementById('login-err');
+
+      // Show loading state while Firebase checks session
+      if (btn) btn.disabled = true;
+      if (err) { err.style.color = 'var(--text3)'; err.textContent = '☁ Loading…'; }
+
+      // Pull cloud config (for sync) in parallel
+      try { await syncTryAutoConnect(); } catch (e) { /* offline — ok */ }
+
+      if (btn) btn.disabled = false;
+      if (err) { err.style.color = ''; err.textContent = ''; }
+    }
+
+    // ── Firebase Auth state listener ──
+    // This replaces the old restoreSession() call.
+    // Firebase fires this once at page load with the current auth state.
+    // NOTE: also fires immediately after firebaseSignIn() in doLogin() —
+    // we block it during that flow using _loginInProgress flag.
+    firebaseOnAuthStateChanged(async (firebaseUser) => {
+      // If doLogin() is actively running, let it handle the flow
+      // onAuthStateChanged fires mid-doLogin which would bypass shift + mustChangePw checks
+      if (window._loginInProgress) return;
+
+      if (firebaseUser) {
+        // Firebase has a valid session → auto-login (page reload)
+        // Extract username from email: "cuong.pham@discoveryloft.com" → "cuong.pham"
+        const username = firebaseUser.email.replace('@discoveryloft.com', '');
+        const session = DB.getSession();
+
+        // Use saved session shift, or default to 'E'
+        currentShift = session?.shift || 'E';
+
+        const user = _resolveUser(username);
+        if (user) {
+          currentUser = user;
+
+          // Pull latest cloud data first (needed for mustChangePw flag)
+          if (typeof syncEnabled === 'function' && syncEnabled()) {
+            updateSyncBadge('busy');
+            await syncPull();
+            updateSyncBadge('ok');
+          }
+
+          // Check if password change is still required
+          // Only force if mustChangePassword is true AND the user hasn't already
+          // set a personal password (i.e. they can still log in with Pave@1234)
+          // This prevents the cloud flag from overriding a locally-completed change
+          const alreadyChanged = localStorage.getItem(`pw_changed_${username}`) === '1';
+          if (!alreadyChanged && DB.mustChangePw(username)) {
+            document.getElementById('screen-login').classList.add('active');
+            document.body.classList.add('login-active');
+            _showChangePwPrompt(username);
+            return;
+          }
+
+          enterApp(true);
+          startSyncPolling && startSyncPolling();
+          return;
+        }
+      }
+      // No valid Firebase session → show login screen normally
+      bootApp();
+    });
+  </script>
+</body>
+
+</html>
