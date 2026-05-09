@@ -415,10 +415,6 @@ let agentWeekPickerHTML = '';
     }
   }
 
-  if (canPickWeek && scheduleMonday && !sundays.includes(scheduleMonday)) {
-  scheduleMonday = sundays[0] || null;
-}
-
   // Shift tab bar for training role
   const shiftTabsHTML = isTrainingUser ? `
     <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
@@ -531,7 +527,7 @@ let agentWeekPickerHTML = '';
     ${legendItems || '<span style="color:var(--text3);font-size:11px">—</span>'}
   </div>
 </div>
-${agentWeekPickerHTML}
+
 ${shiftTabsHTML}
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
   <input class="filter-input" style="width:280px;padding:7px 12px;font-size:13px;"
