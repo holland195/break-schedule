@@ -1,5 +1,9 @@
 {
   "buildCommand": "npm install -g terser && bash build.sh",
   "outputDirectory": "dist",
-  "installCommand": ""
+  "installCommand": "",
+  "env": {
+    "FIREBASE_API_KEY": "@firebase_api_key",
+    "FIREBASE_APP_ID": "@firebase_app_id"
+  }
 }
