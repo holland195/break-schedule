@@ -118,6 +118,12 @@ function _checkAttConflict(u, dk, parsedCode) {
   return conflicts.length > 0 ? conflicts : null;
 }
 
+// Always read gender from staffInfo first, fall back to user object
+function _getUserGender(u) {
+  if (!u) return '';
+  return DB.getStaffInfo(u.username)?.gender || u.gender || '';
+}
+
 // ═══════════════════════════════════════════════
 //  Role sort order for Staff Info tab
 // ─────────────────────────────────────────────
@@ -147,7 +153,7 @@ function renderDashboard() {
   const weekDates = getWeekDates(); // always real current week
   const todayDk = weekDates[new Date().getDay()]; 
   const si = DB.getStaffInfo(currentUser.username);
-  const gender = si?.gender || currentUser.gender || '';
+  const gender = _getUserGender(currentUser);
   const mk = currentMonthKey();
   const extUsed = DB.countExtBreaks(currentUser.id, mk);
 
@@ -272,7 +278,7 @@ ${statsRow}
       <button class="btn" onclick="nav('schedule')" style="text-align:left;justify-content:flex-start;">📅 View Break Schedule</button>
       ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending > 0 ? `<span class="nav-badge" style="display:inline;">${myPending}</span>` : ''}</button>` : ''}
       ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending > 0 ? `<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>` : ''}</button>` : ''}
-      ${currentUser.gender === 'F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
+      ${_getUserGender(currentUser) === 'F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
     </div>
   </div>
 </div>
@@ -2325,8 +2331,9 @@ function resolveRequest(idx, status) {
 //  All female staff can register; 3 times/month max
 //  Leaders see everyone's registrations for current shift
 // ═══════════════════════════════════════════════
+
 function renderExtBreak() {
-  const isFemale = currentUser.gender === 'F';
+  const isFemale = _getUserGender(currentUser) === 'F';
   if (isTraining(currentUser)) {
     if (typeof renderExtBreakTraining === 'function') return renderExtBreakTraining();
     return '<div class="empty">Loading…</div>';
@@ -2341,7 +2348,7 @@ function renderExtBreak() {
   // All female users in current shift this week
   const weekDates = getWeekDates();
   const femaleShiftUsers = state.users.filter(u =>
-    u.gender === 'F' &&
+  _getUserGender(u) === 'F' &&
     weekDates.some(dk => {
       const dn = WEEK_DAYS[weekDates.indexOf(dk)];
       return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
