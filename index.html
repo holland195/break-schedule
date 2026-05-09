@@ -10,16 +10,7 @@
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <!-- SheetJS for Excel import -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <!-- Firebase Auth SDK (compat version — works with existing JS pattern) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <!-- Firebase Auth wrapper (must load before auth.js) -->
-  <script src="firebase-config.js"></script>
-<script src="firebase-auth.js"></script>
 </head>
 
 <body>
@@ -375,18 +366,32 @@
   <!-- ─── TOAST ─────────────────────────────────────────────── -->
   <div class="msg-bar" id="toast"></div>
 
-  <!-- ─── SCRIPTS ───────────────────────────────────────────── -->
-  <script src="data.js"></script>
-  <script src="sync.js"></script>
-  <script src="autoassign.js"></script>
-  <script src="auth.js"></script>
-  <script src="pages.js"></script>
-  <script src="training.views.js"></script>
-  <script src="attendance.js"></script>
-  <script src="report.js"></script>
-  <script src="policy-compliance.js"></script>
-  <script src="policy-feedback.js"></script>
-  <script src="nav.js"></script>
+<!-- ─── SCRIPTS ───────────────────────────────────────────── -->
+
+<!-- 1. Third party -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- 2. Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- 3. Firebase config + wrapper -->
+<script src="firebase-config.js"></script>
+<script src="firebase-auth.js"></script>
+
+<!-- 4. App scripts -->
+<script src="data.js"></script>
+<script src="sync.js"></script>
+<script src="autoassign.js"></script>
+<script src="auth.js"></script>
+<script src="pages.js"></script>
+<script src="training.views.js"></script>
+<script src="attendance.js"></script>
+<script src="report.js"></script>
+<script src="policy-compliance.js"></script>
+<script src="policy-feedback.js"></script>
+<script src="nav.js"></script>
   
 
   <script>
