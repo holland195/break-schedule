@@ -144,46 +144,77 @@ function _fbTabBtn(id, label, count) {
 // ════════════════════════════════════════════
 //  MY VIOLATIONS TAB (agent view)
 // ════════════════════════════════════════════
-// Banner — only count To Be Reviewed without any response:
-var pending = records.filter(function(r) {
-  return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
-}).length;
+function _fbRenderMine() {
+  var records  = _fbMyRecords().slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
 
-// In the card rendering, replace the feedback section:
-var hasFb    = !!r.agentFeedback;
-var hasDone  = !!r.agentDone;
-var hasReply = hasFb || hasDone;
-var isResolved = r.status === 'Resolved';
-var needsReply = !hasReply && !isResolved;
+  var pending = records.filter(function(r) {
+    return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
+  }).length;
 
-// Feedback section:
-+ '<div>'
-+ '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;'
-+   'color:' + (hasReply ? 'var(--ok)' : isResolved ? 'var(--text3)' : 'var(--warn)') + ';'
-+   'font-family:\'IBM Plex Mono\',monospace;margin-bottom:7px;">'
-+ (hasDone ? '✓ You acknowledged this' : hasFb ? '✓ Your response' : isResolved ? '— Resolved' : '✏ Your response (pending)')
-+ '</div>'
+  if (records.length === 0) {
+    return '<div class="empty"><div class="empty-ico">✓</div>No violations on record.</div>';
+  }
 
-+ (hasDone
-  ? '<div style="background:var(--C-bg);border:1px solid var(--ok);border-radius:7px;padding:8px 12px;font-size:12px;color:var(--ok);">✓ Acknowledged — no objection.</div>'
-  : hasFb
-    ? '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;font-size:12px;line-height:1.8;position:relative;">'
-      + r.agentFeedback
-      + '<div style="font-size:10px;color:var(--text3);margin-top:6px;">' + _fbTimeSince(r.agentFeedbackAt) + '</div>'
-      + '<button onclick="_fbOpenFeedback(' + realIdx + ')" style="position:absolute;top:8px;right:8px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Edit</button>'
+  var html = '';
+
+  if (pending > 0) {
+    html += '<div style="background:var(--D-bg);border:1px solid var(--D-color);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--D-color);">'
+      + '⚠ You have <b>' + pending + '</b> violation(s) awaiting your response.'
+      + '</div>';
+  }
+
+  records.forEach(function(r) {
+    var realIdx = state.policyCompliance.findIndex(function(x){ return x.no === r.no; });
+    var hasFb      = !!r.agentFeedback;
+    var hasDone    = !!r.agentDone;
+    var hasReply   = hasFb || hasDone;
+    var isResolved = r.status === 'Resolved';
+
+    html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;">'
+
+      // Header
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">'
+      + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text3);">#' + (r.no||'?') + '</span>'
+      + '<span style="font-size:12px;font-weight:600;">' + _fbEventLabel(r.event||'') + '</span>'
+      + '<span style="font-size:11px;color:var(--text3);">' + (r.date||'') + '</span>'
+      + '<span style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg4);color:' + (isResolved ? 'var(--ok)' : 'var(--warn)') + ';">' + r.status + '</span>'
       + '</div>'
-    : isResolved
-      ? '<div style="font-size:12px;color:var(--text3);font-style:italic;">This violation has been resolved.</div>'
-      : '<div>'
-        + '<textarea id="fb-text-' + realIdx + '" placeholder="Write your comment if you disagree or have context to add..." style="width:100%;min-height:70px;padding:9px 12px;font-size:12px;font-family:\'IBM Plex Sans\',sans-serif;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);resize:vertical;line-height:1.7;"></textarea>'
-        + '<div style="display:flex;gap:8px;margin-top:8px;">'
-        + '<button class="btn btn-ok" onclick="_fbMarkDone(' + realIdx + ')" style="font-size:12px;padding:6px 16px;">✓ Done — I agree</button>'
-        + '<button class="btn btn-accent" onclick="_fbSubmitFeedback(' + realIdx + ')" style="font-size:12px;padding:6px 16px;">💬 Submit comment</button>'
-        + '</div>'
-        + '<div id="fb-msg-' + realIdx + '" style="font-size:11px;min-height:16px;margin-top:6px;"></div>'
-        + '</div>'
-)
-+ '</div>'
+
+      // Detail
+      + (r.detail ? '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.7;">' + r.detail + '</div>' : '')
+
+      // Feedback section
+      + '<div>'
+      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:'
+      + (hasDone || hasFb ? 'var(--ok)' : isResolved ? 'var(--text3)' : 'var(--warn)')
+      + ';font-family:\'IBM Plex Mono\',monospace;margin-bottom:7px;">'
+      + (hasDone ? '✓ You acknowledged this' : hasFb ? '✓ Your response' : isResolved ? '— Resolved' : '✏ Your response (pending)')
+      + '</div>'
+      + (hasDone
+        ? '<div style="background:var(--C-bg);border:1px solid var(--ok);border-radius:7px;padding:8px 12px;font-size:12px;color:var(--ok);">✓ Acknowledged — no objection.</div>'
+        : hasFb
+          ? '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;font-size:12px;line-height:1.8;position:relative;">'
+            + r.agentFeedback
+            + '<div style="font-size:10px;color:var(--text3);margin-top:6px;">' + _fbTimeSince(r.agentFeedbackAt) + '</div>'
+            + '<button onclick="_fbOpenFeedback(' + realIdx + ')" style="position:absolute;top:8px;right:8px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Edit</button>'
+            + '</div>'
+          : isResolved
+            ? '<div style="font-size:12px;color:var(--text3);font-style:italic;">This violation has been resolved.</div>'
+            : '<div>'
+              + '<textarea id="fb-text-' + realIdx + '" placeholder="Write your comment if you disagree or have context to add..." style="width:100%;min-height:70px;padding:9px 12px;font-size:12px;font-family:\'IBM Plex Sans\',sans-serif;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);resize:vertical;line-height:1.7;box-sizing:border-box;"></textarea>'
+              + '<div style="display:flex;gap:8px;margin-top:8px;">'
+              + '<button class="btn btn-ok" onclick="_fbMarkDone(' + realIdx + ')" style="font-size:12px;padding:6px 16px;">✓ Done — I agree</button>'
+              + '<button class="btn btn-accent" onclick="_fbSubmitFeedback(' + realIdx + ')" style="font-size:12px;padding:6px 16px;">💬 Submit comment</button>'
+              + '</div>'
+              + '<div id="fb-msg-' + realIdx + '" style="font-size:11px;min-height:16px;margin-top:6px;"></div>'
+              + '</div>'
+      )
+      + '</div>'  // close feedback section
+      + '</div>'; // close card
+  });
+
+  return html;
+}
 
 function _fbMarkDone(realIdx) {
   state.policyCompliance[realIdx].agentDone        = true;
