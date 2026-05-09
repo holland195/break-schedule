@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write  # ← add this
+
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
@@ -41,15 +44,10 @@ jobs:
           cp index.html dist/index.html
           cp styles.css dist/styles.css 2>/dev/null || true
           cp sync-config.json dist/sync-config.json 2>/dev/null || true
-          # Copy any other static files (fonts, images etc)
           cp -r assets dist/assets 2>/dev/null || true
 
-      - name: Patch index.html script paths
-        run: |
-          sed -i 's|src="firebase-auth.js"|src="firebase-auth.js"|g' dist/index.html
-          # Scripts are already in same folder in dist — no path change needed
-          # But remove any sourceMappingURL comments
-          find dist -name "*.js" -exec sed -i '/sourceMappingURL/d' {} \;
+      - name: Remove source maps
+        run: find dist -name "*.js" -exec sed -i '/sourceMappingURL/d' {} \;
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
