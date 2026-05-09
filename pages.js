@@ -2523,7 +2523,7 @@ ${myPendingHtml}
 
 // ── ExtBreak Modal ──
 function openExtBreakModal() {
-  if (currentUser.gender !== 'F') { toast('Only female staff can register.', 'err'); return; }
+  if (_getUserGender(currentUser) !== 'F') { toast('Only female staff can register.', 'err'); return; }
   const mk = currentMonthKey();
   const used = DB.countExtBreaks(currentUser.id, mk);
   const remaining = 3 - used;
