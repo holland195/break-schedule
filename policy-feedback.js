@@ -427,5 +427,22 @@ function _fbToggleGroup(username) {
 function _fbRerender() {
   var el = document.getElementById('fb-content');
   if (!el) { nav('feedback'); return; }
+
+  // Save focused input state before rerender
+  var activeId    = document.activeElement?.id || null;
+  var activeVal   = document.activeElement?.value || '';
+  var activeCaret = document.activeElement?.selectionStart ?? null;
+
   el.innerHTML = (_fbTab === 'mine') ? _fbRenderMine() : _fbRenderTeam();
+
+  // Restore focus if it was inside fb-content
+  if (activeId) {
+    var restored = document.getElementById(activeId);
+    if (restored) {
+      restored.focus();
+      if (activeCaret !== null) {
+        try { restored.setSelectionRange(activeCaret, activeCaret); } catch(e) {}
+      }
+    }
+  }
 }
