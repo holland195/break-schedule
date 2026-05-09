@@ -618,7 +618,11 @@ function renderRequests() {
         + '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">✓ Approve</button>'
         + '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">✗ Reject</button>'
         + '</div>'
-        : '')
+        : r.status === 'pending' && isOwn
+          ? '<div class="req-actions">'
+          + '<button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + idx + ')">✗ Cancel request</button>'
+          + '</div>'
+          : '')
       + '</div>';
   };
 
@@ -647,6 +651,20 @@ ${filterBar}
   ${myReqs.length > 0 ? myReqs.map(r => card(r)).join('') : '<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>'}
 </div>
 `;
+}
+
+function cancelOwnRequest(idx) {
+  if (!confirm('Cancel this swap request?')) return;
+  const r = state.requests[idx];
+  if (!r || r.status !== 'pending') return;
+  r.status = 'rejected';
+  r.respNote = 'Cancelled by requester.';
+  r.resolvedAt = Date.now();
+  r.resolvedBy = currentUser.id;
+  if (typeof syncWrite === 'function') syncWrite(); else save();
+  toast('Request cancelled.', 'warn');
+  updateBadge();
+  nav('requests');
 }
 
 function _reqSetFilter(f) {
@@ -1505,8 +1523,16 @@ function _renderStaffSchedule() {
 
 
 
-  const allDates = Object.keys(state.users.find(u => Object.keys(u.schedule).some(k => /\d{2}\/\d{2}/.test(k)))?.schedule || state.users[0]?.schedule || {});
-  const availableMondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
+  const allDates = Object.keys(
+    state.users.find(u => Object.keys(u.schedule).some(k => /\d{2}\/\d{2}/.test(k)))?.schedule
+    || state.users[0]?.schedule || {}
+  ).sort((a, b) => {
+    const [da, ma] = a.split('/').map(Number);
+    const [db, mb] = b.split('/').map(Number);
+    // Sort by month first, then day — handles cross-month schedules
+    return ma !== mb ? ma - mb : da - db;
+  });
+  const availableMondays = allDates.filter(d => getWkDay(d) === 'Sun').sort();
   const weekRange = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
 
@@ -1521,7 +1547,10 @@ function _renderStaffSchedule() {
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <label style="font-size:11px;opacity:.7;">Week:</label>
   <select class="login-select" style="width:130px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
-    ${availableMondays.map(m => `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>Week ${m}</option>`).join('')}
+    ${availableMondays.map(m => {
+      const end = _addDays ? _addDays(m, 6) : m;
+      return `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>${m} – ${end}</option>`;
+    }).join('')}
   </select>
   <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')">
     ${showFullMonth ? '📂 Week only' : '📂 Full month'}
