@@ -298,6 +298,20 @@ function getWeekRange(monStr) {
   }
   return range;
 }
+
+// Sort DD/MM dateKeys chronologically — handles cross-year correctly
+function _sortDateKeys(keys) {
+  const now = new Date();
+  const curM = now.getMonth() + 1;
+  return [...keys].sort((a, b) => {
+    const [da, ma] = a.split('/').map(Number);
+    const [db, mb] = b.split('/').map(Number);
+    const ya = ma - curM > 6 ? now.getFullYear() - 1 : ma - curM < -6 ? now.getFullYear() + 1 : now.getFullYear();
+    const yb = mb - curM > 6 ? now.getFullYear() - 1 : mb - curM < -6 ? now.getFullYear() + 1 : now.getFullYear();
+    return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db);
+  });
+}
+
 function getWkDay(ds) {
   const [d,m]=ds.split('/');
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(2026,parseInt(m)-1,parseInt(d)).getDay()];

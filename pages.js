@@ -296,6 +296,7 @@ let scheduleMonday = null; // null = "use current real week"
 
 function renderSchedule() {
   const canPickWeek = isLeader(currentUser);
+  const canViewFutureWeeks = !isLeader(currentUser); // agents can view future but not edit
   if (isTraining(currentUser)) {
     if (typeof renderScheduleTraining === 'function') return renderScheduleTraining();
     return '<div class="empty">Loading…</div>';
@@ -312,10 +313,8 @@ function renderSchedule() {
     weekDates = getWeekDates();
   }
 
-  const realWeekDates = getWeekDates();
   const dateToDayName = {};
-  WEEK_DAYS.forEach((d, i) => { dateToDayName[realWeekDates[i]] = d; });
-  weekDates.forEach((dk, i) => { if (!dateToDayName[dk]) dateToDayName[dk] = WEEK_DAYS[i]; });
+  weekDates.forEach((dk, i) => { dateToDayName[dk] = WEEK_DAYS[i]; });
 
   function getUserShift(u, dateKey) {
     return u.schedule[dateKey] || u.schedule[dateToDayName[dateKey]] || '0';
@@ -357,17 +356,49 @@ const todayDk = `${_tNow.getDate().toString().padStart(2,'0')}/${(_tNow.getMonth
   let weekPickerHTML = '';
   if (canPickWeek) {
     const allDates = Object.keys(state.users[0]?.schedule || {});
-    const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort();
-    const activeMon = scheduleMonday || weekDates[0];
-    weekPickerHTML = mondays.length > 0 ? `
+    const sundays = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun'));
+    const activeSun = scheduleMonday || weekDates[0];
+    weekPickerHTML = sundays.length > 0 ? `
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
         <select class="login-select" style="padding:4px 8px;font-size:11px;"
           onchange="scheduleMonday=this.value;nav('schedule')">
-          ${mondays.map(m => `<option value="${m}" ${m === activeMon ? 'selected' : ''}>${m}</option>`).join('')}
+          ${sundays.map(s => {
+            const end = getWeekRange(s)[6];
+            return `<option value="${s}" ${s === activeSun ? 'selected' : ''}>${s} – ${end}</option>`;
+          }).join('')}
         </select>
       </div>` : '';
   }
+  if (canPickWeek && scheduleMonday && !sundays.includes(scheduleMonday)) {
+  scheduleMonday = sundays[0] || null;
+}
+
+let agentWeekPickerHTML = '';
+if (canViewFutureWeeks && state.users.length > 0) {
+  const allDates2 = Object.keys(state.users[0]?.schedule || {});
+  const todayDk2 = `${new Date().getDate().toString().padStart(2,'0')}/${(new Date().getMonth()+1).toString().padStart(2,'0')}`;
+  // Only current + future sundays
+  const futureSundays = _sortDateKeys(allDates2.filter(d => getWkDay(d) === 'Sun')).filter(s => {
+    const weekEnd = getWeekRange(s)[6];
+    return weekEnd >= todayDk2 || s === weekDates[0];
+  });
+  const activeSunAgent = scheduleMonday || weekDates[0];
+  if (futureSundays.length > 1) {
+    agentWeekPickerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
+        <select class="login-select" style="padding:4px 8px;font-size:11px;"
+          onchange="scheduleMonday=this.value;nav('schedule')">
+          ${futureSundays.map(s => {
+            const end = getWeekRange(s)[6];
+            return `<option value="${s}" ${s === activeSunAgent ? 'selected' : ''}>${s} – ${end}</option>`;
+          }).join('')}
+        </select>
+        <span style="font-size:11px;color:var(--text3);">read-only</span>
+      </div>`;
+  }
+}
 
   // Shift tab bar for training role
   const shiftTabsHTML = isTrainingUser ? `
@@ -481,6 +512,7 @@ const todayDk = `${_tNow.getDate().toString().padStart(2,'0')}/${(_tNow.getMonth
     ${legendItems || '<span style="color:var(--text3);font-size:11px">—</span>'}
   </div>
 </div>
+${agentWeekPickerHTML}
 ${shiftTabsHTML}
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
   <input class="filter-input" style="width:280px;padding:7px 12px;font-size:13px;"
@@ -1532,9 +1564,11 @@ function _renderStaffSchedule() {
     // Sort by month first, then day — handles cross-month schedules
     return ma !== mb ? ma - mb : da - db;
   });
-  const availableMondays = allDates.filter(d => getWkDay(d) === 'Sun').sort();
+  const availableSundays = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun'));
   const weekRange = getWeekRange(activeMonday);
-  const displayDates = showFullMonth ? allDates : weekRange;
+  const displayDates = showFullMonth
+    ? _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d)))
+    : weekRange;
 
   const filteredUsers = state.users.filter(u =>
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
@@ -1546,10 +1580,10 @@ function _renderStaffSchedule() {
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <label style="font-size:11px;opacity:.7;">Week:</label>
-  <select class="login-select" style="width:130px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
-    ${availableMondays.map(m => {
-      const end = _addDays ? _addDays(m, 6) : m;
-      return `<option value="${m}" ${m === activeMonday ? 'selected' : ''}>${m} – ${end}</option>`;
+  <select class="login-select" style="width:160px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
+    ${availableSundays.map(s => {
+      const end = getWeekRange(s)[6];
+      return `<option value="${s}" ${s === activeMonday ? 'selected' : ''}>${s} – ${end}</option>`;
     }).join('')}
   </select>
   <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')">
