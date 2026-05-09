@@ -85,3 +85,17 @@ function firebaseCurrentUid() {
   if (!_fbAuth) return null;
   return _fbAuth.currentUser?.uid || null;
 }
+
+// Get current user's ID token for authenticated REST calls
+// Token is auto-refreshed by Firebase SDK when it expires (every hour)
+async function firebaseGetIdToken() {
+  if (!_fbAuth) return null;
+  const user = _fbAuth.currentUser;
+  if (!user) return null;
+  try {
+    return await user.getIdToken(); // auto-refreshes if expired
+  } catch (e) {
+    console.warn('[firebase-auth] getIdToken failed:', e.message);
+    return null;
+  }
+}

@@ -78,29 +78,37 @@ async function discoverDbUrl() {
 }
 
 // ── Firebase REST helpers ──
-// Firebase REST: GET  /path.json?auth=SECRET  → read
-//                PUT  /path.json?auth=SECRET  → write (replace)
 const FB_PATH = '/bsched.json';
 
 function _fbUrl(dbUrl, secret) {
-  return `${dbUrl}${FB_PATH}${secret ? '?auth=' + encodeURIComponent(secret) : ''}`;
+  // secret param kept for signature compatibility but no longer used
+  return `${dbUrl}${FB_PATH}`;
 }
 
 async function _fbGet(dbUrl, secret) {
-  const res = await fetch(_fbUrl(dbUrl, secret), { cache: 'no-store' });
+  const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
+  const url   = token
+    ? `${dbUrl}${FB_PATH}?auth=${token}`
+    : `${dbUrl}${FB_PATH}${secret ? '?auth=' + encodeURIComponent(secret) : ''}`;
+
+  const res = await fetch(url, { cache: 'no-store' });
   if (res.status === 401 || res.status === 403) throw new Error('HTTP ' + res.status);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const wrapper = await res.json();
-  // Data is stored as a JSON string under key "data" to avoid Firebase
-  // key restrictions (no . # $ [ ] / allowed in key names).
-  // Payload keys like "cuong.pham" or "28/04" live safely inside the string.
   if (!wrapper || !wrapper.data) return {};
   return JSON.parse(wrapper.data);
 }
 
 async function _fbPut(dbUrl, secret, data) {
-  if (!secret) throw new Error('No API key — cannot write');
-  const res = await fetch(_fbUrl(dbUrl, secret), {
+  const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
+
+  if (!token && !secret) throw new Error('No auth token or API key — cannot write');
+
+  const url = token
+    ? `${dbUrl}${FB_PATH}?auth=${token}`
+    : `${dbUrl}${FB_PATH}?auth=${encodeURIComponent(secret)}`;
+
+  const res = await fetch(url, {
     method:  'PUT',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(data),
