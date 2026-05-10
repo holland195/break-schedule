@@ -230,6 +230,13 @@ async function submitChangePassword() {
     document.getElementById('login-view').style.display    = '';
 
     toast('Password updated! Welcome 👋', 'ok');
+    
+    // Explicitly clear old default password and set flag
+    if (!state.staffInfo[username]) state.staffInfo[username] = {};
+    state.staffInfo[username].password            = np1;
+    state.staffInfo[username].mustChangePassword  = false;
+    localStorage.setItem(`pw_changed_${username}`, '1');
+    save(); // persist to localStorage immediately
 
     // ── 4. Push mustChangePassword:false to cloud BEFORE entering app ──
     // This ensures any other device pulling from cloud gets the updated flag

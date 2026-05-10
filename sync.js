@@ -297,7 +297,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
     gender:             si.gender             || '',
     empNo:              si.empNo              || '',
     dob:                si.dob                || '',
-    mustChangePassword: si.mustChangePassword ?? true,
+  mustChangePassword: si.mustChangePassword === true ? true : false,
   };
 });
     // Include full schedule — Firebase has no size limits
