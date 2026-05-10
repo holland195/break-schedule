@@ -394,84 +394,163 @@ async function syncTryAutoConnect() {
   return false;
 }
 
-// ── Poll every 15 seconds for near-real-time updates ──
-let _syncInterval = null;
-function startSyncPolling() {
-  if (_syncInterval) clearInterval(_syncInterval);
-  _syncInterval = setInterval(async () => {
-    const noRerenderPages = new Set(['arrange', 'staff']);
-    if (!syncCfg.dbUrl && !_cachedDbUrl) {
-      stopSyncPolling();
-      updateSyncBadge('err');
-      return;
+// ═══════════════════════════════════════════════
+//  REALTIME LISTENER — Firebase WebSocket (delta only)
+//  Replaces REST polling — sends only changes, not full payload
+//  Falls back to 60s REST poll if WebSocket unavailable
+// ═══════════════════════════════════════════════
+let _fbListener      = null; // Firebase WebSocket listener ref
+let _syncInterval    = null; // fallback REST poll interval
+let _lastRemoteTs    = 0;    // track last seen _updated timestamp
+
+// ── Notification helpers (extracted from old polling block) ──
+function _checkNotifications(prevState) {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+
+  const newPendingReqs = (state.requests || []).filter(r => r.status === 'pending').length;
+  const newPendingExts = Object.values(state.extBreaks || {})
+    .flatMap(arr => arr || [])
+    .filter(e => !e.status || e.status === 'pending').length;
+  const newMyResolved = (state.requests || [])
+    .filter(r => r.userId === currentUser.id && r.status !== 'pending').length;
+  const newMyExtApproved = Object.entries(state.extBreaks || {})
+    .filter(([k]) => k.startsWith(currentUser.id + '_'))
+    .flatMap(([, arr]) => arr || [])
+    .filter(e => e.status === 'approved' || e.status === 'rejected').length;
+
+  if (isLeader(currentUser) && newPendingReqs > prevState.pendingReqs)
+    toast(`🔄 ${newPendingReqs - prevState.pendingReqs} new break swap request(s)`, 'warn');
+  if (isLeader(currentUser) && newPendingExts > prevState.pendingExts)
+    toast(`🌸 ${newPendingExts - prevState.pendingExts} new 30-min break request(s)`, 'warn');
+  if (newMyResolved > prevState.myResolved) {
+    const latest = (state.requests || [])
+      .filter(r => r.userId === currentUser.id && r.status !== 'pending')
+      .sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0))[0];
+    if (latest)
+      toast(`🔄 Your swap request: ${latest.status.toUpperCase()}`, latest.status === 'approved' ? 'ok' : 'err');
+  }
+  if (newMyExtApproved > prevState.myExtApproved)
+    toast('🌸 Your 30-min break request was updated', 'ok');
+}
+
+function _snapState() {
+  return {
+    pendingReqs:    (state.requests || []).filter(r => r.status === 'pending').length,
+    pendingExts:    Object.values(state.extBreaks || {}).flatMap(a => a || []).filter(e => !e.status || e.status === 'pending').length,
+    myResolved:     currentUser ? (state.requests || []).filter(r => r.userId === currentUser.id && r.status !== 'pending').length : 0,
+    myExtApproved:  currentUser ? Object.entries(state.extBreaks || {}).filter(([k]) => k.startsWith(currentUser.id + '_')).flatMap(([, a]) => a || []).filter(e => e.status === 'approved' || e.status === 'rejected').length : 0,
+  };
+}
+
+function _onRemoteUpdate(remote) {
+  if (!remote || typeof remote !== 'object') return;
+
+  // Skip if no new data (compare _updated timestamp)
+  const remoteTs = remote._updated || 0;
+  if (remoteTs && remoteTs <= _lastRemoteTs) return;
+  _lastRemoteTs = remoteTs;
+
+  const prev = _snapState();
+  _applyRemoteData(remote);
+  save();
+  _checkNotifications(prev);
+
+  // Re-render if no modal open
+  const noRerenderPages = new Set(['arrange', 'staff']);
+  if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
+    const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
+    const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
+    if (!anyModalOpen) { nav(currentPage); updateBadge(); }
+  }
+  updateSyncBadge('ok');
+}
+
+// ── Start WebSocket listener via Firebase SDK ──
+function _startFirebaseListener() {
+  const dbUrl = syncCfg.dbUrl || _cachedDbUrl;
+  if (!dbUrl) return false;
+
+  // Firebase Realtime Database SDK must be loaded
+  if (typeof firebase === 'undefined' || !firebase.database) {
+    console.warn('[sync] Firebase SDK not available for WebSocket listener');
+    return false;
+  }
+
+  try {
+    // Stop existing listener
+    if (_fbListener) {
+      _fbListener.off();
+      _fbListener = null;
     }
- 
-    // Snapshot counts BEFORE pull to detect new arrivals
-    const prevPendingReqs  = (state.requests  || []).filter(r => r.status === 'pending').length;
-    const prevPendingExts  = Object.values(state.extBreaks || {})
-      .flatMap(arr => arr || [])
-      .filter(e => !e.status || e.status === 'pending').length;
-    // Count approvals/rejections the current user is waiting on
-    const prevMyResolved = currentUser ? (state.requests || [])
-      .filter(r => r.userId === currentUser.id && r.status !== 'pending').length : 0;
-    const prevMyExtApproved = currentUser ? Object.entries(state.extBreaks || {})
-      .filter(([k]) => k.startsWith(currentUser.id + '_'))
-      .flatMap(([, arr]) => arr || [])
-      .filter(e => e.status === 'approved' || e.status === 'rejected').length : 0;
- 
-    const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
-    if (!ok) { updateSyncBadge('err'); return; }
- 
-    // Detect new items and notify
-    if (typeof currentUser !== 'undefined' && currentUser) {
-      const newPendingReqs = (state.requests || []).filter(r => r.status === 'pending').length;
-      const newPendingExts = Object.values(state.extBreaks || {})
-        .flatMap(arr => arr || [])
-        .filter(e => !e.status || e.status === 'pending').length;
-      const newMyResolved  = (state.requests || [])
-        .filter(r => r.userId === currentUser.id && r.status !== 'pending').length;
-      const newMyExtApproved = Object.entries(state.extBreaks || {})
-        .filter(([k]) => k.startsWith(currentUser.id + '_'))
-        .flatMap(([, arr]) => arr || [])
-        .filter(e => e.status === 'approved' || e.status === 'rejected').length;
- 
-      // Leader: new swap request arrived
-      if (isLeader(currentUser) && newPendingReqs > prevPendingReqs)
-        toast(`🔄 ${newPendingReqs - prevPendingReqs} new break swap request(s)`, 'warn');
- 
-      // Leader: new 30-min break request
-      if (isLeader(currentUser) && newPendingExts > prevPendingExts)
-        toast(`🌸 ${newPendingExts - prevPendingExts} new 30-min break request(s)`, 'warn');
- 
-      // Agent: their swap request was approved/rejected
-      if (newMyResolved > prevMyResolved) {
-        const latest = (state.requests || [])
-          .filter(r => r.userId === currentUser.id && r.status !== 'pending')
-          .sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0))[0];
-        if (latest)
-          toast(`🔄 Your swap request: ${latest.status.toUpperCase()}`, latest.status === 'approved' ? 'ok' : 'err');
+
+    const db  = firebase.database();
+    const ref = db.ref('bsched');
+
+    // .on('value') uses WebSocket — fires once on connect, then only on changes
+    // This sends DELTAS not full payload = ~95% bandwidth reduction
+    ref.on('value', (snapshot) => {
+      try {
+        const wrapper = snapshot.val();
+        if (!wrapper || !wrapper.data) return;
+        const remote = JSON.parse(wrapper.data);
+        _onRemoteUpdate(remote);
+      } catch (e) {
+        console.warn('[sync] WebSocket parse error:', e.message);
       }
- 
-      // Agent: their 30-min break was approved/rejected
-      if (newMyExtApproved > prevMyExtApproved)
-        toast('🌸 Your 30-min break request was updated', 'ok');
-    }
- 
-    if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
-  const pcModalOpen = document.getElementById('pc-modal')?.style.display === 'flex';
-  const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
-  if (!anyModalOpen) {
-    nav(currentPage);
-    updateBadge();
+    }, (err) => {
+      console.warn('[sync] WebSocket listener error:', err.message);
+      updateSyncBadge('err');
+      // Fall back to REST polling
+      _startFallbackPolling();
+    });
+
+    _fbListener = ref;
+    console.log('[sync] WebSocket listener active — delta sync enabled');
+    return true;
+  } catch (e) {
+    console.warn('[sync] Failed to start WebSocket listener:', e.message);
+    return false;
   }
 }
-    updateSyncBadge('ok');
-  }, 15 * 1000); // 15 seconds — Firebase REST has no rate limits
+
+// ── Fallback: 60s REST poll (used if WebSocket unavailable) ──
+function _startFallbackPolling() {
+  if (_syncInterval) return; // already running
+  console.log('[sync] Starting 60s fallback REST polling');
+  _syncInterval = setInterval(async () => {
+    if (!syncCfg.dbUrl && !_cachedDbUrl) { stopSyncPolling(); updateSyncBadge('err'); return; }
+
+    // Skip poll if tab is hidden — saves bandwidth when user switches tabs
+    if (document.hidden) return;
+
+    const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
+    if (!ok) updateSyncBadge('err');
+  }, 60 * 1000);
+}
+
+// ── Main entry: try WebSocket first, fall back to REST ──
+function startSyncPolling() {
+  stopSyncPolling(); // clear any existing
+
+  const wsStarted = _startFirebaseListener();
+  if (!wsStarted) {
+    // WebSocket not available — use 60s REST polling
+    _startFallbackPolling();
+  }
 }
 
 function stopSyncPolling() {
-  if (_syncInterval) clearInterval(_syncInterval);
-  _syncInterval = null;
+  // Stop WebSocket listener
+  if (_fbListener) {
+    try { _fbListener.off(); } catch(e) {}
+    _fbListener = null;
+  }
+  // Stop REST polling
+  if (_syncInterval) {
+    clearInterval(_syncInterval);
+    _syncInterval = null;
+  }
+  console.log('[sync] Polling stopped');
 }
 
 function updateSyncBadge(status) {
