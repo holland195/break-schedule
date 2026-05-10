@@ -206,15 +206,19 @@ if (!state.staffInfo['admin'].password) state.staffInfo['admin'].password = '123
 // Seed STAFF_INFO_DB entries — only fill in users that don't exist in localStorage yet.
 // NEVER overwrite an existing entry — that would wipe passwords changed on other browsers.
 STAFF_INFO_DB.forEach(r => {
-  if (r.username === 'admin') return; // handled above
+  if (r.username === 'admin') return;
   if (!state.staffInfo[r.username]) {
-    // Brand new device — set defaults; cloud pull will overwrite with real passwords
     state.staffInfo[r.username] = {
       empNo: r.empNo, dob: r.dob, gender: r.gender, name: r.name, role: r.role,
       password: '1234', mustChangePassword: true,
     };
   }
-  // If entry already exists (returning browser or post-cloud-pull), leave it untouched
+  // Never override mustChangePassword if already set to false —
+  // user already changed their password on another device
+  // (cloud pull will set this correctly, but guard against seed overwrite)
+  else if (state.staffInfo[r.username].mustChangePassword === false) {
+    // Already changed — leave everything untouched
+  }
 });
 save();
 

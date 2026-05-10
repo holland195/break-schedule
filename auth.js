@@ -209,11 +209,17 @@ async function submitChangePassword() {
     await firebaseUpdatePassword(np1);
 
     // ── 2. Clear mustChangePassword flag in local + cloud ──
-    DB.setPassword(username, np1);  // sets mustChangePassword: false
-    DB.saveSession({ username, userId: currentUser.id, shift: currentShift });
-    // Store a separate flag in localStorage that survives syncPull overwrites
-    // syncPull may restore mustChangePassword:true from old cloud data
+    DB.setPassword(username, np1);  // sets mustChangePassword: false locally
+
+    // Explicitly set mustChangePassword: false in staffInfo
+    if (!state.staffInfo[username]) state.staffInfo[username] = {};
+    state.staffInfo[username].mustChangePassword = false;
+
+    // Store localStorage flag — survives cloud pull overwrites on THIS device
     localStorage.setItem(`pw_changed_${username}`, '1');
+
+    DB.saveSession({ username, userId: currentUser.id, shift: currentShift });
+    save();
 
     // ── 3. Hide change-password view ──
     document.getElementById('changepw-view').style.display = 'none';
@@ -221,8 +227,11 @@ async function submitChangePassword() {
 
     toast('Password updated! Welcome 👋', 'ok');
 
-    // ── 4. Push flag to cloud immediately so all devices know ──
-    if (typeof syncWrite === 'function') await syncWrite();
+    // ── 4. Push mustChangePassword:false to cloud BEFORE entering app ──
+    // This ensures any other device pulling from cloud gets the updated flag
+    if (typeof syncPush === 'function' && typeof syncEnabled === 'function' && syncEnabled()) {
+      await syncPush();
+    }
 
     // ── 5. Enter the app ──
     _afterLogin();
