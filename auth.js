@@ -111,10 +111,14 @@ async function doLogin() {
       err.textContent = '';
     }
 
-    // Check first-login password change requirement (now using fresh cloud data)
-    // Skip if user has already changed password on this device (localStorage flag)
+     // Re-read mustChangePw AFTER syncPull — cloud value may have updated it
     const alreadyChanged = localStorage.getItem(`pw_changed_${u}`) === '1';
-    if (!alreadyChanged && DB.mustChangePw(u)) {
+    const mustChange     = state.staffInfo[u]?.mustChangePassword;
+    // mustChange === false means explicitly set to false on cloud → never prompt
+    // mustChange === true or undefined → prompt unless localStorage flag set
+    const shouldPrompt   = !alreadyChanged && mustChange !== false;
+
+    if (shouldPrompt) {
       window._loginInProgress = false;
       btn.disabled = false;
       _showChangePwPrompt(u);
