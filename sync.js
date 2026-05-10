@@ -55,11 +55,13 @@ async function loadSyncConfig() {
     const res = await fetch('./sync-config.json?_=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) return null;
     const cfg = await res.json();
-    const dbUrl = (cfg.dbUrl || '').replace(/\/$/, ''); // strip trailing slash
+    const dbUrl = (cfg.dbUrl || '').replace(/\/$/, '');
     if (!dbUrl) return null;
+    // Only use apiKey from sync-config.json — never from localStorage cache
+    // This prevents stale/revoked secrets from being used
     syncSaveCfg({
       dbUrl:  dbUrl,
-      apiKey: cfg.apiKey || syncCfg.apiKey || '',
+      apiKey: cfg.apiKey || '', // empty if not in config file
     });
     _cachedDbUrl = dbUrl;
     console.log('[sync] config loaded from sync-config.json, dbUrl:', dbUrl);
@@ -385,11 +387,17 @@ async function wipeStaffPasswords() {
 // ── Boot ──
 async function syncTryAutoConnect() {
   await loadSyncConfig();
-  if (syncEnabled()) {
+  // Don't attempt REST pull at boot — no Firebase Auth token yet
+  // WebSocket listener will connect after login via startSyncPolling()
+  // Only pull if we have a valid auth token (post-login)
+  const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
+  if (!token) {
+    console.log('[sync] syncTryAutoConnect: no auth token yet — skipping pre-login pull');
+    return false;
+  }
+  if (syncEnabled() || syncCfg.dbUrl) {
     const ok = await syncPull();
     return ok ? true : 'error';
-  } else if (syncCfg.dbUrl) {
-    return await syncPublicPull();
   }
   return false;
 }
@@ -479,12 +487,22 @@ function _startFirebaseListener() {
   try {
     // Stop existing listener
     if (_fbListener) {
-      _fbListener.off();
+      try { _fbListener.off(); } catch(e) {}
       _fbListener = null;
     }
 
-    const db  = firebase.database();
+    // Guard: ensure Firebase app and database are initialized
+    if (typeof firebase === 'undefined') return false;
+    let db;
+    try {
+      db = firebase.database();
+    } catch(e) {
+      console.warn('[sync] firebase.database() not ready:', e.message);
+      return false;
+    }
+    if (!db) return false;
     const ref = db.ref('bsched');
+
 
     // .on('value') uses WebSocket — fires once on connect, then only on changes
     // This sends DELTAS not full payload = ~95% bandwidth reduction
