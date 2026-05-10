@@ -275,8 +275,7 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
      state.staffInfo[uname].name   = si.name   || state.staffInfo[uname].name   || '';
      state.staffInfo[uname].role   = si.role   || state.staffInfo[uname].role   || '';
      state.staffInfo[uname].gender = si.gender || state.staffInfo[uname].gender || '';
-     state.staffInfo[uname].empNo  = si.empNo  || state.staffInfo[uname].empNo  || '';
-     state.staffInfo[uname].dob    = si.dob    || state.staffInfo[uname].dob    || '';
+     // empNo, dob, password never applied from cloud — local only (Excel import)
      // Cloud ALWAYS wins for mustChangePassword — never let seed override it
      // If cloud explicitly says false, user already changed pw → never prompt again
      if (si.mustChangePassword === false) {
@@ -306,9 +305,9 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
     name:               si.name               || '',
     role:               si.role               || '',
     gender:             si.gender             || '',
-    empNo:              si.empNo              || '',
-    dob:                si.dob                || '',
-  mustChangePassword: si.mustChangePassword === true ? true : false,
+    mustChangePassword: si.mustChangePassword === true ? true : false,
+    // empNo, dob, password intentionally excluded — sensitive fields
+    // empNo/dob come from Excel import only, not synced via cloud
   };
 });
     // Include full schedule — Firebase has no size limits
