@@ -1376,6 +1376,7 @@ function _renderStaffInfo() {
 </div>`;
 }
 
+// Find and replace entire _renderStaffInfoRows function:
 function _renderStaffInfoRows(filter) {
   const all = Object.entries(state.staffInfo || {})
     .map(([username, d]) => ({ username, ...d }))
@@ -1388,20 +1389,29 @@ function _renderStaffInfoRows(filter) {
     (u.empNo || '').toLowerCase().includes(f) ||
     (u.role || '').toLowerCase().includes(f)
   ).map(u => {
+    // Gender: icon only
     const g = u.gender === 'F'
-      ? `<span style="color:var(--A-color);font-weight:700;">♀ Female</span>`
-      : `<span style="color:var(--B-color);font-weight:700;">♂ Male</span>`;
+      ? `<span style="color:var(--A-color);font-size:15px;" title="Female">♀</span>`
+      : u.gender === 'M'
+        ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
+        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
+
     const roleLvl = ROLE_SORT_ORDER[u.role] ?? 9;
     const roleColor = roleLvl <= 1 ? 'var(--accent)'
       : roleLvl <= 2 ? 'var(--warn)'
         : roleLvl <= 3 ? 'var(--ok)'
           : 'var(--text2)';
+
+    // empNo and dob come from local staffInfo (Excel import) — never from cloud
+    const empNo = u.empNo || '—';
+    const dob   = u.dob   || '—';
+
     return `<tr>
-      <td class="mono" style="font-size:11px;color:var(--text3);">${u.empNo || '—'}</td>
+      <td class="mono" style="font-size:11px;color:var(--text3);">${empNo}</td>
       <td style="font-weight:600;">${u.name || '—'}</td>
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
-      <td>${g}</td>
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${u.dob || '—'}</td>
+      <td style="text-align:center;">${g}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
       <td style="font-size:11px;color:${roleColor};font-weight:500;">${u.role || '—'}</td>
     </tr>`;
   }).join('');

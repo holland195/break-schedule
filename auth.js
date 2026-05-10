@@ -295,12 +295,8 @@ function enterApp(fromSession) {
 
   const si     = DB.getStaffInfo(currentUser.username);
   const gender = si?.gender || currentUser.gender || '';
-  const tg     = document.getElementById('top-gender');
-  if (tg) {
-    tg.textContent  = gender === 'F' ? '♀' : gender === 'M' ? '♂' : '';
-    tg.style.color  = gender === 'F' ? 'var(--A-color)' : 'var(--B-color)';
-    tg.style.display = gender ? '' : 'none';
-  }
+  const tg = document.getElementById('top-gender');
+  if (tg) tg.style.display = 'none'; 
 
   document.querySelectorAll('.leader-only').forEach(el => el.style.display = isLeader(currentUser) ? 'flex' : 'none');
   document.querySelectorAll('.arrange-nav').forEach(el => el.style.display = (isLeader(currentUser) && !isTraining(currentUser)) ? 'flex' : 'none');
