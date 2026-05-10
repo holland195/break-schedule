@@ -267,7 +267,6 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
     });
   }
 }
-  // Restore full staff profiles (name, role, gender, empNo, dob) from cloud
   if (remote.staffInfo) {
    Object.entries(remote.staffInfo).forEach(([uname, si]) => {
      if (!state.staffInfo[uname]) state.staffInfo[uname] = {};
@@ -276,10 +275,20 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
      state.staffInfo[uname].gender = si.gender || state.staffInfo[uname].gender || '';
      state.staffInfo[uname].empNo  = si.empNo  || state.staffInfo[uname].empNo  || '';
      state.staffInfo[uname].dob    = si.dob    || state.staffInfo[uname].dob    || '';
-     if (si.mustChangePassword !== undefined) {
-       state.staffInfo[uname].mustChangePassword = si.mustChangePassword;
+     // Cloud ALWAYS wins for mustChangePassword — never let seed override it
+     // If cloud explicitly says false, user already changed pw → never prompt again
+     if (si.mustChangePassword === false) {
+       state.staffInfo[uname].mustChangePassword = false;
+       // Also set localStorage flag so check in doLogin passes too
+       localStorage.setItem('pw_changed_' + uname, '1');
+     } else if (si.mustChangePassword === true) {
+       // Only set true if localStorage flag not already set (user changed on this device before)
+       if (localStorage.getItem('pw_changed_' + uname) !== '1') {
+         state.staffInfo[uname].mustChangePassword = true;
+       }
      }
    });
+   save(); // persist merged staffInfo immediately
  }
   
 }
