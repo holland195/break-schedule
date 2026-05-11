@@ -71,3 +71,62 @@ function attachPageEvents(page) {
     if (firstTab) firstTab.classList.add('on');
   }
 }
+
+// ── Sidebar collapse toggle ──
+let _sidebarCollapsed = localStorage.getItem('nav_collapsed') === '1';
+
+function toggleSidebar() {
+  _sidebarCollapsed = !_sidebarCollapsed;
+  localStorage.setItem('nav_collapsed', _sidebarCollapsed ? '1' : '0');
+  _applySidebarState();
+}
+
+function _applySidebarState() {
+  const sidebar = document.getElementById('sidebar');
+  const layout  = document.querySelector('.layout');
+  if (!sidebar || !layout) return;
+  sidebar.classList.toggle('collapsed', _sidebarCollapsed);
+  layout.classList.toggle('collapsed', _sidebarCollapsed);
+}
+
+// ── Add tooltips to nav items for collapsed state ──
+function _initNavTooltips() {
+  const tooltips = {
+    dashboard: 'Dashboard',
+    schedule:  'Break Schedule',
+    requests:  'Break Swap',
+    extbreak:  '30-min Break',
+    feedback:  'My Violations',
+    arrange:   'Arrange Breaks',
+    attendance:'Logbook',
+    policy:    'Policy',
+    staff:     'Staff',
+    sync:      'Cloud Sync',
+  };
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    const page = el.dataset.page;
+    if (tooltips[page]) el.setAttribute('data-tooltip', tooltips[page]);
+  });
+  _applySidebarState();
+}
+
+// ── Update active shift pill ──
+function _updateShiftPills(shift) {
+  ['A','D','E'].forEach(s => {
+    const el = document.getElementById('spill-' + s);
+    if (el) el.classList.toggle('active', s === shift);
+  });
+}
+
+// Patch changeSidebarShift to also update pills
+const _origChangeSidebarShift = changeSidebarShift;
+changeSidebarShift = function(v) {
+  _origChangeSidebarShift(v);
+  _updateShiftPills(v);
+};
+
+// Init on load
+document.addEventListener('DOMContentLoaded', () => {
+  _initNavTooltips();
+  _updateShiftPills(currentShift || 'E');
+});
