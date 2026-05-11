@@ -509,6 +509,58 @@ function _pcRenderSummary() {
       }).join('')
     + '</div>';
 
+  // ── Warning card: repeat violators (≥2 in 30 days, non-cancelled) ──
+  // Built from unfiltered base so filters don't hide the alert.
+  var byPersonAll = {};
+  base.forEach(function(r) {
+    if (r.status === 'Cancelled') return;
+    var k = r.username || r.name;
+    if (!byPersonAll[k]) byPersonAll[k] = { name: r.name, username: r.username, role: r.role, records: [] };
+    byPersonAll[k].records.push(r);
+  });
+  var warned = Object.values(byPersonAll)
+    .filter(function(p) { return p.records.length >= 2; })
+    .sort(function(a, b) { return b.records.length - a.records.length; });
+
+  var warningCard = '';
+  if (warned.length > 0 && (isTraining(currentUser) || isAdmin(currentUser))) {
+    var warningRows = warned.map(function(p) {
+      var emailSentRec = p.records.filter(function(r) { return r.mailCheck && r.warningMailDate; })
+        .sort(function(a, b) { return (b.warningMailDate || '').localeCompare(a.warningMailDate || ''); })[0];
+      var emailSent = !!emailSentRec;
+      var emailAddr = p.username + '@discoveryloft.com';
+      return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid rgba(239,68,68,.12);">'
+        + '<div style="flex:1;min-width:200px;">'
+        + '<span style="font-size:13px;font-weight:700;">' + p.name + '</span>'
+        + '<span style="font-size:11px;color:var(--text3);margin-left:8px;">' + p.role + '</span>'
+        + '<span style="font-size:11px;font-weight:700;margin-left:8px;color:var(--err);">' + p.records.length + ' violations</span>'
+        + '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:\'IBM Plex Mono\',monospace;">' + emailAddr + '</div>'
+        + '</div>'
+        + (emailSent
+          ? '<div style="font-size:11px;color:var(--ok);background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:6px;padding:4px 10px;white-space:nowrap;">'
+            + '✓ Email sent ' + emailSentRec.warningMailDate + (emailSentRec.warningEmailSentBy ? ' by ' + emailSentRec.warningEmailSentBy : '') + '</div>'
+          : '<div style="display:flex;gap:6px;flex-shrink:0;">'
+            + '<button class="btn btn-sm" style="font-size:11px;padding:4px 12px;background:var(--err);color:#fff;border:none;" '
+            + 'onclick="_pcSendWarningEmail(\'' + p.username + '\',\'' + p.name.replace(/'/g,"\\'") + '\')">📧 Send Email</button>'
+            + '<button class="btn btn-sm" style="font-size:11px;padding:4px 12px;" '
+            + 'onclick="_pcMarkEmailSent(\'' + p.username + '\',\'' + p.name.replace(/'/g,"\\'") + '\')">✓ Mark as Sent</button>'
+            + '</div>'
+        )
+        + '</div>';
+    }).join('');
+
+    warningCard = '<div style="border:1px solid rgba(239,68,68,.35);border-radius:8px;background:rgba(239,68,68,.04);padding:14px 16px;margin-bottom:16px;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+      + '<span style="font-size:13px;font-weight:700;color:var(--err);">⚠ Repeat Violators — Email Warning Needed</span>'
+      + '<span style="font-size:11px;background:var(--err);color:#fff;padding:2px 8px;border-radius:99px;font-weight:600;">' + warned.length + '</span>'
+      + '</div>'
+      + '<div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.6;">'
+      + 'These staff members have ≥2 violations in the last 30 days. Send a warning email, then mark it as sent to track it.'
+      + '</div>'
+      + warningRows
+      + '</div>';
+  }
+
   // ── Group by role → per-person table ──
   var byPerson = {};
   filtered.forEach(function(r) {
@@ -544,9 +596,16 @@ function _pcRenderSummary() {
     var rows = persons.map(function(p,i) {
       var evCounts = {};
       p.records.forEach(function(r){ evCounts[r.event]=(evCounts[r.event]||0)+1; });
+      var nonCancelledCount = p.records.filter(function(r){ return r.status !== 'Cancelled'; }).length;
+      var emailSentForPerson = p.records.some(function(r){ return r.mailCheck && r.warningMailDate; });
+      var repeatBadge = nonCancelledCount >= 2
+        ? (emailSentForPerson
+            ? '<span title="Warning email sent" style="font-size:10px;margin-left:6px;color:var(--ok);">✉✓</span>'
+            : '<span title="≥2 violations — email recommended" style="font-size:10px;margin-left:6px;color:var(--err);font-weight:700;">⚠</span>')
+        : '';
       return '<tr style="border-bottom:1px solid var(--border);">'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);">'+(i+1)+'</td>'
-        + '<td style="padding:6px 10px;font-weight:600;font-size:12px;">'+p.name+'</td>'
+        + '<td style="padding:6px 10px;font-weight:600;font-size:12px;">'+p.name+repeatBadge+'</td>'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+p.leader+'</td>'
         + '<td style="padding:6px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(p.records.length)+'">'+p.records.length+'</td>'
         + eventKeys.map(function(ev){
@@ -571,7 +630,7 @@ function _pcRenderSummary() {
     + Object.entries(PC_EVENTS).map(function(e){return '<div><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);">'+e[0]+'</b> — '+e[1]+'</div>';}).join('')
     + '</div></div>';
 
-  return filterBar + statRow + sections + ref;
+  return filterBar + statRow + warningCard + sections + ref;
 }
 
 // ════════════════════════════════════════════
@@ -875,6 +934,61 @@ function _pcTrainingAction(no, newStatus) {
   if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
   if (typeof updateFeedbackBadge === 'function') updateFeedbackBadge();
   toast(newStatus === 'Resolved' ? '✓ Marked as Resolved — violation confirmed.' : '✕ Violation cancelled.', newStatus === 'Resolved' ? 'ok' : 'warn');
+  _pcApplyFilters();
+  _pcRerender();
+}
+
+// ════════════════════════════════════════════
+//  WARNING EMAIL FUNCTIONS (Training only)
+// ════════════════════════════════════════════
+
+function _pcSendWarningEmail(username, name) {
+  if (!isTraining(currentUser) && !isAdmin(currentUser)) return;
+  var cutoff  = _pcCutoff30();
+  var today   = _pcToday();
+  var records = _pcData().filter(function(r) {
+    return r.username === username && r.date >= cutoff && r.date <= today && r.status !== 'Cancelled';
+  }).sort(function(a, b) { return a.date.localeCompare(b.date); });
+
+  var email   = username + '@discoveryloft.com';
+  var subject = encodeURIComponent('Policy Violation Warning — ' + name);
+  var violationList = records.map(function(r) {
+    return '- ' + r.date + ': [' + r.event + '] ' + (PC_EVENTS[r.event] || r.event)
+      + (r.description ? ' — ' + r.description : '');
+  }).join('\n');
+
+  var body = encodeURIComponent(
+    'Dear ' + name + ',\n\n'
+    + 'This is a formal warning regarding the following policy violation(s) recorded in the past 30 days:\n\n'
+    + violationList + '\n\n'
+    + 'Please ensure full compliance with company policies going forward.\n'
+    + 'If you have any questions, please speak with your team leader or contact Training.\n\n'
+    + 'Regards,\n' + currentUser.name + '\nTraining Team'
+  );
+
+  window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+}
+
+function _pcMarkEmailSent(username, name) {
+  if (!isTraining(currentUser) && !isAdmin(currentUser)) return;
+  var cutoff = _pcCutoff30();
+  var today  = _pcToday();
+  var marked = 0;
+  state.policyCompliance.forEach(function(r) {
+    if (r.username !== username) return;
+    if (r.date < cutoff || r.date > today) return;
+    if (r.status === 'Cancelled') return;
+    r.mailCheck           = true;
+    r.warningMailDate     = today;
+    r.warningEmailSentBy  = currentUser.name;
+    r.warningEmailSentAt  = Date.now();
+    marked++;
+  });
+  if (marked === 0) { toast('No violations to mark.', 'warn'); return; }
+  save();
+  if (typeof syncWrite === 'function') syncWrite();
+  if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
+  toast('✓ Warning email marked as sent for ' + (name || username) + ' (' + marked + ' violation' + (marked > 1 ? 's' : '') + ').', 'ok');
   _pcApplyFilters();
   _pcRerender();
 }
