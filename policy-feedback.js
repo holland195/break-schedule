@@ -55,12 +55,13 @@ function _fbMyRecords() {
 
 function _fbUnreadCount() {
   if (_fbIsAgent(currentUser)) {
-    return _fbMyRecords().filter(function(r) {
-      return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
-    }).length;
+    return _fbMyRecords().filter(function(r) { return r.status === 'Processing'; }).length;
+  }
+  if (typeof isTraining === 'function' && isTraining(currentUser)) {
+    return _fbData().filter(function(r) { return r.status === 'Need Review' || r.status === 'Need Resolve'; }).length;
   }
   return _fbData().filter(function(r) {
-    return (r.agentFeedback || r.agentDone) && !r.feedbackReadByLeader && r.status !== 'Resolved';
+    return (r.agentFeedback || r.agentDone) && !r.feedbackReadByLeader && r.status !== 'Resolved' && r.status !== 'Cancelled';
   }).length;
 }
 
@@ -90,10 +91,19 @@ function _fbEventLabel(ev) {
   return map[ev] || ev;
 }
 
+var _FB_STATUS_COLORS = {
+  'Processing':   '#d97706',
+  'Need Review':  'var(--err)',
+  'Need Resolve': 'var(--accent)',
+  'Resolved':     'var(--ok)',
+  'Cancelled':    'var(--text3)',
+};
 function _fbStatusDot(s) {
-  return s === 'Resolved'
-    ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:5px;flex-shrink:0;"></span>'
-    : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);margin-right:5px;flex-shrink:0;"></span>';
+  var c = _FB_STATUS_COLORS[s] || 'var(--warn)';
+  return '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+c+';margin-right:5px;flex-shrink:0;"></span>';
+}
+function _fbStatusColor(s) {
+  return _FB_STATUS_COLORS[s] || 'var(--warn)';
 }
 
 // ════════════════════════════════════════════
@@ -105,9 +115,7 @@ function _fbRenderMine() {
     return '<div class="empty" style="padding:40px 0;text-align:center;color:var(--text3);">No violations on record. Keep it up!</div>';
   }
 
-  var pending = records.filter(function(r) {
-    return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
-  }).length;
+  var pending = records.filter(function(r) { return r.status === 'Processing'; }).length;
 
   var banner = pending > 0
     ? '<div style="background:var(--D-bg);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--warn);">⚠ You have <b>' + pending + '</b> violation(s) awaiting your response.</div>'
@@ -118,8 +126,9 @@ function _fbRenderMine() {
     var hasFb    = !!r.agentFeedback;
     var hasDone  = !!r.agentDone;
     var hasReply = hasFb || hasDone;
-    var isResolved = r.status === 'Resolved';
-    var needsReply = !hasReply && !isResolved;
+    var isResolved  = r.status === 'Resolved';
+    var isCancelled = r.status === 'Cancelled';
+    var needsReply  = r.status === 'Processing';
 
     var feedbackSection = hasDone
       ? '<div style="background:var(--C-bg);border:1px solid var(--ok);border-radius:7px;padding:8px 12px;font-size:12px;color:var(--ok);">✓ Acknowledged — no objection.</div>'
@@ -129,8 +138,8 @@ function _fbRenderMine() {
           + '<div style="font-size:10px;color:var(--text3);margin-top:6px;">' + _fbTimeSince(r.agentFeedbackAt) + '</div>'
           + '<button onclick="_fbOpenFeedback(' + realIdx + ')" style="position:absolute;top:8px;right:8px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Edit</button>'
           + '</div>'
-        : isResolved
-          ? '<div style="font-size:12px;color:var(--text3);font-style:italic;">This violation has been resolved.</div>'
+        : (isResolved || isCancelled)
+          ? '<div style="font-size:12px;color:var(--text3);font-style:italic;">'+(isCancelled?'This violation was cancelled.':'This violation has been resolved.')+'</div>'
           : '<div>'
             + '<textarea id="fb-text-' + realIdx + '" placeholder="Write your comment if you disagree or have context to add..." style="width:100%;min-height:70px;padding:9px 12px;font-size:12px;font-family:\'IBM Plex Sans\',sans-serif;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);resize:vertical;line-height:1.7;box-sizing:border-box;"></textarea>'
             + '<div style="display:flex;gap:8px;margin-top:8px;">'
@@ -149,12 +158,12 @@ function _fbRenderMine() {
       + '</div>'
       + '<div style="display:flex;align-items:center;gap:5px;">'
       + _fbStatusDot(r.status)
-      + '<span style="font-size:11px;color:' + (isResolved ? 'var(--ok)' : 'var(--warn)') + ';">' + r.status + '</span>'
+      + '<span style="font-size:11px;color:' + _fbStatusColor(r.status) + ';">' + r.status + '</span>'
       + '</div>'
       + '</div>'
       + (r.description ? '<div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.6;">' + r.description + '</div>' : '')
       + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + (hasReply ? 'var(--ok)' : isResolved ? 'var(--text3)' : 'var(--warn)') + ';font-family:\'IBM Plex Mono\',monospace;margin-bottom:7px;">'
-      + (hasDone ? '✓ You acknowledged this' : hasFb ? '✓ Your response' : isResolved ? '— Resolved' : '✏ Your response needed')
+      + (hasDone ? '✓ You acknowledged — forwarded to training' : hasFb ? '✓ Your response — forwarded to training' : isResolved ? '— Resolved' : isCancelled ? '— Cancelled' : '✏ Your response needed')
       + '</div>'
       + feedbackSection
       + '</div>';
@@ -167,8 +176,10 @@ function _fbMarkDone(realIdx) {
   state.policyCompliance[realIdx].agentDone        = true;
   state.policyCompliance[realIdx].agentDoneAt      = Date.now();
   state.policyCompliance[realIdx].feedbackReadByLeader = false;
+  state.policyCompliance[realIdx].status           = 'Need Resolve';
   save();
   if (typeof syncWrite === 'function') syncWrite();
+  if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
   updateFeedbackBadge();
   _fbRerender();
 }
@@ -293,7 +304,7 @@ function _fbRenderTeamList() {
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">'
             + _fbStatusDot(r.status)
-            + '<span style="font-size:11px;color:' + (r.status === 'Resolved' ? 'var(--ok)' : 'var(--warn)') + ';">' + r.status + '</span>'
+            + '<span style="font-size:11px;color:' + _fbStatusColor(r.status) + ';">' + r.status + '</span>'
             + '</div></div>'
             + (hasFb
               ? '<div style="margin-top:8px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.2);border-radius:6px;padding:9px 12px;">'
@@ -338,8 +349,9 @@ function _fbRenderTeam() {
     + 'style="' + ss + 'width:220px;">'
     + '<select style="' + ss + '" onchange="window._fbTeamStatus=this.value;_fbRerender()">'
     + '<option value="">All statuses</option>'
-    + '<option value="Resolved"' + (_sfilt === 'Resolved' ? ' selected' : '') + '>Resolved</option>'
-    + '<option value="To Be Reviewed"' + (_sfilt === 'To Be Reviewed' ? ' selected' : '') + '>To Be Reviewed</option>'
+    + ['Processing','Need Review','Need Resolve','Resolved','Cancelled'].map(function(s){
+        return '<option value="'+s+'"'+(_sfilt===s?' selected':'')+'>'+s+'</option>';
+      }).join('')
     + '</select>'
     + '<span id="fb-team-count" style="font-size:11px;color:var(--text3);">' + filtered.length + ' records</span>'
     + ((_search || _sfilt) ? '<button onclick="window._fbTeamSearch=\'\';window._fbTeamStatus=\'\';_fbRerender()" style="' + ss + 'cursor:pointer;">Clear</button>' : '')
@@ -370,14 +382,16 @@ function _fbSubmitFeedback(realIdx) {
   var msg = document.getElementById('fb-msg-' + realIdx);
   var txt = (el ? el.value : '').trim();
   if (!txt) { if (msg) msg.innerHTML = '<span style="color:var(--err);">Please write a response first.</span>'; return; }
-  state.policyCompliance[realIdx].agentFeedback   = txt;
-  state.policyCompliance[realIdx].agentFeedbackAt = Date.now();
+  state.policyCompliance[realIdx].agentFeedback        = txt;
+  state.policyCompliance[realIdx].agentFeedbackAt      = Date.now();
   state.policyCompliance[realIdx].feedbackReadByLeader = false;
+  state.policyCompliance[realIdx].status               = 'Need Review';
   save();
   if (typeof syncWrite === 'function') syncWrite();
+  if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
   updateFeedbackBadge();
-  if (msg) msg.innerHTML = '<span style="color:var(--ok);">&#x2714; Response saved.</span>';
-  setTimeout(function() { _fbRerender(); }, 600);
+  if (msg) msg.innerHTML = '<span style="color:var(--ok);">&#x2714; Response saved. Forwarded to training.</span>';
+  setTimeout(function() { _fbRerender(); }, 800);
 }
 
 function _fbOpenFeedback(realIdx) {

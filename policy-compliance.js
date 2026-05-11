@@ -67,12 +67,17 @@ let _pcS30Leader = '';
 // PC_SEED_VERSION removed — seeding disabled, data comes from cloud
 
 function _pcInit() {
-  // Seed data has been removed — records are loaded from Firebase cloud via syncPull().
-  // _pcInit() only initialises the array if it has never been populated.
   if (!state.policyCompliance) {
     state.policyCompliance = [];
     save();
+    return;
   }
+  // Migrate legacy 'To Be Reviewed' records → 'Cancelled'
+  var migrated = false;
+  state.policyCompliance.forEach(function(r) {
+    if (r.status === 'To Be Reviewed') { r.status = 'Cancelled'; migrated = true; }
+  });
+  if (migrated) save();
 }
 function _pcData() { _pcInit(); return state.policyCompliance; }
 
@@ -98,10 +103,16 @@ function _pcApplyFilters() {
 }
 
 // ── Helpers ──
+var _PC_STATUS_STYLES = {
+  'Processing':   'background:rgba(251,191,36,.15);color:#d97706;border:1px solid rgba(251,191,36,.4);',
+  'Need Review':  'background:rgba(239,68,68,.12);color:var(--err);border:1px solid rgba(239,68,68,.3);',
+  'Need Resolve': 'background:rgba(31,102,241,.12);color:var(--accent);border:1px solid rgba(31,102,241,.3);',
+  'Resolved':     'background:rgba(74,222,128,.12);color:var(--ok);border:1px solid rgba(74,222,128,.3);',
+  'Cancelled':    'background:rgba(148,163,184,.12);color:var(--text3);border:1px solid rgba(148,163,184,.3);',
+};
 function _pcStatusBadge(s) {
-  return s === 'Resolved'
-    ? '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:rgba(74,222,128,.12);color:var(--ok);border:1px solid rgba(74,222,128,.3);font-weight:600;">Resolved</span>'
-    : '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:rgba(251,191,36,.12);color:var(--warn);border:1px solid rgba(251,191,36,.3);font-weight:600;">To Review</span>';
+  var style = _PC_STATUS_STYLES[s] || _PC_STATUS_STYLES['Processing'];
+  return '<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;'+style+'">'+s+'</span>';
 }
 
 function _pcHeat(n) {
@@ -122,9 +133,15 @@ function _pcCutoff30() {
 }
 
 function _pcUpdateBadge() {
-  var n = _pcData().filter(function(r) {
-    return r.status === 'To Be Reviewed';
-  }).length;
+  var data = _pcData();
+  var n;
+  if (isTraining(currentUser)) {
+    // Training sees records that need their decision
+    n = data.filter(function(r) { return r.status === 'Need Review' || r.status === 'Need Resolve'; }).length;
+  } else {
+    // Leaders/agents see all active (not yet resolved/cancelled) records
+    n = data.filter(function(r) { return r.status === 'Processing'; }).length;
+  }
   var el = document.getElementById('pc-badge');
   if (el) { el.textContent = n; el.style.display = n > 0 ? '' : 'none'; }
 }
@@ -214,7 +231,7 @@ function _pcRenderPolicy() {
 
   var scoped = all.filter(inScope);
   var res    = scoped.filter(function(r){return r.status==='Resolved';}).length;
-  var rev    = scoped.filter(function(r){return r.status==='To Be Reviewed';}).length;
+  var rev    = scoped.filter(function(r){return r.status==='Processing'||r.status==='Need Review'||r.status==='Need Resolve';}).length;
 
   // ── Stats row ──
   var stats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">'
@@ -341,8 +358,9 @@ function _pcRenderRecords() {
   // Pagination buttons call _pcRerender() directly without resetting filters
   if (!_pcFiltered || _pcFiltered.length === 0) _pcApplyFilters();
   var all = _pcData();
-  var res = all.filter(function(r){return r.status==='Resolved';}).length;
-  var rev = all.filter(function(r){return r.status==='To Be Reviewed';}).length;
+  var res  = all.filter(function(r){return r.status==='Resolved';}).length;
+  var proc = all.filter(function(r){return r.status==='Processing';}).length;
+  var pend = all.filter(function(r){return r.status==='Need Review'||r.status==='Need Resolve';}).length;
   var f   = _pcRF;
   var ss  = 'height:30px;padding:0 8px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);';
 
@@ -361,15 +379,15 @@ function _pcRenderRecords() {
   var stats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">'
     + '<div class="stat"><div class="stat-label">Total</div><div class="stat-num" style="color:var(--accent);">'+all.length+'</div></div>'
     + '<div class="stat"><div class="stat-label">Resolved</div><div class="stat-num" style="color:var(--ok);">'+res+'</div></div>'
-    + '<div class="stat"><div class="stat-label">To review</div><div class="stat-num" style="color:var(--warn);">'+rev+'</div></div>'
-    + '<div class="stat"><div class="stat-label">Filtered</div><div class="stat-num">'+_pcFiltered.length+'</div></div>'
+    + '<div class="stat"><div class="stat-label">Processing</div><div class="stat-num" style="color:#d97706;">'+proc+'</div></div>'
+    + '<div class="stat"><div class="stat-label">Need action</div><div class="stat-num" style="color:var(--err);">'+pend+'</div></div>'
     + '</div>';
 
   var filterRow = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;">'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">From</div><input type="date" value="'+(f.dateFrom||'')+'" onchange="_pcRF.dateFrom=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">To</div><input type="date" value="'+(f.dateTo||'')+'" onchange="_pcRF.dateTo=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Resolved','To Be Reviewed'],'All statuses')+'</div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Processing','Need Review','Need Resolve','Resolved','Cancelled'],'All statuses')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Agent','Agent Leader','Agent Supervisor','QA','Sr Agent','Sr QA'],'All roles')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shift</div>'+mkSel('shift',f.shift,['A','B','C','D','E'],'All')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'+mkSel('event',f.event,Object.keys(PC_EVENTS).map(function(k){return {v:k,l:k+' — '+PC_EVENTS[k].split('—')[0].trim()};}), 'All events')+'</div>'
@@ -400,6 +418,14 @@ function _pcRenderRecords() {
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
           + '<td style="padding:7px 10px;">'+_pcStatusBadge(r.status)+'</td>'
           + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'')+'</td>'
+          + (isTraining(currentUser)
+            ? '<td style="padding:5px 8px;white-space:nowrap;">'
+              + ((r.status==='Need Review'||r.status==='Need Resolve')
+                ? '<button class="btn btn-sm btn-ok" style="font-size:11px;padding:3px 10px;margin-right:4px;" onclick="event.stopPropagation();_pcTrainingAction('+r.no+',\'Resolved\')">✓ Resolve</button>'
+                  + '<button class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:var(--bg4);color:var(--text2);" onclick="event.stopPropagation();_pcTrainingAction('+r.no+',\'Cancelled\')">✕ Cancel</button>'
+                : '<span style="font-size:11px;color:var(--text3);">—</span>')
+              + '</td>'
+            : '')
           + '</tr>';
       }).join('');
 
@@ -413,7 +439,7 @@ function _pcRenderRecords() {
     + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
     + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;">'
     + '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB'].map(function(h){
+    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB', isTraining(currentUser)?'ACTIONS':''].filter(Boolean).map(function(h){
         return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+h+'</th>';
       }).join('')
     + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
@@ -598,8 +624,12 @@ function _pcOpenEditModal(idx) {
       + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:10px;">Leader edit</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
       + (isTraining(currentUser)
-  ? '<div class="fg"><label>Status</label><select id="pce-status"><option '+(r.status==='Resolved'?'selected':'')+'>Resolved</option><option '+(r.status==='To Be Reviewed'?'selected':'')+'>To Be Reviewed</option></select></div>'
-  : '<div class="fg"><label>Status</label><div style="font-size:12px;padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">' + (r.status === 'Resolved' ? '<span style="color:var(--ok);">✓ Resolved</span>' : '<span style="color:var(--warn);">⏳ To Be Reviewed</span>') + '</div></div>')
+  ? '<div class="fg"><label>Status</label><select id="pce-status">'
+    + ['Processing','Need Review','Need Resolve','Resolved','Cancelled'].map(function(s){
+        return '<option value="'+s+'"'+(r.status===s?' selected':'')+'>'+s+'</option>';
+      }).join('')
+    + '</select></div>'
+  : '<div class="fg"><label>Status</label><div style="font-size:12px;padding:8px 10px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);">'+_pcStatusBadge(r.status)+'</div></div>')
       + '<div class="fg"><label>Mail check</label><select id="pce-mail"><option value="false" '+(!r.mailCheck?'selected':'')+'>No</option><option value="true" '+(r.mailCheck?'selected':'')+'>Yes</option></select></div>'
       + '</div>'
       + '<div class="fg" style="margin-bottom:12px;"><label>Leader confirm note</label><textarea id="pce-confirm" style="min-height:50px;">'+(r.leaderConfirm||'')+'</textarea></div>'
@@ -691,9 +721,9 @@ function _pcOpenAddModal() {
     + '</div></div>'
 
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-    + '<div class="fg" style="margin:0;"><label>Status</label><select id="pca-status"><option>To Be Reviewed</option><option>Resolved</option></select></div>'
-    + '<button class="btn btn-accent" onclick="_pcaSaveRecord()" style="margin-top:16px;">Save record</button>'
-    + '<button class="btn" onclick="_pcCloseModal()" style="margin-top:16px;">Cancel</button>'
+    + '<div style="font-size:11px;color:#d97706;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:6px;padding:5px 12px;align-self:center;">Status: Processing</div>'
+    + '<button class="btn btn-accent" onclick="_pcaSaveRecord()" style="margin-top:0;">Save record</button>'
+    + '<button class="btn" onclick="_pcCloseModal()">Cancel</button>'
     + '</div>'
     + '<div id="pca-msg" style="font-size:11px;margin-top:8px;min-height:16px;"></div>';
 // ADD THIS after innerHTML is set:
@@ -817,13 +847,36 @@ function _pcaSaveRecord() {
     duration:    (document.getElementById('pca-dur').value||'').trim(),
     imageLink:   (document.getElementById('pca-img').value||'').trim(),
     agentFeedback: '',
-    status: document.getElementById('pca-status').value || 'To Be Reviewed',
+    status: 'Processing',
     leaderConfirm:'', mailCheck:false, warningMailDate:'',
   });
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (msg) msg.innerHTML = '<span style="color:var(--ok);">&#x2714; Record #'+no+' saved.</span>';
   setTimeout(function(){ _pcCloseModal(); _pcApplyFilters(); _pcRerender(); }, 700);
+}
+
+// Training: resolve or cancel a record directly from All Records
+function _pcTrainingAction(no, newStatus) {
+  if (!isTraining(currentUser)) { toast('Only Training can do this.', 'err'); return; }
+  var idx = state.policyCompliance.findIndex(function(r) { return r.no === no; });
+  if (idx === -1) { toast('Record not found.', 'err'); return; }
+  state.policyCompliance[idx].status = newStatus;
+  if (newStatus === 'Resolved') {
+    state.policyCompliance[idx].resolvedBy = currentUser.username;
+    state.policyCompliance[idx].resolvedAt = Date.now();
+  } else {
+    state.policyCompliance[idx].cancelledBy = currentUser.username;
+    state.policyCompliance[idx].cancelledAt = Date.now();
+  }
+  state.policyCompliance[idx].feedbackReadByLeader = true;
+  save();
+  if (typeof syncWrite === 'function') syncWrite();
+  if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
+  if (typeof updateFeedbackBadge === 'function') updateFeedbackBadge();
+  toast(newStatus === 'Resolved' ? '✓ Marked as Resolved — violation confirmed.' : '✕ Violation cancelled.', newStatus === 'Resolved' ? 'ok' : 'warn');
+  _pcApplyFilters();
+  _pcRerender();
 }
 
 // ── Re-render helper ──
