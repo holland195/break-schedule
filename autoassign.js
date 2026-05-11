@@ -18,6 +18,33 @@
 // ═══════════════════════════════════════════════
 
 const ROTATION_STORAGE_KEY = 'bsched_rotation';
+const BREAK_SPLIT_KEY      = 'bsched_break_split';
+
+// ── Break split storage ──
+// Persists per-shift custom split percentages (slot1 %).
+// null entry → use default 50/50 rotation for that shift.
+
+function _loadBreakSplit() {
+  try { return JSON.parse(localStorage.getItem(BREAK_SPLIT_KEY)) || {}; } catch(e) { return {}; }
+}
+function _saveBreakSplit(splits) {
+  try { localStorage.setItem(BREAK_SPLIT_KEY, JSON.stringify(splits)); } catch(e) {}
+}
+
+// Returns the saved slot-1 percentage (0–100) for a shift, or null if using rotation.
+function getBreakSplitPct(shift) {
+  const splits = _loadBreakSplit();
+  const val = splits[shift];
+  return (typeof val === 'number') ? val : null;
+}
+
+// Saves a custom slot-1 percentage for a shift. Pass null to clear (revert to rotation).
+function setBreakSplitPct(shift, pct) {
+  const splits = _loadBreakSplit();
+  if (pct === null) delete splits[shift];
+  else splits[shift] = Math.max(0, Math.min(100, Math.round(pct)));
+  _saveBreakSplit(splits);
+}
 
 // ── Helpers ──
 
@@ -180,7 +207,11 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
       Object.entries(tiers).forEach(([tier, members]) => {
         if (members.length === 0) return;
-const phase = _resolvePhase(rot, shift, tier, sunday);
+
+        const customPct = getBreakSplitPct(shift);
+        // Only resolve/update rotation phase when no custom split is active
+        const phase = customPct === null ? _resolvePhase(rot, shift, tier, sunday) : null;
+
         // Sort by group name (natural: AT1 < AT9 < AT10)
         members.sort((a, b) => _naturalSort(a.team || '', b.team || ''));
 
@@ -196,24 +227,28 @@ const fullyAssigned = members.filter(u =>
 );
 const allAlreadyAssigned = fullyAssigned.length === members.length;
 
-        // Resolve phase using Option C logic.
-        // IMPORTANT: we resolve the phase even if everyone is already assigned,
-        // so that the rotation state is updated correctly for future weeks.
-       
-        const firstCount = Math.ceil(members.length / 2);
+        // When custom % is set: fixed split, no rotation.
+        // When null: use 50/50 with calendar-aware rotation.
+        const firstCount = customPct !== null
+          ? Math.round(members.length * customPct / 100)
+          : Math.ceil(members.length / 2);
 
         // If all members are already fully assigned this week, skip writing
         // but keep the resolved phase (recorded above) for rotation continuity.
         if (allAlreadyAssigned) {
-          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping (phase=${phase} recorded)`);
+          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping (${customPct !== null ? `custom ${customPct}%` : `phase=${phase}`} recorded)`);
           return;
         }
 
         members.forEach((u, idx) => {
           const inFirst      = idx < firstCount;
-          const assignedSlot = phase === 0
+          // Custom %: first group always → slot1 (no phase flip).
+          // Rotation: phase determines which group gets slot1 this week.
+          const assignedSlot = customPct !== null
             ? (inFirst ? slot1 : slot2)
-            : (inFirst ? slot2 : slot1);
+            : (phase === 0
+              ? (inFirst ? slot1 : slot2)
+              : (inFirst ? slot2 : slot1));
 
           weekDates.forEach(d => {
   if (u.schedule[d] !== shift) return; // off or different shift

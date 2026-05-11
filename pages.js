@@ -746,7 +746,7 @@ function _reqSetFilter(f) {
 //  Tab 1: Arrange Breaks (bulk panel + day tabs)
 //  Tab 2: Week Overview (full grid)
 // ═══════════════════════════════════════════════
-let arrangeMainTab = 'assign'; // 'assign' | 'overview'
+let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'split'
 let arrangeActiveDay = null;   // set on first render
 // Persisted bulk-panel state — survives re-renders and sync polls
 let _bulkGroups = new Set(); // selected group checkboxes
@@ -810,10 +810,19 @@ const weekPickerHTML = sundays.length > 0 ? `
       margin-bottom:-2px; transition:all .12s;">
     📊 Week Overview
   </button>
+  <button onclick="switchArrangeMainTab('split')"
+    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+      background:none; color:${arrangeMainTab === 'split' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab === 'split' ? 'var(--accent)' : 'transparent'};
+      margin-bottom:-2px; transition:all .12s;">
+    📐 Break Split
+  </button>
 </div>
 
 <div id="arrange-main-content">
-  ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange) : _renderArrangeOverviewTab(weekRange)}
+  ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange)
+    : arrangeMainTab === 'split' ? _renderBreakSplitTab()
+    : _renderArrangeOverviewTab(weekRange)}
 </div>`;
 }
 
@@ -889,6 +898,85 @@ async function saveBreaksToCloud() {
 
 function switchArrangeMainTab(tab) {
   arrangeMainTab = tab;
+  nav('arrange');
+}
+
+// ── Break Split Settings tab ──
+
+function _renderBreakSplitTab() {
+  const rows = VISIBLE_SHIFTS.map(shift => {
+    const slots  = BREAK_SLOTS[shift] || [];
+    const slot1  = slots[0] || '';
+    const slot2  = slots[1] || '';
+    const saved  = getBreakSplitPct(shift);   // null = default rotation
+    const pct1   = saved !== null ? saved : 50;
+    const pct2   = 100 - pct1;
+    const isCustom = saved !== null;
+
+    return `
+<div class="card" style="padding:18px 20px;margin-bottom:14px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <span style="font-size:14px;font-weight:700;">Shift ${shift}</span>
+    ${isCustom
+      ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:3px 10px;border-radius:10px;">Custom: ${pct1}% / ${pct2}%</span>`
+      : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:3px 10px;border-radius:10px;">Default (50/50 rotation)</span>`}
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+    <span style="font-size:11px;color:var(--text2);min-width:110px;white-space:nowrap;">${shift}1 — ${slot1}</span>
+    <input type="range" id="split-slider-${shift}" min="0" max="100" step="1" value="${pct1}"
+      style="flex:1;accent-color:var(--accent);"
+      oninput="onBreakSplitSlide('${shift}', this.value)">
+    <span style="font-size:11px;color:var(--text2);min-width:110px;text-align:right;white-space:nowrap;">${shift}2 — ${slot2}</span>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <span id="split-lbl-${shift}-1" style="font-size:13px;font-weight:700;color:var(--accent);">${pct1}%</span>
+    <button onclick="resetBreakSplit('${shift}')"
+      style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;"
+      title="Clear custom % and go back to 50/50 weekly rotation">
+      ↩ Reset to rotation
+    </button>
+    <span id="split-lbl-${shift}-2" style="font-size:13px;font-weight:700;color:var(--accent);">${pct2}%</span>
+  </div>
+</div>`;
+  }).join('');
+
+  return `
+<div style="max-width:560px;">
+  <div style="font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.7;">
+    Set how the team is split across break slots for each shift. The <b>larger group</b> takes the slot on the left side of the slider.
+    When a custom split is active, the weekly rotation is <b>paused</b> for that shift — the split stays fixed every week until you reset it.
+  </div>
+  ${rows}
+  <button class="btn btn-accent" onclick="saveBreakSplits()" style="margin-top:4px;">
+    Save Distribution Settings
+  </button>
+</div>`;
+}
+
+function onBreakSplitSlide(shift, rawVal) {
+  const pct1 = parseInt(rawVal);
+  const pct2 = 100 - pct1;
+  const lbl1 = document.getElementById(`split-lbl-${shift}-1`);
+  const lbl2 = document.getElementById(`split-lbl-${shift}-2`);
+  if (lbl1) lbl1.textContent = `${pct1}%`;
+  if (lbl2) lbl2.textContent = `${pct2}%`;
+}
+
+function saveBreakSplits() {
+  VISIBLE_SHIFTS.forEach(shift => {
+    const slider = document.getElementById(`split-slider-${shift}`);
+    if (!slider) return;
+    setBreakSplitPct(shift, parseInt(slider.value));
+  });
+  toast('Break distribution settings saved.', 'ok');
+  nav('arrange'); // re-render to update badges
+}
+
+function resetBreakSplit(shift) {
+  setBreakSplitPct(shift, null);
+  toast(`Shift ${shift} reset to 50/50 rotation.`, 'warn');
   nav('arrange');
 }
 
@@ -1419,6 +1507,65 @@ function _renderStaffInfoRows(filter) {
 // Variable to hold the parsed preview data before final confirmation
 let _tempImportedUsers = [];
 
+// Builds the compact break-split sliders shown in the import flow.
+// Shifts with a saved custom % show it pre-loaded; others default to 50.
+// Sliders are only persisted when the user drags them (data-dirty flag).
+function _buildImportSplitHTML(shiftsInData) {
+  const rows = VISIBLE_SHIFTS.filter(s => shiftsInData.has(s)).map(shift => {
+    const slots  = BREAK_SLOTS[shift] || [];
+    const saved  = getBreakSplitPct(shift);
+    const pct1   = saved !== null ? saved : 50;
+    const pct2   = 100 - pct1;
+    const isCustom = saved !== null;
+    return `
+<div style="margin-bottom:12px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <span style="font-size:12px;font-weight:700;">Shift ${shift}</span>
+    <span style="font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600;
+      background:${isCustom ? 'var(--accent)' : 'var(--bg3)'};
+      color:${isCustom ? '#fff' : 'var(--text3)'};">
+      ${isCustom ? `Custom ${pct1}%/${pct2}%` : 'Default (50/50 rotation)'}
+    </span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:10px;color:var(--text2);min-width:90px;white-space:nowrap;">${shift}1 ${slots[0] || ''}</span>
+    <input type="range" id="import-split-slider-${shift}" min="0" max="100" step="1" value="${pct1}"
+      style="flex:1;accent-color:var(--accent);"
+      oninput="onImportSplitSlide('${shift}',this.value)">
+    <span style="font-size:10px;color:var(--text2);min-width:90px;text-align:right;white-space:nowrap;">${shift}2 ${slots[1] || ''}</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:2px;">
+    <span id="import-split-lbl-${shift}-1" style="font-size:12px;font-weight:700;color:var(--accent);">${pct1}%</span>
+    <span id="import-split-lbl-${shift}-2" style="font-size:12px;font-weight:700;color:var(--accent);">${pct2}%</span>
+  </div>
+</div>`;
+  }).join('');
+
+  if (!rows) return '';
+  return `
+<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--bg2);">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:10px;font-family:'IBM Plex Mono',monospace;">
+    Break Distribution
+  </div>
+  <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
+    Drag a slider to override the 50/50 rotation for a shift. Changes apply to this import and are saved for future imports.
+    Full settings: <b>Arrange Breaks → 📐 Break Split</b>.
+  </div>
+  ${rows}
+</div>`;
+}
+
+function onImportSplitSlide(shift, rawVal) {
+  const pct1 = parseInt(rawVal);
+  const pct2 = 100 - pct1;
+  const lbl1 = document.getElementById(`import-split-lbl-${shift}-1`);
+  const lbl2 = document.getElementById(`import-split-lbl-${shift}-2`);
+  if (lbl1) lbl1.textContent = `${pct1}%`;
+  if (lbl2) lbl2.textContent = `${pct2}%`;
+  const slider = document.getElementById(`import-split-slider-${shift}`);
+  if (slider) slider.dataset.dirty = 'true';
+}
+
 function importFromPaste() {
   const pasteArea = document.getElementById('paste-area');
   const statusEl = document.getElementById('paste-status');
@@ -1515,12 +1662,28 @@ const user = {
       </table>
     </div>`;
 
+  // Collect which shifts appear in this import to show relevant sliders
+  const shiftsInData = new Set();
+  _tempImportedUsers.forEach(u => {
+    Object.values(u.schedule).forEach(s => { if (VISIBLE_SHIFTS.includes(s)) shiftsInData.add(s); });
+  });
+  const splitPanel = document.getElementById('import-split-panel');
+  if (splitPanel) splitPanel.innerHTML = _buildImportSplitHTML(shiftsInData);
+
   statusEl.innerHTML = '<span style="color:var(--ok);">✓ Data parsed successfully.</span>';
   previewSection.style.display = 'block';
 }
 
 async function confirmScheduleImport() {
   if (_tempImportedUsers.length === 0) return;
+
+  // Save any split slider adjustments made in the import flow
+  VISIBLE_SHIFTS.forEach(shift => {
+    const slider = document.getElementById(`import-split-slider-${shift}`);
+    if (slider && slider.dataset.dirty === 'true') {
+      setBreakSplitPct(shift, parseInt(slider.value));
+    }
+  });
 
   // 1. Save the parsed users to state
   state.users = _tempImportedUsers;
@@ -1563,6 +1726,7 @@ function _renderStaffSchedule() {
       <button class="btn btn-ok btn-sm" onclick="confirmScheduleImport()">✓ Confirm & Apply</button>
     </div>
     <div id="sched-preview-list" style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
+    <div id="import-split-panel" style="margin-top:12px;"></div>
   </div>
 </div>`;
 
