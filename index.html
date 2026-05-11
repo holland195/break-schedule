@@ -163,8 +163,7 @@
 
     <div class="layout">
       <nav class="sidebar" id="sidebar">
-  <!-- Toggle collapse button -->
-  <button class="nav-toggle" onclick="toggleSidebar()" title="Toggle navigation" id="nav-toggle-btn">
+  <button class="nav-toggle" onclick="toggleSidebar()" title="Toggle navigation">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="2" y="3" width="12" height="1.5" rx=".75" fill="currentColor"/>
       <rect x="2" y="7.25" width="12" height="1.5" rx=".75" fill="currentColor"/>
@@ -172,102 +171,75 @@
     </svg>
   </button>
 
-  <!-- MAIN group -->
-  <div class="nav-group">
-    <div class="nav-group-label">Main</div>
-    <div class="nav-item active" onclick="nav('dashboard')" data-page="dashboard">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".9"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".5"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".5"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".9"/></svg>
-      </span>
+  <div class="nav-items">
+    <div class="nav-item active" onclick="nav('dashboard')" data-page="dashboard" data-tooltip="Dashboard">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".9"/><rect x="8.5" y="1" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".5"/><rect x="1" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".5"/><rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".9"/></svg></span>
       <span class="nav-label">Dashboard</span>
     </div>
-    <div class="nav-item" onclick="nav('schedule')" data-page="schedule">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M1 6h13" stroke="currentColor" stroke-width="1.2"/><path d="M5 1v3M10 1v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><rect x="3.5" y="8.5" width="2" height="2" rx=".4" fill="currentColor"/><rect x="6.5" y="8.5" width="2" height="2" rx=".4" fill="currentColor"/><rect x="9.5" y="8.5" width="2" height="2" rx=".4" fill="currentColor"/></svg>
-      </span>
+    <div class="nav-item" onclick="nav('schedule')" data-page="schedule" data-tooltip="Break Schedule">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M1 6h13" stroke="currentColor" stroke-width="1.2"/><path d="M5 1v3M10 1v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><rect x="3.5" y="8.5" width="2" height="2" rx=".4" fill="currentColor"/><rect x="6.5" y="8.5" width="2" height="2" rx=".4" fill="currentColor"/><rect x="9.5" y="8.5" width="2" height="2" rx=".4" fill="currentColor"/></svg></span>
       <span class="nav-label">Break Schedule</span>
     </div>
-    <div class="nav-item" onclick="nav('requests')" data-page="requests">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h5M8 4.5l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 2.5H2a1 1 0 00-1 1v8a1 1 0 001 1h11a1 1 0 001-1v-8a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
-      </span>
+    <div class="nav-item" onclick="nav('requests')" data-page="requests" data-tooltip="Break Swap">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5h5M8 4.5l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 2.5H2a1 1 0 00-1 1v8a1 1 0 001 1h11a1 1 0 001-1v-8a1 1 0 00-1-1z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg></span>
       <span class="nav-label">Break Swap</span>
       <span class="nav-badge" id="req-badge" style="display:none">0</span>
     </div>
-    <div class="nav-item" onclick="nav('extbreak')" data-page="extbreak">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M7.5 4.5v3l2 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 2L1.5 1M12 2l1.5-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-      </span>
+    <div class="nav-item" onclick="nav('extbreak')" data-page="extbreak" data-tooltip="30-min Break">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M7.5 4.5v3l2 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 2L1.5 1M12 2l1.5-1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
       <span class="nav-label">30-min Break</span>
       <span class="nav-badge" id="ext-badge" style="display:none">0</span>
     </div>
-    <div class="nav-item" onclick="nav('feedback')" data-page="feedback">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 2.5h11a1 1 0 011 1v6a1 1 0 01-1 1H8.5L6 13v-2.5H2a1 1 0 01-1-1v-6a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 6h6M4.5 8h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-      </span>
+    <div class="nav-item" onclick="nav('feedback')" data-page="feedback" data-tooltip="My Violations">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 2.5h11a1 1 0 011 1v6a1 1 0 01-1 1H8.5L6 13v-2.5H2a1 1 0 01-1-1v-6a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 6h6M4.5 8h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
       <span class="nav-label">My Violations</span>
       <span class="nav-badge" id="fb-badge" style="display:none">0</span>
     </div>
-  </div>
 
-  <!-- LEADER group -->
-  <div class="nav-group leader-only">
-    <div class="nav-group-label">Leader</div>
-    <div class="nav-item arrange-nav leader-only" onclick="nav('arrange')" data-page="arrange">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 4h13M1 7.5h8M1 11h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11.5 9l2 2-2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
+    <div class="nav-divider leader-only"></div>
+
+    <div class="nav-item arrange-nav leader-only" onclick="nav('arrange')" data-page="arrange" data-tooltip="Arrange Breaks">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 4h13M1 7.5h8M1 11h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11.5 9l2 2-2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="nav-label">Arrange Breaks</span>
     </div>
-    <div class="nav-item leader-only" onclick="nav('attendance')" data-page="attendance">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 7.5l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
+    <div class="nav-item leader-only" onclick="nav('attendance')" data-page="attendance" data-tooltip="Logbook">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="13" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 7.5l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="nav-label">Logbook</span>
     </div>
-    <div class="nav-item leader-only" onclick="nav('policy')" data-page="policy">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="2" y="1" width="11" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 5h6M4.5 7.5h6M4.5 10h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-      </span>
+    <div class="nav-item leader-only" onclick="nav('policy')" data-page="policy" data-tooltip="Policy">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="2" y="1" width="11" height="13" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 5h6M4.5 7.5h6M4.5 10h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>
       <span class="nav-label">Policy</span>
       <span class="nav-badge" id="pc-badge" style="display:none">0</span>
     </div>
-    <div class="nav-item leader-only" onclick="nav('staff')" data-page="staff">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5.5" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1 13c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/><path d="M10 2.5a2.5 2.5 0 010 5M14 13c0-2-1.5-3.5-4-3.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>
-      </span>
+    <div class="nav-item leader-only" onclick="nav('staff')" data-page="staff" data-tooltip="Staff">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5.5" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M1 13c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/><path d="M10 2.5a2.5 2.5 0 010 5M14 13c0-2-1.5-3.5-4-3.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg></span>
       <span class="nav-label">Staff</span>
     </div>
-  </div>
 
-  <!-- SYSTEM group -->
-  <div class="nav-group admin-only">
-    <div class="nav-group-label">System</div>
-    <div class="nav-item admin-only" onclick="nav('sync')" data-page="sync">
-      <span class="nav-ico">
-        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M13 7.5A5.5 5.5 0 012 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 7.5A5.5 5.5 0 0113 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2 2"/><path d="M11 5.5l2 2 2-2M2 9.5l-2-2 2-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
+    <div class="nav-divider admin-only"></div>
+
+    <div class="nav-item admin-only" onclick="nav('sync')" data-page="sync" data-tooltip="Cloud Sync">
+      <span class="nav-ico"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M13 7.5A5.5 5.5 0 012 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M2 7.5A5.5 5.5 0 0113 7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2 2"/><path d="M11 5.5l2 2 2-2M2 9.5l-2-2 2-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="nav-label">Cloud Sync</span>
     </div>
   </div>
 
-  <!-- SHIFT pill at bottom -->
-<div class="nav-shift-wrap">
-  <div class="nav-shift-pills">
+  <div class="nav-shift-wrap">
+    <div class="nav-shift-pills">
       <button class="shift-pill shift-pill-A" id="spill-A" onclick="changeSidebarShift('A')">A</button>
       <button class="shift-pill shift-pill-D" id="spill-D" onclick="changeSidebarShift('D')">D</button>
       <button class="shift-pill shift-pill-E" id="spill-E" onclick="changeSidebarShift('E')">E</button>
     </div>
-    <select id="sidebar-shift" class="fg" onchange="changeSidebarShift(this.value)" style="display:none">
-      <option value="A">A</option>
-      <option value="D">D</option>
-      <option value="E">E</option>
+    <select id="sidebar-shift" style="display:none">
+      <option value="A">A</option><option value="D">D</option><option value="E">E</option>
     </select>
   </div>
 </nav>
       <main class="content" id="main-content"></main>
     </div>
   </div>
+
+  
 
   <!-- ─── MODAL: ATTENDANCE ───────────────────────────────────── -->
   <div class="modal-overlay" id="modal-attend" onclick="if(event.target===this){

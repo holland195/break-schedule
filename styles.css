@@ -284,7 +284,7 @@ body.login-active #screen-app { display: none !important; }
 .nav-toggle:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
 
 /* Nav groups */
-.nav-group { padding: 0 8px; margin-bottom: 4px; }
+.nav-group { padding: 0 8px; margin-bottom: 0; }
 .nav-group + .nav-group {
   margin-top: 4px;
   padding-top: 4px;
@@ -314,6 +314,22 @@ body.login-active #screen-app { display: none !important; }
 .nav-item.active::before {
   content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
   width: 2.5px; background: #1F66F1; border-radius: 0 2px 2px 0;
+}
+
+.nav-items {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 8px;
+}
+.nav-items::-webkit-scrollbar { width: 3px; }
+.nav-items::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* Thin divider between sections */
+.nav-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
 }
 
 /* Icon */
@@ -386,12 +402,13 @@ body.login-active #screen-app { display: none !important; }
 }
 .shift-pill:hover { border-color: var(--border2); color: var(--text); }
 .shift-pill.active { color: #fff; border-color: transparent; }
-.shift-pill-A.active { background: #f472b6; }          /* pink */
-.shift-pill-D.active { background: #2dd4bf; color: #0f2a2a; } /* teal — clearly different */
-.shift-pill-E.active { background: #a78bfa; }          /* purple */
+.shift-pill-A.active { background: #e11d7a; color: #fff; }   /* vivid pink — clearly A */
+.shift-pill-D.active { background: #0ea5e9; color: #fff; }   /* sky blue — clearly D */
+.shift-pill-E.active { background: #7c3aed; color: #fff; }   /* violet — clearly E */
 .sidebar.collapsed .nav-shift-pills { flex-direction: column; }
 .sidebar.collapsed .shift-pill { flex: none; width: 32px; height: 28px; margin: 0 auto; }
-.sidebar.collapsed .nav-group-label { display: none; }
+.sidebar.collapsed .nav-group-label { opacity: 0; height: 0; padding: 0; margin: 0; overflow: hidden; }
+
 
 .content {
   padding: 24px; overflow-y: auto;
