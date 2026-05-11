@@ -965,19 +965,57 @@ function onBreakSplitSlide(shift, rawVal) {
 }
 
 function saveBreakSplits() {
+  const changedShifts = new Set();
   VISIBLE_SHIFTS.forEach(shift => {
     const slider = document.getElementById(`split-slider-${shift}`);
     if (!slider) return;
-    setBreakSplitPct(shift, parseInt(slider.value));
+    const newPct = parseInt(slider.value);
+    const oldPct = getBreakSplitPct(shift);
+    if (newPct !== oldPct) changedShifts.add(shift);
+    setBreakSplitPct(shift, newPct);
   });
-  toast('Break distribution settings saved.', 'ok');
-  nav('arrange'); // re-render to update badges
+
+  if (changedShifts.size > 0) {
+    _clearAutoBreaksFromWeek(activeMonday, changedShifts);
+    const result = autoAssignBreaks(state.users);
+    save();
+    toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
+  } else {
+    toast('Break distribution settings saved (no changes).', 'ok');
+  }
+  nav('arrange');
 }
 
 function resetBreakSplit(shift) {
   setBreakSplitPct(shift, null);
-  toast(`Shift ${shift} reset to 50/50 rotation.`, 'warn');
+  _clearAutoBreaksFromWeek(activeMonday, new Set([shift]));
+  const result = autoAssignBreaks(state.users);
+  save();
+  toast(`Shift ${shift} reset to 50/50 rotation. Re-assigned ${result.assigned} break(s).`, 'warn');
   nav('arrange');
+}
+
+// Deletes auto-assigned (note='auto') breaks for the given shifts on or after fromSunday.
+// Called before re-running autoAssignBreaks so the fresh split % takes effect.
+function _clearAutoBreaksFromWeek(fromSunday, shifts) {
+  const [fd, fm] = fromSunday.split('/');
+  const fromDate = new Date(2026, parseInt(fm) - 1, parseInt(fd));
+  fromDate.setHours(0, 0, 0, 0);
+
+  Object.keys(state.breaks || {}).forEach(key => {
+    const parts = key.split('_');
+    const day = parts[parts.length - 1]; // "DD/MM"
+    if (!/^\d{1,2}\/\d{1,2}$/.test(day)) return;
+    const [d, m] = day.split('/');
+    const date = new Date(2026, parseInt(m) - 1, parseInt(d));
+    date.setHours(0, 0, 0, 0);
+    if (date < fromDate) return;
+    const br = state.breaks[key];
+    if (!br || br.note !== 'auto') return;
+    if ([...shifts].some(shift => _slotBelongsToShift(br.slot, shift))) {
+      delete state.breaks[key];
+    }
+  });
 }
 
 function _renderArrangeAssignTab(weekRange) {
