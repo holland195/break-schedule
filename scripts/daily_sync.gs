@@ -355,10 +355,17 @@ function syncLogbook(current, log) {
     }
 
     var wroteAny = false;
+    const resolvedUser = newUser || oldUser || '';
+    const debugAnhDao = resolvedUser === 'anh.dao';
+
     dateCols.forEach(function(col) {
       const startStr = _fmtTimeCell(row[col.startColIdx]);
       const endStr   = _fmtTimeCell(row[col.endColIdx]);
       if (!startStr && !endStr) return;
+
+      if (debugAnhDao) {
+        log('[Logbook][debug anh.dao] ' + col.dateKey + ' start=' + (startStr || '-') + ' end=' + (endStr || '-'));
+      }
 
       const key = uid + '_' + col.dateKey;
       // Only write if no manual record exists (note !== 'auto'), preserving leader overrides
@@ -391,7 +398,11 @@ function _fmtTimeCell(val) {
 
   // GAS returns Date objects for time-formatted cells
   if (val instanceof Date) {
-    const h = val.getHours(), m = val.getMinutes(), s = val.getSeconds();
+    // IMPORTANT: use UTC fields for time-only cells.
+    // Sheets stores time as a serial anchored to 1899-12-30. Converting via local
+    // timezone can apply historical offsets (e.g. odd +00:24/+00:42 mins), causing
+    // all imported check-ins to look late. UTC avoids that skew.
+    const h = val.getUTCHours(), m = val.getUTCMinutes(), s = val.getUTCSeconds();
     if (h === 0 && m === 0 && s === 0) return ''; // blank cell often returns midnight
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
