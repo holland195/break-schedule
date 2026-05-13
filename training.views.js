@@ -15,11 +15,13 @@ const SHIFT_COLORS = {
 
 // Global state
 if (window._tState === undefined) window._tState = {
-  shiftFilter: 'all',
-  search:      '',
-  attYear:     new Date().getFullYear(),
-  attMonth:    new Date().getMonth() + 1,
-  schedDay:    null, // null = today
+  shiftFilter:  'all',
+  search:       '',
+  attYear:      new Date().getFullYear(),
+  attMonth:     new Date().getMonth() + 1,
+  schedDay:     null, // null = today
+  schedWeek:    null, // null = current week (Sunday 'DD/MM' when navigating)
+  extBreakYM:   null, // null = current month ('YYYY-MM' when navigating)
 };
 const TS = window._tState;
 
@@ -91,16 +93,31 @@ function _shiftBlock(sh, hdrExtra, tableHTML, cnt) {
 // ═══════════════════════════════════════════════
 //  1. BREAK SCHEDULE — TRAINING VIEW
 // ═══════════════════════════════════════════════
+// Week offset helper — returns Sunday of the week N weeks before/after sunStr
+function _weekOffset(sunStr, n) {
+  const [d,m] = sunStr.split('/');
+  const dt = new Date(2026, parseInt(m)-1, parseInt(d));
+  dt.setDate(dt.getDate() + n*7);
+  return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+
 function renderScheduleTraining() {
-  const weekDates = getWeekDates();
+  const curWeekDates  = getWeekDates(); // always current real week
+  const curWeekSunday = curWeekDates[0];
+  // Use selected week from state, or default to current week
+  const selWeekSunday = TS.schedWeek || curWeekSunday;
+  const weekDates     = TS.schedWeek ? getWeekRange(TS.schedWeek) : curWeekDates;
+  const isCurWeek     = selWeekSunday === curWeekSunday;
+
   const todayDk   = (() => {
     const n=new Date(); const d=n.getDay();
-    return weekDates[d===0?6:d-1] || weekDates[0];
+    return curWeekDates[d===0?6:d-1] || curWeekDates[0];
   })();
 
-  // Selected day for totals (defaults to today)
+  // Selected day for totals (defaults to today if in current week, else Sunday of selected week)
+  const defaultSelDay = isCurWeek ? todayDk : weekDates[0];
   const selDay = TS.schedDay && weekDates.includes(TS.schedDay)
-    ? TS.schedDay : todayDk;
+    ? TS.schedDay : defaultSelDay;
 
   const dateToDayName = {};
   WEEK_DAYS.forEach((d,i)=>{ dateToDayName[weekDates[i]]=d; });
@@ -129,11 +146,25 @@ if (idx===0) s1++; else if (idx===1) s2++;
   const totalOnDay  = Object.values(SD).reduce((a,d)=>a+d.total,0);
   const searchQ     = (TS.search||'').toLowerCase();
 
-  // ── Row 1: title ──
+  // ── Row 1: title + week navigation ──
+  const prevSunday = _weekOffset(selWeekSunday, -1);
+  const nextSunday = _weekOffset(selWeekSunday, +1);
+  const weekStatusLabel = isCurWeek ? 'Current week' : selWeekSunday > curWeekSunday ? 'Future week' : 'Past week';
   const titleRow = `
-    <div style="margin-bottom:14px;">
+    <div style="margin-bottom:10px;">
       <div class="page-title">Break Schedule</div>
-      <div class="page-sub">Current week · Read-only · ${totalStaff} staff</div>
+      <div class="page-sub">${weekStatusLabel} · Read-only · ${totalStaff} staff</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;"
+        onclick="window._tState.schedWeek='${prevSunday}';window._tState.schedDay=null;nav('schedule')">&#8249;</button>
+      <span style="font-size:12px;font-weight:600;min-width:160px;text-align:center;">
+        ${weekDates[0]} &ndash; ${weekDates[6]}
+      </span>
+      <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;"
+        onclick="window._tState.schedWeek='${nextSunday}';window._tState.schedDay=null;nav('schedule')">&#8250;</button>
+      ${!isCurWeek ? `<button class="btn btn-sm" style="font-size:11px;color:var(--accent);border-color:var(--accent);"
+        onclick="window._tState.schedWeek=null;window._tState.schedDay=null;nav('schedule')">Current week</button>` : ''}
     </div>`;
 
   // ── Row 2: shift tabs + search on same line ──
@@ -268,8 +299,10 @@ const cls=slotNum>0?`slot-${slotNum}`:'';
     const _p1 = _sp !== null ? _sp : 50;
     const _p2 = 100 - _p1;
     const splitLabel = d.slots.length >= 2
-      ? `<span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-left:8px;white-space:nowrap;"
-           title="Break split: ${sh}1 vs ${sh}2">Split ${_p1}%/${_p2}%</span>`
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;" title="Break split ratio">
+           <span class="break-slot assigned slot-1" style="font-size:9px;padding:2px 6px;">${sh}1 ${_p1}%</span>
+           <span class="break-slot assigned slot-2" style="font-size:9px;padding:2px 6px;">${sh}2 ${_p2}%</span>
+         </span>`
       : '';
 
     return `<div class="t-sb" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;">
@@ -307,7 +340,8 @@ ${blocks||'<div class="empty">No staff found.</div>'}`;
 //  Clean card layout + approve/reject per entry
 // ═══════════════════════════════════════════════
 function renderExtBreakTraining() {
-  const mk = currentMonthKey();
+  if (!TS.extBreakYM) TS.extBreakYM = currentMonthKey();
+  const mk = TS.extBreakYM;
   const [yr,mo] = mk.split('-');
   const monthLabel = new Date(parseInt(yr),parseInt(mo)-1,1)
     .toLocaleString('en-US',{month:'long',year:'numeric'});
@@ -427,11 +461,23 @@ function renderExtBreakTraining() {
     </div>`;
   }).join('');
 
+  const _tPrevMK = mk=>{const[y,m]=mk.split('-').map(Number);return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`;};
+  const _tNextMK = mk=>{const[y,m]=mk.split('-').map(Number);return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`;};
+  const curMK = currentMonthKey();
+  const monthPickerHTML = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+    <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;" onclick="window._tState.extBreakYM='${_tPrevMK(mk)}';nav('extbreak')">&#8249;</button>
+    <span style="font-size:13px;font-weight:600;min-width:140px;text-align:center;">${monthLabel}</span>
+    <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;" onclick="window._tState.extBreakYM='${_tNextMK(mk)}';nav('extbreak')">&#8250;</button>
+    ${mk!==curMK?`<button class="btn btn-sm" style="font-size:11px;" onclick="window._tState.extBreakYM='${curMK}';nav('extbreak')">Current</button>`:''}
+  </div>`;
+
   return `
 <div style="margin-bottom:14px;">
   <div class="page-title">30-Min Extra Break</div>
   <div class="page-sub">${monthLabel} · ${totalF} female staff</div>
 </div>
+
+${monthPickerHTML}
 
 ${pendingCount>0?`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
   background:rgba(245,158,11,.10);border:1px solid var(--warn);border-radius:8px;margin-bottom:12px;">
