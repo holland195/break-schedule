@@ -135,10 +135,12 @@ function calcLateEarly(uid, dateKey) {
     // Handle overnight shifts: if defStart ≥ 12:00 and actualStart < 12:00 → next day
     let diff = actualStart - defStart;
     if (Math.abs(diff) > 720) diff = diff > 0 ? diff - 1440 : diff + 1440;
-    if (diff > 0) lateMin = diff;
+    // Logbook late threshold: only count as late when start time is more than 1 minute after shift start
+    if (diff > 1) lateMin = diff;
   }
 
-  if (rec.end) {
+  const isHalfDayShift = /^U?[A-E][12]$/.test(shiftCode);
+  if (rec.end && !isHalfDayShift) {
     const actualEnd = _parseTime(rec.end);
     const defEnd = _parseTime(def.end);
     let diff = defEnd - actualEnd;
