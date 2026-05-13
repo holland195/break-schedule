@@ -1028,31 +1028,25 @@ function _renderArrangeAssignTab(weekRange) {
   const _splitPct2    = 100 - _splitPct1;
   const _splitCustom  = _splitSaved !== null;
   const splitSliderHTML = slots.length >= 2 ? `
-<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-    <span style="font-size:12px;font-weight:700;">Break Split</span>
-    ${_splitCustom
-      ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;">${_splitPct1}% / ${_splitPct2}%</span>`
-      : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 9px;border-radius:10px;">Default 50/50 rotation</span>`}
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:11px;color:var(--text2);min-width:110px;white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
-    <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
-      style="flex:1;accent-color:var(--accent);"
-      oninput="onBreakSplitSlide('${currentShift}', this.value)">
-    <span style="font-size:11px;color:var(--text2);min-width:110px;text-align:right;white-space:nowrap;">${currentShift}2 — ${slots[1]}</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-    <span id="split-lbl-${currentShift}-1" style="font-size:13px;font-weight:700;color:var(--accent);">${_splitPct1}%</span>
-    <div style="display:flex;gap:8px;">
-      <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:4px 14px;">Save</button>
-      <button onclick="resetBreakSplit('${currentShift}')"
-        style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;">
-        ↩ Reset to rotation
-      </button>
-    </div>
-    <span id="split-lbl-${currentShift}-2" style="font-size:13px;font-weight:700;color:var(--accent);">${_splitPct2}%</span>
-  </div>
+<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:10px 16px;margin-bottom:18px;max-width:700px;">
+  <span style="font-size:12px;font-weight:700;white-space:nowrap;">Break Split</span>
+  ${_splitCustom
+    ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;white-space:nowrap;">${_splitPct1}% / ${_splitPct2}%</span>`
+    : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 9px;border-radius:10px;white-space:nowrap;">Default 50/50</span>`}
+  <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
+  <span id="split-lbl-${currentShift}-1" style="font-size:12px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">${_splitPct1}%</span>
+  <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
+    style="width:180px;accent-color:var(--accent);"
+    oninput="onBreakSplitSlide('${currentShift}', this.value)">
+  <span id="split-lbl-${currentShift}-2" style="font-size:12px;font-weight:700;color:var(--accent);min-width:28px;">${_splitPct2}%</span>
+  <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}2 — ${slots[1]}</span>
+  <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:4px 14px;white-space:nowrap;">Save</button>
+  <button onclick="resetBreakSplit('${currentShift}')"
+    style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;white-space:nowrap;">
+    ↩ Reset
+  </button>
 </div>` : '';
 
   const bulkPanel = `
