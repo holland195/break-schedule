@@ -1023,71 +1023,74 @@ function _renderArrangeAssignTab(weekRange) {
 
   const slots = BREAK_SLOTS[currentShift] || [];
 
-  // ── Inline break-split slider for this shift ──
-  const _splitSaved   = getBreakSplitPct(currentShift);
-  const _splitPct1    = _splitSaved !== null ? _splitSaved : 50;
-  const _splitPct2    = 100 - _splitPct1;
-  const _splitCustom  = _splitSaved !== null;
-  const splitSliderHTML = slots.length >= 2 ? `
-<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-  padding:10px 16px;margin-bottom:18px;max-width:700px;">
-  <span style="font-size:12px;font-weight:700;white-space:nowrap;">Break Split</span>
-  ${_splitCustom
-    ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;white-space:nowrap;">${_splitPct1}% / ${_splitPct2}%</span>`
-    : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 9px;border-radius:10px;white-space:nowrap;">50/50 rotation</span>`}
-  <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
-  <span id="split-lbl-${currentShift}-1" style="font-size:12px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">${_splitPct1}%</span>
-  <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
-    style="width:180px;accent-color:var(--accent);"
-    oninput="onBreakSplitSlide('${currentShift}', this.value)">
-  <span id="split-lbl-${currentShift}-2" style="font-size:12px;font-weight:700;color:var(--accent);min-width:28px;">${_splitPct2}%</span>
-  <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}2 — ${slots[1]}</span>
-  <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:4px 14px;white-space:nowrap;">Save</button>
-  <button onclick="resetBreakSplit('${currentShift}')"
-    style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;white-space:nowrap;">
-    ↩ Reset
-  </button>
-</div>` : '';
+  // ── Combined: Break Split + Bulk Assign in one card ──
+  const _splitSaved  = getBreakSplitPct(currentShift);
+  const _splitPct1   = _splitSaved !== null ? _splitSaved : 50;
+  const _splitPct2   = 100 - _splitPct1;
+  const _splitCustom = _splitSaved !== null;
 
-  const bulkPanel = `
-<div class="bulk-panel" style="margin-bottom:20px;">
-  <div class="bulk-panel-section">
-    <div class="bulk-panel-label">Groups</div>
-    <div class="group-checkbox-list">
-      ${allShiftTeams.map(t => `
-        <label class="group-check-item">
-          <input type="checkbox" name="bulk-group" value="${t}"
-            ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()"> ${t}
-        </label>`).join('')}
+  const splitRow = slots.length >= 2 ? `
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+    <span class="bulk-panel-label" style="margin-bottom:0;">Split</span>
+    ${_splitCustom
+      ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;white-space:nowrap;">${_splitPct1}%/${_splitPct2}%</span>`
+      : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 8px;border-radius:10px;white-space:nowrap;">50/50</span>`}
+    <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
+    <span id="split-lbl-${currentShift}-1" style="font-size:12px;font-weight:700;color:var(--accent);min-width:26px;text-align:right;">${_splitPct1}%</span>
+    <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
+      style="width:160px;accent-color:var(--accent);"
+      oninput="onBreakSplitSlide('${currentShift}', this.value)">
+    <span id="split-lbl-${currentShift}-2" style="font-size:12px;font-weight:700;color:var(--accent);min-width:26px;">${_splitPct2}%</span>
+    <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}2 — ${slots[1]}</span>
+    <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:3px 12px;white-space:nowrap;">Save</button>
+    <button onclick="resetBreakSplit('${currentShift}')"
+      style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;white-space:nowrap;">
+      ↩ Reset
+    </button>
+  </div>` : '';
+
+  const combinedPanel = `
+<div class="bulk-panel" style="margin-bottom:20px;display:block;padding:12px 16px;">
+  ${splitRow}
+  <div style="display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;">
+    <div class="bulk-panel-section">
+      <div class="bulk-panel-label">Groups</div>
+      <div class="group-checkbox-list">
+        ${allShiftTeams.map(t => `
+          <label class="group-check-item">
+            <input type="checkbox" name="bulk-group" value="${t}"
+              ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()"> ${t}
+          </label>`).join('')}
+      </div>
     </div>
-  </div>
-  <div class="bulk-panel-section">
-    <div class="bulk-panel-label">Days</div>
-    <div class="day-checkbox-list">
-      ${weekRange.map(d => `
-        <label class="day-check-item">
-          <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
-          <span style="font-size:9px;color:var(--text3)">${d}</span>
-          <input type="checkbox" name="bulk-day" value="${d}"
-            ${_bulkDays.has(d) ? 'checked' : ''} onchange="_saveBulkDays()">
-        </label>`).join('')}
+    <div class="bulk-panel-section">
+      <div class="bulk-panel-label">Days</div>
+      <div class="day-checkbox-list">
+        ${weekRange.map(d => `
+          <label class="day-check-item">
+            <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
+            <span style="font-size:9px;color:var(--text3)">${d}</span>
+            <input type="checkbox" name="bulk-day" value="${d}"
+              ${_bulkDays.has(d) ? 'checked' : ''} onchange="_saveBulkDays()">
+          </label>`).join('')}
+      </div>
     </div>
-  </div>
-  <div class="bulk-panel-section">
-    <div class="bulk-panel-label">Slot</div>
-    <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
-      onchange="_bulkSlotIdx=parseInt(this.value)">
-      ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
-    </select>
-  </div>
-  <div class="bulk-panel-section" style="justify-content:flex-end;">
-    <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
+    <div class="bulk-panel-section">
+      <div class="bulk-panel-label">Slot</div>
+      <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
+        onchange="_bulkSlotIdx=parseInt(this.value)">
+        ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="bulk-panel-section" style="justify-content:flex-end;">
+      <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
+    </div>
   </div>
 </div>`;
 
   const weekTable = getArrangeDayMemberList(null);
-  return splitSliderHTML + bulkPanel + weekTable;
+  return combinedPanel + weekTable;
 }
 
 function _renderArrangeOverviewTab(weekRange) {

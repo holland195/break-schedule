@@ -103,42 +103,20 @@ function _saveRotation(rot) {
   try { localStorage.setItem(ROTATION_STORAGE_KEY, JSON.stringify(rot)); } catch(e) {}
 }
 
-// _resolvePhase v2: sequential flip per batch
-// Uses a two-phase approach:
-//   1. Calendar-based (past/current week) — never flip, idempotent re-import
-//   2. Sequential (any NEW week in this batch) — flip once per new Monday seen
-//      regardless of calendar position, so 3 weeks in one paste = 3 alternating phases
-function _resolvePhase(rot, shift, tier, monday) {
-  const key   = `${shift}_${tier}`;
-  const entry = rot[key];
- 
-  // First time ever seen — start at phase 0
-  if (!entry) {
-    rot[key] = { phase: 0, lastWeek: monday };
-    return 0;
+// _resolvePhase v3: deterministic week-distance approach
+// Stores only a baseDate (first Sunday ever seen for this shift+tier).
+// Phase = weeksDiff % 2 — fully idempotent regardless of processing order.
+// Re-running auto-assign for any week always produces the same phase as the first run,
+// so agents reliably alternate slots across weeks.
+function _resolvePhase(rot, shift, tier, sunday) {
+  const key = `${shift}_${tier}`;
+  if (!rot[key]) {
+    rot[key] = { baseDate: sunday };
   }
- 
-  // Same Monday already recorded — idempotent (safe to re-import)
-  if (entry.lastWeek === monday) {
-    return entry.phase;
-  }
- 
-  // Check if this monday is newer than what we've recorded
-  const recordedDate = _mondayToDate(entry.lastWeek);
-  const thisDate     = _mondayToDate(monday);
- 
-  if (thisDate <= recordedDate) {
-    // Older or same week — don't touch the phase, just return current
-    return entry.phase;
-  }
- 
-  // This is a NEW week (newer monday than recorded).
-  // Flip the phase — this handles both future weeks AND same-batch sequential weeks.
-  // Whether it's "future" by calendar or just the next week in the imported paste,
-  // each new week gets a fresh alternating phase.
-  const newPhase = entry.phase === 0 ? 1 : 0;
-  rot[key] = { phase: newPhase, lastWeek: monday };
-  return newPhase;
+  const baseDate  = _mondayToDate(rot[key].baseDate);
+  const thisDate  = _mondayToDate(sunday);
+  const weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
+  return ((weeksDiff % 2) + 2) % 2;
 }
 
 // ── Main entry point ──
