@@ -103,21 +103,65 @@ function _saveRotation(rot) {
   try { localStorage.setItem(ROTATION_STORAGE_KEY, JSON.stringify(rot)); } catch(e) {}
 }
 
-// _resolvePhase v3: deterministic week-distance approach
-// Stores only a baseDate (first Sunday ever seen for this shift+tier).
-// Phase = weeksDiff % 2 — fully idempotent regardless of processing order.
-// Re-running auto-assign for any week always produces the same phase as the first run,
-// so agents reliably alternate slots across weeks.
-function _resolvePhase(rot, shift, tier, sunday) {
+// _getSlotMap — circular sliding window rotation.
+//
+// Guarantees EXACTLY slot2Count members on slot2 every week, with the
+// "A2 window" shifting by 1 position each week so every member gets equal
+// time in each slot over the long run.
+//
+// New members (first appearance on this shift) fill A2 first; overflow → A1.
+//
+// Storage per key `${shift}_${tier}`:
+//   { baseDate: 'DD/MM', members: ['username', ...] }
+//   baseDate  — Sunday of the first week ever processed (never changes)
+//   members   — stable ordered list; new members appended on first appearance
+//
+// Fully idempotent: processing the same week N times gives the same result.
+function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count) {
   const key = `${shift}_${tier}`;
-  // Guard against missing entry OR old-format entries ({phase, lastWeek} from v2)
-  if (!rot[key] || !rot[key].baseDate) {
-    rot[key] = { baseDate: sunday };
-  }
-  const baseDate  = _mondayToDate(rot[key].baseDate);
+  // Migrate old formats (v2 had {phase,lastWeek}, v3 had {baseDate} with no members list)
+  if (!rot[key] || !rot[key].baseDate) rot[key] = {};
+  const entry = rot[key];
+  if (!entry.baseDate) entry.baseDate = sunday;
+  if (!entry.members) entry.members  = [];
+
+  const knownList = entry.members;       // mutated in place, then saved by caller
+  const knownSet  = new Set(knownList);
+
+  // Classify members
+  const brandNew  = members.filter(u => !knownSet.has(u.username || u.id));
+  const existing  = members.filter(u =>  knownSet.has(u.username || u.id));
+
+  // Existing members sorted by their stable position in knownList
+  existing.sort((a, b) =>
+    knownList.indexOf(a.username || a.id) - knownList.indexOf(b.username || b.id)
+  );
+
+  // Sliding window offset
+  const baseDate  = _mondayToDate(entry.baseDate);
   const thisDate  = _mondayToDate(sunday);
   const weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
-  return ((weeksDiff % 2) + 2) % 2;
+
+  // New members claim A2 slots first; remaining A2 slots go to the window
+  const newA2Count = Math.min(brandNew.length, slot2Count);
+  const remA2      = slot2Count - newA2Count;
+  const N          = existing.length;
+  const wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
+
+  const result = {};
+
+  existing.forEach((u, i) => {
+    const ukey = u.username || u.id;
+    result[ukey] = (N > 0 && remA2 > 0 && ((i - wStart + N) % N) < remA2) ? slot2 : slot1;
+  });
+
+  brandNew.forEach((u, i) => {
+    const ukey = u.username || u.id;
+    result[ukey] = i < newA2Count ? slot2 : slot1;
+    if (!knownSet.has(ukey)) { knownList.push(ukey); knownSet.add(ukey); }
+  });
+
+  return result;
 }
 
 // ── Main entry point ──
@@ -187,61 +231,38 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       Object.entries(tiers).forEach(([tier, members]) => {
         if (members.length === 0) return;
 
-        const customPct = getBreakSplitPct(shift);
-        // Always resolve/update rotation phase — custom % changes group SIZE only,
-        // not whether rotation happens. The phase determines which group leads this week.
-        const phase = _resolvePhase(rot, shift, tier, sunday);
-
-        // Sort by group name (natural: AT1 < AT9 < AT10)
-        members.sort((a, b) => _naturalSort(a.team || '', b.team || ''));
-
-        // ── Option D: check per-member per-day before assigning ──
-        // Count how many members in this tier already have ALL their working
-        // days assigned this week — used to decide rotation phase recording.
-const fullyAssigned = members.filter(u =>
-  weekDates.every(d => {
-    if (u.schedule[d] !== shift) return true;
-    const existing = DB.getBreak(u.id, d);
-    return existing && _slotBelongsToShift(existing.slot, shift); // must be correct shift's slot
-  })
-);
-const allAlreadyAssigned = fullyAssigned.length === members.length;
-
-        // When custom % is set: fixed split, no rotation.
-        // When null: use 50/50 with calendar-aware rotation.
-        const firstCount = customPct !== null
+        const customPct  = getBreakSplitPct(shift);
+        const slot1Count = customPct !== null
           ? Math.round(members.length * customPct / 100)
           : Math.ceil(members.length / 2);
+        const slot2Count = members.length - slot1Count;
 
-        // If all members are already fully assigned this week, skip writing
-        // but keep the resolved phase (recorded above) for rotation continuity.
+        // Compute slot map — always runs to keep rotation state current (member list)
+        const slotMap = _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count);
+
+        // Skip writing if every member already has a correct break this week
+        const allAlreadyAssigned = members.every(u =>
+          weekDates.every(d => {
+            if (u.schedule[d] !== shift) return true;
+            const ex = DB.getBreak(u.id, d);
+            return ex && _slotBelongsToShift(ex.slot, shift);
+          })
+        );
         if (allAlreadyAssigned) {
-          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping (phase=${phase}${customPct !== null ? ` custom ${customPct}%` : ' 50/50'})`);
+          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping`);
           return;
         }
 
-        members.forEach((u, idx) => {
-          const inFirst      = idx < firstCount;
-          // Custom %: first group always → slot1 (no phase flip).
-          // Rotation: phase determines which group gets slot1 this week.
-          // Rotation always active: phase decides which group leads this week.
-          // Custom % only affects group size, not the alternation.
-          const assignedSlot = phase === 0
-            ? (inFirst ? slot1 : slot2)
-            : (inFirst ? slot2 : slot1);
+        members.forEach(u => {
+          const ukey         = u.username || u.id;
+          const assignedSlot = slotMap[ukey] || slot1;
 
           weekDates.forEach(d => {
-  if (u.schedule[d] !== shift) return; // off or different shift
-
-            const existing = DB.getBreak(u.id, d);
-if (existing && _slotBelongsToShift(existing.slot, shift)) {
-  console.log(`[autoassign] Skip ${u.username} on ${d} — already has ${existing.slot}`);
-  return; // only skip if existing slot actually belongs to this shift
-}
-// wrong-shift slot → overwrite it with correct assignment
-
+            if (u.schedule[d] !== shift) return;
+            const ex = DB.getBreak(u.id, d);
+            if (ex && _slotBelongsToShift(ex.slot, shift)) return;
             DB.setBreak(u.id, d, {
-              slot: (assignedSlot || '').replace(/[\u2012\u2013\u2014\u002D]/g, '\u2013'),
+              slot: (assignedSlot || '').replace(/[‒–—-]/g, '–'),
               note: 'auto',
               by:   null,
               at:   RUN_TIMESTAMP,
@@ -283,8 +304,7 @@ function getRotationSummary() {
     key,
     shift:    key.split('_')[0],
     tier:     key.split('_').slice(1).join('_'),
-    phase:    val.phase,
-    lastWeek: val.lastWeek,
-    isFuture: _isFutureWeek(val.lastWeek),
+    baseDate: val.baseDate || '—',
+    members:  (val.members || []).length,
   }));
 }

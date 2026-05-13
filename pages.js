@@ -981,6 +981,10 @@ function saveBreakSplits() {
 
 function resetBreakSplit(shift) {
   setBreakSplitPct(shift, null);
+  // Clear the member-order list so the sliding window starts fresh
+  const rot = _loadRotation ? _loadRotation() : {};
+  ['agent', 'qa', 'sr_qa'].forEach(tier => { delete rot[`${shift}_${tier}`]; });
+  if (typeof _saveRotation === 'function') _saveRotation(rot);
   _clearAutoBreaksFromWeek(activeMonday, new Set([shift]));
   const result = autoAssignBreaks(state.users);
   save();
