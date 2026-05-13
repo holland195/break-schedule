@@ -110,7 +110,8 @@ function _saveRotation(rot) {
 // so agents reliably alternate slots across weeks.
 function _resolvePhase(rot, shift, tier, sunday) {
   const key = `${shift}_${tier}`;
-  if (!rot[key]) {
+  // Guard against missing entry OR old-format entries ({phase, lastWeek} from v2)
+  if (!rot[key] || !rot[key].baseDate) {
     rot[key] = { baseDate: sunday };
   }
   const baseDate  = _mondayToDate(rot[key].baseDate);

@@ -1053,7 +1053,7 @@ function _renderArrangeAssignTab(weekRange) {
   const combinedPanel = `
 <div class="bulk-panel" style="margin-bottom:20px;display:block;padding:12px 16px;">
   ${splitRow}
-  <div style="display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;">
+  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
     <div class="bulk-panel-section">
       <div class="bulk-panel-label">Groups</div>
       <div class="group-checkbox-list">
@@ -1083,7 +1083,7 @@ function _renderArrangeAssignTab(weekRange) {
         ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
       </select>
     </div>
-    <div class="bulk-panel-section" style="justify-content:flex-end;">
+    <div class="bulk-panel-section">
       <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
     </div>
   </div>
