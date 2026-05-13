@@ -556,6 +556,37 @@ ${shiftUsers.length > 0 ? `
 </div>`: ''}`;
 }
 
+// ── Month filter helpers (shared by requests + ext break pages) ──
+let _reqFilterYM      = null; // null = current month
+let _extBreakFilterYM = null; // null = current month
+
+function _prevMonthKey(ym) {
+  const [y,m] = ym.split('-').map(Number);
+  return m===1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`;
+}
+function _nextMonthKey(ym) {
+  const [y,m] = ym.split('-').map(Number);
+  return m===12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2,'0')}`;
+}
+function _monthLabel(ym) {
+  const [y,m] = ym.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+}
+function _monthPickerHTML(ym, setterFn, page) {
+  const prev = _prevMonthKey(ym);
+  const next = _nextMonthKey(ym);
+  const curMk = currentMonthKey();
+  const isCur = ym === curMk;
+  return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+    <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;" onclick="${setterFn}('${prev}');nav('${page}')">&#8249;</button>
+    <span style="font-size:13px;font-weight:600;min-width:140px;text-align:center;">${_monthLabel(ym)}</span>
+    <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;" onclick="${setterFn}('${next}');nav('${page}')">&#8250;</button>
+    ${!isCur ? `<button class="btn btn-sm" style="font-size:11px;" onclick="${setterFn}('${curMk}');nav('${page}')">Current</button>` : ''}
+  </div>`;
+}
+function _setReqFilterYM(ym)      { _reqFilterYM      = ym; }
+function _setExtBreakFilterYM(ym) { _extBreakFilterYM = ym; }
+
 // ═══════════════════════════════════════════════
 //  RENDER: REQUESTS
 //  Agent/QA/Sr roles: pick day OR whole-week swap
@@ -563,9 +594,15 @@ ${shiftUsers.length > 0 ? `
 //  Visual impact preview before approval
 // ═══════════════════════════════════════════════
 function renderRequests() {
-  const myReqs = isLeader(currentUser)
-    ? state.requests
-    : state.requests.filter(r => r.userId === currentUser.id);
+  if (!_reqFilterYM) _reqFilterYM = currentMonthKey();
+  const filterYM = _reqFilterYM;
+
+  const allReqs = isLeader(currentUser) ? state.requests : state.requests.filter(r => r.userId === currentUser.id);
+  const myReqs = allReqs.filter(r => {
+    const d = new Date(r.at);
+    const rym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return rym === filterYM;
+  });
 
   const pending = myReqs.filter(r => r.status === 'pending');
   const rest = myReqs.filter(r => r.status !== 'pending');
@@ -693,9 +730,10 @@ function renderRequests() {
   </div>
   ${!isLeader(currentUser) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ New swap</button>` : ''}
 </div>
+${_monthPickerHTML(filterYM, '_setReqFilterYM', 'requests')}
 ${filterBar}
 <div class="req-cards-grid" id="req-cards-list">
-  ${myReqs.length > 0 ? myReqs.map(r => card(r)).join('') : '<div class="empty"><div class="empty-ico">✅</div>No requests yet.</div>'}
+  ${myReqs.length > 0 ? myReqs.map(r => card(r)).join('') : '<div class="empty"><div class="empty-ico">✅</div>No requests for this month.</div>'}
 </div>
 `;
 }
@@ -2657,20 +2695,26 @@ function renderExtBreak() {
   }
   const canApprove = isLeader(currentUser) || isTraining(currentUser);
   const pendingCount = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
-  const mk = currentMonthKey();
+  if (!_extBreakFilterYM) _extBreakFilterYM = currentMonthKey();
+  const mk = _extBreakFilterYM;
   const [yr, mo] = mk.split('-');
   const monthLabel = new Date(parseInt(yr), parseInt(mo) - 1, 1)
     .toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-  // All female users in current shift this week
-  const weekDates = getWeekDates();
-  const femaleShiftUsers = state.users.filter(u =>
-  _getUserGender(u) === 'F' &&
-    weekDates.some(dk => {
-      const dn = WEEK_DAYS[weekDates.indexOf(dk)];
-      return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
-    })
-  );
+  // For leader: show all female staff who have any ext break entries in the selected month.
+  // For agents: only themselves.
+  const allFemaleUsers = state.users.filter(u => _getUserGender(u) === 'F');
+  const femaleShiftUsers = isLeader(currentUser)
+    ? allFemaleUsers.filter(u => (DB.getExtBreaks(u.id, mk) || []).length > 0 ||
+        (() => {
+          // Also include users on current shift this week (for new pending registrations)
+          const wd = getWeekDates();
+          return wd.some(dk => {
+            const dn = WEEK_DAYS[wd.indexOf(dk)];
+            return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
+          });
+        })())
+    : allFemaleUsers;
 
   // My registrations this month
   const myEntries = DB.getExtBreaks(currentUser.id, mk);
@@ -2815,9 +2859,10 @@ function renderExtBreak() {
     <div class="page-title">🌸 30-Min Extra Break</div>
     <div class="page-sub">${monthLabel} · Shift ${currentShift} · ${isFemale && !isLeader(currentUser) ? `${myRemaining} registration${myRemaining !== 1 ? 's' : ''} remaining` : 'All female staff'}</div>
   </div>
-  
+
 </div>
 
+${_monthPickerHTML(mk, '_setExtBreakFilterYM', 'extbreak')}
 ${noAccessMsg}
 ${myPendingHtml}
 
