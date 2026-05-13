@@ -938,7 +938,8 @@ function _renderBreakSplitTab() {
 <div style="max-width:560px;">
   <div style="font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.7;">
     Set how the team is split across break slots for each shift. The <b>larger group</b> takes the slot on the left side of the slider.
-    When a custom split is active, the weekly rotation is <b>paused</b> for that shift — the split stays fixed every week until you reset it.
+    Set how the team is split across break slots for each shift. The <b>larger group</b> takes the slot on the left side of the slider.
+    Rotation still applies — each week the groups swap which slot they get, keeping the set percentage.
   </div>
   ${rows}
   <button class="btn btn-accent" onclick="saveBreakSplits()" style="margin-top:4px;">
@@ -1034,7 +1035,7 @@ function _renderArrangeAssignTab(weekRange) {
   <span style="font-size:12px;font-weight:700;white-space:nowrap;">Break Split</span>
   ${_splitCustom
     ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;white-space:nowrap;">${_splitPct1}% / ${_splitPct2}%</span>`
-    : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 9px;border-radius:10px;white-space:nowrap;">Default 50/50</span>`}
+    : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 9px;border-radius:10px;white-space:nowrap;">50/50 rotation</span>`}
   <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
   <span id="split-lbl-${currentShift}-1" style="font-size:12px;font-weight:700;color:var(--accent);min-width:28px;text-align:right;">${_splitPct1}%</span>
   <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
@@ -1605,7 +1606,7 @@ function _buildImportSplitHTML(shiftsInData) {
     Break Distribution
   </div>
   <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
-    Drag a slider to override the 50/50 rotation for a shift. Changes apply to this import and are saved for future imports.
+    Drag a slider to change the group size ratio for a shift. Rotation still applies — groups swap slots each week. Changes are saved for future imports.
     Full settings: <b>Arrange Breaks → 📐 Break Split</b>.
   </div>
   ${rows}

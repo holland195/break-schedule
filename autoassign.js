@@ -209,8 +209,9 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
         if (members.length === 0) return;
 
         const customPct = getBreakSplitPct(shift);
-        // Only resolve/update rotation phase when no custom split is active
-        const phase = customPct === null ? _resolvePhase(rot, shift, tier, sunday) : null;
+        // Always resolve/update rotation phase — custom % changes group SIZE only,
+        // not whether rotation happens. The phase determines which group leads this week.
+        const phase = _resolvePhase(rot, shift, tier, sunday);
 
         // Sort by group name (natural: AT1 < AT9 < AT10)
         members.sort((a, b) => _naturalSort(a.team || '', b.team || ''));
@@ -236,7 +237,7 @@ const allAlreadyAssigned = fullyAssigned.length === members.length;
         // If all members are already fully assigned this week, skip writing
         // but keep the resolved phase (recorded above) for rotation continuity.
         if (allAlreadyAssigned) {
-          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping (${customPct !== null ? `custom ${customPct}%` : `phase=${phase}`} recorded)`);
+          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping (phase=${phase}${customPct !== null ? ` custom ${customPct}%` : ' 50/50'})`);
           return;
         }
 
@@ -244,11 +245,11 @@ const allAlreadyAssigned = fullyAssigned.length === members.length;
           const inFirst      = idx < firstCount;
           // Custom %: first group always → slot1 (no phase flip).
           // Rotation: phase determines which group gets slot1 this week.
-          const assignedSlot = customPct !== null
+          // Rotation always active: phase decides which group leads this week.
+          // Custom % only affects group size, not the alternation.
+          const assignedSlot = phase === 0
             ? (inFirst ? slot1 : slot2)
-            : (phase === 0
-              ? (inFirst ? slot1 : slot2)
-              : (inFirst ? slot2 : slot1));
+            : (inFirst ? slot2 : slot1);
 
           weekDates.forEach(d => {
   if (u.schedule[d] !== shift) return; // off or different shift
