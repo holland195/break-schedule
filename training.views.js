@@ -257,16 +257,19 @@ const cls=slotNum>0?`slot-${slotNum}`:'';
       </tr>`;
     }).join('');
 
-    // Slot totals in block header (right side)
-    const s1b=`<span class="break-slot slot-1" style="font-size:10px;padding:2px 7px;">${sh}1: ${d.s1}</span>`;
-    const s2b=`<span class="break-slot slot-2" style="font-size:10px;padding:2px 7px;margin-left:4px;">${sh}2: ${d.s2}</span>`;
+    // Legend in header (replaces old agent-count / on-shift info)
+    const legendInHeader = d.slots.map((time, i) =>
+      `<span class="break-slot assigned slot-${i+1}" style="font-size:10px;padding:2px 7px;">${sh}${i+1}</span>
+       <span style="font-size:11px;color:var(--text2);margin-right:6px;">${time}</span>`
+    ).join('');
 
-    // Legend row (slot times)
-    const legendHTML = d.slots.length > 0
-      ? d.slots.map((time,i)=>
-          `<span class="break-slot slot-${i+1}" style="font-size:10px;padding:2px 7px;">${sh}${i+1}</span>
-           <span style="font-size:11px;color:var(--text2);margin-right:10px;">${time}</span>`
-        ).join('')
+    // Break split indicator (read-only)
+    const _sp = typeof getBreakSplitPct === 'function' ? getBreakSplitPct(sh) : null;
+    const _p1 = _sp !== null ? _sp : 50;
+    const _p2 = 100 - _p1;
+    const splitLabel = d.slots.length >= 2
+      ? `<span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-left:8px;white-space:nowrap;"
+           title="Break split: ${sh}1 vs ${sh}2">Split ${_p1}%/${_p2}%</span>`
       : '';
 
     return `<div class="t-sb" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;">
@@ -274,15 +277,10 @@ const cls=slotNum>0?`slot-${slotNum}`:'';
         ${_shBadge(sh,24)}
         <span style="font-size:13px;font-weight:600;color:${c.color};">Shift ${sh}</span>
         <span style="font-size:11px;color:var(--text2);">${def.display||''}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--text2);">
-          ${d.users.length} agents · ${selDay}: ${d.total} on-shift
+        <span style="margin-left:auto;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+          ${legendInHeader}${splitLabel}
         </span>
-        ${s1b}${s2b}
       </div>
-      ${legendHTML ? `<div style="display:flex;align-items:center;gap:4px;padding:5px 14px;background:var(--bg3);border-bottom:1px solid var(--border);">
-        <span style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-right:6px;">Legend</span>
-        ${legendHTML}
-      </div>` : ''}
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead><tr>
