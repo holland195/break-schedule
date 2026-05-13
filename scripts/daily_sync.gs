@@ -293,7 +293,9 @@ function syncLogbook(current, log) {
     return result;
   }
 
-  const allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const range = sheet.getRange(1, 1, lastRow, lastCol);
+  const allData = range.getValues();
+  const allDisplay = range.getDisplayValues();
   const row1    = allData[0]; // Row 1: date headers
   const row3    = allData[2]; // Row 3: Start/Late/End/Early sub-headers
 
@@ -331,6 +333,7 @@ function syncLogbook(current, log) {
   // Data rows start at row 5 (index 4)
   for (var ri = 4; ri < allData.length; ri++) {
     const row      = allData[ri];
+    const displayRow = allDisplay[ri];
     const empNo    = String(row[1] || '').trim();
     const name     = String(row[2] || '').trim();
     const newUser  = String(row[4] || '').trim().toLowerCase(); // col E
@@ -359,8 +362,8 @@ function syncLogbook(current, log) {
     const debugAnhDao = resolvedUser === 'anh.dao';
 
     dateCols.forEach(function(col) {
-      const startStr = _fmtTimeCell(row[col.startColIdx]);
-      const endStr   = _fmtTimeCell(row[col.endColIdx]);
+      const startStr = _fmtTimeCell(displayRow[col.startColIdx]) || _fmtTimeCell(row[col.startColIdx]);
+      const endStr   = _fmtTimeCell(displayRow[col.endColIdx])   || _fmtTimeCell(row[col.endColIdx]);
       if (!startStr && !endStr) return;
 
       if (debugAnhDao) {
@@ -419,6 +422,29 @@ function _fmtTimeCell(val) {
   // Plain string — strip blanks/dashes
   const str = String(val).trim();
   if (!str || str === '—' || str === '-' || str === '0') return '';
+
+  // 12-hour format from display values, e.g. "2:58:39 PM" or "2:58 PM"
+  const m12 = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AP]M)$/i);
+  if (m12) {
+    var h = parseInt(m12[1], 10) % 12;
+    const mm = parseInt(m12[2], 10);
+    const ss = parseInt(m12[3] || '0', 10);
+    const ap = m12[4].toUpperCase();
+    if (ap === 'PM') h += 12;
+    return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+  }
+
+  // 24-hour string with optional seconds
+  const m24 = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (m24) {
+    const hh = parseInt(m24[1], 10);
+    const mm = parseInt(m24[2], 10);
+    const ss = parseInt(m24[3] || '0', 10);
+    if (hh >= 0 && hh < 24 && mm >= 0 && mm < 60 && ss >= 0 && ss < 60) {
+      return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+    }
+  }
+
   return str;
 }
 
