@@ -124,7 +124,8 @@ function calcLateEarly(uid, dateKey) {
   const shiftCode = _getUserShiftOnDate(u, dateKey);
   if (!shiftCode) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
 
-  const def = SHIFT_DEFAULTS[shiftCode];
+  const shiftCodeNorm = String(shiftCode).trim().toUpperCase();
+  const def = SHIFT_DEFAULTS[shiftCodeNorm];
   if (!def) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
 
   let lateMin = 0, earlyMin = 0;
@@ -139,13 +140,14 @@ function calcLateEarly(uid, dateKey) {
     if (diff > 1) lateMin = diff;
   }
 
-  const isHalfDayShift = /^U?[A-E][12]$/.test(shiftCode);
+  const isHalfDayShift = /^U?[A-E][12]$/.test(shiftCodeNorm);
   if (rec.end && !isHalfDayShift) {
     const actualEnd = _parseTime(rec.end);
     const defEnd = _parseTime(def.end);
     let diff = defEnd - actualEnd;
     if (Math.abs(diff) > 720) diff = diff > 0 ? diff - 1440 : diff + 1440;
-    if (diff > 0) earlyMin = diff;
+    // Early threshold: only count as early when end time is more than 1 minute before shift end
+    if (diff > 1) earlyMin = diff;
   }
 
   return {
