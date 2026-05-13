@@ -810,18 +810,10 @@ const weekPickerHTML = sundays.length > 0 ? `
       margin-bottom:-2px; transition:all .12s;">
     📊 Week Overview
   </button>
-  <button onclick="switchArrangeMainTab('split')"
-    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
-      background:none; color:${arrangeMainTab === 'split' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${arrangeMainTab === 'split' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px; transition:all .12s;">
-    📐 Break Split
-  </button>
 </div>
 
 <div id="arrange-main-content">
   ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange)
-    : arrangeMainTab === 'split' ? _renderBreakSplitTab()
     : _renderArrangeOverviewTab(weekRange)}
 </div>`;
 }
@@ -1030,6 +1022,39 @@ function _renderArrangeAssignTab(weekRange) {
 
   const slots = BREAK_SLOTS[currentShift] || [];
 
+  // ── Inline break-split slider for this shift ──
+  const _splitSaved   = getBreakSplitPct(currentShift);
+  const _splitPct1    = _splitSaved !== null ? _splitSaved : 50;
+  const _splitPct2    = 100 - _splitPct1;
+  const _splitCustom  = _splitSaved !== null;
+  const splitSliderHTML = slots.length >= 2 ? `
+<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+    <span style="font-size:12px;font-weight:700;">Break Split</span>
+    ${_splitCustom
+      ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 9px;border-radius:10px;">${_splitPct1}% / ${_splitPct2}%</span>`
+      : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 9px;border-radius:10px;">Default 50/50 rotation</span>`}
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:11px;color:var(--text2);min-width:110px;white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
+    <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
+      style="flex:1;accent-color:var(--accent);"
+      oninput="onBreakSplitSlide('${currentShift}', this.value)">
+    <span style="font-size:11px;color:var(--text2);min-width:110px;text-align:right;white-space:nowrap;">${currentShift}2 — ${slots[1]}</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+    <span id="split-lbl-${currentShift}-1" style="font-size:13px;font-weight:700;color:var(--accent);">${_splitPct1}%</span>
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:4px 14px;">Save</button>
+      <button onclick="resetBreakSplit('${currentShift}')"
+        style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;">
+        ↩ Reset to rotation
+      </button>
+    </div>
+    <span id="split-lbl-${currentShift}-2" style="font-size:13px;font-weight:700;color:var(--accent);">${_splitPct2}%</span>
+  </div>
+</div>` : '';
+
   const bulkPanel = `
 <div class="bulk-panel" style="margin-bottom:20px;">
   <div class="bulk-panel-section">
@@ -1067,7 +1092,7 @@ function _renderArrangeAssignTab(weekRange) {
 </div>`;
 
   const weekTable = getArrangeDayMemberList(null);
-  return bulkPanel + weekTable;
+  return splitSliderHTML + bulkPanel + weekTable;
 }
 
 function _renderArrangeOverviewTab(weekRange) {
