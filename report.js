@@ -83,7 +83,7 @@ function _computeUserDateLog(u, year, month) {
     if (!SHIFT_DEFAULTS[shiftChar]) return;
     const rec = DB.getAttendance(u.id, dk);
     const { lateMin, earlyMin } = calcLateEarly(u.id, dk);
-    if (lateMin > 0 || earlyMin > 0 || rec?.note) {
+    if (lateMin > 0 || earlyMin > 0 || (rec?.note && rec.note !== 'auto')) {
       log.push({
         date:      dk,
         shift:     shiftChar,

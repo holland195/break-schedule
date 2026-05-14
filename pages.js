@@ -855,19 +855,18 @@ async function saveBreaksToCloud() {
   const lbl = document.getElementById('save-breaks-lbl');
   if (!btn) return;
 
-  // ── Check: do we have the API key needed to push? ──
+  // ── Check: do we have a database URL to push to? ──
   // First try to reload sync-config.json in case it was updated since page load
   if (!syncEnabled() && typeof loadSyncConfig === 'function') {
     await loadSyncConfig();
   }
-  const hasKey = typeof syncEnabled === 'function' && syncEnabled();
-  const hasBin = typeof syncCfg !== 'undefined' && !!syncCfg.binId;
+  const hasDb = typeof syncEnabled === 'function' && syncEnabled();
 
-  if (!hasKey) {
-    // No API key stored — push is impossible
+  if (!hasDb) {
+    // No database URL — push is impossible
     // Guide the admin to Cloud Sync settings
     if (ico) ico.textContent = '⚠';
-    if (lbl) lbl.textContent = hasBin ? 'Need API key — go to Cloud Sync' : 'Sync not configured';
+    if (lbl) lbl.textContent = 'Sync not configured';
     btn.style.background = 'var(--warn)';
     btn.style.color = '#000';
     setTimeout(() => {
@@ -876,7 +875,7 @@ async function saveBreaksToCloud() {
       btn.style.background = '';
       btn.style.color = '';
     }, 4000);
-    toast('☁ Sync key missing. Go to Cloud Sync page → enter your Secret Key → Connect.', 'warn');
+    toast('☁ Sync not configured. Go to Cloud Sync page → Connect.', 'warn');
     return;
   }
 
