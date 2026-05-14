@@ -106,10 +106,6 @@ function _checkAttConflict(u, dk, parsedCode) {
     if (hasRealRecord) {
       conflicts.push(`Attendance logged on ${parsedCode.reason || 'off day'}`);
     }
-  } else if (parsedCode.type === 'HD1' || parsedCode.type === 'HD2') {
-    if (hasRealRecord) {
-      conflicts.push('Half-day but attendance logged');
-    }
   } else if (parsedCode.type === 'WD') {
     if (schedShift && parsedCode.shift && schedShift !== parsedCode.shift) {
       conflicts.push(`Attendance: Shift ${parsedCode.shift}, Schedule: Shift ${schedShift}`);
@@ -2044,10 +2040,7 @@ function _renderStaffAttendance() {
       if (hasConflict) conflicts.push({ dk, msgs: conflictList });
 
       let bg = '', txt = '', color = '';
-      if (hasConflict) {
-        bg = 'background:rgba(248,113,113,.12);';
-        txt = '⚠'; color = 'color:var(--err);font-weight:700;';
-      } else if (!parsed) {
+      if (!parsed) {
         txt = rawCode || '?'; color = 'color:var(--text3);';
       } else if (parsed.type === 'OFF') {
         bg = 'background:var(--D-bg);';
@@ -2061,18 +2054,15 @@ function _renderStaffAttendance() {
         bg = 'background:rgba(74,222,128,.06);';
         txt = parsed.shift || '✓'; color = 'color:var(--ok);font-weight:500;';
       }
+      if (hasConflict) {
+        bg = 'background:rgba(248,113,113,.12);';
+        color = 'color:var(--err);font-weight:700;';
+      }
 
+      const conflictBadge = hasConflict
+        ? `<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>` : '';
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
-
-      // Show logbook start/end times inside the conflict cell
-      const _attRec = hasConflict ? DB.getAttendance(u.id, dk) : null;
-      const _fmtT = t => t ? (String(t).match(/^\d{1,2}:\d{2}/) || [''])[0] : '';
-      const _stShort = _fmtT(_attRec?.start);
-      const _etShort = _fmtT(_attRec?.end);
-      const attHtml = (_stShort || _etShort)
-        ? `<div style="font-size:8px;color:var(--err);line-height:1.3;margin-top:1px;">${_stShort ? `<div>${_stShort}</div>` : ''}${_etShort ? `<div>${_etShort}</div>` : ''}</div>`
-        : '';
 
       const _conflictShift = (u.schedule?.[dk] || u.schedule?.[getWkDay(dk)] || '').charAt(0) || 'A';
       const conflictClick = hasConflict ? `
@@ -2097,8 +2087,7 @@ function _renderStaffAttendance() {
 
       return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${conflictClick}>
-        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
-        ${attHtml}
+        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
       </td>`;
 
     }).join('');

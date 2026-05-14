@@ -66,13 +66,6 @@ function nav(page) {
     nav(currentPage);
   }
 
-function _updateShiftPills() {
-  ['A', 'D', 'E'].forEach(s => {
-    const el = document.getElementById(`spill-${s}`);
-    if (el) el.classList.toggle('active', s === currentShift);
-  });
-}
-
 function attachPageEvents(page) {
   if (page === 'arrange') {
     const firstTab = document.querySelector('#arrange-day-tabs .tab');
@@ -119,19 +112,12 @@ function _initNavTooltips() {
 }
 
 // ── Update active shift pill ──
-function _updateShiftPills(shift) {
+function _updateShiftPills(shift = currentShift) {
   ['A','D','E'].forEach(s => {
     const el = document.getElementById('spill-' + s);
     if (el) el.classList.toggle('active', s === shift);
   });
 }
-
-// Patch changeSidebarShift to also update pills
-const _origChangeSidebarShift = changeSidebarShift;
-changeSidebarShift = function(v) {
-  _origChangeSidebarShift(v);
-  _updateShiftPills(v);
-};
 
 // Init on load
 document.addEventListener('DOMContentLoaded', () => {
