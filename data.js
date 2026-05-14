@@ -212,7 +212,7 @@ function load() {
   return { users:[], breaks:{}, requests:[], extBreaks:{},
            staffInfo:{}, session:null, imported:false,
            _breaksUpdatedAt:0, _usersUpdatedAt:0,
-           attendance:{}, monthlyAttendance:{} };
+           attendance:{}, monthlyAttendance:{}, breakSplits:{} };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -317,6 +317,7 @@ if (!state.attendance) state.attendance = {};
 if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 if (!state.monthlyAttendance) state.monthlyAttendance = {};
+if (!state.breakSplits) state.breakSplits = {};
 // No more SEED_USERS — users come only from schedule import
 
 // Always ensure system admin exists — password '1234', never forced to change

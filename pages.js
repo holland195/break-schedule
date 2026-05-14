@@ -995,7 +995,7 @@ function onBreakSplitSlide(shift, rawVal) {
   if (lbl2) lbl2.textContent = `${pct2}%`;
 }
 
-function saveBreakSplits() {
+async function saveBreakSplits() {
   const changedShifts = new Set();
   VISIBLE_SHIFTS.forEach(shift => {
     const slider = document.getElementById(`split-slider-${shift}`);
@@ -1009,15 +1009,16 @@ function saveBreakSplits() {
   if (changedShifts.size > 0) {
     _clearAutoBreaksFromWeek(activeMonday, changedShifts);
     const result = autoAssignBreaks(state.users);
-    save();
+    await syncWrite();
     toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
   } else {
+    await syncWrite();
     toast('Break distribution settings saved (no changes).', 'ok');
   }
   nav('arrange');
 }
 
-function resetBreakSplit(shift) {
+async function resetBreakSplit(shift) {
   setBreakSplitPct(shift, null);
   // Clear the member-order list so the sliding window starts fresh
   const rot = _loadRotation ? _loadRotation() : {};
@@ -1025,7 +1026,7 @@ function resetBreakSplit(shift) {
   if (typeof _saveRotation === 'function') _saveRotation(rot);
   _clearAutoBreaksFromWeek(activeMonday, new Set([shift]));
   const result = autoAssignBreaks(state.users);
-  save();
+  await syncWrite();
   toast(`Shift ${shift} reset to 50/50 rotation. Re-assigned ${result.assigned} break(s).`, 'warn');
   nav('arrange');
 }

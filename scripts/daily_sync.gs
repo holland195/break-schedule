@@ -248,167 +248,191 @@ function syncSchedule(current, log) {
 
 // ═══════════════════════════════════════════════
 //  LOGBOOK SYNC
-//  Reads clock-in (Start) and clock-out (End) times
-//  per employee per day from the monthly logbook sheet.
-//  Writes to state.attendance[uid_dateKey] so the web
-//  app can auto-calculate Late / Early.
-//
-//  Sheet layout (LOGBOOK_SPREADSHEET_ID):
-//    Row 1  — date headers (Date cells), cols H+ (index 7+)
-//    Row 2  — skip
-//    Row 3  — sub-headers: "Start" | "Late" | "End" | "Early" per day
-//    Row 4  — skip
-//    Row 5+ — employee data
-//    Cols A–G: No | EmpNo | Name | OldUser | NewUser | Position | Shift
-//    Each day = 4 cols: Start | Late | End | Early
-//    "Shift" separator columns are ignored (no date in row 1)
+//  Reads clock-in (Start) and clock-out (End) per employee per day.
+//  Writes to state.attendance[uid_dateKey] so the web app can
+//  auto-calculate Late / Early. Row/col layout is FULLY DYNAMIC.
 // ═══════════════════════════════════════════════
 function syncLogbook(current, log) {
-  const result = { imported: 0, skipped: 0, dateCols: 0 };
+  var result = { imported: 0, skipped: 0, dateCols: 0 };
 
-  const MONTH_NAMES = ['January','February','March','April','May','June',
-                       'July','August','September','October','November','December'];
-  const sheetName = MONTH_NAMES[new Date().getMonth()];
+  var MONTH_NAMES = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'];
+  var sheetName = MONTH_NAMES[new Date().getMonth()];
 
-  let ss;
-  try {
-    ss = SpreadsheetApp.openById(LOGBOOK_SPREADSHEET_ID);
-  } catch(e) {
+  var ss;
+  try { ss = SpreadsheetApp.openById(LOGBOOK_SPREADSHEET_ID); }
+  catch(e) {
     log('[Logbook] ✗ Cannot open logbook spreadsheet: ' + e.message);
-    log('[Logbook] Check LOGBOOK_SPREADSHEET_ID and grant permissions.');
     return result;
   }
 
-  const sheet = ss.getSheetByName(sheetName);
+  var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
     log('[Logbook] ✗ Sheet "' + sheetName + '" not found. Available: '
-      + ss.getSheets().map(function(s) { return s.getName(); }).join(', '));
+      + ss.getSheets().map(function(s){ return s.getName(); }).join(', '));
     return result;
   }
 
-  const lastCol = sheet.getLastColumn();
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 5 || lastCol < 8) {
-    log('[Logbook] ⚠ Sheet "' + sheetName + '" appears empty (lastRow=' + lastRow + ', lastCol=' + lastCol + ')');
+  var lastCol = sheet.getLastColumn(), lastRow = sheet.getLastRow();
+  if (lastRow < 3 || lastCol < 5) {
+    log('[Logbook] ⚠ Sheet appears empty (lastRow=' + lastRow + ')'); return result;
+  }
+  var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+  // Auto-detect date header row: row (first 10) with most parseable date cells
+  var dateRow = -1, bestCnt = 0;
+  for (var ri = 0; ri < Math.min(10, allData.length); ri++) {
+    var cnt = 0;
+    for (var c = 4; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c])) cnt++; }
+    if (cnt > bestCnt) { bestCnt = cnt; dateRow = ri; }
+  }
+  if (dateRow < 0 || bestCnt < 2) {
+    log('[Logbook] ⚠ No date header row found (best: ' + bestCnt + ' date cols). Ensure row 1 has Date cells.');
     return result;
   }
 
-  const allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const row1    = allData[0]; // Row 1: date headers
-  const row3    = allData[2]; // Row 3: Start/Late/End/Early sub-headers
+  // Auto-detect sub-header row: first row after dateRow containing "start"
+  var subHdrRow = -1;
+  for (var ri = dateRow+1; ri < Math.min(dateRow+6, allData.length); ri++) {
+    for (var c = 0; c < allData[ri].length; c++) {
+      if (String(allData[ri][c]).trim().toLowerCase() === 'start') { subHdrRow = ri; break; }
+    }
+    if (subHdrRow >= 0) break;
+  }
+  if (subHdrRow < 0) {
+    log('[Logbook] ⚠ Could not find Start/Late/End/Early sub-header row after row ' + (dateRow+1));
+    return result;
+  }
 
-  // Build day column map: detect columns where row3 = "Start" AND row1 = a valid date
-  const dateCols = []; // [{ dateKey, startColIdx, endColIdx }]
-  for (var c = 7; c < row1.length; c++) {
-    const subHdr = String(row3[c] || '').trim().toLowerCase();
-    if (subHdr !== 'start') continue;
-    const dk = parseDateHeader(row1[c]);
+  // Auto-detect data start row: first row after subHdrRow with non-empty employee cols
+  var dataStartRow = subHdrRow + 1;
+  while (dataStartRow < allData.length) {
+    if (allData[dataStartRow].slice(0,8).some(function(c){ return c!==''&&c!==null&&c!==undefined; })) break;
+    dataStartRow++;
+  }
+  log('[Logbook] Layout: dateRow=' + (dateRow+1) + ', subHdrRow=' + (subHdrRow+1) + ', dataStart=' + (dataStartRow+1));
+
+  // Auto-detect Shift column (header rows up to dateRow, cols 0-11)
+  var shiftColIdx = -1;
+  for (var ri = 0; ri <= dateRow && shiftColIdx < 0; ri++) {
+    for (var c = 0; c < 12; c++) {
+      if (String(allData[ri][c]||'').trim().toLowerCase() === 'shift') { shiftColIdx = c; break; }
+    }
+  }
+  if (shiftColIdx < 0) shiftColIdx = 6; // fallback col G (7-col layout A-G)
+  log('[Logbook] Shift col=' + shiftColIdx);
+
+  // Employee cols relative to shiftColIdx: ..EmpNo|Name|OldUser|NewUser|Pos|Shift
+  var empNoColIdx   = Math.max(0, shiftColIdx - 5);
+  var nameColIdx    = Math.max(0, shiftColIdx - 4);
+  var oldUserColIdx = Math.max(0, shiftColIdx - 3);
+  var newUserColIdx = Math.max(0, shiftColIdx - 2);
+
+  // Build date columns: scan from shiftColIdx+1 for Start sub-headers aligned with dates
+  var row1 = allData[dateRow], row3 = allData[subHdrRow], dateCols = [];
+  for (var c = shiftColIdx+1; c < row1.length; c++) {
+    if (String(row3[c]||'').trim().toLowerCase() !== 'start') continue;
+    var dk = parseDateHeader(row1[c]);
     if (!dk) continue;
     dateCols.push({ dateKey: dk, startColIdx: c, endColIdx: c + 2 });
   }
-
   result.dateCols = dateCols.length;
-  log('[Logbook] Sheet "' + sheetName + '" | ' + dateCols.length + ' day cols | ' + (lastRow - 4) + ' data rows');
 
   if (dateCols.length === 0) {
-    log('[Logbook] ⚠ No day columns found. Verify row 1 has Date cells and row 3 has "Start" headers from col H.');
-    log('[Logbook]   Row1[H..K]: ' + row1.slice(7, 11).map(function(v) { return typeof v + ':' + v; }).join(' | '));
-    log('[Logbook]   Row3[H..K]: ' + row3.slice(7, 11).map(function(v) { return typeof v + ':' + v; }).join(' | '));
+    log('[Logbook] ⚠ No day cols found after col ' + shiftColIdx);
+    log('[Logbook]   dateRow  : ' + row1.slice(shiftColIdx, shiftColIdx+8).map(function(v){ return typeof v+':'+String(v).substr(0,10); }).join(' | '));
+    log('[Logbook]   subHdrRow: ' + row3.slice(shiftColIdx, shiftColIdx+8).map(function(v){ return String(v); }).join(' | '));
     return result;
   }
+  log('[Logbook] ' + dateCols.length + ' day cols | ' + (lastRow-dataStartRow) + ' employee rows');
 
-  // Build username → uid map from current.users
-  const usernameToUid = {};
-  (current.users || []).forEach(function(u) {
-    if (u && u.username && u.id != null) {
-      usernameToUid[String(u.username).toLowerCase()] = u.id;
-    }
+  // uid lookup map
+  var usernameToUid = {};
+  (current.users||[]).forEach(function(u) {
+    if (u && u.username && u.id != null) usernameToUid[String(u.username).toLowerCase()] = u.id;
   });
 
   if (!current.attendance) current.attendance = {};
-  const now = Date.now();
+  var now = Date.now();
 
-  // Data rows start at row 5 (index 4)
-  for (var ri = 4; ri < allData.length; ri++) {
-    const row      = allData[ri];
-    const empNo    = String(row[1] || '').trim();
-    const name     = String(row[2] || '').trim();
-    const newUser  = String(row[4] || '').trim().toLowerCase(); // col E
-    const oldUser  = String(row[3] || '').trim().toLowerCase(); // col D (fallback)
+  for (var ri = dataStartRow; ri < allData.length; ri++) {
+    var row     = allData[ri];
+    var empNo   = String(row[empNoColIdx]   || '').trim();
+    var name    = String(row[nameColIdx]    || '').trim();
+    var newUser = String(row[newUserColIdx] || '').trim().toLowerCase();
+    var oldUser = String(row[oldUserColIdx] || '').trim().toLowerCase();
+    var shiftCd = String(row[shiftColIdx]   || '').trim().toUpperCase();
     if (!name && !empNo && !newUser) continue;
 
-    // Resolve uid: try newUser → oldUser → name match
-    let uid = newUser ? usernameToUid[newUser] : undefined;
+    var uid = newUser ? usernameToUid[newUser] : undefined;
     if (uid == null && oldUser) uid = usernameToUid[oldUser];
     if (uid == null && name) {
-      const nameLower = name.toLowerCase();
-      const matched = (current.users || []).find(function(u) {
-        return (u.name || '').toLowerCase() === nameLower;
-      });
-      if (matched) uid = matched.id;
+      var nl = name.toLowerCase();
+      var mu = (current.users||[]).find(function(u){ return (u.name||'').toLowerCase()===nl; });
+      if (mu) uid = mu.id;
     }
-
     if (uid == null) {
       result.skipped++;
-      if (result.skipped <= 5) log('[Logbook] No match: "' + name + '" / user:"' + (newUser||oldUser) + '"');
+      if (result.skipped <= 5) log('[Logbook] No match: "' + name + '" / "' + (newUser||oldUser) + '"');
       continue;
     }
 
     var wroteAny = false;
     dateCols.forEach(function(col) {
-      const startStr = _fmtTimeCell(row[col.startColIdx]);
-      const endStr   = _fmtTimeCell(row[col.endColIdx]);
+      var startStr = _fmtTimeCell(row[col.startColIdx], shiftCd, 'start');
+      var endStr   = _fmtTimeCell(row[col.endColIdx],   shiftCd, 'end');
       if (!startStr && !endStr) return;
-
-      const key = uid + '_' + col.dateKey;
-      // Only write if no manual record exists (note !== 'auto'), preserving leader overrides
-      const existing = current.attendance[key];
-      if (existing && existing.note !== 'auto') return;
-
-      current.attendance[key] = {
-        start: startStr || '',
-        end:   endStr   || '',
-        note:  'auto',
-        by:    null,
-        at:    now,
-      };
+      var key = uid + '_' + col.dateKey;
+      var existing = current.attendance[key];
+      if (existing && existing.note !== 'auto') return; // keep manual overrides
+      current.attendance[key] = { start: startStr||'', end: endStr||'', note: 'auto', by: null, at: now };
       wroteAny = true;
     });
-
     if (wroteAny) result.imported++;
   }
 
-  if (result.skipped > 5) log('[Logbook] ... and ' + (result.skipped - 5) + ' more unmatched');
+  if (result.skipped > 5) log('[Logbook] ... and ' + (result.skipped-5) + ' more unmatched');
   log('[Logbook] Done: ' + result.imported + ' matched, ' + result.skipped + ' skipped');
   return result;
 }
 
-// Format a time cell value → "HH:MM:SS" string, or '' if empty/invalid.
-// Handles: Date objects (GAS returns these for time cells), fractional day
-// serials (0.625 = 15:00:00), and plain time strings.
-function _fmtTimeCell(val) {
+// Convert GAS time cell value → "HH:MM:SS" (24h), or '' if blank.
+// shiftCode + role resolve 12h display ambiguity (Sheets shows 15:00 as "3:00" without AM/PM).
+function _fmtTimeCell(val, shiftCode, role) {
   if (val === null || val === undefined || val === '') return '';
 
-  // GAS returns Date objects for time-formatted cells
+  // GAS Date object: blank cells return '' not Date, so any Date is a real value
   if (val instanceof Date) {
-    const h = val.getHours(), m = val.getMinutes(), s = val.getSeconds();
-    if (h === 0 && m === 0 && s === 0) return ''; // blank cell often returns midnight
+    var h = val.getHours(), m = val.getMinutes(), s = val.getSeconds();
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
 
-  // Fractional day serial (e.g. 0.625 → 15:00:00)
-  if (typeof val === 'number' && val > 0 && val < 1) {
-    const totalSec = Math.round(val * 86400);
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
+  // Fractional day 0..1 stored as raw number
+  if (typeof val === 'number' && val >= 0 && val < 1) {
+    if (val === 0) return '00:00:00'; // midnight valid for Shift D
+    var ts = Math.round(val * 86400);
+    var h = Math.floor(ts/3600), m = Math.floor((ts%3600)/60), s = ts%60;
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
 
-  // Plain string — strip blanks/dashes
-  const str = String(val).trim();
-  if (!str || str === '—' || str === '-' || str === '0') return '';
-  return str;
+  // String / formula output: extract "H:MM[:SS]" prefix (e.g. "3:00:40 F..." → 3,0,40)
+  var str = String(val).trim();
+  if (!str || str === '—' || str === '-') return '';
+  var match = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return '';
+  var h = parseInt(match[1]), m = parseInt(match[2]), s = match[3] ? parseInt(match[3]) : 0;
+
+  // Resolve 12h → 24h using shift context:
+  //   Shift A (start 15, end  0): display "3:xx" start → 15:xx; "12:xx" end → 00:xx
+  //   Shift D (start  0, end  9): display "12:xx" start → 00:xx
+  //   Shift E (start  6, end 15): no ambiguity
+  var SHIFT_REF = { A:{start:15,end:0}, B:{start:7,end:15}, C:{start:11,end:19}, D:{start:0,end:9}, E:{start:6,end:15} };
+  var ref = (shiftCode && SHIFT_REF[shiftCode]) ? SHIFT_REF[shiftCode][role||'start'] : undefined;
+  if (ref !== undefined) {
+    if (ref >= 12 && h > 0 && h < 12) h += 12; // e.g. "3:xx" → "15:xx" for Shift A
+    if (ref === 0  && h === 12)        h  = 0;  // e.g. "12:xx" → "00:xx" for midnight
+  }
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
 // ═══════════════════════════════════════════════

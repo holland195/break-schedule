@@ -138,7 +138,13 @@ function calcLateEarly(uid, dateKey) {
     if (diff > 0) lateMin = diff;
   }
 
-  if (rec.end) {
+  const [, _attM] = dateKey.split('/');
+  const _attMk = `2026-${_attM.padStart(2, '0')}`;
+  const _attCode = state.monthlyAttendance?.[u.username]?.[_attMk]?.[dateKey];
+  const _parsedAtt = _attCode && typeof _parseAttCode === 'function' ? _parseAttCode(_attCode) : null;
+  const _isHalfDay = _parsedAtt?.type === 'HD1' || _parsedAtt?.type === 'HD2';
+
+  if (rec.end && !_isHalfDay) {
     const actualEnd = _parseTime(rec.end);
     const defEnd = _parseTime(def.end);
     let diff = defEnd - actualEnd;
