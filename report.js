@@ -295,8 +295,8 @@ function renderReport(hideHeader = false) {
     const hasIssues = s.lateDays > 0 || s.earlyDays > 0;
     const rowId = `rep-row-${idx}`;
  
-    // Per-date log rows (hidden by default, shown on click)
-    const logRows = s.log.length > 0 ? s.log.map(entry => `
+    // Per-date log — single hidden row containing the full table
+    const logRows = s.log.length > 0 ? `
       <tr class="report-log-row" id="${rowId}-log" style="display:none;background:var(--bg3);">
         <td></td>
         <td colspan="7" style="padding:0;">
@@ -322,7 +322,7 @@ function renderReport(hideHeader = false) {
             </tr>`).join('')}
           </table>
         </td>
-      </tr>` ).join('') : '';
+      </tr>` : '';
  
     return `
     <tr style="cursor:${hasIssues?'pointer':'default'};"
