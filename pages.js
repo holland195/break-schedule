@@ -428,25 +428,34 @@ let agentWeekPickerHTML = '';
   }).join('')}
     </div>` : '';
 
-  // Slot totals summary
+  // Compact card: search + shift stats combined
   const slotTotalsHTML = shiftSlots.length > 0 ? `
-    <div style="display:flex;align-items:center;gap:14px;padding:9px 16px;
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 14px;
       background:var(--bg3);border-radius:8px;border:1px solid var(--border);
       margin-bottom:14px;flex-wrap:wrap;">
-      <span style="font-size:13px;font-weight:600;color:var(--text);">
-        Shift ${shiftToShow}:
-        <span style="color:var(--accent);margin-left:2px;">${allShiftUsers.length}</span>
-        <span style="color:var(--text3);font-size:11px;margin-left:2px;">agents</span>
+      <input class="filter-input" style="flex:1;min-width:160px;max-width:260px;padding:5px 10px;font-size:12px;"
+        placeholder="🔍 Search by name…"
+        value="${schedSearch}"
+        oninput="window._schedSearch=this.value;
+          const q=this.value.toLowerCase();
+          document.querySelectorAll('#sched-tbody tr').forEach(r=>{
+            const nm=(r.querySelector('.sched-name')||{}).textContent||'';
+            r.style.display=nm.toLowerCase().includes(q)?'':'none';
+          });
+          document.getElementById('sched-count').textContent=([...document.querySelectorAll('#sched-tbody tr')].filter(r=>r.style.display!=='none').length)+' staff';">
+      <span style="color:var(--border2);flex-shrink:0;">|</span>
+      <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;">
+        Shift ${shiftToShow}
+        <span style="color:var(--accent);margin-left:4px;" id="sched-count">${shiftUsers.length}</span>
+        <span style="color:var(--text3);font-size:11px;font-weight:400;"> staff</span>
       </span>
-      <span style="color:var(--border2);">|</span>
+      <span style="color:var(--border2);flex-shrink:0;">|</span>
       ${shiftSlots.map((time, i) => {
     const count = i === 0 ? slot1Count : slot2Count;
-    return `<span style="display:flex;align-items:center;gap:6px;font-size:12px;">
-          <span class="break-slot slot-${i + 1}" style="font-size:10px;padding:2px 8px;">${shiftToShow}${i + 1}</span>
-          <span style="color:var(--text);">
-            <b>${count}</b>
-            <span style="color:var(--text3);font-size:11px;">assigned</span>
-          </span>
+    return `<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+          <span class="break-slot slot-${i + 1}" style="font-size:10px;padding:2px 7px;">${shiftToShow}${i + 1}</span>
+          <span style="font-size:12px;color:var(--text);font-weight:600;">${count}</span>
+          <span style="font-size:11px;color:var(--text3);">assigned</span>
         </span>`;
   }).join(`<span style="color:var(--border2);">·</span>`)}
     </div>` : '';
@@ -525,19 +534,6 @@ let agentWeekPickerHTML = '';
 </div>
 
 ${shiftTabsHTML}
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-  <input class="filter-input" style="width:280px;padding:7px 12px;font-size:13px;"
-    placeholder="🔍 Search by name…"
-    value="${schedSearch}"
-    oninput="window._schedSearch=this.value;
-      const q=this.value.toLowerCase();
-      document.querySelectorAll('#sched-tbody tr').forEach(r=>{
-        const nm=(r.querySelector('.sched-name')||{}).textContent||'';
-        r.style.display=nm.toLowerCase().includes(q)?'':'none';
-      });
-      document.getElementById('sched-count').textContent=([...document.querySelectorAll('#sched-tbody tr')].filter(r=>r.style.display!=='none').length)+' staff';">
-  <span id="sched-count" style="font-size:11px;color:var(--text3);">${shiftUsers.length} staff</span>
-</div>
 ${slotTotalsHTML}
 ${emptyMsg}
 ${shiftUsers.length > 0 ? `
