@@ -303,8 +303,9 @@ function enterApp(fromSession) {
   document.querySelectorAll('.admin-only').forEach(el => el.style.display  = isAdmin(currentUser) ? 'flex' : 'none');
 
   buildDatalist();
-    currentShift = _guardShift(currentShift);
+  currentShift = _guardShift(currentShift);
   document.getElementById('sidebar-shift').value = currentShift;
+  if (typeof _updateShiftPills === 'function') _updateShiftPills();
 
   if (typeof updateSyncBadge === 'function') updateSyncBadge(typeof syncEnabled === 'function' && syncEnabled() ? 'ok' : 'err');
   if (fromSession && typeof syncEnabled === 'function' && syncEnabled()) {
