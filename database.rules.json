@@ -1,0 +1,10 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "bsched": {
+      ".read": "auth != null && auth.token.email.matches(/^.+@discoveryloft\\.com$/)",
+      ".write": "auth != null && auth.token.email.matches(/^.+@discoveryloft\\.com$/)"
+    }
+  }
+}
