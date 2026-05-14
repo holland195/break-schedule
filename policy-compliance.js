@@ -590,7 +590,7 @@ function _pcRenderSummary() {
       + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:130px;">NAME</th>'
       + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">LEADER</th>'
       + '<th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--accent);font-family:\'IBM Plex Mono\',monospace;">TOTAL</th>'
-      + eventKeys.map(function(ev){return '<th style="padding:7px 6px;text-align:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:36px;" title="'+PC_EVENTS[ev]+'">'+ev+'</th>';}).join('')
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">VIOLATIONS</th>'
       + '</tr></thead>';
 
     var rows = persons.map(function(p,i) {
@@ -603,15 +603,16 @@ function _pcRenderSummary() {
             ? '<span title="Warning email sent" style="font-size:10px;margin-left:6px;color:var(--ok);">✉✓</span>'
             : '<span title="≥2 violations — email recommended" style="font-size:10px;margin-left:6px;color:var(--err);font-weight:700;">⚠</span>')
         : '';
+      var evBadges = Object.entries(evCounts).sort(function(a,b){return b[1]-a[1];}).map(function(e){
+        return '<span title="'+( PC_EVENTS[e[0]]||e[0])+'" style="display:inline-flex;align-items:center;gap:3px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg4);color:var(--text2);margin:1px;">'
+          + e[0]+(e[1]>1?'<b style="color:var(--accent);margin-left:2px;">×'+e[1]+'</b>':'')+'</span>';
+      }).join('');
       return '<tr style="border-bottom:1px solid var(--border);">'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);">'+(i+1)+'</td>'
         + '<td style="padding:6px 10px;font-weight:600;font-size:12px;">'+p.name+repeatBadge+'</td>'
-        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+p.leader+'</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);">'+p.leader+'</td>'
         + '<td style="padding:6px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(p.records.length)+'">'+p.records.length+'</td>'
-        + eventKeys.map(function(ev){
-            var n=evCounts[ev]||0;
-            return '<td style="padding:6px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+_pcHeat(n)+'">'+(n||'—')+'</td>';
-          }).join('')
+        + '<td style="padding:6px 10px;">'+evBadges+'</td>'
         + '</tr>';
     }).join('');
 

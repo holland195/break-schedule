@@ -290,8 +290,8 @@ function renderReport(hideHeader = false) {
       <span style="font-size:12px;color:var(--text2);min-width:20px;">${cnt}</span>
     </div>`).join('');
  
-  // Main table rows with expandable date log
-  const tableRows = stats.map((s, idx) => {
+  // Main table rows — only staff with actual late/early issues
+  const tableRows = stats.filter(s => s.lateDays > 0 || s.earlyDays > 0).map((s, idx) => {
     const hasIssues = s.lateDays > 0 || s.earlyDays > 0;
     const rowId = `rep-row-${idx}`;
  

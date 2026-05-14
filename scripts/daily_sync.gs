@@ -566,6 +566,254 @@ function firebasePut(jsonStr) {
 }
 
 // ═══════════════════════════════════════════════
+//  POLICY SYNC
+//  Standalone entry point — set its own 12AM–1AM trigger.
+//  Reads policy violation records from the policy spreadsheet
+//  and merges them into state.policyCompliance in Firebase.
+//
+//  Spreadsheet ID: 1W1cVlJmq_JomZRhROHudWiFQsX_B66-OornRVBx-3RQ
+//  Sheet: "All records" (or first sheet if not found)
+//  Expected columns (detected by header row, case-insensitive):
+//    date, name, emp no / empno, username, role, shift,
+//    event, leader, status, note / notes
+//
+//  Run createPolicyTrigger() once to install the 12AM–1AM daily trigger.
+// ═══════════════════════════════════════════════
+
+const POLICY_SPREADSHEET_ID = '1W1cVlJmq_JomZRhROHudWiFQsX_B66-OornRVBx-3RQ';
+const POLICY_SHEET_NAME     = 'All records'; // adjust if your sheet is named differently
+
+function dailySyncPolicy() {
+  var startTime = new Date();
+  var log = [];
+  function addLog(msg) { Logger.log(msg); log.push(msg); }
+
+  try {
+    addLog('=== Policy Sync Start: ' + startTime.toISOString() + ' ===');
+
+    addLog('[Firebase] Fetching current data…');
+    var raw     = firebaseGet();
+    var current = raw ? JSON.parse(raw) : {};
+    addLog('[Firebase] Fetch OK.');
+
+    var result = syncPolicy(current, addLog);
+
+    addLog('[Firebase] Pushing updated data…');
+    firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+    addLog('[Firebase] Push OK.');
+
+    var duration = ((new Date() - startTime) / 1000).toFixed(1);
+    addLog('=== Policy Sync Complete in ' + duration + 's: '
+      + result.written + ' written, ' + result.skipped + ' skipped, '
+      + result.total + ' total records ===');
+
+  } catch(e) {
+    var errMsg = '✗ Policy Sync FAILED: ' + e.message + '\n\nStack: ' + e.stack;
+    Logger.log(errMsg);
+    try {
+      MailApp.sendEmail({
+        to:      NOTIFY_EMAIL,
+        subject: '⚠ PAVE Policy Sync Failed — ' + Utilities.formatDate(startTime, 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'),
+        body:    'Policy sync failed:\n\n' + e.message + '\n\nLog:\n' + log.join('\n'),
+      });
+    } catch(mailErr) { Logger.log('Mail failed: ' + mailErr.message); }
+    throw e;
+  }
+}
+
+function syncPolicy(current, log) {
+  var result = { written: 0, skipped: 0, total: 0 };
+
+  var ss;
+  try { ss = SpreadsheetApp.openById(POLICY_SPREADSHEET_ID); }
+  catch(e) {
+    log('[Policy] ✗ Cannot open spreadsheet: ' + e.message);
+    return result;
+  }
+
+  // Find the target sheet
+  var sheet = ss.getSheetByName(POLICY_SHEET_NAME);
+  if (!sheet) {
+    // Fall back to the first sheet
+    var sheets = ss.getSheets();
+    if (sheets.length === 0) { log('[Policy] ✗ No sheets found.'); return result; }
+    sheet = sheets[0];
+    log('[Policy] ⚠ Sheet "' + POLICY_SHEET_NAME + '" not found, using "' + sheet.getName() + '"');
+  } else {
+    log('[Policy] Sheet "' + sheet.getName() + '" found.');
+  }
+
+  var lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 3) {
+    log('[Policy] ⚠ Sheet appears empty (lastRow=' + lastRow + ', lastCol=' + lastCol + ')');
+    return result;
+  }
+
+  var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var header  = allData[0].map(function(h) { return String(h||'').trim().toLowerCase(); });
+
+  // Map header names → column indices
+  function col(names) {
+    for (var i = 0; i < names.length; i++) {
+      var idx = header.indexOf(names[i]);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+
+  var C = {
+    date:    col(['date','violation date','date of violation']),
+    name:    col(['name','full name','employee name']),
+    empNo:   col(['emp no','empno','emp. no','employee no','employee number','emp #']),
+    username:col(['username','user','user name','login']),
+    role:    col(['role','position']),
+    shift:   col(['shift']),
+    event:   col(['event','event code','violation','violation code','code']),
+    leader:  col(['leader','team leader','direct leader']),
+    status:  col(['status']),
+    note:    col(['note','notes','remarks','remark','details']),
+  };
+
+  log('[Policy] Column map: date=' + C.date + ' name=' + C.name + ' event=' + C.event + ' status=' + C.status);
+
+  if (C.date < 0 || C.event < 0) {
+    log('[Policy] ✗ Required columns "date" and "event" not found. Header: ' + header.join(' | '));
+    return result;
+  }
+
+  if (!current.policyCompliance) current.policyCompliance = [];
+  var existing = current.policyCompliance;
+
+  // Build a lookup key set for dedup: date+username+event
+  var existingKeys = {};
+  existing.forEach(function(r) {
+    var k = (r.date||'') + '|' + (r.username||r.name||'') + '|' + (r.event||'');
+    existingKeys[k] = true;
+  });
+
+  for (var ri = 1; ri < allData.length; ri++) {
+    var row = allData[ri];
+
+    // Skip blank rows
+    var dateRaw = C.date >= 0 ? row[C.date] : '';
+    if (dateRaw === null || dateRaw === undefined || dateRaw === '') continue;
+
+    // Parse date → YYYY-MM-DD
+    var dateStr = _parsePolicyDate(dateRaw);
+    if (!dateStr) { result.skipped++; continue; }
+
+    var eventCode = C.event >= 0 ? String(row[C.event]||'').trim() : '';
+    if (!eventCode) { result.skipped++; continue; }
+
+    var name     = C.name     >= 0 ? String(row[C.name]    ||'').trim() : '';
+    var empNo    = C.empNo    >= 0 ? String(row[C.empNo]   ||'').trim() : '';
+    var username = C.username >= 0 ? String(row[C.username]||'').trim().toLowerCase() : '';
+    var role     = C.role     >= 0 ? String(row[C.role]    ||'').trim() : '';
+    var shift    = C.shift    >= 0 ? String(row[C.shift]   ||'').trim().toUpperCase() : '';
+    var leader   = C.leader   >= 0 ? String(row[C.leader]  ||'').trim() : '';
+    var status   = C.status   >= 0 ? String(row[C.status]  ||'').trim() : 'Need Review';
+    var note     = C.note     >= 0 ? String(row[C.note]    ||'').trim() : '';
+
+    // Normalise status
+    var statusMap = {
+      'resolved':'Resolved', 'done':'Resolved', 'closed':'Resolved',
+      'processing':'Processing', 'in progress':'Processing',
+      'need review':'Need Review', 'pending':'Need Review', 'new':'Need Review',
+      'need resolve':'Need Resolve', 'cancelled':'Cancelled', 'cancel':'Cancelled',
+    };
+    status = statusMap[status.toLowerCase()] || status || 'Need Review';
+
+    result.total++;
+
+    // Dedup: skip if an identical record already exists
+    var deKey = dateStr + '|' + (username||name) + '|' + eventCode;
+    if (existingKeys[deKey]) { result.skipped++; continue; }
+    existingKeys[deKey] = true;
+
+    // Generate a stable id
+    var id = 'gs_' + Utilities.computeDigest(
+      Utilities.DigestAlgorithm.MD5,
+      dateStr + '|' + (username||name) + '|' + eventCode
+    ).map(function(b){ return ('0'+(b<0?b+256:b).toString(16)).slice(-2); }).join('').slice(0,12);
+
+    existing.push({
+      id:       id,
+      date:     dateStr,
+      name:     name,
+      empNo:    empNo,
+      username: username,
+      role:     role,
+      shift:    shift,
+      event:    eventCode,
+      leader:   leader,
+      status:   status,
+      note:     note,
+      by:       'gs_sync',
+      at:       Date.now(),
+    });
+    result.written++;
+  }
+
+  log('[Policy] Done: ' + result.written + ' new records written, '
+    + result.skipped + ' skipped (duplicate/invalid), '
+    + result.total + ' rows processed');
+  return result;
+}
+
+// Parse a date value from the spreadsheet → 'YYYY-MM-DD' or null
+function _parsePolicyDate(val) {
+  if (!val && val !== 0) return null;
+
+  // GAS Date object
+  if (val instanceof Date) {
+    var y = val.getFullYear(), mo = val.getMonth()+1, d = val.getDate();
+    if (y < 2020 || y > 2099) return null;
+    return y + '-' + String(mo).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  }
+
+  // Excel serial (GAS sometimes gives raw numbers for date cells)
+  if (typeof val === 'number') {
+    if (val < 40000 || val > 60000) return null;
+    var ms  = new Date(Date.UTC(1899,11,30)).getTime() + Math.round(val) * 86400000;
+    var dt  = new Date(ms);
+    return dt.getUTCFullYear() + '-'
+      + String(dt.getUTCMonth()+1).padStart(2,'0') + '-'
+      + String(dt.getUTCDate()).padStart(2,'0');
+  }
+
+  // String formats
+  var s = String(val).trim();
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // DD/MM/YYYY or D/M/YYYY
+  var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m1) return m1[3] + '-' + m1[2].padStart(2,'0') + '-' + m1[1].padStart(2,'0');
+  // MM/DD/YYYY (US)
+  var m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m2) return m2[3] + '-' + m2[1].padStart(2,'0') + '-' + m2[2].padStart(2,'0');
+  // DD/MM/YY
+  var m3 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (m3) return '20'+m3[3] + '-' + m3[2].padStart(2,'0') + '-' + m3[1].padStart(2,'0');
+
+  return null;
+}
+
+// Run once in GAS to install the 12AM–1AM daily trigger for policy sync.
+function createPolicyTrigger() {
+  // Remove any existing policy triggers first to avoid duplicates
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'dailySyncPolicy') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('dailySyncPolicy')
+    .timeBased()
+    .atHour(0)        // midnight local time
+    .nearMinute(30)   // ~12:30AM for spread
+    .everyDays(1)
+    .create();
+  Logger.log('✓ Policy sync trigger created: dailySyncPolicy runs daily 12AM–1AM');
+}
+
+// ═══════════════════════════════════════════════
 //  MANUAL TEST HELPERS
 //  Run these individually in GAS to test
 // ═══════════════════════════════════════════════
