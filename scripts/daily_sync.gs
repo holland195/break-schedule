@@ -673,9 +673,12 @@ function syncPolicy(current, log) {
     role:    col(['role','position']),
     shift:   col(['shift']),
     event:   col(['event','event code','violation','violation code','code']),
-    leader:  col(['leader','sub-admin','team leader','direct leader','tl']),
-    status:  col(['status']),
-    note:    col(['description','note','notes','remarks','remark','details']),
+    leader:   col(['leader','sub-admin','team leader','direct leader','tl']),
+    status:   col(['status']),
+    note:     col(['description','note','notes','remarks','remark','details']),
+    duration: col(['duration','duration (minutes)','duration(minutes)','time','minutes']),
+    imageLink:col(['image link','imagelink','image','link','drive link','screenshot']),
+    agentFb:  col(['agent feedback','agentfeedback','feedback','agent fb']),
   };
 
   log('[Policy] Column map: date=' + C.date + ' name=' + C.name + ' username=' + C.username
@@ -690,11 +693,11 @@ function syncPolicy(current, log) {
   if (!current.policyCompliance) current.policyCompliance = [];
   var existing = current.policyCompliance;
 
-  // Build a lookup key set for dedup: date+username+event
-  var existingKeys = {};
-  existing.forEach(function(r) {
+  // Build index map: deKey → array index (for in-place updates of GAS records)
+  var existingIdx = {};
+  existing.forEach(function(r, i) {
     var k = (r.date||'') + '|' + (r.username||r.name||'') + '|' + (r.event||'');
-    existingKeys[k] = true;
+    existingIdx[k] = i;
   });
 
   // Track max `no` so new records get sequential numbers
@@ -714,14 +717,17 @@ function syncPolicy(current, log) {
     var eventCode = C.event >= 0 ? String(row[C.event]||'').trim() : '';
     if (!eventCode) { result.skipped++; continue; }
 
-    var name     = C.name     >= 0 ? String(row[C.name]    ||'').trim() : '';
-    var empNo    = C.empNo    >= 0 ? String(row[C.empNo]   ||'').trim() : '';
-    var username = C.username >= 0 ? String(row[C.username]||'').trim().toLowerCase() : '';
-    var role     = C.role     >= 0 ? String(row[C.role]    ||'').trim() : '';
-    var shift    = C.shift    >= 0 ? String(row[C.shift]   ||'').trim().toUpperCase() : '';
-    var leader   = C.leader   >= 0 ? String(row[C.leader]  ||'').trim() : '';
-    var status   = C.status   >= 0 ? String(row[C.status]  ||'').trim() : 'Need Review';
-    var note     = C.note     >= 0 ? String(row[C.note]    ||'').trim() : '';
+    var name        = C.name     >= 0 ? String(row[C.name]    ||'').trim() : '';
+    var empNo       = C.empNo    >= 0 ? String(row[C.empNo]   ||'').trim() : '';
+    var username    = C.username >= 0 ? String(row[C.username]||'').trim().toLowerCase() : '';
+    var role        = C.role     >= 0 ? String(row[C.role]    ||'').trim() : '';
+    var shift       = C.shift    >= 0 ? String(row[C.shift]   ||'').trim().toUpperCase() : '';
+    var leader      = C.leader   >= 0 ? String(row[C.leader]  ||'').trim().toLowerCase() : '';
+    var status      = C.status   >= 0 ? String(row[C.status]  ||'').trim() : 'Need Review';
+    var description = C.note     >= 0 ? String(row[C.note]    ||'').trim() : '';
+    var duration    = C.duration >= 0 ? String(row[C.duration]||'').trim() : '';
+    var imageLink   = C.imageLink>= 0 ? String(row[C.imageLink]||'').trim() : '';
+    var agentFb     = C.agentFb  >= 0 ? String(row[C.agentFb] ||'').trim() : '';
 
     // Normalise status
     var statusMap = {
@@ -729,15 +735,42 @@ function syncPolicy(current, log) {
       'processing':'Processing', 'in progress':'Processing',
       'need review':'Need Review', 'pending':'Need Review', 'new':'Need Review',
       'need resolve':'Need Resolve', 'cancelled':'Cancelled', 'cancel':'Cancelled',
+      'to be reviewed':'Cancelled',
     };
     status = statusMap[status.toLowerCase()] || status || 'Need Review';
 
     result.total++;
 
-    // Dedup: skip if an identical record already exists
     var deKey = dateStr + '|' + (username||name) + '|' + eventCode;
-    if (existingKeys[deKey]) { result.skipped++; continue; }
-    existingKeys[deKey] = true;
+
+    // If record already exists AND was synced by GAS, update it in place (fixes empty leader etc.)
+    if (deKey in existingIdx) {
+      var ex = existing[existingIdx[deKey]];
+      if (ex.by === 'gs_sync') {
+        ex.leader      = leader      || ex.leader;
+        ex.name        = name        || ex.name;
+        ex.empNo       = empNo       || ex.empNo;
+        ex.role        = role        || ex.role;
+        ex.shift       = shift       || ex.shift;
+        ex.description = description || ex.description || '';
+        ex.duration    = duration    || ex.duration    || '';
+        ex.imageLink   = imageLink   || ex.imageLink   || '';
+        ex.agentFeedback = agentFb  || ex.agentFeedback || '';
+        ex.status      = status;
+        ex.at          = Date.now();
+        // Ensure default fields are present
+        if (ex.leaderConfirm      === undefined) ex.leaderConfirm      = '';
+        if (ex.feedbackReadByLeader === undefined) ex.feedbackReadByLeader = false;
+        if (ex.mailCheck          === undefined) ex.mailCheck          = false;
+        if (ex.warningMailDate    === undefined) ex.warningMailDate    = '';
+        if (!ex.no) ex.no = ++maxNo;
+        result.written++;
+      } else {
+        result.skipped++; // manually-edited record — never overwrite
+      }
+      continue;
+    }
+    existingIdx[deKey] = existing.length;
 
     // Generate a stable id
     var id = 'gs_' + Utilities.computeDigest(
@@ -746,20 +779,27 @@ function syncPolicy(current, log) {
     ).map(function(b){ return ('0'+(b<0?b+256:b).toString(16)).slice(-2); }).join('').slice(0,12);
 
     existing.push({
-      id:       id,
-      no:       ++maxNo,
-      date:     dateStr,
-      name:     name,
-      empNo:    empNo,
-      username: username,
-      role:     role,
-      shift:    shift,
-      event:    eventCode,
-      leader:   leader,
-      status:   status,
-      note:     note,
-      by:       'gs_sync',
-      at:       Date.now(),
+      id:                 id,
+      no:                 ++maxNo,
+      date:               dateStr,
+      name:               name,
+      empNo:              empNo,
+      username:           username,
+      role:               role,
+      shift:              shift,
+      event:              eventCode,
+      leader:             leader,
+      status:             status,
+      description:        description,
+      duration:           duration,
+      imageLink:          imageLink,
+      agentFeedback:      agentFb,
+      leaderConfirm:      '',
+      feedbackReadByLeader: false,
+      mailCheck:          false,
+      warningMailDate:    '',
+      by:                 'gs_sync',
+      at:                 Date.now(),
     });
     result.written++;
   }
