@@ -44,7 +44,7 @@ function syncSaveCfg(cfg) {
 }
 
 function syncEnabled() {
-  return !!(syncCfg.dbUrl && syncCfg.apiKey);
+  return !!(syncCfg.dbUrl);
 }
 
 // ── Load sync-config.json (always fresh — never use stale localStorage) ──
