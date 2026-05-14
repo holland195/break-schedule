@@ -277,7 +277,8 @@ function syncLogbook(current, log) {
   if (lastRow < 3 || lastCol < 5) {
     log('[Logbook] ⚠ Sheet appears empty (lastRow=' + lastRow + ')'); return result;
   }
-  var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var allData    = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var allDisplay = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
 
   // Auto-detect date header row: row (first 10) with most parseable date cells
   var dateRow = -1, bestCnt = 0;
@@ -304,11 +305,9 @@ function syncLogbook(current, log) {
     return result;
   }
 
-  const range = sheet.getRange(1, 1, lastRow, lastCol);
-  const allData = range.getValues();
-  const allDisplay = range.getDisplayValues();
-  const row1    = allData[0]; // Row 1: date headers
-  const row3    = allData[2]; // Row 3: Start/Late/End/Early sub-headers
+  // Shift column is col G (index 6); date columns begin at col H (index 7)
+  var shiftColIdx  = 6;
+  var dataStartRow = subHdrRow + 1;
 
   // Build date columns: scan from shiftColIdx+1 for Start sub-headers aligned with dates
   var row1 = allData[dateRow], row3 = allData[subHdrRow], dateCols = [];
@@ -337,8 +336,7 @@ function syncLogbook(current, log) {
   if (!current.attendance) current.attendance = {};
   const now = Date.now();
 
-  // Data rows start at row 5 (index 4)
-  for (var ri = 4; ri < allData.length; ri++) {
+  for (var ri = dataStartRow; ri < allData.length; ri++) {
     const row      = allData[ri];
     const displayRow = allDisplay[ri];
     const empNo    = String(row[1] || '').trim();
