@@ -841,7 +841,7 @@ function _pcaAutoFill() {
 
   var setField = function(id, v) { var el=document.getElementById(id); if(el) el.textContent=v||'—'; };
 
-  if (!val) { setField('pca-name','—'); setField('pca-empno','—'); setField('pca-role','—'); setField('pca-leader','—'); return; }
+  if (!val) { setField('pca-name','—'); setField('pca-empno','—'); setField('pca-role','—'); return; }
 
   var user = state.users.find(function(u){return u.username===val;});
   var si   = state.staffInfo&&state.staffInfo[val];
