@@ -187,10 +187,8 @@ function _getLogbookConflicts(userId, weekDates) {
     if (!parsed) return;
     const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
       (rec.end && rec.end.trim() && rec.end !== '—');
-    if (parsed.type === 'OFF' && hasRealRecord) {
+    if (parsed.type === 'OFF' && hasRealRecord && uAtt !== '0' && uAtt !== '0.0') {
       conflicts.push({ dk, code: uAtt, reason: parsed.reason || 'Off day' });
-    } else if ((parsed.type === 'HD1' || parsed.type === 'HD2') && hasRealRecord) {
-      conflicts.push({ dk, code: uAtt, reason: 'Half day' });
     }
   });
   return conflicts;
@@ -297,10 +295,9 @@ function _getLogbookConflicts(userId, weekDates) {
     if (!uAttCode) return;
     const parsed = typeof _parseAttCode === 'function' ? _parseAttCode(uAttCode) : null;
     if (!parsed) return;
-    if (parsed.type === 'OFF') {
+    if (parsed.type === 'OFF' && uAttCode !== '0' && uAttCode !== '0.0') {
       conflicts.push({ dk, code: uAttCode, reason: parsed.reason || 'Off day' });
     }
-    // HD1/HD2: half-day attendance is expected — not a conflict
   });
   return conflicts;
 }
