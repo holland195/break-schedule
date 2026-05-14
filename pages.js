@@ -551,6 +551,7 @@ ${shiftUsers.length > 0 ? `
 // ── Month filter helpers (shared by requests + ext break pages) ──
 let _reqFilterYM      = null; // null = current month
 let _extBreakFilterYM = null; // null = current month
+let _ebTargetUser = null;    // training manager registering on behalf of
 
 function _prevMonthKey(ym) {
   const [y,m] = ym.split('-').map(Number);
@@ -1903,6 +1904,7 @@ ${importPanel}
 
 let _attImportMonth = new Date().getMonth() + 1;
 let _attImportYear = new Date().getFullYear();
+let _staffAttConflictFilter = false;
 
 function _renderStaffAttendance() {
   const year = _attImportYear;
@@ -2011,11 +2013,28 @@ function _renderStaffAttendance() {
     })();
   }).filter(Boolean).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  let totalConflicts = 0;
-
-  const tbodyRows = rowUsers.map(u => {
+  // Pre-compute conflicts per user (needed for filter + total count)
+  const _preConflicts = {};
+  for (const u of rowUsers) {
     const uAtt = attData[u.username]?.[monthKey] || {};
-    const conflicts = [];
+    const uc = [];
+    for (const dk of dates) {
+      const rawCode = uAtt[dk];
+      if (!rawCode && !_parseAttCode(rawCode)) continue;
+      const cl = _checkAttConflict(u, dk, _parseAttCode(rawCode));
+      if (cl && cl.length > 0) uc.push({ dk, msgs: cl });
+    }
+    _preConflicts[u.username] = uc;
+  }
+
+  const totalConflicts = rowUsers.filter(u => _preConflicts[u.username]?.length > 0).length;
+  const filteredUsers = _staffAttConflictFilter
+    ? rowUsers.filter(u => _preConflicts[u.username]?.length > 0)
+    : rowUsers;
+
+  const tbodyRows = filteredUsers.map(u => {
+    const uAtt = attData[u.username]?.[monthKey] || {};
+    const conflicts = _preConflicts[u.username] || [];
 
     const cells = dates.map(dk => {
       const rawCode = uAtt[dk];
@@ -2030,9 +2049,9 @@ function _renderStaffAttendance() {
           <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
 
-      const conflictList = _checkAttConflict(u, dk, parsed);
-      const hasConflict = conflictList && conflictList.length > 0;
-      if (hasConflict) conflicts.push({ dk, msgs: conflictList });
+      const _preCell = conflicts.find(c => c.dk === dk);
+      const conflictList = _preCell ? _preCell.msgs : null;
+      const hasConflict = !!_preCell;
 
       let bg = '', txt = '', color = '';
       if (!parsed) {
@@ -2040,7 +2059,7 @@ function _renderStaffAttendance() {
       } else if (parsed.type === 'OFF') {
         bg = 'background:var(--D-bg);';
         const code = String(rawCode).toUpperCase();
-        txt = code === '0' || code === '0.0' ? '0' : code;
+        txt = code === '0' || code === '0.0' ? '0' : (code === 'A' ? 'AL' : code);
         color = 'color:var(--err);font-weight:600;';
       } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
         bg = 'background:rgba(245,158,11,.10);';
@@ -2087,8 +2106,6 @@ function _renderStaffAttendance() {
 
     }).join('');
 
-    if (conflicts.length) totalConflicts++;
-
     const conflictSummary = conflicts.length > 0
       ? `<div style="font-size:10px;color:var(--err);margin-top:2px;">⚠ ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}: ${conflicts.map(c => c.dk).join(', ')}</div>`
       : '';
@@ -2113,10 +2130,17 @@ function _renderStaffAttendance() {
         ✓ No conflicts detected for ${monthLabel}
       </div>`;
 
+  const conflictFilterBtn = `
+    <button class="btn btn-sm" onclick="_staffAttConflictFilter=!_staffAttConflictFilter;nav('staff')"
+      style="${_staffAttConflictFilter ? 'background:var(--err);color:#fff;border-color:var(--err);' : 'border-color:var(--err);color:var(--err);'}font-size:11px;">
+      ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
+    </button>`;
+
   return `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
       ${monthPicker}
-      <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${rowUsers.length} staff</span>
+      ${conflictFilterBtn}
+      <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${_staffAttConflictFilter ? `${filteredUsers.length} of ` : ''}${rowUsers.length} staff${totalConflicts > 0 ? ` · <span style="color:var(--err);">⚠ ${totalConflicts} with conflicts</span>` : ''}</span>
     </div>
     ${importPanel}
     ${conflictBanner}
@@ -2703,15 +2727,13 @@ function renderExtBreak() {
   // For agents: only themselves.
   const allFemaleUsers = state.users.filter(u => _getUserGender(u) === 'F');
   const femaleShiftUsers = isLeader(currentUser)
-    ? allFemaleUsers.filter(u => (DB.getExtBreaks(u.id, mk) || []).length > 0 ||
-        (() => {
-          // Also include users on current shift this week (for new pending registrations)
-          const wd = getWeekDates();
-          return wd.some(dk => {
-            const dn = WEEK_DAYS[wd.indexOf(dk)];
-            return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
-          });
-        })())
+    ? allFemaleUsers.filter(u => {
+        const wd = getWeekDates();
+        return wd.some(dk => {
+          const dn = WEEK_DAYS[wd.indexOf(dk)];
+          return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
+        });
+      })
     : allFemaleUsers;
 
   // My registrations this month
@@ -2893,12 +2915,19 @@ ${myPendingHtml}
 }
 
 // ── ExtBreak Modal ──
+function openExtBreakModalFor(targetUser) {
+  _ebTargetUser = targetUser;
+  openExtBreakModal();
+}
+
 function openExtBreakModal() {
-  if (_getUserGender(currentUser) !== 'F') { toast('Only female staff can register.', 'err'); return; }
+  const target = _ebTargetUser || currentUser;
+  const isOnBehalf = _ebTargetUser && _ebTargetUser.id !== currentUser.id;
+  if (!isOnBehalf && _getUserGender(currentUser) !== 'F') { toast('Only female staff can register.', 'err'); return; }
   const mk = currentMonthKey();
-  const used = DB.countExtBreaks(currentUser.id, mk);
+  const used = DB.countExtBreaks(target.id, mk);
   const remaining = 3 - used;
-  if (remaining <= 0) { toast('You have used all 3 registrations this month.', 'err'); return; }
+  if (remaining <= 0) { toast(`${isOnBehalf ? target.name + ' has' : 'You have'} used all 3 registrations this month.`, 'err'); return; }
 
   const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
   const weekDates = getWeekDates();
@@ -2911,19 +2940,25 @@ function openExtBreakModal() {
     return (m - 1) * 100 + d >= _todayMMDD;
   }
 
+  const targetShift = isOnBehalf
+    ? (Object.values(target.schedule || {}).find(s => s && s !== '0') || currentShift)
+    : currentShift;
+
   allDates.forEach(dk => {
     if (monthKeyFromDate(dk) !== mk) return;
-    if (!_isNotPast(dk)) return;                          // ← skip past dates
-    if (currentUser.schedule[dk] !== currentShift) return;
-    const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, getWkDay(dk));
+    if (!_isNotPast(dk)) return;
+    const sc = target.schedule[dk] || target.schedule[getWkDay(dk)];
+    if (sc !== targetShift) return;
+    const br = getAssigned(target.id, dk) || getAssigned(target.id, getWkDay(dk));
     if (br) eligibleDays.push({ dk, slot: br.slot });
   });
   if (eligibleDays.length === 0) {
     weekDates.forEach((dk, i) => {
-      if (!_isNotPast(dk)) return;                        // ← skip past dates
+      if (!_isNotPast(dk)) return;
       const dn = WEEK_DAYS[i];
-      if (currentUser.schedule[dn] !== currentShift) return;
-      const br = getAssigned(currentUser.id, dk) || getAssigned(currentUser.id, dn);
+      const sc = target.schedule[dk] || target.schedule[dn];
+      if (sc !== targetShift) return;
+      const br = getAssigned(target.id, dk) || getAssigned(target.id, dn);
       if (br) eligibleDays.push({ dk, slot: br.slot });
     });
   }
@@ -2947,7 +2982,8 @@ function openExtBreakModal() {
   document.getElementById('eb-after').checked = false;
 
   const quota = document.getElementById('eb-quota-info');
-  quota.innerHTML = `<span style="color:${remaining <= 1 ? 'var(--warn)' : 'var(--ok)'};">
+  quota.innerHTML = `${isOnBehalf ? `<div style="font-size:11px;color:var(--accent);margin-bottom:4px;">Registering for <b>${target.name}</b></div>` : ''}
+    <span style="color:${remaining <= 1 ? 'var(--warn)' : 'var(--ok)'};">
     ${remaining} registration${remaining !== 1 ? 's' : ''} remaining this month (${used}/3 used)</span>`;
 
   document.getElementById('eb-submit-btn').disabled = eligibleDays.length === 0;
@@ -3032,8 +3068,9 @@ function submitExtBreak() {
   if (!checked.length) { toast('Select at least one day.', 'err'); return; }
   if (!pos) { toast('Choose Before or After.', 'err'); return; }
 
+  const target = _ebTargetUser || currentUser;
   const mk = currentMonthKey();
-  const used = DB.countExtBreaks(currentUser.id, mk);
+  const used = DB.countExtBreaks(target.id, mk);
   if (used + checked.length > 3) {
     toast(`Only ${3 - used} registration${3 - used !== 1 ? 's' : ''} remaining.`, 'err'); return;
   }
@@ -3052,14 +3089,15 @@ function submitExtBreak() {
   const time = pos === 'before' ? `${addMins(start, -30)}–${start}` : `${end}–${addMins(end, 30)}`;
 
   // Store as one request with days array
-  DB.addExtBreak(currentUser.id, mk, {
+  DB.addExtBreak(target.id, mk, {
     days: days.map(d => d.dk),
     day: days[0].dk,
-    mk,   // ← store month key on entry
+    mk,
     time, position: pos,
     status: 'pending',
     at: Date.now(), registeredBy: currentUser.id
   });
+  _ebTargetUser = null;
   if (typeof syncWrite === 'function') syncWrite(); else save();
   closeModal('modal-extbreak');
   toast(`Extra break registered for ${days.length} day${days.length > 1 ? 's' : ''} 🌸`, 'ok');
@@ -3204,4 +3242,7 @@ function renderRotationPanel() {
   </div>`;
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+  if (id === 'modal-extbreak') _ebTargetUser = null;
+}
