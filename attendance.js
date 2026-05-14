@@ -197,8 +197,25 @@ function _getLogbookConflicts(userId, weekDates) {
 }
 
 // ── State for attendance page ──
-let attendanceMonday = null; // null = current week
-let attendanceTab = 'log';  // 'log' | 'report'
+let attendanceMonday = null;          // null = current week
+let attendanceTab = 'log';            // 'log' | 'report'
+let attendanceConflictFilter = false; // show conflicts-only rows
+
+// Returns a Set of dateKeys where the user has half-day (HD1/HD2) monthly attendance
+function _getHalfDayCellSet(u, weekDates) {
+  const s = new Set();
+  if (!u) return s;
+  const y = new Date().getFullYear();
+  weekDates.forEach(dk => {
+    const [, _m] = dk.split('/');
+    const mk = `${y}-${String(_m).padStart(2, '0')}`;
+    const code = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+    if (!code) return;
+    const p = typeof _parseAttCode === 'function' ? _parseAttCode(code) : null;
+    if (p?.type === 'HD1' || p?.type === 'HD2') s.add(dk);
+  });
+  return s;
+}
 
 function _getAttendanceWeek() {
   if (attendanceMonday) return getWeekRange(attendanceMonday);
@@ -273,7 +290,6 @@ function _getLogbookConflicts(userId, weekDates) {
     const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
       (rec.end && rec.end.trim() && rec.end !== '—');
     if (!hasRealRecord) return;
-    // Look up monthly attendance for this date
     const [_d, _m] = dk.split('/');
     const y = new Date().getFullYear();
     const mk = `${y}-${_m.padStart ? _m : String(_m).padStart(2, '0')}`;
@@ -283,9 +299,8 @@ function _getLogbookConflicts(userId, weekDates) {
     if (!parsed) return;
     if (parsed.type === 'OFF') {
       conflicts.push({ dk, code: uAttCode, reason: parsed.reason || 'Off day' });
-    } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
-      conflicts.push({ dk, code: uAttCode, reason: 'Half day' });
     }
+    // HD1/HD2: half-day attendance is expected — not a conflict
   });
   return conflicts;
 }
@@ -371,9 +386,13 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     </div>`;
 
   // Build rows
-  const rows = shiftUsers.map(u => {
-    // Get all conflict dates for this user this week
+  const displayUsers = attendanceConflictFilter
+    ? shiftUsers.filter(u => _getLogbookConflicts(u.id, weekDates).length > 0)
+    : shiftUsers;
+
+  const rows = displayUsers.map(u => {
     const logConflicts = _getLogbookConflicts(u.id, weekDates);
+    const halfDayCells = _getHalfDayCellSet(u, weekDates);
 
     const cells = weekDates.map((dk, di) => {
       const shift = _getUserShiftOnDate(u, dk);
@@ -390,11 +409,21 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const endTxt = rec?.end || '';
       const noteTxt = rec?.note || '';
 
-      const startSymbol = isLate ? `<span style="font-size:9px;font-weight:700;color:var(--err);">(-)</span> ` : (startTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
-      const endSymbol = isEarly ? `<span style="font-size:9px;font-weight:700;color:var(--warn);">(-)</span> ` : (endTxt ? `<span style="font-size:9px;font-weight:700;color:var(--ok);">(+)</span> ` : '');
-      // Get shift defaults for exact delta calculation
-      const _shiftCode = _getUserShiftOnDate(u, dk);
-      const _def = SHIFT_DEFAULTS[_shiftCode] || {};
+      // Get effective shift defaults — override with half-day bounds when applicable
+      const _shiftCodeRaw = _getUserShiftOnDate(u, dk);
+      const _shiftCode = String(_shiftCodeRaw || '').trim().toUpperCase();
+      let _def = SHIFT_DEFAULTS[_shiftCode] || {};
+      if (halfDayCells.has(dk)) {
+        const [, _hm] = dk.split('/');
+        const _hmk = `${new Date().getFullYear()}-${String(_hm).padStart(2, '0')}`;
+        const _hCode = state.monthlyAttendance?.[u.username]?.[_hmk]?.[dk];
+        const _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
+        if (_hParsed?.type === 'HD1' || _hParsed?.type === 'HD2') {
+          const _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
+          const _hdDef = SHIFT_DEFAULTS[_hdKey];
+          if (_hdDef) _def = _hdDef;
+        }
+      }
 
       // Row 1: login time only — color shows status
       const row1 = startTxt
@@ -431,10 +460,11 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
         : `<div style="font-size:9px;color:var(--text3);">—</div>`;
 
       const logConflict = logConflicts.find(c => c.dk === dk);
-      const bg = logConflict
-        ? 'rgba(248,113,113,.18)'
+      const isHalfDayCell = halfDayCells.has(dk) && hasData;
+      const bg = logConflict ? 'rgba(248,113,113,.18)'
+        : isHalfDayCell ? 'rgba(59,130,246,.13)'
         : isLate || isEarly ? (isLate ? 'var(--D-bg)' : 'rgba(245,158,11,.08)')
-          : (hasData ? 'var(--C-bg)' : '');
+        : (hasData ? 'var(--C-bg)' : '');
 
       // Check if this cell should be highlighted (came from conflict click)
       const isHighlighted = window._attHighlight &&
@@ -474,6 +504,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
         <div style="font-weight:600;font-size:12px;">${u.name}</div>
         <div style="font-size:10px;color:var(--text3);">${u.team || '—'} · <span class="role-tag ${roleInfo.tag}" style="font-size:9px;">${roleInfo.label}</span></div>
         ${logConflicts.length > 0 ? `<div style="font-size:9px;color:var(--err);margin-top:2px;">⚠ ${logConflicts.length} conflict${logConflicts.length > 1 ? 's' : ''}: ${logConflicts.map(c => c.dk).join(', ')}</div>` : ''}
+        ${halfDayCells.size > 0 ? `<div style="font-size:9px;color:#3b82f6;margin-top:2px;">½ Half-day: ${[...halfDayCells].join(', ')}</div>` : ''}
       </td>
       <td style="padding:5px 8px;white-space:nowrap;${stickyUser}">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);">${u.username}</div>
@@ -504,7 +535,14 @@ ${tabs}
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
   <label style="font-size:12px;color:var(--text2);">WEEK:</label>
   ${weekPicker}
-  <span style="font-size:11px;color:var(--text3);">${shiftUsers.length} staff on Shift ${currentShift}</span>
+  <span style="font-size:11px;color:var(--text3);">${attendanceConflictFilter ? displayUsers.length : shiftUsers.length} staff on Shift ${currentShift}</span>
+  <button onclick="attendanceConflictFilter=!attendanceConflictFilter;nav('attendance')"
+    style="padding:4px 12px;border-radius:var(--r);font-size:12px;cursor:pointer;
+      border:1px solid ${attendanceConflictFilter ? 'var(--err)' : 'var(--border2)'};
+      background:${attendanceConflictFilter ? 'rgba(248,113,113,.12)' : 'var(--bg2)'};
+      color:${attendanceConflictFilter ? 'var(--err)' : 'var(--text)'};">
+    ⚠ Conflicts only${attendanceConflictFilter ? ' ✕' : ''}
+  </button>
 </div>
 
 <!-- Legend -->
@@ -512,6 +550,7 @@ ${tabs}
   <span style="font-size:11px;padding:2px 8px;background:var(--D-bg);border-radius:4px;color:var(--err);">🔴 Late start</span>
   <span style="font-size:11px;padding:2px 8px;background:rgba(245,158,11,.08);border-radius:4px;color:var(--warn);">🟡 Early end</span>
   <span style="font-size:11px;padding:2px 8px;background:var(--C-bg);border-radius:4px;color:var(--ok);">🟢 On time</span>
+  <span style="font-size:11px;padding:2px 8px;background:rgba(59,130,246,.13);border-radius:4px;color:#3b82f6;">🔵 Half day</span>
   <span style="font-size:11px;color:var(--text3);">Click any cell to fill/edit</span>
 </div>
 
