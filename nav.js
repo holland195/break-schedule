@@ -61,9 +61,17 @@ function nav(page) {
   function changeSidebarShift(v) {
     currentShift = _guardShift(v);
     document.getElementById('sidebar-shift').value = currentShift;
+    _updateShiftPills();
     if (typeof scheduleMonday !== 'undefined') scheduleMonday = null;
     nav(currentPage);
   }
+
+function _updateShiftPills() {
+  ['A', 'D', 'E'].forEach(s => {
+    const el = document.getElementById(`spill-${s}`);
+    if (el) el.classList.toggle('active', s === currentShift);
+  });
+}
 
 function attachPageEvents(page) {
   if (page === 'arrange') {

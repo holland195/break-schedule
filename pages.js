@@ -2064,6 +2064,17 @@ function _renderStaffAttendance() {
 
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
+
+      // Show logbook start/end times inside the conflict cell
+      const _attRec = hasConflict ? DB.getAttendance(u.id, dk) : null;
+      const _fmtT = t => t ? (String(t).match(/^\d{1,2}:\d{2}/) || [''])[0] : '';
+      const _stShort = _fmtT(_attRec?.start);
+      const _etShort = _fmtT(_attRec?.end);
+      const attHtml = (_stShort || _etShort)
+        ? `<div style="font-size:8px;color:var(--err);line-height:1.3;margin-top:1px;">${_stShort ? `<div>${_stShort}</div>` : ''}${_etShort ? `<div>${_etShort}</div>` : ''}</div>`
+        : '';
+
+      const _conflictShift = (u.schedule?.[dk] || u.schedule?.[getWkDay(dk)] || '').charAt(0) || 'A';
       const conflictClick = hasConflict ? `
         onclick="
           const [_d,_m]='${dk}'.split('/');
@@ -2075,17 +2086,19 @@ function _renderStaffAttendance() {
           window._attHighlight={uid:${u.id || 'null'},username:'${u.username}',dateKey:'${dk}'};
           attendanceTab='log';
           attendanceMonday=_sdk;
-          currentShift='${(u.schedule?.['${dk}'] || '').charAt(0) || 'D'}';
+          currentShift='${_conflictShift}';
+          _updateShiftPills();
           nav('attendance');
           setTimeout(()=>{
             const el=document.getElementById('att-cell-${u.username}-${dk}');
-            if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('att-conflict-flash');}
-          },200);"
+            if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}
+          },400);"
         style="cursor:pointer;"` : '';
 
       return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${conflictClick}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}</span>
+        ${attHtml}
       </td>`;
 
     }).join('');

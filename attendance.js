@@ -125,8 +125,21 @@ function calcLateEarly(uid, dateKey) {
   if (!shiftCode) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
 
   const shiftCodeNorm = String(shiftCode).trim().toUpperCase();
-  const def = SHIFT_DEFAULTS[shiftCodeNorm];
+  let def = SHIFT_DEFAULTS[shiftCodeNorm];
   if (!def) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
+
+  // If monthly attendance says HD1/HD2, use the half-day shift defaults so
+  // late/early deltas are relative to the correct half-shift times (e.g. A1
+  // ends at 19:00, not midnight) rather than the full-shift boundaries.
+  const [, _attM] = dateKey.split('/');
+  const _attMk = `2026-${_attM.padStart(2, '0')}`;
+  const _attCode = state.monthlyAttendance?.[u.username]?.[_attMk]?.[dateKey];
+  const _parsedAtt = _attCode && typeof _parseAttCode === 'function' ? _parseAttCode(_attCode) : null;
+  if (_parsedAtt?.type === 'HD1' || _parsedAtt?.type === 'HD2') {
+    const _hdKey = (_parsedAtt.shift || shiftCodeNorm.charAt(0)) + (_parsedAtt.type === 'HD1' ? '1' : '2');
+    const _hdDef = SHIFT_DEFAULTS[_hdKey];
+    if (_hdDef) def = _hdDef;
+  }
 
   let lateMin = 0, earlyMin = 0;
 
@@ -140,13 +153,7 @@ function calcLateEarly(uid, dateKey) {
     if (diff > 1) lateMin = diff;
   }
 
-  const [, _attM] = dateKey.split('/');
-  const _attMk = `2026-${_attM.padStart(2, '0')}`;
-  const _attCode = state.monthlyAttendance?.[u.username]?.[_attMk]?.[dateKey];
-  const _parsedAtt = _attCode && typeof _parseAttCode === 'function' ? _parseAttCode(_attCode) : null;
-  const _isHalfDay = _parsedAtt?.type === 'HD1' || _parsedAtt?.type === 'HD2';
-
-  if (rec.end && !_isHalfDay) {
+  if (rec.end) {
     const actualEnd = _parseTime(rec.end);
     const defEnd = _parseTime(def.end);
     let diff = defEnd - actualEnd;
