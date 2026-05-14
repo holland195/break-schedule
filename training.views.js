@@ -398,9 +398,13 @@ function renderExtBreakTraining() {
               : status === 'rejected'
               ? '<span class="req-status rejected">REJECTED</span>'
               : '<span class="req-status pending">PENDING</span>';
+            const resolvedBy = e.approvedBy
+              ? (state.users.find(x => x.id === e.approvedBy)?.name || 'Leader')
+              : null;
             const resolvedBox = (!isPending && e.approvedBy)
               ? '<div class="req-resolved ' + status + '" style="margin-top:6px;">'
                 + (status === 'approved' ? '✓ Approved' : '✗ Rejected')
+                + (resolvedBy ? ' by <b>' + resolvedBy + '</b>' : '')
                 + (e.rejectedReason ? ' · <span style="opacity:.8">' + e.rejectedReason + '</span>' : '')
                 + '</div>'
               : '';
@@ -437,18 +441,12 @@ function renderExtBreakTraining() {
               + '</div>';
           }).join('');
 
-      const registerBtn = rem > 0
-        ? '<button class="btn btn-xs" style="font-size:11px;border-color:var(--accent);color:var(--accent);padding:3px 10px;" '
-          + 'onclick="openExtBreakModalFor(state.users.find(x=>x.id===' + u.id + '))">+ Register</button>'
-        : '<span style="font-size:10px;color:var(--err);">Quota full</span>';
-
       return '<div style="border:0.5px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;">'
         + '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);">'
         +   '<span style="font-size:12px;font-weight:600;">' + u.name + '</span>'
         +   '<span style="color:' + (c.color || 'var(--A-color)') + ';font-size:11px;">♀</span>'
         +   '<span style="font-size:10px;color:var(--text3);">' + (u.team || '') + ' · ' + getRoleInfo(u.role).label + '</span>'
-        +   '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">'
-        +     registerBtn
+        +   '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">'
         +     '<div style="display:flex;gap:3px;">' + dots + '</div>'
         +     '<span style="font-size:11px;color:' + (rem === 0 ? 'var(--err)' : rem === 1 ? 'var(--warn)' : 'var(--text2)') + ';">' + used + '/3</span>'
         +   '</div>'
