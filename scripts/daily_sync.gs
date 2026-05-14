@@ -650,11 +650,17 @@ function syncPolicy(current, log) {
   var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
   var header  = allData[0].map(function(h) { return String(h||'').trim().toLowerCase(); });
 
-  // Map header names → column indices
+  // Map header names → column indices (exact match, then contains-match fallback)
   function col(names) {
     for (var i = 0; i < names.length; i++) {
       var idx = header.indexOf(names[i]);
       if (idx >= 0) return idx;
+    }
+    // Fallback: find first header that contains any of the name strings
+    for (var i = 0; i < names.length; i++) {
+      for (var j = 0; j < header.length; j++) {
+        if (header[j].indexOf(names[i]) >= 0) return j;
+      }
     }
     return -1;
   }
@@ -663,16 +669,18 @@ function syncPolicy(current, log) {
     date:    col(['date','violation date','date of violation']),
     name:    col(['name','full name','employee name']),
     empNo:   col(['emp no','empno','emp. no','employee no','employee number','emp #']),
-    username:col(['username','user','user name','login']),
+    username:col(['user name','username','user','login']),
     role:    col(['role','position']),
     shift:   col(['shift']),
     event:   col(['event','event code','violation','violation code','code']),
-    leader:  col(['leader','team leader','direct leader']),
+    leader:  col(['leader','sub-admin','team leader','direct leader','tl']),
     status:  col(['status']),
-    note:    col(['note','notes','remarks','remark','details']),
+    note:    col(['description','note','notes','remarks','remark','details']),
   };
 
-  log('[Policy] Column map: date=' + C.date + ' name=' + C.name + ' event=' + C.event + ' status=' + C.status);
+  log('[Policy] Column map: date=' + C.date + ' name=' + C.name + ' username=' + C.username
+    + ' event=' + C.event + ' leader=' + C.leader + ' status=' + C.status
+    + (C.leader >= 0 ? ' (leader header: "' + header[C.leader] + '")' : ' ← LEADER NOT FOUND'));
 
   if (C.date < 0 || C.event < 0) {
     log('[Policy] ✗ Required columns "date" and "event" not found. Header: ' + header.join(' | '));
@@ -688,6 +696,9 @@ function syncPolicy(current, log) {
     var k = (r.date||'') + '|' + (r.username||r.name||'') + '|' + (r.event||'');
     existingKeys[k] = true;
   });
+
+  // Track max `no` so new records get sequential numbers
+  var maxNo = existing.reduce(function(m, r) { return Math.max(m, r.no || 0); }, 0);
 
   for (var ri = 1; ri < allData.length; ri++) {
     var row = allData[ri];
@@ -736,6 +747,7 @@ function syncPolicy(current, log) {
 
     existing.push({
       id:       id,
+      no:       ++maxNo,
       date:     dateStr,
       name:     name,
       empNo:    empNo,
