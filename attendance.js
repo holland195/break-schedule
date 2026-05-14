@@ -124,7 +124,8 @@ function calcLateEarly(uid, dateKey) {
   const shiftCode = _getUserShiftOnDate(u, dateKey);
   if (!shiftCode) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
 
-  let def = SHIFT_DEFAULTS[shiftCode];
+  const shiftCodeNorm = String(shiftCode).trim().toUpperCase();
+  let def = SHIFT_DEFAULTS[shiftCodeNorm];
   if (!def) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
 
   // If monthly attendance says HD1/HD2, use the half-day shift defaults so
@@ -135,7 +136,7 @@ function calcLateEarly(uid, dateKey) {
   const _attCode = state.monthlyAttendance?.[u.username]?.[_attMk]?.[dateKey];
   const _parsedAtt = _attCode && typeof _parseAttCode === 'function' ? _parseAttCode(_attCode) : null;
   if (_parsedAtt?.type === 'HD1' || _parsedAtt?.type === 'HD2') {
-    const _hdKey = (_parsedAtt.shift || shiftCode.charAt(0)) + (_parsedAtt.type === 'HD1' ? '1' : '2');
+    const _hdKey = (_parsedAtt.shift || shiftCodeNorm.charAt(0)) + (_parsedAtt.type === 'HD1' ? '1' : '2');
     const _hdDef = SHIFT_DEFAULTS[_hdKey];
     if (_hdDef) def = _hdDef;
   }
@@ -148,7 +149,8 @@ function calcLateEarly(uid, dateKey) {
     // Handle overnight shifts: if defStart ≥ 12:00 and actualStart < 12:00 → next day
     let diff = actualStart - defStart;
     if (Math.abs(diff) > 720) diff = diff > 0 ? diff - 1440 : diff + 1440;
-    if (diff > 0) lateMin = diff;
+    // Logbook late threshold: only count as late when start time is more than 1 minute after shift start
+    if (diff > 1) lateMin = diff;
   }
 
   if (rec.end) {
@@ -156,7 +158,8 @@ function calcLateEarly(uid, dateKey) {
     const defEnd = _parseTime(def.end);
     let diff = defEnd - actualEnd;
     if (Math.abs(diff) > 720) diff = diff > 0 ? diff - 1440 : diff + 1440;
-    if (diff > 0) earlyMin = diff;
+    // Early threshold: only count as early when end time is more than 1 minute before shift end
+    if (diff > 1) earlyMin = diff;
   }
 
   return {
