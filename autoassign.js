@@ -25,9 +25,20 @@ const BREAK_SPLIT_KEY      = 'bsched_break_split';
 // null entry → use default 50/50 rotation for that shift.
 
 function _loadBreakSplit() {
-  try { return JSON.parse(localStorage.getItem(BREAK_SPLIT_KEY)) || {}; } catch(e) { return {}; }
+  // Primary: cloud-synced state.breakSplits; migrate from localStorage on first use
+  if (state.breakSplits && Object.keys(state.breakSplits).length > 0) {
+    return { ...state.breakSplits };
+  }
+  try {
+    const ls = JSON.parse(localStorage.getItem(BREAK_SPLIT_KEY)) || {};
+    if (Object.keys(ls).length > 0) {
+      state.breakSplits = { ...ls }; // migrate to state
+    }
+    return ls;
+  } catch(e) { return {}; }
 }
 function _saveBreakSplit(splits) {
+  state.breakSplits = { ...splits };
   try { localStorage.setItem(BREAK_SPLIT_KEY, JSON.stringify(splits)); } catch(e) {}
 }
 
