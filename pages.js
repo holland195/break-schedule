@@ -95,6 +95,8 @@ function _getMondayOfWeek(dk) {
 function _checkAttConflict(u, dk, parsedCode) {
   if (!parsedCode) return null;
   const weekRec = DB.getAttendance(u.id, dk);
+  // Auto-synced records (note='auto') haven't been reviewed by a leader — skip
+  if (weekRec?.note === 'auto') return null;
   const schedShift = (u.schedule?.[dk] || '').charAt(0);
   const conflicts = [];
   // Only flag if start or end is a non-empty, non-dash string

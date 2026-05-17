@@ -170,30 +170,6 @@ function calcLateEarly(uid, dateKey) {
   };
 }
 
-function _getLogbookConflicts(userId, weekDates) {
-  const conflicts = [];
-  weekDates.forEach(dk => {
-    const rec = DB.getAttendance(userId, dk);
-    if (!rec || (!rec.start && !rec.end)) return;
-    // Check monthly attendance for this date
-    const u = state.users.find(x => x.id === userId);
-    if (!u) return;
-    const m = parseInt(dk.split('/')[1]);
-    const y = new Date().getFullYear();
-    const mk = `${y}-${String(m).padStart(2, '0')}`;
-    const uAtt = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
-    if (!uAtt) return;
-    const parsed = _parseAttCode ? _parseAttCode(uAtt) : null;
-    if (!parsed) return;
-    const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
-      (rec.end && rec.end.trim() && rec.end !== '—');
-    if (parsed.type === 'OFF' && hasRealRecord && uAtt !== '0' && uAtt !== '0.0') {
-      conflicts.push({ dk, code: uAtt, reason: parsed.reason || 'Off day' });
-    }
-  });
-  return conflicts;
-}
-
 // ── State for attendance page ──
 let attendanceMonday = null;          // null = current week
 let attendanceTab = 'log';            // 'log' | 'report'
@@ -285,6 +261,7 @@ function _getLogbookConflicts(userId, weekDates) {
   weekDates.forEach(dk => {
     const rec = DB.getAttendance(userId, dk);
     if (!rec) return;
+    if (rec.note === 'auto') return;
     const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
       (rec.end && rec.end.trim() && rec.end !== '—');
     if (!hasRealRecord) return;
