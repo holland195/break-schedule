@@ -339,11 +339,28 @@ function syncLogbook(current, log) {
   }
   log('[Logbook] ' + dateCols.length + ' day cols | ' + (lastRow-dataStartRow) + ' employee rows');
 
-  // uid lookup map
+  // uid lookup map — handle both array and numeric-keyed object (JSON sparse-array quirk)
   var usernameToUid = {};
-  (current.users||[]).forEach(function(u) {
+  var _usersList = Array.isArray(current.users) ? current.users
+                 : (current.users ? Object.values(current.users) : []);
+  log('[Logbook] Users loaded: ' + _usersList.length);
+  _usersList.forEach(function(u) {
     if (u && u.username && u.id != null) usernameToUid[String(u.username).toLowerCase()] = u.id;
   });
+  // Also map from staffInfo (username → empNo hash used as uid fallback)
+  if (Object.keys(usernameToUid).length === 0 && current.staffInfo) {
+    log('[Logbook] ⚠ No users array — falling back to staffInfo for UID lookup');
+    Object.keys(current.staffInfo).forEach(function(uname) {
+      var si = current.staffInfo[uname];
+      if (si && si.id != null) usernameToUid[uname.toLowerCase()] = si.id;
+      else if (uname) {
+        var h = 0;
+        for (var ci = 0; ci < uname.length; ci++) h = (Math.imul(31, h) + uname.charCodeAt(ci)) | 0;
+        usernameToUid[uname.toLowerCase()] = Math.abs(h);
+      }
+    });
+    log('[Logbook] staffInfo fallback: ' + Object.keys(usernameToUid).length + ' entries');
+  }
 
   if (!current.attendance) current.attendance = {};
   const now = Date.now();
@@ -921,6 +938,11 @@ function testSheetDetection() {
 function runSyncLogbook() {
   const raw     = firebaseGet();
   const current = raw ? JSON.parse(raw) : {};
+  const usersRaw = current.users;
+  const usersArr = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
+  Logger.log('[runSyncLogbook] Firebase keys: ' + Object.keys(current).join(', '));
+  Logger.log('[runSyncLogbook] Users type: ' + (Array.isArray(usersRaw) ? 'array' : typeof usersRaw) + ', count: ' + usersArr.length);
+  if (usersArr.length > 0) Logger.log('[runSyncLogbook] Sample user: ' + JSON.stringify(usersArr[0]).substring(0, 120));
   const result  = syncLogbook(current);
   if (result.imported > 0 || result.dateCols > 0) {
     firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
