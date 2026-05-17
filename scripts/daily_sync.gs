@@ -294,13 +294,18 @@ function syncLogbook(current, log) {
     return result;
   }
 
-  // Auto-detect sub-header row: first row after dateRow containing "start"
+  // Auto-detect sub-header row: first row after dateRow that has BOTH "start" and
+  // at least one of "end"/"early"/"late" — uniquely identifies Early|Start|Late|End.
+  // A plain day-name row ("Fri","Sat"…) can never satisfy both conditions.
   var subHdrRow = -1;
   for (var ri = dateRow+1; ri < Math.min(dateRow+8, allData.length); ri++) {
+    var _hasStart = false, _hasOther = false;
     for (var c = 0; c < allData[ri].length; c++) {
-      if (String(allData[ri][c]).trim().toLowerCase() === 'start') { subHdrRow = ri; break; }
+      var _sv = String(allData[ri][c]).trim().toLowerCase();
+      if (_sv === 'start') _hasStart = true;
+      if (_sv === 'end' || _sv === 'early' || _sv === 'late') _hasOther = true;
     }
-    if (subHdrRow >= 0) break;
+    if (_hasStart && _hasOther) { subHdrRow = ri; break; }
   }
   if (subHdrRow < 0) {
     log('[Logbook] ⚠ Could not find Start/Late/End/Early sub-header row after row ' + (dateRow+1));
