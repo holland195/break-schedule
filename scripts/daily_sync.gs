@@ -294,7 +294,7 @@ function syncLogbook(current, log) {
 
   // Auto-detect sub-header row: first row after dateRow containing "start"
   var subHdrRow = -1;
-  for (var ri = dateRow+1; ri < Math.min(dateRow+6, allData.length); ri++) {
+  for (var ri = dateRow+1; ri < Math.min(dateRow+8, allData.length); ri++) {
     for (var c = 0; c < allData[ri].length; c++) {
       if (String(allData[ri][c]).trim().toLowerCase() === 'start') { subHdrRow = ri; break; }
     }
@@ -313,7 +313,12 @@ function syncLogbook(current, log) {
   var row1 = allData[dateRow], row3 = allData[subHdrRow], dateCols = [];
   for (var c = shiftColIdx+1; c < row1.length; c++) {
     if (String(row3[c]||'').trim().toLowerCase() !== 'start') continue;
-    var dk = parseDateHeader(row1[c]);
+    // Look back up to 3 cols to handle merged date header cells where the date
+    // value lives in the "Early" column (c-1) rather than the "Start" column (c).
+    var dk = null;
+    for (var back = 0; back <= 3 && !dk; back++) {
+      if (c - back > shiftColIdx) dk = parseDateHeader(row1[c - back]);
+    }
     if (!dk) continue;
     dateCols.push({ dateKey: dk, startColIdx: c, endColIdx: c + 2 });
   }
@@ -462,7 +467,10 @@ function parseDateHeader(h) {
   }
 
   // Date object (Apps Script returns these for date-formatted cells)
+  // Time-only cells are anchored to the 1899-12-30 epoch — reject them to prevent
+  // attendance time values from being mistaken for date headers.
   if (h instanceof Date) {
+    if (h.getFullYear() < 1970) return null;
     return String(h.getDate()).padStart(2, '0') + '/' + String(h.getMonth() + 1).padStart(2, '0');
   }
 
