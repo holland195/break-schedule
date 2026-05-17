@@ -253,6 +253,8 @@ function syncSchedule(current, log) {
 //  auto-calculate Late / Early. Row/col layout is FULLY DYNAMIC.
 // ═══════════════════════════════════════════════
 function syncLogbook(current, log) {
+  if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
+  if (!current) current = {};
   var result = { imported: 0, skipped: 0, dateCols: 0 };
 
   var MONTH_NAMES = ['January','February','March','April','May','June',
@@ -911,6 +913,17 @@ function testSheetDetection() {
 }
 
 // Test logbook sheet detection and column mapping
+function runSyncLogbook() {
+  const raw     = firebaseGet();
+  const current = raw ? JSON.parse(raw) : {};
+  const result  = syncLogbook(current);
+  if (result.imported > 0 || result.dateCols > 0) {
+    firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+    Logger.log('[runSyncLogbook] Pushed to Firebase.');
+  }
+  Logger.log('[runSyncLogbook] Done: ' + result.imported + ' imported, ' + result.skipped + ' skipped, ' + result.dateCols + ' day cols');
+}
+
 function testLogbookDetection() {
   const MONTH_NAMES = ['January','February','March','April','May','June',
                        'July','August','September','October','November','December'];
