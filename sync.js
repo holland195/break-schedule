@@ -188,8 +188,9 @@ function _applyRemoteData(remote) {
       state._breaksUpdatedAt = remote._breaksUpdatedAt;
     }
   }
-  if (remote.requests)  state.requests  = remote.requests;
-  if (remote.extBreaks) state.extBreaks = remote.extBreaks;
+  if (remote.requests)    state.requests    = remote.requests;
+  if (remote.extBreaks)   state.extBreaks   = remote.extBreaks;
+  if (remote.breakSplits) state.breakSplits = remote.breakSplits;
   if (remote.users && remote.users.length > 0) {
     const localUAt  = state._usersUpdatedAt  || 0;
     const remoteUAt = remote._usersUpdatedAt || 0;
@@ -320,6 +321,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   breaks:            state.breaks,
   requests:          state.requests,
   extBreaks:         state.extBreaks,
+  breakSplits:       state.breakSplits || {},
   attendance:        state.attendance || {},
   monthlyAttendance: state.monthlyAttendance || {},
   users:             usersCompact,
