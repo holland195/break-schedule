@@ -211,7 +211,7 @@ function syncSchedule(current, log) {
   var notFound = [];
 
   dataRows.forEach(function(row) {
-    const username = String(row[4] || '').trim().toLowerCase(); // Col E = index 4
+    const username = String(row[3] || '').trim().toLowerCase(); // Col D = index 3
     if (!username) return;
 
     const userIdx = current.users.findIndex(function(u) {
