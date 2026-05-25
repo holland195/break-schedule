@@ -501,9 +501,9 @@ function _pcRenderSummary() {
   var roles   = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor'];
   var statRow = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px;">'
     + roles.map(function(role) {
-        var n = filtered.filter(function(r){return r.role===role;}).length;
+        var n = filtered.filter(function(r){return _resolveRole(r.role)===role;}).length;
         return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">'
-          + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:\'IBM Plex Mono\',monospace;">'+role.replace('Agent ','').replace('Sr ','Sr ')+'</div>'
+          + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:\'IBM Plex Mono\',monospace;">'+role+'</div>'
           + '<div style="font-size:22px;font-weight:600;'+_pcHeat(n)+'">'+n+'</div>'
           + '</div>';
       }).join('')
@@ -575,7 +575,7 @@ function _pcRenderSummary() {
   var roleOrder = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor'];
   var sections  = '';
   roleOrder.forEach(function(role) {
-    var persons = Object.values(byPerson).filter(function(p){return p.role===role;});
+    var persons = Object.values(byPerson).filter(function(p){return _resolveRole(p.role)===role;});
     if (!persons.length) return;
     persons.sort(function(a,b){return b.records.length-a.records.length;});
 
@@ -673,7 +673,7 @@ function _pcOpenEditModal(idx) {
 
     // Agent feedback section (visible to all)
     + '<div style="border-top:1px solid var(--border);margin:12px 0;padding-top:12px;">'
-    + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:8px;">&#x1F4AC; Agent Feedback</div>'
+    + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:8px;">&#x1F4AC; Employee Feedback</div>'
     + (r.agentFeedback
         ? '<div style="font-size:12px;background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:7px;padding:10px 12px;line-height:1.7;">'+r.agentFeedback+'</div>'
         : '<div style="font-size:12px;color:var(--text3);font-style:italic;">No feedback yet.</div>')
