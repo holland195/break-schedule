@@ -1530,7 +1530,7 @@ function _renderStaffInfo() {
     (u.name || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
     (u.username || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
     (u.empNo || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
-    (u.role || '').toLowerCase().includes(infoFilter.toLowerCase())
+    (_resolveRole(u.role) || '').toLowerCase().includes(infoFilter.toLowerCase())
   );
 
   const rows = _renderStaffInfoRows(infoFilter);
@@ -1573,7 +1573,7 @@ function _renderStaffInfoRows(filter) {
     (u.name || '').toLowerCase().includes(f) ||
     (u.username || '').toLowerCase().includes(f) ||
     (u.empNo || '').toLowerCase().includes(f) ||
-    (u.role || '').toLowerCase().includes(f)
+    (_resolveRole(u.role) || '').toLowerCase().includes(f)
   ).map(u => {
     // Gender: icon only
     const g = u.gender === 'F'
@@ -1582,7 +1582,7 @@ function _renderStaffInfoRows(filter) {
         ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
         : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
-    const roleLvl = ROLE_SORT_ORDER[u.role] ?? 9;
+    const roleLvl = ROLE_SORT_ORDER[_resolveRole(u.role)] ?? 9;
     const roleColor = roleLvl <= 1 ? 'var(--accent)'
       : roleLvl <= 2 ? 'var(--warn)'
         : roleLvl <= 3 ? 'var(--ok)'
@@ -1598,7 +1598,7 @@ function _renderStaffInfoRows(filter) {
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
       <td style="text-align:center;">${g}</td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
-      <td style="font-size:11px;color:${roleColor};font-weight:500;">${u.role || '—'}</td>
+      <td style="font-size:11px;color:${roleColor};font-weight:500;">${_resolveRole(u.role) || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1737,7 +1737,7 @@ const user = {
       <td style="padding:6px; border:1px solid var(--border); text-align:center;">${u.team}</td>
       <td style="padding:6px; border:1px solid var(--border); font-weight:600;">${u.name}</td>
       <td style="padding:6px; border:1px solid var(--border); color:var(--accent); font-family:monospace;">${u.username}</td>
-      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${u.role}</td>
+      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${_resolveRole(u.role)}</td>
       ${dateCols.map(d => {
     const shift = u.schedule[d.dateKey] || '0';
     let colorStyle = "";
@@ -1861,7 +1861,7 @@ function _renderStaffSchedule() {
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (u.role || '').toLowerCase().includes(staffFilters.role.toLowerCase())
+    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
 
   return `
@@ -2362,7 +2362,7 @@ function renderStaffRows(users, displayDates) {
     <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
     <td style="font-weight:600">${u.name}</td>
     <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:var(--text2)">${u.role}</td>
+    <td style="font-size:11px;color:var(--text2)">${_resolveRole(u.role)}</td>
     ${displayDates.map(d => { const s = u.schedule[d] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`).join('');
 }
@@ -2375,7 +2375,7 @@ function _liveFilter() {
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (u.role || '').toLowerCase().includes(staffFilters.role.toLowerCase())
+    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
