@@ -381,10 +381,22 @@ applyTheme(currentTheme);
 // ═══════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════
-function isLeader(u)   { return u && (ROLES[u.role]?.level||0)>=2; }  // Leader, Supervisor, Training, Admin
-function isTraining(u) { return u && (ROLES[u.role]?.level||0)===3; } // Training Mgr / Asst only
-function isAdmin(u)    { return u && (ROLES[u.role]?.level||0)===4; } // Admin only
-function getRoleInfo(r) { return ROLES[r]||{level:0,tag:'role-agent',label:r||'—'}; }
+
+// Maps legacy role names (stored in Firebase) to current names
+const ROLE_ALIASES = {
+  'Agent':            'Data Analyst',
+  'Sr Agent':         'Sr Data Analyst',
+  'QA':               'Data Supervisor',
+  'Sr QA':            'Sr Data Supervisor',
+  'Agent Leader':     'Data Analyst Leader',
+  'Agent Supervisor': 'Data Analyst Supervisor',
+};
+function _resolveRole(role) { return ROLE_ALIASES[role] || role; }
+
+function isLeader(u)   { return u && (ROLES[_resolveRole(u.role)]?.level||0)>=2; }
+function isTraining(u) { return u && (ROLES[_resolveRole(u.role)]?.level||0)===3; }
+function isAdmin(u)    { return u && (ROLES[_resolveRole(u.role)]?.level||0)===4; }
+function getRoleInfo(r) { const k=_resolveRole(r); return ROLES[k]||{level:0,tag:'role-agent',label:r||'—'}; }
 
 function todayKey() {
   const d=new Date(); return WEEK_DAYS[d.getDay()===0?6:d.getDay()-1];
