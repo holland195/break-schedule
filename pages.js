@@ -129,18 +129,18 @@ function _getUserGender(u) {
 const ROLE_SORT_ORDER = {
   'Agent Training Manager': 0,
   'Agent Training Assistant': 1,
-  'Agent Leader': 2,
-  'Agent Supervisor': 2,
-  'Sr QA': 3,
-  'QA': 4,
-  'Sr Agent': 5,
-  'Agent': 6,
+  'Data Analyst Leader': 2,
+  'Data Analyst Supervisor': 2,
+  'Sr Data Supervisor': 3,
+  'Data Supervisor': 4,
+  'Sr Data Analyst': 5,
+  'Data Analyst': 6,
   'Admin': 99,
 };
 
 function _roleSort(a, b) {
-  const ra = ROLE_SORT_ORDER[a.role] ?? 9;
-  const rb = ROLE_SORT_ORDER[b.role] ?? 9;
+  const ra = ROLE_SORT_ORDER[_resolveRole(a.role)] ?? 9;
+  const rb = ROLE_SORT_ORDER[_resolveRole(b.role)] ?? 9;
   if (ra !== rb) return ra - rb;
   return (a.name || '').localeCompare(b.name || '');
 }
@@ -1325,10 +1325,10 @@ function getArrangeDayMemberList(_unused) {
 
   // Per-day slot totals by role tier — sticky tfoot
   const ARR_TIERS = [
-    { label: 'Agent', match: u => ['Agent', 'Sr Agent', 'Sr. Agent'].includes(u.role) },
-    { label: 'QA', match: u => u.role === 'QA' },
-    { label: 'Sr QA', match: u => ['Sr QA', 'Sr. QA'].includes(u.role) },
-    { label: 'Total', match: u => ['Agent', 'Sr Agent', 'Sr. Agent', 'QA', 'Sr QA', 'Sr. QA'].includes(u.role) },
+    { label: 'Data Analyst', match: u => ['Data Analyst', 'Sr Data Analyst'].includes(_resolveRole(u.role)) },
+    { label: 'Data Supervisor', match: u => _resolveRole(u.role) === 'Data Supervisor' },
+    { label: 'Sr Data Supervisor', match: u => _resolveRole(u.role) === 'Sr Data Supervisor' },
+    { label: 'Total', match: u => ['Data Analyst', 'Sr Data Analyst', 'Data Supervisor', 'Sr Data Supervisor'].includes(_resolveRole(u.role)) },
   ];
 
   const tierFootRows = ARR_TIERS.map((tier, tierIdx) => {
@@ -3178,7 +3178,7 @@ function rejectExtBreakPrompt(uid, mk, idx) {
 // ═══════════════════════════════════════════════
 function renderRotationPanel() {
   const summary = typeof getRotationSummary === 'function' ? getRotationSummary() : [];
-  const tierLabels = { agent: 'Agent + Sr Agent', qa: 'QA', sr_qa: 'Sr QA' };
+  const tierLabels = { agent: 'Data Analyst + Sr Data Analyst', qa: 'Data Supervisor', sr_qa: 'Sr Data Supervisor' };
 
   if (summary.length === 0) {
     return `<div class="card" style="max-width:740px;margin-top:0;">

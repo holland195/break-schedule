@@ -245,7 +245,7 @@ function renderReport(hideHeader = false) {
   const dates = _getAllDatesInMonth(year, month);
   const monthLabel = new Date(year, month-1, 1).toLocaleString('en-US', {month:'long', year:'numeric'});
  
-  const trackable = state.users.filter(u => (ROLES[u.role]?.level || 0) <= 1);
+  const trackable = state.users.filter(u => (ROLES[_resolveRole(u.role)]?.level || 0) <= 1);
  
   const stats = trackable.map(u => ({
     u,
