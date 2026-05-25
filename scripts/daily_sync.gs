@@ -189,9 +189,9 @@ function syncSchedule(current, log) {
   const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0]; // Row 1 = dates
   const dataRows  = sheet.getRange(4, 1, Math.max(1, lastRow - 3), lastCol).getValues(); // Row 4+
 
-  // Build date columns — columns G onward (index 6+)
+  // Build date columns — columns H onward (index 7+)
   const dateCols = [];
-  for (var c = 6; c < headerRow.length; c++) {
+  for (var c = 7; c < headerRow.length; c++) {
     const dk = parseDateHeader(headerRow[c]);
     if (dk) dateCols.push({ colIndex: c, dateKey: dk });
   }
@@ -199,8 +199,8 @@ function syncSchedule(current, log) {
   result.dateCols = dateCols.length;
 
   if (dateCols.length === 0) {
-    log('[Schedule] ⚠ No date columns found in row 1. Cols 6–9: '
-      + headerRow.slice(6, 10).map(function(h) { return typeof h + ':' + h; }).join(' | '));
+    log('[Schedule] ⚠ No date columns found in row 1. Cols 7–10: '
+      + headerRow.slice(7, 11).map(function(h) { return typeof h + ':' + h; }).join(' | '));
     return result;
   }
 
