@@ -388,7 +388,7 @@ function _pcRenderRecords() {
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">From</div><input type="date" value="'+(f.dateFrom||'')+'" onchange="_pcRF.dateFrom=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">To</div><input type="date" value="'+(f.dateTo||'')+'" onchange="_pcRF.dateTo=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Processing','Need Review','Need Resolve','Resolved','Cancelled'],'All statuses')+'</div>'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Agent','Agent Leader','Agent Supervisor','QA','Sr Agent','Sr QA'],'All roles')+'</div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Data Analyst','Data Analyst Leader','Data Analyst Supervisor','Data Supervisor','Sr Data Analyst','Sr Data Supervisor'],'All roles')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shift</div>'+mkSel('shift',f.shift,['A','B','C','D','E'],'All')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'+mkSel('event',f.event,Object.keys(PC_EVENTS).map(function(k){return {v:k,l:k+' — '+PC_EVENTS[k].split('—')[0].trim()};}), 'All events')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Leader</div>'+mkSel('leader',f.leader,leaders,'All leaders')+'</div>'
@@ -477,7 +477,7 @@ function _pcRenderSummary() {
     + '<div style="margin-left:8px;"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'
     + '<select style="'+ss+'" onchange="_pcS30Role=this.value;_pcRerender()">'
     + '<option value="">All roles</option>'
-    + ['Agent','Agent Leader','Agent Supervisor','QA','Sr Agent','Sr QA'].map(function(r){return '<option value="'+r+'"'+(_pcS30Role===r?' selected':'')+'>'+r+'</option>';}).join('')
+    + ['Data Analyst','Data Analyst Leader','Data Analyst Supervisor','Data Supervisor','Sr Data Analyst','Sr Data Supervisor'].map(function(r){return '<option value="'+r+'"'+(_pcS30Role===r?' selected':'')+'>'+r+'</option>';}).join('')
     + '</select></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'
     + '<select style="'+ss+'" onchange="_pcS30Event=this.value;_pcRerender()">'
@@ -498,7 +498,7 @@ function _pcRenderSummary() {
   }
 
   // ── Stats cards ──
-  var roles   = ['Agent','Sr Agent','QA','Sr QA','Agent Leader','Agent Supervisor'];
+  var roles   = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor'];
   var statRow = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px;">'
     + roles.map(function(role) {
         var n = filtered.filter(function(r){return r.role===role;}).length;
@@ -572,7 +572,7 @@ function _pcRenderSummary() {
   var eventKeys = [...new Set(filtered.map(function(r){return r.event;}))].sort();
 
   // Group persons by role
-  var roleOrder = ['Agent','Sr Agent','QA','Sr QA','Agent Leader','Agent Supervisor'];
+  var roleOrder = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor'];
   var sections  = '';
   roleOrder.forEach(function(role) {
     var persons = Object.values(byPerson).filter(function(p){return p.role===role;});
@@ -580,8 +580,8 @@ function _pcRenderSummary() {
     persons.sort(function(a,b){return b.records.length-a.records.length;});
 
     var ROLE_COLORS = {
-      'Agent':'var(--accent)','Sr Agent':'var(--B-color)','QA':'var(--E-color)',
-      'Sr QA':'var(--C-color)','Agent Leader':'var(--warn)','Agent Supervisor':'var(--A-color)'
+      'Data Analyst':'var(--accent)','Sr Data Analyst':'var(--B-color)','Data Supervisor':'var(--E-color)',
+      'Sr Data Supervisor':'var(--C-color)','Data Analyst Leader':'var(--warn)','Data Analyst Supervisor':'var(--A-color)'
     };
     var color = ROLE_COLORS[role]||'var(--text2)';
 
