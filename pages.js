@@ -989,6 +989,29 @@ function onBreakSplitSlide(shift, rawVal) {
   if (lbl2) lbl2.textContent = `${pct2}%`;
 }
 
+// async function saveBreakSplits() {
+//   const changedShifts = new Set();
+//   VISIBLE_SHIFTS.forEach(shift => {
+//     const slider = document.getElementById(`split-slider-${shift}`);
+//     if (!slider) return;
+//     const newPct = parseInt(slider.value);
+//     const oldPct = getBreakSplitPct(shift);
+//     if (newPct !== oldPct) changedShifts.add(shift);
+//     setBreakSplitPct(shift, newPct);
+//   });
+
+//   if (changedShifts.size > 0) {
+//     _clearAutoBreaksFromWeek(activeMonday, changedShifts);
+//     const result = autoAssignBreaks(state.users);
+//     await syncWrite();
+//     toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
+//   } else {
+//     await syncWrite();
+//     toast('Break distribution settings saved (no changes).', 'ok');
+//   }
+//   nav('arrange');
+// }
+
 async function saveBreakSplits() {
   const changedShifts = new Set();
   VISIBLE_SHIFTS.forEach(shift => {
@@ -1001,7 +1024,19 @@ async function saveBreakSplits() {
   });
 
   if (changedShifts.size > 0) {
+    // 1. Clear the automated break records from this specific targeted week onward
     _clearAutoBreaksFromWeek(activeMonday, changedShifts);
+    
+    // 2. Clear out the stale chronological rotation historical offsets for the modified shifts
+    const rot = _loadRotation();
+    changedShifts.forEach(shift => {
+      ['agent', 'qa', 'sr_qa'].forEach(tier => {
+        delete rot[`${shift}_${tier}`];
+      });
+    });
+    _saveRotation(rot);
+
+    // 3. Re-execute assign operations cleanly
     const result = autoAssignBreaks(state.users);
     await syncWrite();
     toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
