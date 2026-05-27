@@ -73,10 +73,15 @@ function _slotBelongsToShift(slot, shift) {
 function _roleTier(role) {
   if (!role) return null;
   const r = role.toLowerCase().trim();
-  if (r.includes('leader') || r.includes('supervisor') || r.includes('admin')) return null;
+  
+  // Skip management roles entirely
+  if (r.includes('leader') || r.includes('supervisor') || r.includes('admin') || r.includes('manager') || r.includes('assistant')) return null;
+  
+  // Map exact new roles to structural mathematical tiers
   if (r === 'data analyst' || r === 'sr data analyst') return 'agent';
   if (r === 'data supervisor') return 'qa';
   if (r === 'sr data supervisor') return 'sr_qa';
+  
   return null;
 }
 
