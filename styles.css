@@ -167,9 +167,10 @@ body.login-active #screen-app { display: none !important; }
   font-family: 'IBM Plex Mono', monospace;
   letter-spacing: .02em
 }
-.role-leader { background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3) }
-.role-agent  { background: rgba(31,102,241,.2);  color: #7dd3fc; border: 1px solid rgba(31,102,241,.4) }
-.role-qa     { background: rgba(196,181,253,.15); color: #c4b5fd; border: 1px solid rgba(196,181,253,.3) }
+.role-leader   { background: rgba(251,191,36,.15);  color: #fbbf24; border: 1px solid rgba(251,191,36,.3) }
+.role-agent    { background: rgba(31,102,241,.2);   color: #7dd3fc; border: 1px solid rgba(31,102,241,.4) }
+.role-qa       { background: rgba(196,181,253,.15); color: #c4b5fd; border: 1px solid rgba(196,181,253,.3) }
+.role-training { background: rgba(16,185,129,.15);  color: #6ee7b7; border: 1px solid rgba(16,185,129,.3) }
 
 /* ── BUTTONS ── */
 .btn {
@@ -960,9 +961,10 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 /* Summary headers sticky — light theme background */
 [data-theme="light"] .staff-tbl-wrap thead th { background: var(--bg4); color: var(--text); }
 [data-theme="light"] .sh-0 { background: var(--bg4); color: var(--text3); border-color: var(--border); }
-[data-theme="light"] .role-leader { background: #fef3c7; color: #b45309; border-color: #f59e0b; }
-[data-theme="light"] .role-agent  { background: #dbeafe; color: #1d4ed8; border-color: #3b82f6; }
-[data-theme="light"] .role-qa     { background: #f3e8ff; color: #7c3aed; border-color: #a78bfa; }
+[data-theme="light"] .role-leader   { background: #fef3c7; color: #b45309; border-color: #f59e0b; }
+[data-theme="light"] .role-agent    { background: #dbeafe; color: #1d4ed8; border-color: #3b82f6; }
+[data-theme="light"] .role-qa       { background: #f3e8ff; color: #7c3aed; border-color: #a78bfa; }
+[data-theme="light"] .role-training { background: #d1fae5; color: #065f46; border-color: #34d399; }
 [data-theme="light"] .req-status.pending  { background:#fef3c7; color:#b45309; border-color:#f59e0b; }
 [data-theme="light"] .req-status.approved { background:#dcfce7; color:#15803d; border-color:#16a34a; }
 [data-theme="light"] .req-status.rejected { background:#fee2e2; color:#b91c1c; border-color:#f87171; }
