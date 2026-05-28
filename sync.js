@@ -190,7 +190,14 @@ function _applyRemoteData(remote) {
   }
   if (remote.requests)    state.requests    = remote.requests;
   if (remote.extBreaks)   state.extBreaks   = remote.extBreaks;
-  if (remote.breakSplits) state.breakSplits = remote.breakSplits;
+  if (remote.breakSplits) {
+    const localAt  = state._breakSplitsUpdatedAt || 0;
+    const remoteAt = remote._breakSplitsUpdatedAt || 0;
+    if (remoteAt >= localAt) {
+      state.breakSplits = remote.breakSplits;
+      state._breakSplitsUpdatedAt = remoteAt;
+    }
+  }
   if (remote.users && remote.users.length > 0) {
     const localUAt  = state._usersUpdatedAt  || 0;
     const remoteUAt = remote._usersUpdatedAt || 0;
@@ -328,8 +335,9 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   staffInfo:         staffInfoCloud,
   policyCompliance:  state.policyCompliance || [],   // ← ADD THIS
   _updated:          Date.now(),
-  _breaksUpdatedAt:  state._breaksUpdatedAt || Date.now(),
-  _usersUpdatedAt:   state._usersUpdatedAt  || 0,
+  _breaksUpdatedAt:       state._breaksUpdatedAt       || Date.now(),
+  _breakSplitsUpdatedAt:  state._breakSplitsUpdatedAt  || 0,
+  _usersUpdatedAt:        state._usersUpdatedAt         || 0,
 };
     const kb = (JSON.stringify(payload).length / 1024).toFixed(1);
     console.log(`[sync] push payload: ${kb}kb`);

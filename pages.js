@@ -970,7 +970,6 @@ function _renderBreakSplitTab() {
 <div style="max-width:560px;">
   <div style="font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.7;">
     Set how the team is split across break slots for each shift. The <b>larger group</b> takes the slot on the left side of the slider.
-    Set how the team is split across break slots for each shift. The <b>larger group</b> takes the slot on the left side of the slider.
     Rotation still applies — each week the groups swap which slot they get, keeping the set percentage.
   </div>
   ${rows}
@@ -1024,8 +1023,8 @@ async function saveBreakSplits() {
   });
 
   if (changedShifts.size > 0) {
-    // 1. Clear the automated break records from this specific targeted week onward
-    _clearAutoBreaksFromWeek(activeMonday, changedShifts);
+    // 1. Clear break records (including manual) from this week onward so the new % takes effect
+    _clearAutoBreaksFromWeek(activeMonday, changedShifts, true);
     
     // 2. Clear out the stale chronological rotation historical offsets for the modified shifts
     const rot = _loadRotation();
@@ -1053,16 +1052,17 @@ async function resetBreakSplit(shift) {
   const rot = _loadRotation ? _loadRotation() : {};
   ['agent', 'qa', 'sr_qa'].forEach(tier => { delete rot[`${shift}_${tier}`]; });
   if (typeof _saveRotation === 'function') _saveRotation(rot);
-  _clearAutoBreaksFromWeek(activeMonday, new Set([shift]));
+  _clearAutoBreaksFromWeek(activeMonday, new Set([shift]), true);
   const result = autoAssignBreaks(state.users);
   await syncWrite();
   toast(`Shift ${shift} reset to 50/50 rotation. Re-assigned ${result.assigned} break(s).`, 'warn');
   nav('arrange');
 }
 
-// Deletes auto-assigned (note='auto') breaks for the given shifts on or after fromSunday.
+// Deletes breaks for the given shifts on or after fromSunday.
+// force=true also clears manually-set breaks, not just auto-assigned ones.
 // Called before re-running autoAssignBreaks so the fresh split % takes effect.
-function _clearAutoBreaksFromWeek(fromSunday, shifts) {
+function _clearAutoBreaksFromWeek(fromSunday, shifts, force = false) {
   const [fd, fm] = fromSunday.split('/');
   const fromDate = new Date(2026, parseInt(fm) - 1, parseInt(fd));
   fromDate.setHours(0, 0, 0, 0);
@@ -1076,7 +1076,7 @@ function _clearAutoBreaksFromWeek(fromSunday, shifts) {
     date.setHours(0, 0, 0, 0);
     if (date < fromDate) return;
     const br = state.breaks[key];
-    if (!br || br.note !== 'auto') return;
+    if (!br || (br.note !== 'auto' && !force)) return;
     if ([...shifts].some(shift => _slotBelongsToShift(br.slot, shift))) {
       delete state.breaks[key];
     }
