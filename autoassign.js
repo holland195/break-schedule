@@ -186,7 +186,8 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
 // importedUsers: array of user objects from the import.
 // Returns { assigned, weekCount }
 function autoAssignBreaks(importedUsers) {
-  console.log("Auto-assign started with users:", importedUsers.length);
+  //console.log("Auto-assign started with users:", importedUsers.length);
+  toast(`Auto-assign: ${importedUsers.length} users, ${sundays.length} sundays found`, 'info');
   if (!importedUsers || importedUsers.length === 0) {
     return { assigned: 0, weekCount: 0 };
   }
@@ -271,7 +272,8 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
           })
         );
         if (allAlreadyAssigned) {
-          console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping`);
+          //console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping`);
+          toast(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping`, 'warn');
           return;
         }
 
