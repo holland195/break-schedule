@@ -39,6 +39,7 @@ function _loadBreakSplit() {
 }
 function _saveBreakSplit(splits) {
   state.breakSplits = { ...splits };
+  state._breakSplitsUpdatedAt = Date.now();
   try { localStorage.setItem(BREAK_SPLIT_KEY, JSON.stringify(splits)); } catch(e) {}
 }
 
