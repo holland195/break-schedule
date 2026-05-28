@@ -232,13 +232,10 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       // Users on this shift in this week.
       // Schedule keys may be DD/MM date strings OR day-name strings ('Mon', 'Tue'…)
       // depending on how GAS imported them — check both, matching pages.js behaviour.
-      const _onShift = (u, dates) =>
-        dates.some((d, i) => u.schedule[d] === shift || u.schedule[WEEK_DAYS[i]] === shift);
-
       const onShift = importedUsers.filter(u => {
         const role = u.role || DB.getStaffInfo(u.username)?.role || '';
         if (!_roleTier(role)) return false;
-        return _onShift(u, weekDates);
+        return weekDates.some((d, i) => u.schedule[d] === shift || u.schedule[WEEK_DAYS[i]] === shift);
       });
       if (onShift.length === 0) return;
 
