@@ -294,7 +294,7 @@ function enterApp(fromSession) {
   const chip = document.querySelector('.user-chip');
 
   if (currentUser.username === 'cuong.pham') {
-    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />';
+    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.parentElement.textContent=\'C\';this.parentElement.style.background=\'\'" />';
     topAvatar.style.background = 'none';
     topName.textContent = 'Cuong';
     topName.style.color = '#1F66F1';

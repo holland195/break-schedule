@@ -608,11 +608,11 @@ function _pcRenderSummary() {
           + e[0]+(e[1]>1?'<b style="color:var(--accent);margin-left:2px;">×'+e[1]+'</b>':'')+'</span>';
       }).join('');
       return '<tr style="border-bottom:1px solid var(--border);">'
-        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);">'+(i+1)+'</td>'
-        + '<td style="padding:6px 10px;font-weight:600;font-size:12px;">'+p.name+repeatBadge+'</td>'
-        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);">'+p.leader+'</td>'
-        + '<td style="padding:6px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(p.records.length)+'">'+p.records.length+'</td>'
-        + '<td style="padding:6px 10px;">'+evBadges+'</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);vertical-align:top;">'+(i+1)+'</td>'
+        + '<td style="padding:6px 10px;font-weight:600;font-size:12px;vertical-align:top;">'+p.name+repeatBadge+'</td>'
+        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);vertical-align:top;">'+p.leader+'</td>'
+        + '<td style="padding:6px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;vertical-align:top;'+_pcHeat(p.records.length)+'">'+p.records.length+'</td>'
+        + '<td style="padding:6px 10px;vertical-align:top;">'+evBadges+'</td>'
         + '</tr>';
     }).join('');
 
