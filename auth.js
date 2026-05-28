@@ -308,8 +308,9 @@ function enterApp(fromSession) {
       chip.style.padding = '0';
     }
   } else {
+    const avatarColors = { 'role-leader': '#f59e0b', 'role-training': '#10b981', 'role-qa': '#a78bfa', 'role-agent': '#1F66F1' };
     topAvatar.textContent   = currentUser.name.charAt(0);
-    topAvatar.style.background = '';
+    topAvatar.style.background = avatarColors[ri.tag] || '#1F66F1';
     topName.textContent     = currentUser.name.split(' ').slice(-1)[0];
     topName.style.color = '';
     topName.style.fontSize = '';
