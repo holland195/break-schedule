@@ -74,15 +74,18 @@ function _slotBelongsToShift(slot, shift) {
 function _roleTier(role) {
   if (!role) return null;
   const r = role.toLowerCase().trim();
-  
-  // Skip management roles entirely
-  if (r.includes('leader') || r.includes('supervisor') || r.includes('admin') || r.includes('manager') || r.includes('assistant')) return null;
-  
-  // Map exact new roles to structural mathematical tiers
+
+  // New role names — must come BEFORE the broad 'supervisor' exclusion below
   if (r === 'data analyst' || r === 'sr data analyst') return 'agent';
   if (r === 'data supervisor') return 'qa';
   if (r === 'sr data supervisor') return 'sr_qa';
-  
+
+  // Skip management / non-IC roles
+  if (r.includes('leader') || r.includes('supervisor') || r.includes('admin') || r.includes('manager') || r.includes('assistant')) return null;
+
+  // Legacy role names (pre-rename)
+  if (r === 'agent') return 'agent';
+
   return null;
 }
 
@@ -233,7 +236,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       // Schedule keys may be DD/MM date strings OR day-name strings ('Mon', 'Tue'…)
       // depending on how GAS imported them — check both, matching pages.js behaviour.
       const onShift = importedUsers.filter(u => {
-        const role = u.role || DB.getStaffInfo(u.username)?.role || '';
+        const role = DB.getStaffInfo(u.username)?.role || u.role || '';
         if (!_roleTier(role)) return false;
         return weekDates.some((d, i) => u.schedule[d] === shift || u.schedule[WEEK_DAYS[i]] === shift);
       });
@@ -242,7 +245,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       // Split into tiers
       const tiers = { agent: [], qa: [], sr_qa: [] };
       onShift.forEach(u => {
-        const role = u.role || DB.getStaffInfo(u.username)?.role || '';
+        const role = DB.getStaffInfo(u.username)?.role || u.role || '';
         const t    = _roleTier(role);
         if (t) tiers[t].push(u);
       });
