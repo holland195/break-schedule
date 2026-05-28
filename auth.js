@@ -288,10 +288,42 @@ function enterApp(fromSession) {
   document.body.classList.remove('login-active');
 
   const ri = getRoleInfo(currentUser.role);
-  document.getElementById('top-avatar').textContent   = currentUser.name.charAt(0);
-  document.getElementById('top-name').textContent     = currentUser.name.split(' ').slice(-1)[0];
-  document.getElementById('top-role-tag').textContent = ri.label;
-  document.getElementById('top-role-tag').className   = 'role-tag ' + ri.tag;
+  const topAvatar = document.getElementById('top-avatar');
+  const topName = document.getElementById('top-name');
+  const topRoleTag = document.getElementById('top-role-tag');
+  const chip = document.querySelector('.user-chip');
+
+  if (currentUser.username === 'cuong.pham') {
+    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />';
+    topAvatar.style.background = 'none';
+    topName.textContent = 'Cuong';
+    topName.style.color = '#1F66F1';
+    topName.style.fontSize = '14px';
+    topName.style.fontWeight = '500';
+    topName.style.marginLeft = '4px';
+    topRoleTag.style.display = 'none';
+    if (chip) {
+      chip.style.background = 'none';
+      chip.style.border = 'none';
+      chip.style.padding = '0';
+    }
+  } else {
+    topAvatar.textContent   = currentUser.name.charAt(0);
+    topAvatar.style.background = '';
+    topName.textContent     = currentUser.name.split(' ').slice(-1)[0];
+    topName.style.color = '';
+    topName.style.fontSize = '';
+    topName.style.fontWeight = '';
+    topName.style.marginLeft = '';
+    topRoleTag.style.display = '';
+    topRoleTag.textContent = ri.label;
+    topRoleTag.className   = 'role-tag ' + ri.tag;
+    if (chip) {
+      chip.style.background = '';
+      chip.style.border = '';
+      chip.style.padding = '';
+    }
+  }
 
   const si     = DB.getStaffInfo(currentUser.username);
   const gender = si?.gender || currentUser.gender || '';
