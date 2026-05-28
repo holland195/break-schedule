@@ -293,37 +293,29 @@ function enterApp(fromSession) {
   const topRoleTag = document.getElementById('top-role-tag');
   const chip = document.querySelector('.user-chip');
 
+  const avatarColors = { 'role-leader': '#f59e0b', 'role-training': '#10b981', 'role-qa': '#a78bfa', 'role-agent': '#1F66F1' };
+  const avatarBg = avatarColors[ri.tag] || '#1F66F1';
+
   if (currentUser.username === 'cuong.pham') {
-    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.parentElement.textContent=\'C\';this.parentElement.style.background=\'\'" />';
     topAvatar.style.background = 'none';
-    topName.textContent = 'Cuong';
-    topName.style.color = '#1F66F1';
-    topName.style.fontSize = '14px';
-    topName.style.fontWeight = '500';
-    topName.style.marginLeft = '4px';
-    topRoleTag.style.display = 'none';
-    if (chip) {
-      chip.style.background = 'none';
-      chip.style.border = 'none';
-      chip.style.padding = '0';
-    }
+    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'C\';this.parentElement.style.background=\'' + avatarBg + '\'" />';
   } else {
-    const avatarColors = { 'role-leader': '#f59e0b', 'role-training': '#10b981', 'role-qa': '#a78bfa', 'role-agent': '#1F66F1' };
+    topAvatar.innerHTML = '';
     topAvatar.textContent   = currentUser.name.charAt(0);
-    topAvatar.style.background = avatarColors[ri.tag] || '#1F66F1';
-    topName.textContent     = currentUser.name.split(' ').slice(-1)[0];
-    topName.style.color = '';
-    topName.style.fontSize = '';
-    topName.style.fontWeight = '';
-    topName.style.marginLeft = '';
-    topRoleTag.style.display = '';
-    topRoleTag.textContent = ri.label;
-    topRoleTag.className   = 'role-tag ' + ri.tag;
-    if (chip) {
-      chip.style.background = '';
-      chip.style.border = '';
-      chip.style.padding = '';
-    }
+    topAvatar.style.background = avatarBg;
+  }
+  topName.textContent     = currentUser.name.split(' ').slice(-1)[0];
+  topName.style.color     = '';
+  topName.style.fontSize  = '';
+  topName.style.fontWeight = '';
+  topName.style.marginLeft = '';
+  topRoleTag.style.display = '';
+  topRoleTag.textContent  = ri.label;
+  topRoleTag.className    = 'role-tag ' + ri.tag;
+  if (chip) {
+    chip.style.background = '';
+    chip.style.border     = '';
+    chip.style.padding    = '';
   }
 
   const si     = DB.getStaffInfo(currentUser.username);
