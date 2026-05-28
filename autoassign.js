@@ -187,7 +187,7 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
 // Returns { assigned, weekCount }
 function autoAssignBreaks(importedUsers) {
   //console.log("Auto-assign started with users:", importedUsers.length);
-  toast(`Auto-assign: ${importedUsers.length} users, ${sundays.length} sundays found`, 'info');
+  
   if (!importedUsers || importedUsers.length === 0) {
     return { assigned: 0, weekCount: 0 };
   }
@@ -208,7 +208,7 @@ function autoAssignBreaks(importedUsers) {
   const sundays = [...allDates]
   .filter(d => /^\d{1,2}\/\d{1,2}$/.test(d) && getWkDay(d) === 'Sun')
   .sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
-
+toast(`Auto-assign: ${importedUsers.length} users, ${sundays.length} sundays found`, 'info');
 if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
   // Load rotation state once — mutate in place across all weeks in this import
