@@ -83,8 +83,10 @@ function _roleTier(role) {
   // Skip management / non-IC roles
   if (r.includes('leader') || r.includes('supervisor') || r.includes('admin') || r.includes('manager') || r.includes('assistant')) return null;
 
-  // Legacy role names (pre-rename)
-  if (r === 'agent') return 'agent';
+  // Legacy role names (pre-rename, matching ROLE_ALIASES in data.js)
+  if (r === 'agent' || r === 'sr agent') return 'agent';
+  if (r === 'qa') return 'qa';
+  if (r === 'sr qa') return 'sr_qa';
 
   return null;
 }
