@@ -33,7 +33,7 @@ function _resolveUser(username) {
   if (fromSchedule) return fromSchedule;
   const si = DB.getStaffInfo(username);
   if (!si || !si.name) return null;
-  return { id: _stableId(username), username, name: si.name, role: si.role || 'Agent', gender: si.gender || '', team: '', schedule: {} };
+  return { id: _stableId(username), username, name: si.name, role: si.role || 'Data Analyst', gender: si.gender || '', team: '', schedule: {} };
 }
 
 function _stableId(username) {

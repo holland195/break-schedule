@@ -129,18 +129,18 @@ function _getUserGender(u) {
 const ROLE_SORT_ORDER = {
   'Agent Training Manager': 0,
   'Agent Training Assistant': 1,
-  'Agent Leader': 2,
-  'Agent Supervisor': 2,
-  'Sr QA': 3,
-  'QA': 4,
-  'Sr Agent': 5,
-  'Agent': 6,
+  'Data Analyst Leader': 2,
+  'Data Analyst Supervisor': 2,
+  'Sr Data Supervisor': 3,
+  'Data Supervisor': 4,
+  'Sr Data Analyst': 5,
+  'Data Analyst': 6,
   'Admin': 99,
 };
 
 function _roleSort(a, b) {
-  const ra = ROLE_SORT_ORDER[a.role] ?? 9;
-  const rb = ROLE_SORT_ORDER[b.role] ?? 9;
+  const ra = ROLE_SORT_ORDER[_resolveRole(a.role)] ?? 9;
+  const rb = ROLE_SORT_ORDER[_resolveRole(b.role)] ?? 9;
   if (ra !== rb) return ra - rb;
   return (a.name || '').localeCompare(b.name || '');
 }
@@ -989,6 +989,29 @@ function onBreakSplitSlide(shift, rawVal) {
   if (lbl2) lbl2.textContent = `${pct2}%`;
 }
 
+// async function saveBreakSplits() {
+//   const changedShifts = new Set();
+//   VISIBLE_SHIFTS.forEach(shift => {
+//     const slider = document.getElementById(`split-slider-${shift}`);
+//     if (!slider) return;
+//     const newPct = parseInt(slider.value);
+//     const oldPct = getBreakSplitPct(shift);
+//     if (newPct !== oldPct) changedShifts.add(shift);
+//     setBreakSplitPct(shift, newPct);
+//   });
+
+//   if (changedShifts.size > 0) {
+//     _clearAutoBreaksFromWeek(activeMonday, changedShifts);
+//     const result = autoAssignBreaks(state.users);
+//     await syncWrite();
+//     toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
+//   } else {
+//     await syncWrite();
+//     toast('Break distribution settings saved (no changes).', 'ok');
+//   }
+//   nav('arrange');
+// }
+
 async function saveBreakSplits() {
   const changedShifts = new Set();
   VISIBLE_SHIFTS.forEach(shift => {
@@ -1001,7 +1024,19 @@ async function saveBreakSplits() {
   });
 
   if (changedShifts.size > 0) {
+    // 1. Clear the automated break records from this specific targeted week onward
     _clearAutoBreaksFromWeek(activeMonday, changedShifts);
+    
+    // 2. Clear out the stale chronological rotation historical offsets for the modified shifts
+    const rot = _loadRotation();
+    changedShifts.forEach(shift => {
+      ['agent', 'qa', 'sr_qa'].forEach(tier => {
+        delete rot[`${shift}_${tier}`];
+      });
+    });
+    _saveRotation(rot);
+
+    // 3. Re-execute assign operations cleanly
     const result = autoAssignBreaks(state.users);
     await syncWrite();
     toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
@@ -1325,10 +1360,10 @@ function getArrangeDayMemberList(_unused) {
 
   // Per-day slot totals by role tier — sticky tfoot
   const ARR_TIERS = [
-    { label: 'Agent', match: u => ['Agent', 'Sr Agent', 'Sr. Agent'].includes(u.role) },
-    { label: 'QA', match: u => u.role === 'QA' },
-    { label: 'Sr QA', match: u => ['Sr QA', 'Sr. QA'].includes(u.role) },
-    { label: 'Total', match: u => ['Agent', 'Sr Agent', 'Sr. Agent', 'QA', 'Sr QA', 'Sr. QA'].includes(u.role) },
+    { label: 'Data Analyst', match: u => ['Data Analyst', 'Sr Data Analyst'].includes(_resolveRole(u.role)) },
+    { label: 'Data Supervisor', match: u => _resolveRole(u.role) === 'Data Supervisor' },
+    { label: 'Sr Data Supervisor', match: u => _resolveRole(u.role) === 'Sr Data Supervisor' },
+    { label: 'Total', match: u => ['Data Analyst', 'Sr Data Analyst', 'Data Supervisor', 'Sr Data Supervisor'].includes(_resolveRole(u.role)) },
   ];
 
   const tierFootRows = ARR_TIERS.map((tier, tierIdx) => {
@@ -1530,7 +1565,7 @@ function _renderStaffInfo() {
     (u.name || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
     (u.username || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
     (u.empNo || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
-    (u.role || '').toLowerCase().includes(infoFilter.toLowerCase())
+    (_resolveRole(u.role) || '').toLowerCase().includes(infoFilter.toLowerCase())
   );
 
   const rows = _renderStaffInfoRows(infoFilter);
@@ -1573,7 +1608,7 @@ function _renderStaffInfoRows(filter) {
     (u.name || '').toLowerCase().includes(f) ||
     (u.username || '').toLowerCase().includes(f) ||
     (u.empNo || '').toLowerCase().includes(f) ||
-    (u.role || '').toLowerCase().includes(f)
+    (_resolveRole(u.role) || '').toLowerCase().includes(f)
   ).map(u => {
     // Gender: icon only
     const g = u.gender === 'F'
@@ -1582,7 +1617,7 @@ function _renderStaffInfoRows(filter) {
         ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
         : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
-    const roleLvl = ROLE_SORT_ORDER[u.role] ?? 9;
+    const roleLvl = ROLE_SORT_ORDER[_resolveRole(u.role)] ?? 9;
     const roleColor = roleLvl <= 1 ? 'var(--accent)'
       : roleLvl <= 2 ? 'var(--warn)'
         : roleLvl <= 3 ? 'var(--ok)'
@@ -1598,7 +1633,7 @@ function _renderStaffInfoRows(filter) {
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
       <td style="text-align:center;">${g}</td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
-      <td style="font-size:11px;color:${roleColor};font-weight:500;">${u.role || '—'}</td>
+      <td style="font-size:11px;color:${roleColor};font-weight:500;">${_resolveRole(u.role) || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1737,7 +1772,7 @@ const user = {
       <td style="padding:6px; border:1px solid var(--border); text-align:center;">${u.team}</td>
       <td style="padding:6px; border:1px solid var(--border); font-weight:600;">${u.name}</td>
       <td style="padding:6px; border:1px solid var(--border); color:var(--accent); font-family:monospace;">${u.username}</td>
-      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${u.role}</td>
+      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${_resolveRole(u.role)}</td>
       ${dateCols.map(d => {
     const shift = u.schedule[d.dateKey] || '0';
     let colorStyle = "";
@@ -1861,7 +1896,7 @@ function _renderStaffSchedule() {
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (u.role || '').toLowerCase().includes(staffFilters.role.toLowerCase())
+    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
 
   return `
@@ -2362,7 +2397,7 @@ function renderStaffRows(users, displayDates) {
     <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
     <td style="font-weight:600">${u.name}</td>
     <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:var(--text2)">${u.role}</td>
+    <td style="font-size:11px;color:var(--text2)">${_resolveRole(u.role)}</td>
     ${displayDates.map(d => { const s = u.schedule[d] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`).join('');
 }
@@ -2375,7 +2410,7 @@ function _liveFilter() {
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (u.role || '').toLowerCase().includes(staffFilters.role.toLowerCase())
+    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
   );
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
@@ -3178,7 +3213,7 @@ function rejectExtBreakPrompt(uid, mk, idx) {
 // ═══════════════════════════════════════════════
 function renderRotationPanel() {
   const summary = typeof getRotationSummary === 'function' ? getRotationSummary() : [];
-  const tierLabels = { agent: 'Agent + Sr Agent', qa: 'QA', sr_qa: 'Sr QA' };
+  const tierLabels = { agent: 'Data Analyst + Sr Data Analyst', qa: 'Data Supervisor', sr_qa: 'Sr Data Supervisor' };
 
   if (summary.length === 0) {
     return `<div class="card" style="max-width:740px;margin-top:0;">

@@ -43,8 +43,7 @@ function _fbData() {
 }
 
 function _fbIsAgent(u) {
-  // Non-leader roles
-  return u && (ROLES[u.role]?.level || 0) < 2;
+  return u && (ROLES[_resolveRole(u.role)]?.level || 0) < 2;
 }
 
 function _fbMyRecords() {

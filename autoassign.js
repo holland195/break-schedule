@@ -3,9 +3,9 @@
 //
 //  Rules:
 //  • 3 independent role tiers:
-//      Tier 1 — Agent + Sr Agent (pooled)
-//      Tier 2 — QA
-//      Tier 3 — Sr QA
+//      Tier 1 — Data Analyst + Sr Data Analyst (pooled)
+//      Tier 2 — Data Supervisor
+//      Tier 3 — Sr Data Supervisor
 //  • Groups sorted naturally (AT1 < AT2 < AT9 < AT10)
 //  • Even split: ceil(n/2) → first half, floor(n/2) → second half
 //  • Groups assigned as a block (Option A)
@@ -73,10 +73,15 @@ function _slotBelongsToShift(slot, shift) {
 function _roleTier(role) {
   if (!role) return null;
   const r = role.toLowerCase().trim();
-  if (r.includes('leader') || r.includes('supervisor') || r.includes('admin')) return null;
-  if (r === 'agent' || r === 'sr agent' || r === 'sr. agent') return 'agent';
-  if (r === 'qa') return 'qa';
-  if (r === 'sr qa' || r === 'sr. qa') return 'sr_qa';
+  
+  // Skip management roles entirely
+  if (r.includes('leader') || r.includes('supervisor') || r.includes('admin') || r.includes('manager') || r.includes('assistant')) return null;
+  
+  // Map exact new roles to structural mathematical tiers
+  if (r === 'data analyst' || r === 'sr data analyst') return 'agent';
+  if (r === 'data supervisor') return 'qa';
+  if (r === 'sr data supervisor') return 'sr_qa';
+  
   return null;
 }
 

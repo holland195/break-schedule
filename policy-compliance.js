@@ -282,7 +282,7 @@ function _pcRenderPolicy() {
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);">'+(i+1)+'</td>'
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.empNo+'</td>'
       + '<td style="padding:7px 10px;font-weight:600;font-size:12px;">'+e.name+'</td>'
-      + '<td style="padding:7px 10px;font-size:11px;">'+e.role+'</td>'
+      + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.leader+'</td>'
       + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
       + shownMonths.map(function(m){
@@ -305,7 +305,7 @@ function _pcRenderPolicy() {
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);">'+(polStart+i+1)+'</td>'
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.empNo+'</td>'
       + '<td style="padding:7px 10px;font-weight:600;font-size:12px;">'+e.name+'</td>'
-      + '<td style="padding:7px 10px;font-size:11px;">'+e.role+'</td>'
+      + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.leader+'</td>'
       + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
       + shownMonths.map(function(m){
@@ -388,7 +388,7 @@ function _pcRenderRecords() {
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">From</div><input type="date" value="'+(f.dateFrom||'')+'" onchange="_pcRF.dateFrom=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">To</div><input type="date" value="'+(f.dateTo||'')+'" onchange="_pcRF.dateTo=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Processing','Need Review','Need Resolve','Resolved','Cancelled'],'All statuses')+'</div>'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Agent','Agent Leader','Agent Supervisor','QA','Sr Agent','Sr QA'],'All roles')+'</div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Data Analyst','Data Analyst Leader','Data Analyst Supervisor','Data Supervisor','Sr Data Analyst','Sr Data Supervisor'],'All roles')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shift</div>'+mkSel('shift',f.shift,['A','B','C','D','E'],'All')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'+mkSel('event',f.event,Object.keys(PC_EVENTS).map(function(k){return {v:k,l:k+' — '+PC_EVENTS[k].split('—')[0].trim()};}), 'All events')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Leader</div>'+mkSel('leader',f.leader,leaders,'All leaders')+'</div>'
@@ -412,7 +412,7 @@ function _pcRenderRecords() {
           + '<td style="padding:7px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;">'+r.date+'</td>'
           + '<td style="padding:7px 10px;font-weight:600;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.empNo+'</td>'
-          + '<td style="padding:7px 10px;font-size:11px;">'+r.role+'</td>'
+          + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(r.role)+'</td>'
           + '<td style="padding:7px 10px;text-align:center;"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;background:var(--bg4);color:var(--text2);">'+(r.shift||'—')+'</span></td>'
           + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:12px;color:var(--accent);">'+r.event+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
@@ -477,7 +477,7 @@ function _pcRenderSummary() {
     + '<div style="margin-left:8px;"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'
     + '<select style="'+ss+'" onchange="_pcS30Role=this.value;_pcRerender()">'
     + '<option value="">All roles</option>'
-    + ['Agent','Agent Leader','Agent Supervisor','QA','Sr Agent','Sr QA'].map(function(r){return '<option value="'+r+'"'+(_pcS30Role===r?' selected':'')+'>'+r+'</option>';}).join('')
+    + ['Data Analyst','Data Analyst Leader','Data Analyst Supervisor','Data Supervisor','Sr Data Analyst','Sr Data Supervisor'].map(function(r){return '<option value="'+r+'"'+(_pcS30Role===r?' selected':'')+'>'+r+'</option>';}).join('')
     + '</select></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'
     + '<select style="'+ss+'" onchange="_pcS30Event=this.value;_pcRerender()">'
@@ -498,12 +498,12 @@ function _pcRenderSummary() {
   }
 
   // ── Stats cards ──
-  var roles   = ['Agent','Sr Agent','QA','Sr QA','Agent Leader','Agent Supervisor'];
+  var roles   = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor'];
   var statRow = '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:16px;">'
     + roles.map(function(role) {
-        var n = filtered.filter(function(r){return r.role===role;}).length;
+        var n = filtered.filter(function(r){return _resolveRole(r.role)===role;}).length;
         return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">'
-          + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:\'IBM Plex Mono\',monospace;">'+role.replace('Agent ','').replace('Sr ','Sr ')+'</div>'
+          + '<div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:\'IBM Plex Mono\',monospace;">'+role+'</div>'
           + '<div style="font-size:22px;font-weight:600;'+_pcHeat(n)+'">'+n+'</div>'
           + '</div>';
       }).join('')
@@ -532,7 +532,7 @@ function _pcRenderSummary() {
       return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid rgba(239,68,68,.12);">'
         + '<div style="flex:1;min-width:200px;">'
         + '<span style="font-size:13px;font-weight:700;">' + p.name + '</span>'
-        + '<span style="font-size:11px;color:var(--text3);margin-left:8px;">' + p.role + '</span>'
+        + '<span style="font-size:11px;color:var(--text3);margin-left:8px;">' + _resolveRole(p.role) + '</span>'
         + '<span style="font-size:11px;font-weight:700;margin-left:8px;color:var(--err);">' + p.records.length + ' violations</span>'
         + '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:\'IBM Plex Mono\',monospace;">' + emailAddr + '</div>'
         + '</div>'
@@ -572,16 +572,16 @@ function _pcRenderSummary() {
   var eventKeys = [...new Set(filtered.map(function(r){return r.event;}))].sort();
 
   // Group persons by role
-  var roleOrder = ['Agent','Sr Agent','QA','Sr QA','Agent Leader','Agent Supervisor'];
+  var roleOrder = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor'];
   var sections  = '';
   roleOrder.forEach(function(role) {
-    var persons = Object.values(byPerson).filter(function(p){return p.role===role;});
+    var persons = Object.values(byPerson).filter(function(p){return _resolveRole(p.role)===role;});
     if (!persons.length) return;
     persons.sort(function(a,b){return b.records.length-a.records.length;});
 
     var ROLE_COLORS = {
-      'Agent':'var(--accent)','Sr Agent':'var(--B-color)','QA':'var(--E-color)',
-      'Sr QA':'var(--C-color)','Agent Leader':'var(--warn)','Agent Supervisor':'var(--A-color)'
+      'Data Analyst':'var(--accent)','Sr Data Analyst':'var(--B-color)','Data Supervisor':'var(--E-color)',
+      'Sr Data Supervisor':'var(--C-color)','Data Analyst Leader':'var(--warn)','Data Analyst Supervisor':'var(--A-color)'
     };
     var color = ROLE_COLORS[role]||'var(--text2)';
 
@@ -662,7 +662,7 @@ function _pcOpenEditModal(idx) {
     + '<div><span style="color:var(--text3);">Date</span><br><b>'+r.date+'</b></div>'
     + '<div><span style="color:var(--text3);">Event</span><br><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);">'+r.event+'</b> — '+PC_EVENTS[r.event]+'</div>'
     + '<div><span style="color:var(--text3);">Employee</span><br><b>'+r.name+'</b> · '+r.empNo+'</div>'
-    + '<div><span style="color:var(--text3);">Role / Shift</span><br>'+r.role+' / Shift '+(r.shift||'—')+'</div>'
+    + '<div><span style="color:var(--text3);">Role / Shift</span><br>'+_resolveRole(r.role)+' / Shift '+(r.shift||'—')+'</div>'
     + '<div><span style="color:var(--text3);">Leader</span><br>'+r.leader+'</div>'
     + '<div><span style="color:var(--text3);">Status</span><br>'+_pcStatusBadge(r.status)+'</div>'
     + '</div>'
@@ -673,7 +673,7 @@ function _pcOpenEditModal(idx) {
 
     // Agent feedback section (visible to all)
     + '<div style="border-top:1px solid var(--border);margin:12px 0;padding-top:12px;">'
-    + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:8px;">&#x1F4AC; Agent Feedback</div>'
+    + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:8px;">&#x1F4AC; Employee Feedback</div>'
     + (r.agentFeedback
         ? '<div style="font-size:12px;background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:7px;padding:10px 12px;line-height:1.7;">'+r.agentFeedback+'</div>'
         : '<div style="font-size:12px;color:var(--text3);font-style:italic;">No feedback yet.</div>')
