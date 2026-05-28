@@ -64,3 +64,36 @@ pages.js renders UI → user writes → sync.js pushes back to Firebase
 - `sync-config.json` — Firebase DB URL + write secret; filled by admin, not committed
 - `database.rules.json` — Firebase security rules (writes require auth secret)
 - `vercel.json` — Vercel build and routing config
+
+## Critical autoassign.js notes
+
+### Role name handling in `_roleTier`
+
+Firebase stores **legacy** role names (`"Agent"`, `"Sr Agent"`, `"QA"`, `"Sr QA"`) that differ from the current UI names (`"Data Analyst"`, `"Sr Data Analyst"`, `"Data Supervisor"`, `"Sr Data Supervisor"`). `_roleTier` must handle **both** name sets directly — it does NOT call `_resolveRole()` from data.js.
+
+**Critical ordering**: the exact new-name checks (`data supervisor`, `sr data supervisor`) MUST come BEFORE the broad `r.includes('supervisor')` exclusion — otherwise all QA/SR_QA users are silently skipped. Current working order in `_roleTier`:
+
+1. Check exact new names → return tier
+2. Check `includes('leader'|'supervisor'|'admin'|'manager'|'assistant')` → return null (management exclusion)
+3. Check exact legacy names → return tier
+4. Return null (unknown role)
+
+`ROLE_ALIASES` in `data.js` maps: `Agent→Data Analyst`, `Sr Agent→Sr Data Analyst`, `QA→Data Supervisor`, `Sr QA→Sr Data Supervisor`.
+
+### Schedule key format in `autoAssignBreaks`
+
+GAS (`daily_sync.gs`) stores schedule keys as zero-padded `DD/MM` strings (e.g. `"05/05"`). `autoAssignBreaks` checks **both** `u.schedule[d]` (date key) and `u.schedule[WEEK_DAYS[i]]` (day-name fallback like `"Mon"`) in all three schedule lookup sites — the filter, the `allAlreadyAssigned` guard, and the write loop. The fallback is needed because some import paths may store day-name keys.
+
+`WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']` — index aligns with `weekDates` array returned by `getWeekRange(sunday)`.
+
+### `_clearAutoBreaksFromWeek` force parameter
+
+`_clearAutoBreaksFromWeek(fromSunday, shifts, force = false)` — when `force = true` it clears **both** auto-assigned (`note==='auto'`) AND manually-set breaks. This is required for `saveBreakSplits` and `resetBreakSplit` in pages.js: if any break was manually set by a supervisor, the default auto-only clear leaves it in place, then `autoAssignBreaks` hits the `allAlreadyAssigned` guard and assigns 0 breaks.
+
+### breakSplits cloud sync
+
+`state._breakSplitsUpdatedAt` tracks when splits were last saved locally. `_applyRemoteData` in sync.js uses a timestamp comparison before applying remote `breakSplits` — remote only wins if `remoteAt >= localAt`. `syncPush` includes `_breakSplitsUpdatedAt` in the payload. This prevents periodic sync pulls from silently reverting a user's just-saved split percentage.
+
+### Terser minification pitfall
+
+Terser drops `console.*` calls and mangles variable names. **Never declare `const`/`let` inside a loop body** in any file processed by Terser — the hoisting behaviour after mangling can cause TDZ `ReferenceError: Cannot access 'a' before initialization` at runtime. If you need a helper predicate inside a loop, inline it directly rather than assigning it to a named variable.
