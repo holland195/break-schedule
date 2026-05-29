@@ -365,6 +365,7 @@ let activeMonday = (() => {
   return `${sun.getDate().toString().padStart(2,'0')}/${(sun.getMonth()+1).toString().padStart(2,'0')}`;
 })();
 let showFullMonth = false;
+let _schedMonth   = null; // null = auto-detect from activeMonday
 let staffFilters  = { team:'', name:'', user:'', role:'' };
 let staffSubTab   = 'info'; // 'info' | 'schedule'
 let importedUsers = [];
