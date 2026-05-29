@@ -98,6 +98,7 @@ const _PC_POL_PER = 25;
 
 // Weekly tab state
 var _pcWeeklyYear = 2026;
+var _pcWeeklyMonth = new Date().getMonth() + 1; // 1-12, default current month
 var _pcWeeklyPage = 1;
 
 // Records tab filters
@@ -206,11 +207,11 @@ function renderPolicyCompliance() {
   };
 
   var tabs = '<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto;">'
-    + T('policy', '&#x1F4CA;', 'Policy 2026')
-    + T('records','&#x1F4CB;', 'All Records')
-    + T('summary','&#x1F4C5;', 'Summary 30D')
-    + T('weekly', '&#x1F5D3;', 'Weekly')
     + T('rules',  '&#x1F4D6;', 'Rules')
+    + T('policy', '&#x1F4CA;', 'Policy 2026')
+    + T('weekly', '&#x1F5D3;', 'Weekly')
+    + T('summary','&#x1F4C5;', 'Summary 30D')
+    + T('records','&#x1F4CB;', 'All Records')
     + '</div>';
 
   var content = '';
@@ -705,11 +706,11 @@ function _pcRenderRules() {
       + '<div style="font-size:11px;color:var(--text3);padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-top:none;margin-bottom:0;">'
         + '<b style="color:var(--warn);">Xử lý:</b> '+g.penalty+'</div>'
       + '<div style="overflow-x:auto;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;">'
-        + '<table style="width:100%;border-collapse:collapse;">'
+        + '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">'
         + '<thead><tr style="background:var(--bg4);">'
           + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--text3);width:90px;">RULE ID</th>'
-          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--text3);">TIÊU CHÍ (YÊU CẦU)</th>'
-          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--err);">VI PHẠM</th>'
+          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--text3);width:45%;">TIÊU CHÍ (YÊU CẦU)</th>'
+          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--err);width:45%;">VI PHẠM</th>'
           + '</tr></thead>'
         + '<tbody>'+rows+'</tbody></table></div></div>';
   }).join('');
@@ -725,8 +726,9 @@ function _pcRenderRules() {
 //  WEEKLY TAB
 // ════════════════════════════════════════════
 function _pcRenderWeekly() {
+  var monthPfx = String(_pcWeeklyYear) + '-' + (_pcWeeklyMonth < 10 ? '0' : '') + _pcWeeklyMonth;
   var all = _pcData().filter(function(r) {
-    return r.date && r.date.startsWith(String(_pcWeeklyYear));
+    return r.date && r.date.startsWith(monthPfx);
   });
 
   // Build per-employee aggregation
@@ -755,8 +757,14 @@ function _pcRenderWeekly() {
     + [2026,2025].map(function(y){return '<option value="'+y+'"'+(_pcWeeklyYear===y?' selected':'')+'>'+y+'</option>';}).join('')
     + '</select>';
 
+  var MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var monthSel = '<select style="height:30px;padding:0 8px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);" onchange="_pcWeeklyMonth=+this.value;_pcWeeklyPage=1;nav(\'policy\')">'
+    + MONTH_NAMES.map(function(n,i){var m=i+1;return '<option value="'+m+'"'+(_pcWeeklyMonth===m?' selected':'')+'>'+n+'</option>';}).join('')
+    + '</select>';
+
   var filterBar = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
     + '<div style="font-size:10px;color:var(--text3);">Year</div>'+yearSel
+    + '<div style="font-size:10px;color:var(--text3);">Month</div>'+monthSel
     + '<span style="font-size:11px;color:var(--text3);margin-left:8px;">'+wTotal+' employees · '+all.length+' violations · '+shownWeeks.length+' weeks</span>'
     + '</div>';
 
@@ -772,7 +780,7 @@ function _pcRenderWeekly() {
     + '</tr></thead>';
 
   var rows = wSlice.length === 0
-    ? '<tr><td colspan="'+(6+shownWeeks.length)+'" style="text-align:center;padding:32px;color:var(--text3);">No violations for '+_pcWeeklyYear+'.</td></tr>'
+    ? '<tr><td colspan="'+(6+shownWeeks.length)+'" style="text-align:center;padding:32px;color:var(--text3);">No violations for '+MONTH_NAMES[_pcWeeklyMonth-1]+' '+_pcWeeklyYear+'.</td></tr>'
     : wSlice.map(function(e,i) {
         var warnStr = e.warningMailDate
           ? '<span style="color:var(--warn);font-size:11px;">'+e.warningMailDate.slice(0,10)+'</span>'
