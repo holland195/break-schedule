@@ -42,8 +42,50 @@ const PC_EVENTS = {
   '3i':'Disobedience',
 };
 
+const PC_RULES = [
+  { group:'1', title:'Nhóm 1 — Thông báo & Vắng mặt', penalty:'Nhắc nhở qua mail: tổng vi phạm ≥2 lần/tháng · Khiển trách bằng văn bản: vi phạm trong 30 ngày từ khi nhận mail · Xử lý theo nội quy lao động: vi phạm trong 3 tháng từ khi nhận khiển trách', rules:[
+    {id:'1a',criteria:'Thông báo khi vắng mặt các buổi làm việc, họp, đào tạo.',violation:'Tự ý hoặc vắng mặt các buổi làm việc, họp, đào tạo mà chưa có sự đồng ý của cấp trên.'},
+    {id:'1b',criteria:'Thông báo nghỉ phép: nửa ca báo trước 24h · 1 ngày báo trước 3 ngày (72h) · trên 2 ngày báo trước 7 ngày.',violation:'Không thông báo về việc nghỉ phép đúng thời gian quy định. (Trừ các trường hợp nghỉ bệnh có giấy nghỉ hưởng BHXH, gia đình có tang)'},
+    {id:'1c',criteria:'Tổng số ngày nghỉ trong tháng không quá 8 ngày, không nghỉ quá 8 ngày liên tục.',violation:'Nghỉ trên 8 ngày trong 1 tháng hoặc 8 ngày liên tục.'},
+    {id:'1d',criteria:'Đi làm và tan làm đúng giờ quy định.',violation:'Đi trễ hoặc về sớm không đúng thời gian quy định.'},
+  ]},
+  { group:'2', title:'Nhóm 2 — Thời gian làm việc', penalty:'Nhắc nhở qua mail: tổng vi phạm ≥2 lần/tháng · Khiển trách bằng văn bản: vi phạm trong 30 ngày từ khi nhận mail · Xử lý theo nội quy lao động: vi phạm trong 3 tháng từ khi nhận khiển trách', rules:[
+    {id:'2a',criteria:'Thời gian ON PAVE tối thiểu: Ca A–D: 7h15 · Ca E: 7h30.',violation:'Không làm đủ số giờ tối thiểu yêu cầu.'},
+    {id:'2b',criteria:'Đăng nhập PAVE đúng giờ bắt đầu ca.',violation:'Đăng nhập không đúng giờ quy định.'},
+    {id:'2c',criteria:'Đăng xuất PAVE đúng giờ kết thúc ca.',violation:'Đăng xuất không đúng giờ quy định.'},
+    {id:'2d',criteria:'Khi chưa có yêu cầu của quản lý, không ON PAVE ngoài giờ làm việc.',violation:'Làm thêm giờ khi không có sự đồng ý của cấp trên.'},
+    {id:'2e',criteria:'Break đúng khung giờ được sắp xếp.',violation:'Break sai khung giờ được sắp xếp.'},
+    {id:'2f',criteria:'Break đúng thời lượng quy định.',violation:'Break lố giờ quy định.'},
+  ]},
+  { group:'3', title:'Nhóm 3 — Quy tắc làm việc', penalty:'Nhắc nhở qua mail: tổng vi phạm ≥2 lần/tháng · Khiển trách bằng văn bản: vi phạm trong 30 ngày từ khi nhận mail · Xử lý theo nội quy lao động: vi phạm trong 3 tháng từ khi nhận khiển trách', rules:[
+    {id:'3a',criteria:'Thực hiện đúng các bước đăng nhập, đăng xuất PAVE.',violation:'Đăng nhập, đăng xuất sai quy trình.'},
+    {id:'3b',criteria:'Không tự ý rời khỏi vị trí làm việc hoặc tắt trang làm việc khi chưa có sự đồng ý của quản lý.',violation:'Tự ý rời khỏi vị trí làm việc, làm việc riêng trong giờ làm.'},
+    {id:'3c',criteria:'Cập nhật Performance hàng ngày.',violation:'Không cập nhật performance hàng ngày.'},
+    {id:'3d',criteria:'Online Slack trong suốt ca làm việc.',violation:'Không mở Slack, không mở thông báo, không để trạng thái online trong giờ làm.'},
+    {id:'3e',criteria:'Cập nhật tất cả thông báo trên Slack và thả icon ở mỗi thông báo.',violation:'Không cập nhật hoặc không thả icon ở mỗi thông báo trên Slack.'},
+    {id:'3f',criteria:'Phản hồi nhanh nhất khi có tin nhắn từ quản lý.',violation:'Không phản hồi nhanh khi có tin nhắn từ quản lý hoặc team training.'},
+    {id:'3g',criteria:'Work from home: online Meeting, mở camera khi bắt đầu ca, điểm danh trên Slack.',violation:'Không mở camera hoặc không online Meeting khi work from home.'},
+    {id:'3h',criteria:'Khi có sự cố ảnh hưởng công việc, báo ngay cho quản lý ca.',violation:'Không thông báo khi gặp sự cố trong công việc.'},
+    {id:'3i',criteria:'Tuân thủ hiệu lệnh và yêu cầu của cấp trên, quản lý.',violation:'Không tuân thủ hiệu lệnh của cấp trên.'},
+  ]},
+  { group:'4', title:'Nhóm 4 — Tài sản & Kỷ luật', penalty:'Nhắc nhở qua mail: tổng vi phạm ≥2 lần/tháng · Khiển trách bằng văn bản: vi phạm trong 30 ngày từ khi nhận mail · Xử lý theo nội quy lao động: vi phạm trong 3 tháng từ khi nhận khiển trách', rules:[
+    {id:'4a',criteria:'Bảo quản, giữ gìn trang thiết bị công ty cấp.',violation:'Phí phạm tài sản công ty, không tắt thiết bị khi ra về.'},
+    {id:'4b',criteria:'Giữ gìn vệ sinh bàn làm việc và các không gian sinh hoạt chung.',violation:'Không giữ vệ sinh bàn làm việc, mang thức ăn có mùi vào nơi làm việc.'},
+    {id:'4c',criteria:'Hút thuốc và vứt tàn thuốc đúng nơi quy định.',violation:'Không hút thuốc đúng nơi, vứt tàn thuốc sai khu vực.'},
+    {id:'4d',criteria:'Không làm ồn ngoài khung giờ quy định 6h00–20h00.',violation:'Xem phim, nghe nhạc, chơi game gây ồn ào ngoài khung giờ hoặc ảnh hưởng mọi người xung quanh.'},
+  ]},
+];
+
+function _pcIsoWeek(dateStr) {
+  var d = new Date(dateStr);
+  var thu = new Date(d.getTime());
+  thu.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  var jan4 = new Date(thu.getFullYear(), 0, 4);
+  return 1 + Math.round(((thu - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7);
+}
+
 // ── Page state ──
-let _pcTab    = 'policy'; // 'policy' | 'records' | 'summary'
+let _pcTab    = 'policy'; // 'policy' | 'records' | 'summary' | 'rules' | 'weekly'
 let _pcPage   = 1;
 const _PC_PER = 25;
 
@@ -53,6 +95,10 @@ let _pcPolQ    = '';   // '' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
 let _pcPolMon  = '';   // '' | '2026-01' etc
 let _pcPolPage = 1;    // Policy 2026 pagination
 const _PC_POL_PER = 25;
+
+// Weekly tab state
+var _pcWeeklyYear = 2026;
+var _pcWeeklyPage = 1;
 
 // Records tab filters
 let _pcRF = {dateFrom:'',dateTo:'',status:'',role:'',shift:'',event:'',leader:'',search:''};
@@ -163,12 +209,16 @@ function renderPolicyCompliance() {
     + T('policy', '&#x1F4CA;', 'Policy 2026')
     + T('records','&#x1F4CB;', 'All Records')
     + T('summary','&#x1F4C5;', 'Summary 30D')
+    + T('weekly', '&#x1F5D3;', 'Weekly')
+    + T('rules',  '&#x1F4D6;', 'Rules')
     + '</div>';
 
   var content = '';
   if      (_pcTab==='policy')  content = _pcRenderPolicy();
   else if (_pcTab==='records') content = _pcRenderRecords();
   else if (_pcTab==='summary') content = _pcRenderSummary();
+  else if (_pcTab==='weekly')  content = _pcRenderWeekly();
+  else if (_pcTab==='rules')   content = _pcRenderRules();
 
   return '<div class="page-header"><div>'
     + '<div class="page-title">&#x1F4CB; Policy Compliance</div>'
@@ -630,6 +680,127 @@ function _pcRenderSummary() {
   return filterBar + statRow + warningCard
     + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:start;margin-bottom:16px;">'
     + sections + '</div>' + ref;
+}
+
+// ════════════════════════════════════════════
+//  RULES TAB
+// ════════════════════════════════════════════
+function _pcRenderRules() {
+  var ss = 'font-family:\'IBM Plex Mono\',monospace;font-size:10px;';
+  var sections = PC_RULES.map(function(g) {
+    var GRP_COLORS = {'1':'var(--accent)','2':'var(--ok)','3':'var(--warn)','4':'var(--err)'};
+    var color = GRP_COLORS[g.group] || 'var(--text2)';
+    var rows = g.rules.map(function(r) {
+      var tracked = PC_EVENTS[r.id]
+        ? '<span style="'+ss+'padding:1px 5px;border-radius:3px;background:rgba(31,102,241,.15);color:var(--accent);margin-left:5px;" title="Tracked event">tracked</span>'
+        : '';
+      return '<tr style="border-bottom:1px solid var(--border);vertical-align:top;">'
+        + '<td style="padding:8px 10px;white-space:nowrap;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:12px;color:'+color+';">'+r.id+tracked+'</td>'
+        + '<td style="padding:8px 10px;font-size:12px;line-height:1.5;">'+r.criteria+'</td>'
+        + '<td style="padding:8px 10px;font-size:12px;color:var(--err);line-height:1.5;">'+r.violation+'</td>'
+        + '</tr>';
+    }).join('');
+    return '<div style="margin-bottom:20px;">'
+      + '<div style="font-size:13px;font-weight:700;color:'+color+';padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px 8px 0 0;border-bottom:2px solid '+color+';">'+g.title+'</div>'
+      + '<div style="font-size:11px;color:var(--text3);padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-top:none;margin-bottom:0;">'
+        + '<b style="color:var(--warn);">Xử lý:</b> '+g.penalty+'</div>'
+      + '<div style="overflow-x:auto;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;">'
+        + '<table style="width:100%;border-collapse:collapse;">'
+        + '<thead><tr style="background:var(--bg4);">'
+          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--text3);width:90px;">RULE ID</th>'
+          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--text3);">TIÊU CHÍ (YÊU CẦU)</th>'
+          + '<th style="padding:7px 10px;text-align:left;'+ss+'color:var(--err);">VI PHẠM</th>'
+          + '</tr></thead>'
+        + '<tbody>'+rows+'</tbody></table></div></div>';
+  }).join('');
+
+  var legend = '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-top:4px;font-size:11px;color:var(--text3);">'
+    + '<span style="font-family:\'IBM Plex Mono\',monospace;padding:1px 5px;border-radius:3px;background:rgba(31,102,241,.15);color:var(--accent);margin-right:6px;">tracked</span>'
+    + 'Rule IDs marked "tracked" are actively recorded and counted in All Records / Summary 30D.</div>';
+
+  return sections + legend;
+}
+
+// ════════════════════════════════════════════
+//  WEEKLY TAB
+// ════════════════════════════════════════════
+function _pcRenderWeekly() {
+  var all = _pcData().filter(function(r) {
+    return r.date && r.date.startsWith(String(_pcWeeklyYear));
+  });
+
+  // Build per-employee aggregation
+  var byEmp = {};
+  all.forEach(function(r) {
+    var k = r.username || r.name;
+    if (!byEmp[k]) byEmp[k] = {name:r.name,empNo:r.empNo,role:r.role,username:r.username,warningMailDate:null,total:0,weeks:{}};
+    var wk = _pcIsoWeek(r.date);
+    byEmp[k].weeks[wk] = (byEmp[k].weeks[wk]||0) + 1;
+    byEmp[k].total++;
+    if (r.warningMailDate) byEmp[k].warningMailDate = r.warningMailDate;
+  });
+
+  var empList = Object.values(byEmp).sort(function(a,b){return b.total-a.total;});
+  var shownWeeks = Object.keys(all.reduce(function(acc,r){acc[_pcIsoWeek(r.date)]=1;return acc;},{}))
+    .map(Number).sort(function(a,b){return a-b;});
+
+  // Pagination
+  var wTotal = empList.length;
+  var wPages = Math.max(1, Math.ceil(wTotal / _PC_POL_PER));
+  if (_pcWeeklyPage > wPages) _pcWeeklyPage = wPages;
+  var wStart = (_pcWeeklyPage - 1) * _PC_POL_PER;
+  var wSlice = empList.slice(wStart, wStart + _PC_POL_PER);
+
+  var yearSel = '<select style="height:30px;padding:0 8px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);" onchange="_pcWeeklyYear=+this.value;_pcWeeklyPage=1;nav(\'policy\')">'
+    + [2026,2025].map(function(y){return '<option value="'+y+'"'+(_pcWeeklyYear===y?' selected':'')+'>'+y+'</option>';}).join('')
+    + '</select>';
+
+  var filterBar = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+    + '<div style="font-size:10px;color:var(--text3);">Year</div>'+yearSel
+    + '<span style="font-size:11px;color:var(--text3);margin-left:8px;">'+wTotal+' employees · '+all.length+' violations · '+shownWeeks.length+' weeks</span>'
+    + '</div>';
+
+  var ss = 'font-family:\'IBM Plex Mono\',monospace;font-size:10px;';
+  var thead = '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
+    + '<th style="padding:8px 10px;text-align:left;'+ss+'color:var(--text3);width:44px;">#</th>'
+    + '<th style="padding:8px 10px;text-align:left;'+ss+'color:var(--text3);width:80px;">EMP NO.</th>'
+    + '<th style="padding:8px 10px;text-align:left;'+ss+'color:var(--text3);width:155px;">NAME</th>'
+    + '<th style="padding:8px 10px;text-align:left;'+ss+'color:var(--text3);width:120px;">ROLE</th>'
+    + '<th style="padding:8px 10px;text-align:left;'+ss+'color:var(--warn);width:88px;">WARNING</th>'
+    + '<th style="padding:8px 10px;text-align:center;'+ss+'color:var(--accent);width:56px;">TOTAL</th>'
+    + shownWeeks.map(function(w){return '<th style="padding:8px 6px;text-align:center;'+ss+'color:var(--text3);width:44px;">Wk'+w+'</th>';}).join('')
+    + '</tr></thead>';
+
+  var rows = wSlice.length === 0
+    ? '<tr><td colspan="'+(6+shownWeeks.length)+'" style="text-align:center;padding:32px;color:var(--text3);">No violations for '+_pcWeeklyYear+'.</td></tr>'
+    : wSlice.map(function(e,i) {
+        var warnStr = e.warningMailDate
+          ? '<span style="color:var(--warn);font-size:11px;">'+e.warningMailDate.slice(0,10)+'</span>'
+          : '<span style="color:var(--text3);">—</span>';
+        return '<tr style="border-bottom:1px solid var(--border);">'
+          + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);">'+(wStart+i+1)+'</td>'
+          + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.empNo+'</td>'
+          + '<td style="padding:7px 10px;font-weight:600;font-size:12px;">'+e.name+'</td>'
+          + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
+          + '<td style="padding:7px 10px;">'+warnStr+'</td>'
+          + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
+          + shownWeeks.map(function(w){var n=e.weeks[w]||0;return '<td style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+(n?_pcHeat(n):'')+'">'+(n||'—')+'</td>';}).join('')
+          + '</tr>';
+      }).join('');
+
+  var pager = wTotal > _PC_POL_PER
+    ? '<div style="position:sticky;bottom:0;background:var(--bg2);border-top:1px solid var(--border);padding:8px 12px;display:flex;align-items:center;gap:8px;justify-content:flex-end;z-index:10;">'
+      + '<span style="font-size:11px;color:var(--text3);">Page '+_pcWeeklyPage+'/'+wPages+' ('+wTotal+' employees)</span>'
+      + '<button class="btn btn-sm" onclick="_pcWeeklyPage=Math.max(1,_pcWeeklyPage-1);nav(\'policy\')" '+(_pcWeeklyPage<=1?'disabled':'')+'>Prev</button>'
+      + '<button class="btn btn-sm" onclick="_pcWeeklyPage=Math.min('+wPages+',_pcWeeklyPage+1);nav(\'policy\')" '+(_pcWeeklyPage>=wPages?'disabled':'')+'>Next</button>'
+      + '</div>'
+    : '';
+
+  return filterBar
+    + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:600px;">'
+    + thead + '<tbody>'+rows+'</tbody></table></div>'
+    + pager;
 }
 
 // ════════════════════════════════════════════
