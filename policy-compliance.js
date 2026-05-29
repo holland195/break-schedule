@@ -265,12 +265,11 @@ function _pcRenderPolicy() {
     : months;
 
   var thead = '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:50px;">#</th>'
-    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:70px;">EMP NO.</th>'
-    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:160px;">NAME</th>'
-    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">ROLE</th>'
-    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">LEADER</th>'
-    + '<th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--accent);font-family:\'IBM Plex Mono\',monospace;min-width:50px;">TOTAL</th>'
+    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:44px;">#</th>'
+    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:74px;">EMP NO.</th>'
+    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:155px;">NAME</th>'
+    + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:120px;">ROLE</th>'
+    + '<th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--accent);font-family:\'IBM Plex Mono\',monospace;width:56px;">TOTAL</th>'
     + shownMonths.map(function(m){
         var lbl = (mLabels[m]||m).replace(' 2026','');
         return '<th style="padding:8px 6px;text-align:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:44px;">'+lbl+'</th>';
@@ -283,7 +282,6 @@ function _pcRenderPolicy() {
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.empNo+'</td>'
       + '<td style="padding:7px 10px;font-weight:600;font-size:12px;">'+e.name+'</td>'
       + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
-      + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.leader+'</td>'
       + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
       + shownMonths.map(function(m){
           var n = e.months[m]||0;
@@ -306,7 +304,6 @@ function _pcRenderPolicy() {
       + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.empNo+'</td>'
       + '<td style="padding:7px 10px;font-weight:600;font-size:12px;">'+e.name+'</td>'
       + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
-      + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+e.leader+'</td>'
       + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
       + shownMonths.map(function(m){
           var n = e.months[m]||0;
@@ -316,7 +313,7 @@ function _pcRenderPolicy() {
   }).join('');
 
   var polPager = polTotal > _PC_POL_PER
-    ? '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:8px;">'
+    ? '<div style="position:sticky;bottom:0;background:var(--bg2);border-top:1px solid var(--border);padding:8px 12px;display:flex;align-items:center;gap:8px;justify-content:flex-end;z-index:10;">'
       + '<span style="font-size:11px;color:var(--text3);">Page '+_pcPolPage+'/'+polPages+' ('+polTotal+' employees)</span>'
       + '<button class="btn btn-sm" onclick="_pcPolPage=Math.max(1,_pcPolPage-1);_pcRerender()" '+(_pcPolPage<=1?'disabled':'')+'>Prev</button>'
       + '<button class="btn btn-sm" onclick="_pcPolPage=Math.min('+polPages+',_pcPolPage+1);_pcRerender()" '+(_pcPolPage>=polPages?'disabled':'')+'>Next</button>'
@@ -326,7 +323,7 @@ function _pcRenderPolicy() {
   var table = empList.length===0
     ? '<div class="empty"><div class="empty-ico">&#x1F4CB;</div>No records for the selected period.</div>'
     : '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
-      + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px;">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px;table-layout:fixed;">'
       + thead + '<tbody>'+rows+'</tbody></table></div>'
       + '<div style="font-size:11px;color:var(--text3);margin-top:6px;">Heat: <span style="color:var(--accent);font-weight:600;">1–2</span> &nbsp;&middot;&nbsp; <span style="color:var(--warn);font-weight:600;">3–5</span> &nbsp;&middot;&nbsp; <span style="color:var(--err);font-weight:700;">6+</span></div>'
       + polPager;
@@ -415,6 +412,7 @@ function _pcRenderRecords() {
           + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(r.role)+'</td>'
           + '<td style="padding:7px 10px;text-align:center;"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;background:var(--bg4);color:var(--text2);">'+(r.shift||'—')+'</span></td>'
           + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:12px;color:var(--accent);">'+r.event+'</td>'
+          + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
           + '<td style="padding:7px 10px;">'+_pcStatusBadge(r.status)+'</td>'
           + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'')+'</td>'
           + (isTraining(currentUser)
@@ -434,12 +432,12 @@ function _pcRenderRecords() {
     + '<button class="btn btn-sm" onclick="_pcPage=Math.min('+totalPages+',_pcPage+1);_pcRerender()" '+(_pcPage>=totalPages?'disabled':'')+'>Next</button>'
     + '</div>';
 
-  var colWidths = {'#':'44px','DATE':'88px','NAME':'155px','EMP NO.':'74px','ROLE':'125px','SFT':'44px','EVENT':'68px','STATUS':'108px','FB':'36px','ACTIONS':'120px'};
+  var colWidths = {'#':'44px','DATE':'88px','NAME':'155px','EMP NO.':'74px','ROLE':'120px','SFT':'44px','EVENT':'68px','LEADER':'108px','STATUS':'108px','FB':'36px','ACTIONS':'120px'};
   return stats + filterRow
     + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
-    + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;table-layout:fixed;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px;table-layout:fixed;">'
     + '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','STATUS','FB', isTraining(currentUser)?'ACTIONS':''].filter(Boolean).map(function(h){
+    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB', isTraining(currentUser)?'ACTIONS':''].filter(Boolean).map(function(h){
         return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:'+(colWidths[h]||'auto')+';">'+h+'</th>';
       }).join('')
     + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
