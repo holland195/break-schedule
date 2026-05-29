@@ -1841,41 +1841,14 @@ async function confirmScheduleImport() {
 function _renderStaffSchedule() {
   const hasUsers = state.users && state.users.length > 0;
 
-  const importPanel = `
-<div class="card" style="margin-bottom:16px;padding:14px 16px;">
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;">Import Schedule (Paste from Sheets)</div>
-  <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.7;">
-    Copy the schedule table from Google Sheets (select all cells including date headers) → <b>Ctrl+C</b> → paste below → <b>Parse</b>.<br>
-    <span style="color:var(--text3);">Required columns: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">Row# | Group | Name | Username | Role | DD/MM dates…</code></span>
-  </div>
-  <textarea id="paste-area" style="width:100%;min-height:100px;font-family:monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;resize:vertical;" placeholder="Paste tab-separated data from Google Sheets here…" oninput="_pasteContent=this.value">${_pasteContent}</textarea>
-  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-    <button class="btn btn-accent btn-sm" onclick="importFromPaste()">⚡ Parse</button>
-    <div id="paste-status" style="font-size:11px;flex:1;"></div>
-  </div>
-  <div id="sched-preview-section" style="display:none;margin-top:12px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <span style="font-size:12px;">Preview: <b id="sched-preview-count">0</b> staff</span>
-      <button class="btn btn-ok btn-sm" onclick="confirmScheduleImport()">✓ Confirm & Apply</button>
-    </div>
-    <div id="sched-preview-list" style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
-    <div id="import-split-panel" style="margin-top:12px;"></div>
-  </div>
-</div>`;
-
-  // If no users yet, show only the import panel
   if (!hasUsers) {
     return `
-<div style="margin-bottom:16px;">
-  <div class="empty" style="padding:24px 0 16px;">
-    <div class="empty-ico">📋</div>
-    <div>No schedule data yet. Paste your Google Sheets schedule below to get started.</div>
-  </div>
-  ${importPanel}
+<div class="empty" style="padding:48px 0;">
+  <div class="empty-ico">📋</div>
+  <div>No schedule data available.</div>
+  <div style="font-size:12px;color:var(--text3);margin-top:6px;">Schedule is synced automatically from Google Sheets each morning.</div>
 </div>`;
   }
-
-
 
   const allDates = Object.keys(
     state.users.find(u => Object.keys(u.schedule).some(k => /\d{2}\/\d{2}/.test(k)))?.schedule
@@ -1883,14 +1856,31 @@ function _renderStaffSchedule() {
   ).sort((a, b) => {
     const [da, ma] = a.split('/').map(Number);
     const [db, mb] = b.split('/').map(Number);
-    // Sort by month first, then day — handles cross-month schedules
     return ma !== mb ? ma - mb : da - db;
   });
-  const availableSundays = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun'));
+
+  // Available months (zero-padded MM strings) from schedule data
+  const availableMonths = [...new Set(allDates.filter(d => /\d{2}\/\d{2}/.test(d)).map(d => d.split('/')[1]))].sort();
+
+  // Auto-init or validate _schedMonth
+  if (!_schedMonth || !availableMonths.includes(_schedMonth)) {
+    const activeMM = activeMonday.split('/')[1];
+    _schedMonth = availableMonths.includes(activeMM) ? activeMM : (availableMonths[0] || activeMM);
+  }
+
+  // Snap activeMonday to selected month if it drifted
+  if (activeMonday.split('/')[1] !== _schedMonth) {
+    const firstSun = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun' && d.split('/')[1] === _schedMonth))[0];
+    if (firstSun) activeMonday = firstSun;
+  }
+
+  const monthSundays = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun' && d.split('/')[1] === _schedMonth));
   const weekRange = getWeekRange(activeMonday);
-  const displayDates = showFullMonth
-    ? _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d)))
-    : weekRange;
+  const monthDates = _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth));
+  const displayDates = showFullMonth ? monthDates : weekRange;
+
+  const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
+    '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
   const filteredUsers = state.users.filter(u =>
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
@@ -1901,20 +1891,22 @@ function _renderStaffSchedule() {
 
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-  <label style="font-size:11px;opacity:.7;">Week:</label>
+  <label style="font-size:11px;opacity:.7;">Month:</label>
+  <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;showFullMonth=true;nav('staff')">
+    ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
+  </select>
+  <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
+    ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
+  </button>
+  ${!showFullMonth ? `<label style="font-size:11px;opacity:.7;">Week:</label>
   <select class="login-select" style="width:160px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
-    ${availableSundays.map(s => {
+    ${monthSundays.map(s => {
       const end = getWeekRange(s)[6];
       return `<option value="${s}" ${s === activeMonday ? 'selected' : ''}>${s} – ${end}</option>`;
     }).join('')}
-  </select>
-  <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')">
-    ${showFullMonth ? '📂 Week only' : '📂 Full month'}
-  </button>
+  </select>` : ''}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
 </div>
-
-${importPanel}
 
 <div class="staff-tbl-wrap">
   <table>
@@ -1939,8 +1931,13 @@ ${importPanel}
 </div>`;
 }
 
-let _attImportMonth = new Date().getMonth() + 1;
-let _attImportYear = new Date().getFullYear();
+var _attNow = new Date();
+let _attImportMonth = _attNow.getDate() >= 25
+  ? (_attNow.getMonth() === 11 ? 1 : _attNow.getMonth() + 2)
+  : _attNow.getMonth() + 1;
+let _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
+  ? _attNow.getFullYear() + 1
+  : _attNow.getFullYear();
 let _staffAttConflictFilter = false;
 
 function _renderStaffAttendance() {
@@ -1968,23 +1965,8 @@ function _renderStaffAttendance() {
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
       </select>
-    </div>`;
-
-  const importPanel = `
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:600;margin-bottom:6px;">📋 Import Monthly Attendance</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.8;">
-        Excel format: same as your <b>Month attendance</b> sheet.<br>
-        Col A = No. · Col B = Emp# · Col C = Name · Col D = Position · Col E onward = dates<br>
-        Row 1 = date headers · Row 2 = day name formulas (auto-skipped) · Row 3+ = staff
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <input type="file" id="att-import-file" accept=".xlsx,.xls" style="font-size:12px;">
-        <button class="btn btn-accent btn-sm" onclick="importMonthlyAttendance()">Import Excel</button>
-        <button class="btn btn-sm" onclick="clearMonthlyAttendance(${year},${month})"
-          style="color:var(--err);border-color:var(--err);">🗑 Clear ${monthLabel}</button>
-        <span id="att-import-status" style="font-size:11px;"></span>
-      </div>
+      <button class="btn btn-sm" onclick="clearMonthlyAttendance(${year},${month})"
+        style="color:var(--err);border-color:var(--err);font-size:11px;">🗑 Clear ${monthLabel}</button>
     </div>`;
 
   // ── FIX: check monthlyAttendance directly, not through state.users ──
@@ -1999,11 +1981,9 @@ function _renderStaffAttendance() {
         ${monthPicker}
         <span style="font-size:12px;color:var(--text2);">${monthLabel}</span>
       </div>
-      ${importPanel}
       <div class="empty" style="padding:48px;">
         <div class="empty-ico">📋</div>
-        No attendance data for ${monthLabel}.<br>
-        <span style="font-size:12px;color:var(--text3);">Import an Excel file above.</span>
+        No attendance data for ${monthLabel}.
       </div>`;
   }
 
@@ -2179,7 +2159,6 @@ function _renderStaffAttendance() {
       ${conflictFilterBtn}
       <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${_staffAttConflictFilter ? `${filteredUsers.length} of ` : ''}${rowUsers.length} staff${totalConflicts > 0 ? ` · <span style="color:var(--err);">⚠ ${totalConflicts} with conflicts</span>` : ''}</span>
     </div>
-    ${importPanel}
     ${conflictBanner}
     ${legendHTML}
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 320px);border:1px solid var(--border);border-radius:8px;">
