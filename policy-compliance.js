@@ -99,7 +99,7 @@ function _pcApplyFilters() {
           !(r.username||'').toLowerCase().includes(q)) return false;
     }
     return true;
-  });
+  }).sort(function(a, b) { return b.no - a.no; });
 }
 
 // ── Helpers ──
@@ -415,7 +415,6 @@ function _pcRenderRecords() {
           + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(r.role)+'</td>'
           + '<td style="padding:7px 10px;text-align:center;"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;background:var(--bg4);color:var(--text2);">'+(r.shift||'—')+'</span></td>'
           + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:12px;color:var(--accent);">'+r.event+'</td>'
-          + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
           + '<td style="padding:7px 10px;">'+_pcStatusBadge(r.status)+'</td>'
           + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'')+'</td>'
           + (isTraining(currentUser)
@@ -429,18 +428,19 @@ function _pcRenderRecords() {
           + '</tr>';
       }).join('');
 
-  var pager = '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:8px;">'
+  var pager = '<div style="position:sticky;bottom:0;background:var(--bg2);border-top:1px solid var(--border);padding:8px 12px;display:flex;align-items:center;gap:8px;justify-content:flex-end;z-index:10;">'
     + '<span style="font-size:11px;color:var(--text3);">Page '+_pcPage+'/'+totalPages+' ('+_pcFiltered.length+')</span>'
     + '<button class="btn btn-sm" onclick="_pcPage=Math.max(1,_pcPage-1);_pcRerender()" '+(_pcPage<=1?'disabled':'')+'>Prev</button>'
     + '<button class="btn btn-sm" onclick="_pcPage=Math.min('+totalPages+',_pcPage+1);_pcRerender()" '+(_pcPage>=totalPages?'disabled':'')+'>Next</button>'
     + '</div>';
 
+  var colWidths = {'#':'44px','DATE':'88px','NAME':'155px','EMP NO.':'74px','ROLE':'125px','SFT':'44px','EVENT':'68px','STATUS':'108px','FB':'36px','ACTIONS':'120px'};
   return stats + filterRow
     + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
-    + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;table-layout:fixed;">'
     + '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB', isTraining(currentUser)?'ACTIONS':''].filter(Boolean).map(function(h){
-        return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+h+'</th>';
+    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','STATUS','FB', isTraining(currentUser)?'ACTIONS':''].filter(Boolean).map(function(h){
+        return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:'+(colWidths[h]||'auto')+';">'+h+'</th>';
       }).join('')
     + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
     + pager;
@@ -586,10 +586,9 @@ function _pcRenderSummary() {
     var color = ROLE_COLORS[role]||'var(--text2)';
 
     var thead = '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-      + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">#</th>'
-      + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:130px;">NAME</th>'
-      + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">LEADER</th>'
-      + '<th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--accent);font-family:\'IBM Plex Mono\',monospace;">TOTAL</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:36px;">#</th>'
+      + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">NAME</th>'
+      + '<th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--accent);font-family:\'IBM Plex Mono\',monospace;width:60px;">TOTAL</th>'
       + '<th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">VIOLATIONS</th>'
       + '</tr></thead>';
 
@@ -610,13 +609,12 @@ function _pcRenderSummary() {
       return '<tr style="border-bottom:1px solid var(--border);">'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);vertical-align:top;">'+(i+1)+'</td>'
         + '<td style="padding:6px 10px;font-weight:600;font-size:12px;vertical-align:top;">'+p.name+repeatBadge+'</td>'
-        + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);vertical-align:top;">'+p.leader+'</td>'
         + '<td style="padding:6px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;vertical-align:top;'+_pcHeat(p.records.length)+'">'+p.records.length+'</td>'
         + '<td style="padding:6px 10px;vertical-align:top;">'+evBadges+'</td>'
         + '</tr>';
     }).join('');
 
-    sections += '<div style="margin-bottom:16px;">'
+    sections += '<div>'
       + '<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:'+color+';padding-bottom:6px;border-bottom:1px solid var(--border);">'
       + role+' <span style="font-size:11px;color:var(--text3);font-weight:400;">'+persons.length+' staff · '+persons.reduce(function(s,p){return s+p.records.length;},0)+' violations</span></div>'
       + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
@@ -631,7 +629,9 @@ function _pcRenderSummary() {
     + Object.entries(PC_EVENTS).map(function(e){return '<div><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);">'+e[0]+'</b> — '+e[1]+'</div>';}).join('')
     + '</div></div>';
 
-  return filterBar + statRow + warningCard + sections + ref;
+  return filterBar + statRow + warningCard
+    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:start;margin-bottom:16px;">'
+    + sections + '</div>' + ref;
 }
 
 // ════════════════════════════════════════════
