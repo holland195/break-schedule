@@ -2001,7 +2001,7 @@ function _renderStaffAttendance() {
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
     const isSun = dow === 0;
-    return `<th style="min-width:44px;width:44px;padding:4px 2px;text-align:center;
+    return `<th style="min-width:54px;width:54px;padding:4px 2px;text-align:center;
       font-size:10px;font-weight:600;
       color:${isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)'};
       background:${isWknd ? 'var(--bg4)' : 'var(--bg3)'};
@@ -2079,8 +2079,10 @@ function _renderStaffAttendance() {
         bg = 'background:rgba(245,158,11,.10);';
         txt = String(rawCode).toUpperCase(); color = 'color:var(--warn);font-weight:600;';
       } else {
-        bg = 'background:rgba(74,222,128,.06);';
-        txt = parsed.shift || '✓'; color = 'color:var(--ok);font-weight:500;';
+        const sh = (parsed.shift || '').toUpperCase();
+        bg = sh ? `background:var(--${sh}-bg);` : 'background:rgba(74,222,128,.06);';
+        color = sh ? `color:var(--${sh}-color);font-weight:600;` : 'color:var(--ok);font-weight:500;';
+        txt = parsed.shift || '✓';
       }
       if (hasConflict) {
         bg = 'background:rgba(248,113,113,.12);';
@@ -2113,23 +2115,22 @@ function _renderStaffAttendance() {
           },400);"
         style="cursor:pointer;"` : '';
 
-      return `<td style="text-align:center;padding:2px 1px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
+      return `<td style="text-align:center;padding:2px 2px;min-width:54px;width:54px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${conflictClick}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
       </td>`;
 
     }).join('');
 
-    const conflictSummary = conflicts.length > 0
-      ? `<div style="font-size:10px;color:var(--err);margin-top:2px;">⚠ ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}: ${conflicts.map(c => c.dk).join(', ')}</div>`
-      : '';
-
-    return `<tr style="border-bottom:0.5px solid var(--border);${conflicts.length ? 'background:rgba(248,113,113,.03);' : ''}">
-      <td style="padding:5px 10px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);">
+    const rowBg = conflicts.length ? 'background:rgba(248,113,113,.03);' : '';
+    const stickyCell = 'position:sticky;z-index:1;background:var(--bg2);';
+    return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
+      <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:0;min-width:170px;width:170px;">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
-        <div style="font-size:10px;color:var(--text3);">${u.team || ''} · ${getRoleInfo(u.role).label}</div>
-        ${conflictSummary}
       </td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:170px;min-width:72px;width:72px;border-left:1px solid var(--border);font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:242px;min-width:68px;width:68px;border-left:1px solid var(--border);font-size:11px;color:var(--text3);">${u.team || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:310px;min-width:120px;width:120px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2157,13 +2158,22 @@ function _renderStaffAttendance() {
       <span style="font-size:11px;color:var(--text3);margin-left:4px;">${rowUsers.length} staff</span>
     </div>
     ${legendHTML}
-    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 320px);border:1px solid var(--border);border-radius:8px;">
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
       <table style="border-collapse:collapse;width:max-content;min-width:100%;">
         <thead>
           <tr>
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
-              min-width:200px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
+              min-width:170px;width:170px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);">NAME</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
+              min-width:72px;width:72px;position:sticky;top:0;left:170px;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">EMP NO.</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
+              min-width:68px;width:68px;position:sticky;top:0;left:242px;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">GROUP</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
+              min-width:120px;width:120px;position:sticky;top:0;left:310px;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
             ${theadDates}
           </tr>
         </thead>
