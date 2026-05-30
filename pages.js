@@ -1631,9 +1631,9 @@ function _renderStaffInfoRows(filter) {
       <td class="mono" style="font-size:11px;color:var(--text3);">${empNo}</td>
       <td style="font-weight:600;">${u.name || '—'}</td>
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
-      <td style="text-align:center;">${g}</td>
+      <td style="text-align:center;vertical-align:middle;">${g}</td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
-      <td style="font-size:11px;color:${roleColor};font-weight:500;">${_resolveRole(u.role) || '—'}</td>
+      <td style="font-size:11px;color:${roleColor};font-weight:500;">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1912,10 +1912,10 @@ function _renderStaffSchedule() {
   <table>
     <thead>
       <tr class="filter-row">
-        <td><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
-        <td><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
-        <td><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
+        <td style="min-width:80px;width:80px;"><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
+        <td style="min-width:150px;width:150px;"><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
+        <td style="min-width:90px;width:90px;"><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
+        <td style="min-width:110px;width:110px;"><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
         <td colspan="${displayDates.length}" style="padding-left:12px;color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
       </tr>
       <tr>
