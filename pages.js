@@ -306,21 +306,27 @@ function renderSchedule() {
   var todayDk = _tNow.getDate().toString().padStart(2,'0') + '/' + (_tNow.getMonth()+1).toString().padStart(2,'0');
 
   // Determine selected month (MM/YYYY)
-  var _curMonthStr = String(_tNow.getMonth()+1).padStart(2,'0') + '/2026';
-  var activeMonthStr = scheduleMonthStr || _curMonthStr;
-  var _smParts = activeMonthStr.split('/');
-  var _selMM = parseInt(_smParts[0]);
-  var _selYYYY = parseInt(_smParts[1]);
+  var _curYear = _tNow.getFullYear();
+  var _curMonthStr = String(_tNow.getMonth()+1).padStart(2,'0') + '/' + _curYear;
 
   // Collect available months from schedule keys
   var _allSchedKeys = Object.keys((state.users[0] && state.users[0].schedule) || {});
   var _monthSet = {};
   _allSchedKeys.forEach(function(dk) {
     var _p = dk.split('/');
-    if (_p.length === 2) _monthSet[_p[1].padStart(2,'0') + '/2026'] = true;
+    if (_p.length === 2) _monthSet[_p[1].padStart(2,'0') + '/' + _curYear] = true;
   });
-  var _MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Reset saved month if it's no longer in available months
   var _months = Object.keys(_monthSet).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+  if (scheduleMonthStr && _months.length > 0 && !_months.includes(scheduleMonthStr)) {
+    scheduleMonthStr = null;
+  }
+  var activeMonthStr = scheduleMonthStr || _curMonthStr || (_months.length > 0 ? _months[_months.length - 1] : _curMonthStr);
+  var _smParts = activeMonthStr.split('/');
+  var _selMM = parseInt(_smParts[0]);
+  var _selYYYY = parseInt(_smParts[1]);
+  var _MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   var monthPickerHTML = _months.length > 0 ? `
     <div style="display:flex;align-items:center;gap:8px;">
@@ -2030,10 +2036,7 @@ function _renderStaffAttendance() {
     const fu = state.users.find(u => u.username === uname);
     if (fu) return Object.assign({}, fu, { empNo: fu.empNo || siEmpNo });
     return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: siEmpNo, id: null } : null;
-  }).filter(Boolean).sort((a, b) => {
-    const td = _attTier(a.role) - _attTier(b.role);
-    return td !== 0 ? td : (a.name || '').localeCompare(b.name || '');
-  });
+  }).filter(Boolean).sort((a, b) => _roleSort(a, b));
 
   // Pre-compute conflicts per user (needed for filter + total count)
   const _preConflicts = {};
@@ -2186,7 +2189,7 @@ function _renderStaffAttendance() {
     </div>
     ${legendHTML}
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
-      <table style="border-collapse:collapse;width:max-content;min-width:100%;">
+      <table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">
         <thead>
           <tr>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
