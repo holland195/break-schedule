@@ -1576,7 +1576,7 @@ function _renderStaffInfo() {
     value="${infoFilter}"
     oninput="staffFilters._info=this.value;document.getElementById('staff-info-tbody').innerHTML=_renderStaffInfoRows(this.value)">
   <span style="font-size:11px;color:var(--text3);">${filtered.length} records</span>
-  ${isLeader(currentUser) ? `
+  ${isTraining(currentUser) ? `
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;">
       <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="font-size:11px;max-width:200px;">
@@ -1589,7 +1589,7 @@ function _renderStaffInfo() {
   <table>
     <thead>
       <tr>
-        <th>EMP#</th><th>FULL NAME</th><th>USERNAME</th><th>GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th>
+        <th>EMP#</th><th>FULL NAME</th><th>USERNAME</th><th>GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th><th>ACTIVE</th><th>PHONE</th>
       </tr>
     </thead>
     <tbody id="staff-info-tbody">${rows}</tbody>
@@ -1611,29 +1611,35 @@ function _renderStaffInfoRows(filter) {
     (_resolveRole(u.role) || '').toLowerCase().includes(f)
   ).map(u => {
     // Gender: icon only
-    const g = u.gender === 'F'
+    var g = u.gender === 'F'
       ? `<span style="color:var(--A-color);font-size:15px;" title="Female">♀</span>`
       : u.gender === 'M'
         ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
         : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
-    const roleLvl = ROLE_SORT_ORDER[_resolveRole(u.role)] ?? 9;
-    const roleColor = roleLvl <= 1 ? 'var(--accent)'
+    var roleLvl = ROLE_SORT_ORDER[_resolveRole(u.role)] ?? 9;
+    var roleColor = roleLvl <= 1 ? 'var(--accent)'
       : roleLvl <= 2 ? 'var(--warn)'
         : roleLvl <= 3 ? 'var(--ok)'
           : 'var(--text2)';
 
-    // empNo and dob come from local staffInfo (Excel import) — never from cloud
-    const empNo = u.empNo || '—';
-    const dob   = u.dob   || '—';
+    var empNo = u.empNo || '—';
+    var dob   = u.dob   || '—';
+    var phone = u.phone || '—';
+    var isActive = u.active !== false;
+    var activeBadge = isActive
+      ? `<span style="color:var(--ok);font-size:14px;" title="Active">●</span>`
+      : `<span style="color:var(--err);font-size:14px;" title="Inactive">●</span>`;
 
-    return `<tr>
+    return `<tr style="${isActive ? '' : 'opacity:0.45;'}">
       <td class="mono" style="font-size:11px;color:var(--text3);">${empNo}</td>
       <td style="font-weight:600;">${u.name || '—'}</td>
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
       <td style="text-align:center;vertical-align:middle;">${g}</td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
       <td style="font-size:11px;color:${roleColor};font-weight:500;">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
+      <td style="text-align:center;vertical-align:middle;">${activeBadge}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${phone}</td>
     </tr>`;
   }).join('');
 }
@@ -2432,6 +2438,17 @@ function _liveFilter() {
 // ═══════════════════════════════════════════════
 //  EXCEL IMPORT — Staff Info (SheetJS)
 // ═══════════════════════════════════════════════
+var _POS_MAP = {
+  'training manager':        'Agent Training Manager',
+  'training assistant':      'Agent Training Assistant',
+  'data analyst leader':     'Data Analyst Leader',
+  'data analyst supervisor': 'Data Analyst Supervisor',
+  'sr data supervisor':      'Sr Data Supervisor',
+  'sr data analyst':         'Sr Data Analyst',
+  'data supervisor':         'Data Supervisor',
+  'data analyst':            'Data Analyst',
+  'inspection manager':      'Admin',
+};
 function importExcelStaffInfo() {
   const fileInput = document.getElementById('excel-file-input');
   const statusEl = document.getElementById('excel-import-status');
@@ -2473,6 +2490,8 @@ function importExcelStaffInfo() {
       const dobCol = col('birth') || col('dob');
       const posCol = col('position') || col('role');
       const empCol = col('employee') || col('empno') || col('number');
+      const activeCol = col('active');
+      const phoneCol = col('phone');
 
       if (!nameCol || !userCol) {
         statusEl.innerHTML = `<span style="color:var(--err);">⚠ Could not find Name/Username columns. Found: ${keys.slice(0, 6).join(', ')}</span>`;
@@ -2490,10 +2509,20 @@ function importExcelStaffInfo() {
           : gRaw.includes('male') || gRaw === 'm' ? 'M' : '';
 
         const dob = String(row[dobCol] || '').trim();
-        const role = String(row[posCol] || '').trim();
+        const rawPos = String(row[posCol] || '').trim();
+        const role = _POS_MAP[rawPos.toLowerCase()] || rawPos;
         const empNo = String(row[empCol] || '').trim();
+        const phone = String(row[phoneCol] || '').trim();
 
-        DB.setStaffInfo(username, { empNo, name, gender, dob, role });
+        const activeRaw = activeCol ? row[activeCol] : undefined;
+        const active = activeRaw === false ? false
+          : (typeof activeRaw === 'string'
+            ? !['false', 'no', 'inactive', '0'].includes(activeRaw.toLowerCase())
+            : true);
+
+        // Merge with existing to preserve password / mustChangePassword
+        const existing = state.staffInfo[username] || {};
+        DB.setStaffInfo(username, Object.assign({}, existing, { empNo, name, gender, dob, role, active, phone }));
 
         // Also patch gender onto matching user in schedule DB (for extbreak eligibility)
         const schedUser = state.users.find(u => u.username === username);
