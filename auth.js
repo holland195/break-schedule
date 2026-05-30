@@ -298,7 +298,7 @@ function enterApp(fromSession) {
 
   if (currentUser.username === 'cuong.pham') {
     topAvatar.style.background = 'none';
-    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'C\';this.parentElement.style.background=\'' + avatarBg + '\'" />';
+    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'C\';p.style.background=\'' + avatarBg + '\'" />';
   } else {
     topAvatar.innerHTML = '';
     topAvatar.textContent   = currentUser.name.charAt(0);

@@ -2036,10 +2036,11 @@ function _renderStaffAttendance() {
     return 8;
   };
   const rowUsers = attUsernames.map(uname => {
-    const fu = state.users.find(u => u.username === uname);
-    if (fu) return Object.assign({}, fu, { empNo: fu.empNo || _pcEmpNo[uname] || '' });
     const si = state.staffInfo?.[uname];
-    return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: si.empNo || _pcEmpNo[uname] || '', id: null } : null;
+    const siEmpNo = (si && si.empNo) || _pcEmpNo[uname] || '';
+    const fu = state.users.find(u => u.username === uname);
+    if (fu) return Object.assign({}, fu, { empNo: fu.empNo || siEmpNo });
+    return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: siEmpNo, id: null } : null;
   }).filter(Boolean).sort((a, b) => {
     const td = _attTier(a.role) - _attTier(b.role);
     return td !== 0 ? td : (a.name || '').localeCompare(b.name || '');
