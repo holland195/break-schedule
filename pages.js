@@ -2017,11 +2017,16 @@ function _renderStaffAttendance() {
     return ud && Object.keys(ud).length > 0;
   });
 
-  // For each username, get full user info from state.users or fall back to staffInfo
+  // Build empNo lookup from policyCompliance records (covers users missing empNo in users array)
+  var _pcEmpNo = {};
+  (state.policyCompliance || []).forEach(function(r) {
+    if (r.username && r.empNo && !_pcEmpNo[r.username]) _pcEmpNo[r.username] = r.empNo;
+  });
+
   var _attTier = function(role) {
     var r = (role || '').toLowerCase();
     if (r.includes('training')) return 0;
-    if (r.includes('leader')) return 1;
+    if (r.includes('leader') || r.includes('supervisor') && r.includes('data analyst')) return 1;
     if (r === 'sr data supervisor' || r === 'sr qa') return 2;
     if (r === 'data supervisor' || r === 'qa') return 3;
     if (r === 'sr data analyst' || r === 'sr agent') return 4;
@@ -2029,10 +2034,10 @@ function _renderStaffAttendance() {
     return 6;
   };
   const rowUsers = attUsernames.map(uname => {
-    return state.users.find(u => u.username === uname) || (() => {
-      const si = state.staffInfo?.[uname];
-      return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: si.empNo || '', id: null } : null;
-    })();
+    const fu = state.users.find(u => u.username === uname);
+    if (fu) return Object.assign({}, fu, { empNo: fu.empNo || _pcEmpNo[uname] || '' });
+    const si = state.staffInfo?.[uname];
+    return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: si.empNo || _pcEmpNo[uname] || '', id: null } : null;
   }).filter(Boolean).sort((a, b) => {
     const td = _attTier(a.role) - _attTier(b.role);
     return td !== 0 ? td : (a.name || '').localeCompare(b.name || '');
@@ -2059,8 +2064,8 @@ function _renderStaffAttendance() {
 
   var _shColors = {
     A: ['rgba(225,29,122,.14)','#e11d7a'],
-    B: ['rgba(134,239,172,.12)','#16a34a'],
-    C: ['rgba(251,191,36,.12)','#d97706'],
+    B: ['rgba(0,188,212,.12)','#00acc1'],
+    C: ['rgba(67,160,71,.13)','#43a047'],
     D: ['rgba(14,165,233,.14)','#0ea5e9'],
     E: ['rgba(124,58,237,.14)','#7c3aed']
   };
@@ -2095,8 +2100,11 @@ function _renderStaffAttendance() {
         txt = code === '0' || code === '0.0' ? '0' : (code === 'A' ? 'AL' : code);
         color = 'color:var(--err);font-weight:600;';
       } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
-        bg = 'background:rgba(245,158,11,.10);';
-        txt = String(rawCode).toUpperCase(); color = 'color:var(--warn);font-weight:600;';
+        const hdSh = (parsed.shift || '').toUpperCase();
+        const hdSc = _shColors[hdSh];
+        bg = hdSc ? `background:${hdSc[0]};` : 'background:rgba(245,158,11,.10);';
+        color = hdSc ? `color:${hdSc[1]};font-weight:600;opacity:.75;` : 'color:var(--warn);font-weight:600;';
+        txt = String(rawCode).toUpperCase();
       } else {
         const sh = (parsed.shift || '').toUpperCase();
         const sc = _shColors[sh];
@@ -2150,7 +2158,7 @@ function _renderStaffAttendance() {
       </td>
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:170px;min-width:72px;width:72px;border-left:1px solid var(--border);font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:242px;min-width:68px;width:68px;border-left:1px solid var(--border);font-size:11px;color:var(--text3);">${u.team || '—'}</td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:310px;min-width:120px;width:120px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:310px;min-width:120px;width:120px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${_resolveRole(u.role) || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
