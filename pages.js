@@ -456,9 +456,10 @@ function renderSchedule() {
       var _p = dk.split('/');
       var dow2 = new Date(_selYYYY, parseInt(_p[1])-1, parseInt(_p[0])).getDay();
       var isWknd2 = dow2 === 0 || dow2 === 6;
-      var bgWknd = isWknd2 ? 'background:var(--bg4);' : '';
+      var isToday2 = dk === todayDk;
+      var tdBg = isToday2 ? 'background:rgba(31,102,241,.06);' : isWknd2 ? 'background:var(--bg4);' : '';
       if (userShift !== shiftToShow) {
-        return '<td style="text-align:center;padding:3px 1px;' + bgWknd + '">' +
+        return '<td style="text-align:center;padding:3px 1px;' + tdBg + '">' +
           '<span style="font-size:9px;color:var(--text3);">' + (userShift !== '0' ? userShift : '·') + '</span></td>';
       }
       var br = DB.getBreak(u.id, dk);
@@ -471,7 +472,7 @@ function renderSchedule() {
       var slotNum = slotIdx.length === 2 ? parseInt(slotIdx[1]) : 0;
       var slotCls = slotNum > 0 ? 'slot-' + slotNum : '';
       var shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
-      return '<td style="text-align:center;padding:3px 1px;' + bgWknd + '"' + (hasExt ? ' class="cell-female-ext"' : '') + '>' +
+      return '<td style="text-align:center;padding:3px 1px;' + tdBg + '"' + (hasExt ? ' class="cell-female-ext"' : '') + '>' +
         '<span class="' + (br ? 'break-slot assigned ' + slotCls : '') + '" ' +
         'style="font-size:9px;padding:2px 4px;' + (br ? '' : 'color:var(--text3)') + '" ' +
         'title="' + (br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned') + '">' +
