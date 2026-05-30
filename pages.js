@@ -127,14 +127,14 @@ function _getUserGender(u) {
 // ─────────────────────────────────────────────
 
 const ROLE_SORT_ORDER = {
-  'Agent Training Manager': 0,
+  'Agent Training Manager':   0,
   'Agent Training Assistant': 1,
-  'Data Analyst Leader': 2,
-  'Data Analyst Supervisor': 2,
-  'Sr Data Supervisor': 3,
-  'Data Supervisor': 4,
-  'Sr Data Analyst': 5,
-  'Data Analyst': 6,
+  'Data Analyst Leader':      2,
+  'Data Analyst Supervisor':  3,
+  'Sr Data Supervisor':       4,
+  'Data Supervisor':          5,
+  'Sr Data Analyst':          6,
+  'Data Analyst':             7,
   'Admin': 99,
 };
 
@@ -2024,14 +2024,16 @@ function _renderStaffAttendance() {
   });
 
   var _attTier = function(role) {
-    var r = (role || '').toLowerCase();
-    if (r.includes('training')) return 0;
-    if (r.includes('leader') || r.includes('supervisor') && r.includes('data analyst')) return 1;
-    if (r === 'sr data supervisor' || r === 'sr qa') return 2;
-    if (r === 'data supervisor' || r === 'qa') return 3;
-    if (r === 'sr data analyst' || r === 'sr agent') return 4;
-    if (r === 'data analyst' || r === 'agent') return 5;
-    return 6;
+    var r = (_resolveRole(role) || '').toLowerCase();
+    if (r === 'training manager') return 0;
+    if (r.includes('training')) return 1;
+    if (r === 'd.a leader' || r === 'leader') return 2;
+    if (r === 'd.a supervisor' || r === 'supervisor') return 3;
+    if (r === 'sr data supervisor' || r === 'sr qa') return 4;
+    if (r === 'data supervisor' || r === 'qa') return 5;
+    if (r === 'sr data analyst' || r === 'sr agent') return 6;
+    if (r === 'data analyst' || r === 'agent') return 7;
+    return 8;
   };
   const rowUsers = attUsernames.map(uname => {
     const fu = state.users.find(u => u.username === uname);
@@ -2063,12 +2065,13 @@ function _renderStaffAttendance() {
     : rowUsers;
 
   var _shColors = {
-    A: ['rgba(225,29,122,.14)','#e11d7a'],
-    B: ['rgba(0,188,212,.12)','#00acc1'],
-    C: ['rgba(67,160,71,.13)','#43a047'],
+    A: ['rgba(14,165,233,.14)','#0ea5e9'],
+    B: ['rgba(14,165,233,.14)','#0ea5e9'],
+    C: ['rgba(14,165,233,.14)','#0ea5e9'],
     D: ['rgba(14,165,233,.14)','#0ea5e9'],
-    E: ['rgba(124,58,237,.14)','#7c3aed']
+    E: ['rgba(14,165,233,.14)','#0ea5e9']
   };
+  var _hdColor = ['rgba(167,139,250,.14)','#a78bfa'];
 
   const tbodyRows = filteredUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
@@ -2100,10 +2103,8 @@ function _renderStaffAttendance() {
         txt = code === '0' || code === '0.0' ? '0' : (code === 'A' ? 'AL' : code);
         color = 'color:var(--err);font-weight:600;';
       } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
-        const hdSh = (parsed.shift || '').toUpperCase();
-        const hdSc = _shColors[hdSh];
-        bg = hdSc ? `background:${hdSc[0]};` : 'background:rgba(245,158,11,.10);';
-        color = hdSc ? `color:${hdSc[1]};font-weight:600;opacity:.75;` : 'color:var(--warn);font-weight:600;';
+        bg = `background:${_hdColor[0]};`;
+        color = `color:${_hdColor[1]};font-weight:600;`;
         txt = String(rawCode).toUpperCase();
       } else {
         const sh = (parsed.shift || '').toUpperCase();
@@ -2153,12 +2154,11 @@ function _renderStaffAttendance() {
     const rowBg = conflicts.length ? 'background:rgba(248,113,113,.03);' : '';
     const stickyCell = 'position:sticky;z-index:1;background:var(--bg2);';
     return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
-      <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:0;min-width:170px;width:170px;">
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
+      <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:170px;min-width:72px;width:72px;border-left:1px solid var(--border);font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:242px;min-width:68px;width:68px;border-left:1px solid var(--border);font-size:11px;color:var(--text3);">${u.team || '—'}</td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:310px;min-width:120px;width:120px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${_resolveRole(u.role) || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2190,17 +2190,14 @@ function _renderStaffAttendance() {
       <table style="border-collapse:collapse;width:max-content;min-width:100%;">
         <thead>
           <tr>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
+              min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);">EMP NO.</th>
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
-              min-width:170px;width:170px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
-              border-bottom:2px solid var(--border2);">NAME</th>
+              min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
-              min-width:72px;width:72px;position:sticky;top:0;left:170px;z-index:4;background:var(--bg3);
-              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">EMP NO.</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
-              min-width:68px;width:68px;position:sticky;top:0;left:242px;z-index:4;background:var(--bg3);
-              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">GROUP</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
-              min-width:120px;width:120px;position:sticky;top:0;left:310px;z-index:4;background:var(--bg3);
+              min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
             ${theadDates}
           </tr>

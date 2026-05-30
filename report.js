@@ -201,7 +201,7 @@ function renderTrainingDashboard() {
 <div class="page-header">
   <div>
     <div class="page-title">📊 Overview — All Shifts</div>
-    <div class="page-sub">${today} · View only · Agent Training</div>
+    <div class="page-sub">${today} · View only · Training</div>
   </div>
   <button class="btn btn-sm btn-accent" onclick="attendanceTab='report';nav('attendance')">📋 Monthly Report</button>
 </div>
