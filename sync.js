@@ -283,8 +283,11 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
      state.staffInfo[uname].name   = si.name   || state.staffInfo[uname].name   || '';
      state.staffInfo[uname].role   = si.role   || state.staffInfo[uname].role   || '';
      state.staffInfo[uname].gender = si.gender || state.staffInfo[uname].gender || '';
-     if (si.empNo) state.staffInfo[uname].empNo = si.empNo;
-     if (si.dob)   state.staffInfo[uname].dob   = si.dob;
+     if (si.empNo)  state.staffInfo[uname].empNo  = si.empNo;
+     if (si.dob)    state.staffInfo[uname].dob    = si.dob;
+     if (si.phone)  state.staffInfo[uname].phone  = si.phone;
+     if (si.active === false) state.staffInfo[uname].active = false;
+     else if (si.active === true) state.staffInfo[uname].active = true;
      // password never applied from cloud — local only
      // Cloud ALWAYS wins for mustChangePassword — never let seed override it
      // If cloud explicitly says false, user already changed pw → never prompt again
@@ -317,6 +320,8 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
     gender:             si.gender             || '',
     empNo:              si.empNo              || '',
     dob:                si.dob                || '',
+    active:             si.active !== false,
+    phone:              si.phone              || '',
     mustChangePassword: si.mustChangePassword === true ? true : false,
   };
 });
