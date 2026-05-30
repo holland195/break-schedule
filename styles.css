@@ -529,7 +529,9 @@ body.login-active #screen-app { display: none !important; }
   position: sticky !important;
   left: 0;
   z-index: 40 !important;   /* highest: corner cell (frozen header + frozen col) */
+  width: 200px;
   min-width: 200px;
+  max-width: 200px;
   text-align: left !important;
   background: var(--bg3) !important;
 }
@@ -540,7 +542,9 @@ body.login-active #screen-app { display: none !important; }
   z-index: 10;
   background: var(--bg2);
   border-right: 2px solid var(--border2);  /* stronger divider line after frozen col */
+  width: 200px;
   min-width: 200px;
+  max-width: 200px;
   padding: 9px 14px;
   vertical-align: middle;
   /* Shadow to show content is scrolling behind */
