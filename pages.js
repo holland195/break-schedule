@@ -1951,21 +1951,19 @@ function _renderStaffAttendance() {
   const attData = state.monthlyAttendance || {};
 
   const monthPicker = `
-      <select class="login-select" style="padding:5px 10px;font-size:12px;"
+      <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
         onchange="_attImportMonth=+this.value;nav('staff')">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
     `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
       .toLocaleString('en-US', { month: 'long' })}</option>`
   ).join('')}
       </select>
-      <select class="login-select" style="padding:5px 10px;font-size:12px;"
+      <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
         onchange="_attImportYear=+this.value;nav('staff')">
         ${[2024, 2025, 2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
-      </select>
-      <button class="btn btn-sm" onclick="clearMonthlyAttendance(${year},${month})"
-        style="color:var(--err);border-color:var(--err);font-size:11px;">🗑 Clear ${monthLabel}</button>`;
+      </select>`;
 
   // ── FIX: check monthlyAttendance directly, not through state.users ──
   const hasData = Object.values(attData).some(userMonths => {
@@ -2020,12 +2018,25 @@ function _renderStaffAttendance() {
   });
 
   // For each username, get full user info from state.users or fall back to staffInfo
+  var _attTier = function(role) {
+    var r = (role || '').toLowerCase();
+    if (r.includes('training')) return 0;
+    if (r.includes('leader')) return 1;
+    if (r === 'sr data supervisor' || r === 'sr qa') return 2;
+    if (r === 'data supervisor' || r === 'qa') return 3;
+    if (r === 'sr data analyst' || r === 'sr agent') return 4;
+    if (r === 'data analyst' || r === 'agent') return 5;
+    return 6;
+  };
   const rowUsers = attUsernames.map(uname => {
     return state.users.find(u => u.username === uname) || (() => {
       const si = state.staffInfo?.[uname];
-      return si ? { username: uname, name: si.name || uname, role: si.role || '', team: '', id: null } : null;
+      return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: si.empNo || '', id: null } : null;
     })();
-  }).filter(Boolean).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }).filter(Boolean).sort((a, b) => {
+    const td = _attTier(a.role) - _attTier(b.role);
+    return td !== 0 ? td : (a.name || '').localeCompare(b.name || '');
+  });
 
   // Pre-compute conflicts per user (needed for filter + total count)
   const _preConflicts = {};
@@ -2045,6 +2056,14 @@ function _renderStaffAttendance() {
   const filteredUsers = _staffAttConflictFilter
     ? rowUsers.filter(u => _preConflicts[u.username]?.length > 0)
     : rowUsers;
+
+  var _shColors = {
+    A: ['rgba(225,29,122,.14)','#e11d7a'],
+    B: ['rgba(134,239,172,.12)','#16a34a'],
+    C: ['rgba(251,191,36,.12)','#d97706'],
+    D: ['rgba(14,165,233,.14)','#0ea5e9'],
+    E: ['rgba(124,58,237,.14)','#7c3aed']
+  };
 
   const tbodyRows = filteredUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
@@ -2080,8 +2099,9 @@ function _renderStaffAttendance() {
         txt = String(rawCode).toUpperCase(); color = 'color:var(--warn);font-weight:600;';
       } else {
         const sh = (parsed.shift || '').toUpperCase();
-        bg = sh ? `background:var(--${sh}-bg);` : 'background:rgba(74,222,128,.06);';
-        color = sh ? `color:var(--${sh}-color);font-weight:600;` : 'color:var(--ok);font-weight:500;';
+        const sc = _shColors[sh];
+        bg = sc ? `background:${sc[0]};` : 'background:rgba(74,222,128,.06);';
+        color = sc ? `color:${sc[1]};font-weight:600;` : 'color:var(--ok);font-weight:500;';
         txt = parsed.shift || '✓';
       }
       if (hasConflict) {
