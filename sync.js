@@ -322,6 +322,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
     const usersCompact = state.users.map(u => ({
       id: u.id, username: u.username, name: u.name,
       team: u.team, role: u.role, gender: u.gender || '',
+      empNo: u.empNo || '',
       schedule: u.schedule || {},
     }));
     const payload = {
