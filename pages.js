@@ -1951,7 +1951,6 @@ function _renderStaffAttendance() {
   const attData = state.monthlyAttendance || {};
 
   const monthPicker = `
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <select class="login-select" style="padding:5px 10px;font-size:12px;"
         onchange="_attImportMonth=+this.value;nav('staff')">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
@@ -1966,8 +1965,7 @@ function _renderStaffAttendance() {
   ).join('')}
       </select>
       <button class="btn btn-sm" onclick="clearMonthlyAttendance(${year},${month})"
-        style="color:var(--err);border-color:var(--err);font-size:11px;">🗑 Clear ${monthLabel}</button>
-    </div>`;
+        style="color:var(--err);border-color:var(--err);font-size:11px;">🗑 Clear ${monthLabel}</button>`;
 
   // ── FIX: check monthlyAttendance directly, not through state.users ──
   const hasData = Object.values(attData).some(userMonths => {
@@ -1977,9 +1975,8 @@ function _renderStaffAttendance() {
 
   if (!hasData) {
     return `
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
         ${monthPicker}
-        <span style="font-size:12px;color:var(--text2);">${monthLabel}</span>
       </div>
       <div class="empty" style="padding:48px;">
         <div class="empty-ico">📋</div>
@@ -2154,12 +2151,11 @@ function _renderStaffAttendance() {
     </button>`;
 
   return `
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       ${monthPicker}
       ${conflictFilterBtn}
-      <span style="font-size:12px;color:var(--text2);">${monthLabel} · ${_staffAttConflictFilter ? `${filteredUsers.length} of ` : ''}${rowUsers.length} staff${totalConflicts > 0 ? ` · <span style="color:var(--err);">⚠ ${totalConflicts} with conflicts</span>` : ''}</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:4px;">${rowUsers.length} staff</span>
     </div>
-    ${conflictBanner}
     ${legendHTML}
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 320px);border:1px solid var(--border);border-radius:8px;">
       <table style="border-collapse:collapse;width:max-content;min-width:100%;">
