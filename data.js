@@ -193,10 +193,10 @@ const SHIFT_DEFAULTS = {
 
 const ROLES = {
   'Admin':                    {level:4,tag:'role-leader',label:'Admin'},
-  'Agent Training Manager':   {level:3,tag:'role-training',label:'Training Mgr'},
-  'Agent Training Assistant': {level:3,tag:'role-training',label:'Training Asst'},
-  'Data Analyst Leader':      {level:2,tag:'role-leader',label:'Leader'},
-  'Data Analyst Supervisor':  {level:2,tag:'role-leader',label:'Supervisor'},
+  'Agent Training Manager':   {level:3,tag:'role-training',label:'Training Manager'},
+  'Agent Training Assistant': {level:3,tag:'role-training',label:'Training Assistant'},
+  'Data Analyst Leader':      {level:2,tag:'role-leader',label:'D.A Leader'},
+  'Data Analyst Supervisor':  {level:2,tag:'role-leader',label:'D.A Supervisor'},
   'Sr Data Analyst':          {level:1,tag:'role-agent', label:'Sr Data Analyst'},
   'Data Analyst':             {level:0,tag:'role-agent', label:'Data Analyst'},
   'Data Supervisor':          {level:0,tag:'role-qa',    label:'Data Supervisor'},
