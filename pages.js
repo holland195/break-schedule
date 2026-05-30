@@ -291,147 +291,98 @@ ${teamGrid}`;
 
 // State variable for schedule page week — leaders can change it
 let scheduleMonday = null; // null = "use current real week"
+var scheduleMonthStr = ''; // 'MM/YYYY'; empty = current month
 
 function renderSchedule() {
-  const canPickWeek = isLeader(currentUser);
-  const canViewFutureWeeks = !isLeader(currentUser); // agents can view future but not edit
   if (isTraining(currentUser)) {
     if (typeof renderScheduleTraining === 'function') return renderScheduleTraining();
     return '<div class="empty">Loading…</div>';
   }
-  const isTrainingUser = isTraining(currentUser);
-  const shiftToShow = isTrainingUser
-    ? (window._scheduleShiftTab || 'A')
-    : currentShift;
 
-  let weekDates;
-  if (scheduleMonday) {
-    weekDates = getWeekRange(scheduleMonday);
-  } else {
-    weekDates = getWeekDates();
-  }
+  var shiftToShow = currentShift;
+  var schedSearch = window._schedSearch || '';
+  var shiftSlots = BREAK_SLOTS[shiftToShow] || [];
+  var _tNow = new Date();
+  var todayDk = _tNow.getDate().toString().padStart(2,'0') + '/' + (_tNow.getMonth()+1).toString().padStart(2,'0');
 
-  const dateToDayName = {};
-  weekDates.forEach((dk, i) => { dateToDayName[dk] = WEEK_DAYS[i]; });
+  // Determine selected month (MM/YYYY)
+  var _curMonthStr = String(_tNow.getMonth()+1).padStart(2,'0') + '/2026';
+  var activeMonthStr = scheduleMonthStr || _curMonthStr;
+  var _smParts = activeMonthStr.split('/');
+  var _selMM = parseInt(_smParts[0]);
+  var _selYYYY = parseInt(_smParts[1]);
+
+  // Collect available months from schedule keys
+  var _allSchedKeys = Object.keys((state.users[0] && state.users[0].schedule) || {});
+  var _monthSet = {};
+  _allSchedKeys.forEach(function(dk) {
+    var _p = dk.split('/');
+    if (_p.length === 2) _monthSet[_p[1].padStart(2,'0') + '/2026'] = true;
+  });
+  var _MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var _months = Object.keys(_monthSet).sort(function(a, b) { return parseInt(a) - parseInt(b); });
+
+  var monthPickerHTML = _months.length > 0 ? `
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">MONTH:</span>
+      <select class="login-select" style="padding:4px 8px;font-size:11px;"
+        onchange="scheduleMonthStr=this.value;nav('schedule')">
+        ${_months.map(function(ms) {
+          var _mp = ms.split('/');
+          var _mn = _MONTH_NAMES[parseInt(_mp[0])-1] + ' ' + _mp[1];
+          return '<option value="' + ms + '"' + (ms === activeMonthStr ? ' selected' : '') + '>' + _mn + '</option>';
+        }).join('')}
+      </select>
+    </div>` : '';
+
+  // Get all date keys for the selected month, sorted by day
+  var monthDates = _allSchedKeys
+    .filter(function(dk) {
+      var _p = dk.split('/');
+      return _p.length === 2 && parseInt(_p[1]) === _selMM;
+    })
+    .sort(function(a, b) { return parseInt(a) - parseInt(b); });
+
+  // Map date key → day name (for schedule day-name fallback lookup)
+  var dateToDayName = {};
+  monthDates.forEach(function(dk) {
+    var _p = dk.split('/');
+    dateToDayName[dk] = WEEK_DAYS[new Date(_selYYYY, parseInt(_p[1])-1, parseInt(_p[0])).getDay()];
+  });
 
   function getUserShift(u, dateKey) {
     return u.schedule[dateKey] || u.schedule[dateToDayName[dateKey]] || '0';
   }
 
-  const schedSearch = window._schedSearch || '';
-  const shiftSlots = BREAK_SLOTS[shiftToShow] || [];
-  const _tNow = new Date();
-const todayDk = `${_tNow.getDate().toString().padStart(2,'0')}/${(_tNow.getMonth()+1).toString().padStart(2,'0')}`;
+  // All users who work this shift at least once this month
+  var allShiftUsers = state.users.filter(function(u) {
+    return monthDates.some(function(dk) { return getUserShift(u, dk) === shiftToShow; });
+  });
 
-  // All users on this shift (unfiltered, for totals)
-  const allShiftUsers = state.users.filter(u =>
-    weekDates.some(dk => getUserShift(u, dk) === shiftToShow)
-  );
-
-  // Slot totals across the week
-  let slot1Count = 0, slot2Count = 0;
-  allShiftUsers.forEach(u => {
-    weekDates.forEach(dk => {
-      const br = DB.getBreak(u.id, dk);
+  // Slot totals across the month
+  var slot1Count = 0, slot2Count = 0;
+  allShiftUsers.forEach(function(u) {
+    monthDates.forEach(function(dk) {
+      var br = DB.getBreak(u.id, dk);
       if (!br) return;
-      const idx = shiftSlots.indexOf(br.slot);
+      var idx = shiftSlots.indexOf(br.slot);
       if (idx === 0) slot1Count++;
       else if (idx === 1) slot2Count++;
     });
   });
 
   // Filtered for display
-  let shiftUsers = [...allShiftUsers];
+  var shiftUsers = allShiftUsers.slice();
   if (schedSearch) {
-    const q = schedSearch.toLowerCase();
-    shiftUsers = shiftUsers.filter(u =>
-      (u.name || '').toLowerCase().includes(q) ||
-      (u.username || '').toLowerCase().includes(q)
-    );
-  }
-
-  // Week picker (leaders only)
-  let weekPickerHTML = '';
-    if (canPickWeek) {
-    const allDates = Object.keys(state.users[0]?.schedule || {});
-    const sundays = allDates.filter(d => getWkDay(d) === 'Sun').sort((a, b) => {
-      const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-      return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
+    var _sq = schedSearch.toLowerCase();
+    shiftUsers = shiftUsers.filter(function(u) {
+      return (u.name || '').toLowerCase().includes(_sq) ||
+             (u.username || '').toLowerCase().includes(_sq);
     });
-    const activeSun = scheduleMonday || weekDates[0];
-    weekPickerHTML = sundays.length > 0 ? `
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
-        <select class="login-select" style="padding:4px 8px;font-size:11px;"
-          onchange="scheduleMonday=this.value;nav('schedule')">
-          ${sundays.map(s => {
-            const [d, m] = s.split('/');
-            const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
-            const endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
-            return `<option value="${s}" ${s === activeSun ? 'selected' : ''}>${s} – ${endStr}</option>`;
-          }).join('')}
-        </select>
-      </div>` : '';
   }
 
-
-let agentWeekPickerHTML = '';
-  if (!canPickWeek) {
-    const _allDates = Object.keys(state.users[0]?.schedule || {});
-    const _todayMMDD = (() => { const n = new Date(); return (n.getMonth()+1)*100 + n.getDate(); })();
-    const _agentSundays = _allDates
-      .filter(d => getWkDay(d) === 'Sun')
-      .filter(d => {
-        const [dd, mm] = d.split('/').map(Number);
-        // Show current week (sun that started this week) and future
-        const sundayMMDD = mm * 100 + dd;
-        // Current week's Sunday: go back to this week's Sunday
-        const now = new Date();
-        const thisSun = new Date(now); thisSun.setDate(now.getDate() - now.getDay());
-        const thisSunMMDD = (thisSun.getMonth()+1)*100 + thisSun.getDate();
-        return sundayMMDD >= thisSunMMDD;
-      })
-      .sort((a, b) => {
-        const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-        return new Date(2026, parseInt(ma)-1, parseInt(da)) - new Date(2026, parseInt(mb)-1, parseInt(db));
-      });
-    const _activeSun = scheduleMonday || weekDates[0];
-    if (_agentSundays.length > 0) {
-      agentWeekPickerHTML = `
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
-          <select class="login-select" style="padding:3px 7px;font-size:11px;"
-            onchange="scheduleMonday=this.value;nav('schedule')">
-            ${_agentSundays.map(s => {
-              const [d, m] = s.split('/');
-              const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
-              const endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
-              return `<option value="${s}" ${s === _activeSun ? 'selected' : ''}>${s} – ${endStr}</option>`;
-            }).join('')}
-          </select>
-        </div>`;
-    }
-  }
-
-  // Shift tab bar for training role
-  const shiftTabsHTML = isTrainingUser ? `
-    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
-      ${['A', 'D', 'E'].map(sh => {
-    const active = shiftToShow === sh;
-    const cnt = state.users.filter(u => weekDates.some(dk => getUserShift(u, dk) === sh)).length;
-    return `<button onclick="window._scheduleShiftTab='${sh}';window._schedSearch='';nav('schedule')"
-          style="padding:7px 18px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;
-            border:1.5px solid ${active ? `var(--${sh}-color)` : 'var(--border)'};
-            background:${active ? `var(--${sh}-bg)` : 'var(--bg2)'};
-            color:${active ? `var(--${sh}-color)` : 'var(--text2)'};transition:all .12s;">
-          Shift ${sh}
-          <span style="font-size:10px;opacity:.7;margin-left:4px;">${cnt}</span>
-        </button>`;
-  }).join('')}
-    </div>` : '';
-
-  // Compact card: search + shift stats combined
-  const slotTotalsHTML = shiftSlots.length > 0 ? `
+  // Slot totals strip + search bar
+  var slotTotalsHTML = shiftSlots.length > 0 ? `
     <div style="display:flex;align-items:center;gap:12px;padding:8px 14px;
       background:var(--bg3);border-radius:8px;border:1px solid var(--border);
       margin-bottom:14px;flex-wrap:wrap;">
@@ -439,12 +390,12 @@ let agentWeekPickerHTML = '';
         placeholder="🔍 Search by name…"
         value="${schedSearch}"
         oninput="window._schedSearch=this.value;
-          const q=this.value.toLowerCase();
-          document.querySelectorAll('#sched-tbody tr').forEach(r=>{
-            const nm=(r.querySelector('.sched-name')||{}).textContent||'';
+          var q=this.value.toLowerCase();
+          document.querySelectorAll('#sched-tbody tr').forEach(function(r){
+            var nm=(r.querySelector('.sched-name')||{}).textContent||'';
             r.style.display=nm.toLowerCase().includes(q)?'':'none';
           });
-          document.getElementById('sched-count').textContent=([...document.querySelectorAll('#sched-tbody tr')].filter(r=>r.style.display!=='none').length)+' staff';">
+          document.getElementById('sched-count').textContent=([...document.querySelectorAll('#sched-tbody tr')].filter(function(r){return r.style.display!=='none';}).length)+' staff';">
       <span style="color:var(--border2);flex-shrink:0;">|</span>
       <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;">
         Shift ${shiftToShow}
@@ -452,90 +403,102 @@ let agentWeekPickerHTML = '';
         <span style="color:var(--text3);font-size:11px;font-weight:400;"> staff</span>
       </span>
       <span style="color:var(--border2);flex-shrink:0;">|</span>
-      ${shiftSlots.map((time, i) => {
-    const count = i === 0 ? slot1Count : slot2Count;
-    return `<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
-          <span class="break-slot slot-${i + 1}" style="font-size:10px;padding:2px 7px;">${shiftToShow}${i + 1}</span>
-          <span style="font-size:12px;color:var(--text);font-weight:600;">${count}</span>
-          <span style="font-size:11px;color:var(--text3);">assigned</span>
-        </span>`;
-  }).join(`<span style="color:var(--border2);">·</span>`)}
+      ${shiftSlots.map(function(time, i) {
+        var count = i === 0 ? slot1Count : slot2Count;
+        return '<span style="display:flex;align-items:center;gap:5px;white-space:nowrap;">' +
+          '<span class="break-slot slot-' + (i+1) + '" style="font-size:10px;padding:2px 7px;">' + shiftToShow + (i+1) + '</span>' +
+          '<span style="font-size:12px;color:var(--text);font-weight:600;">' + count + '</span>' +
+          '<span style="font-size:11px;color:var(--text3);">assigned</span>' +
+          '</span>';
+      }).join('<span style="color:var(--border2);">·</span>')}
     </div>` : '';
 
-  // Legend
-  const legendItems = shiftSlots.map((time, i) => `
-    <div style="display:flex;align-items:center;gap:6px;">
-      <span class="break-slot assigned slot-${i + 1}" style="font-size:10px;min-width:28px;text-align:center;">${shiftToShow}${i + 1}</span>
-      <span style="color:var(--text2);font-size:11px;">${time}</span>
-    </div>`).join('');
+  // Break slot legend
+  var legendItems = shiftSlots.map(function(time, i) {
+    return '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span class="break-slot assigned slot-' + (i+1) + '" style="font-size:10px;min-width:28px;text-align:center;">' + shiftToShow + (i+1) + '</span>' +
+      '<span style="color:var(--text2);font-size:11px;">' + time + '</span>' +
+      '</div>';
+  }).join('');
 
-  // Table header
-  const theadCells = weekDates.map((dk, i) => {
-    const isToday = dk === todayDk;
-    return `<th style="min-width:70px;text-align:center;padding:8px 4px;
-      background:${isToday ? 'rgba(31,102,241,.08)' : 'var(--bg3)'};
-      border-bottom:2px solid ${isToday ? 'var(--accent)' : 'var(--border2)'};">
-      <div style="color:${isToday ? 'var(--accent)' : 'var(--text2)'};font-size:11px;font-weight:700;">${WEEK_DAYS[i]}</div>
-      <div style="font-size:10px;color:${isToday ? 'var(--accent)' : 'var(--text3)'};font-weight:400;">${dk}</div>
-    </th>`;
+  // Table header — compact, one column per day
+  var _WDAY_SHORT = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  var theadCells = monthDates.map(function(dk) {
+    var _p = dk.split('/');
+    var _d = parseInt(_p[0]);
+    var _m = parseInt(_p[1]);
+    var dow = new Date(_selYYYY, _m-1, _d).getDay();
+    var isToday = dk === todayDk;
+    var isWknd = dow === 0 || dow === 6;
+    var isSun = dow === 0;
+    return '<th style="min-width:44px;width:44px;padding:4px 2px;text-align:center;' +
+      'font-size:10px;font-weight:600;' +
+      'color:' + (isToday ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
+      'background:' + (isToday ? 'rgba(31,102,241,.08)' : isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
+      'border-bottom:2px solid ' + (isToday ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
+      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
+      'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
+      '<div style="font-size:9px;opacity:.65;line-height:1.5;">' + _WDAY_SHORT[dow] + '</div>' +
+      '<div style="font-size:11px;line-height:1.3;">' + String(_d).padStart(2,'0') + '</div>' +
+      '</th>';
   }).join('');
 
   // Table body
-  const tbodyRows = shiftUsers.map(u => {
-    const cells = weekDates.map(dk => {
-      const userShift = getUserShift(u, dk);
+  var tbodyRows = shiftUsers.map(function(u) {
+    var cells = monthDates.map(function(dk) {
+      var userShift = getUserShift(u, dk);
+      var _p = dk.split('/');
+      var dow2 = new Date(_selYYYY, parseInt(_p[1])-1, parseInt(_p[0])).getDay();
+      var isWknd2 = dow2 === 0 || dow2 === 6;
+      var bgWknd = isWknd2 ? 'background:var(--bg4);' : '';
       if (userShift !== shiftToShow) {
-        return `<td style="text-align:center;padding:6px 4px;">
-          <span style="font-size:10px;color:var(--text3);">—</span></td>`;
+        return '<td style="text-align:center;padding:3px 1px;' + bgWknd + '">' +
+          '<span style="font-size:9px;color:var(--text3);">' + (userShift !== '0' ? userShift : '·') + '</span></td>';
       }
-      const br = DB.getBreak(u.id, dk);
-      const _extEntries = DB.getExtBreaks(u.id, currentMonthKey()) || [];
-      const hasExt = _extEntries.some(e => {
-        const _days = (e.days && e.days.length > 0) ? e.days : (e.day ? [e.day] : []);
+      var br = DB.getBreak(u.id, dk);
+      var _extEntries = DB.getExtBreaks(u.id, currentMonthKey()) || [];
+      var hasExt = _extEntries.some(function(e) {
+        var _days = (e.days && e.days.length > 0) ? e.days : (e.day ? [e.day] : []);
         return _days.includes(dk);
       });
-      const slotIdx = br ? getShortSlot(shiftToShow, br.slot) : '';
-      const slotNum = slotIdx.length === 2 ? parseInt(slotIdx[1]) : 0;
-      const slotCls = slotNum > 0 ? `slot-${slotNum}` : '';
-      const shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
-
-
-      return `<td style="text-align:center;padding:4px 2px;"${hasExt ? ' class="cell-female-ext"' : ''}>
-        <span class="${br ? `break-slot assigned ${slotCls}` : ''}"
-          style="font-size:10px;padding:3px 8px;${br ? '' : 'color:var(--text3)'}"
-          title="${br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned'}">
-          ${shortCode}${hasExt ? ' 🌸' : ''}
-        </span></td>`;
+      var slotIdx = br ? getShortSlot(shiftToShow, br.slot) : '';
+      var slotNum = slotIdx.length === 2 ? parseInt(slotIdx[1]) : 0;
+      var slotCls = slotNum > 0 ? 'slot-' + slotNum : '';
+      var shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
+      return '<td style="text-align:center;padding:3px 1px;' + bgWknd + '"' + (hasExt ? ' class="cell-female-ext"' : '') + '>' +
+        '<span class="' + (br ? 'break-slot assigned ' + slotCls : '') + '" ' +
+        'style="font-size:9px;padding:2px 4px;' + (br ? '' : 'color:var(--text3)') + '" ' +
+        'title="' + (br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned') + '">' +
+        shortCode + (hasExt ? '🌸' : '') +
+        '</span></td>';
     }).join('');
-    return `<tr>
-      <td class="sched-name-col">
-        <div class="sched-name">${u.name}</div>
-        <div class="sched-meta">${u.team || ''} · ${getRoleInfo(u.role).label}</div>
-      </td>${cells}
-    </tr>`;
+    return '<tr>' +
+      '<td class="sched-name-col">' +
+        '<div class="sched-name">' + u.name + '</div>' +
+        '<div class="sched-meta">' + (u.team || '') + ' · ' + getRoleInfo(u.role).label + '</div>' +
+      '</td>' + cells + '</tr>';
   }).join('');
 
-  const emptyMsg = shiftUsers.length === 0
-    ? `<div class="empty" style="padding:40px;">
-        <div class="empty-ico">👥</div>
-        ${schedSearch ? `No results for "${schedSearch}"` : `No staff on Shift ${shiftToShow} this week.`}
-      </div>`
-    : '';
+  var monthLabel = _MONTH_NAMES[_selMM-1] + ' ' + _selYYYY;
+  var emptyMsg = shiftUsers.length === 0 ? `
+    <div class="empty" style="padding:40px;">
+      <div class="empty-ico">👥</div>
+      ${schedSearch ? `No results for "${schedSearch}"` : `No staff on Shift ${shiftToShow} in ${monthLabel}.`}
+    </div>` : '';
 
   return `
 <div class="schedule-title-row">
   <div>
-    <div class="page-title">Break Schedule${isTrainingUser ? ' — All Shifts' : ` — Shift ${shiftToShow}`}</div>
-    <div class="page-sub">${SHIFTS[shiftToShow]?.display || ''}</div>
+    <div class="page-title">Break Schedule — Shift ${shiftToShow}</div>
+    <div class="page-sub">${SHIFTS[shiftToShow]?.display || ''} · ${monthLabel}</div>
   </div>
   <div class="schedule-legend-inline" style="flex-wrap:wrap;gap:8px;">
-    ${canPickWeek ? weekPickerHTML : agentWeekPickerHTML}
+    ${monthPickerHTML}
     <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Legend:</span>
     ${legendItems || '<span style="color:var(--text3);font-size:11px">—</span>'}
   </div>
 </div>
 
-${shiftTabsHTML}
 ${slotTotalsHTML}
 ${emptyMsg}
 ${shiftUsers.length > 0 ? `
@@ -545,9 +508,9 @@ ${shiftUsers.length > 0 ? `
       <th class="sched-th-name">Name / Group</th>
       ${theadCells}
     </tr></thead>
-    <tbody id="sched-tbody">${tbodyRows}</tbody>    
+    <tbody id="sched-tbody">${tbodyRows}</tbody>
   </table>
-</div>`: ''}`;
+</div>` : ''}`;
 }
 
 // ── Month filter helpers (shared by requests + ext break pages) ──
@@ -1589,7 +1552,7 @@ function _renderStaffInfo() {
   <table>
     <thead>
       <tr>
-        <th>ACTIVE</th><th>EMP#</th><th>FULL NAME</th><th>USERNAME</th><th>GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th><th>PHONE</th>
+        <th style="text-align:center;width:52px;">ACTIVE</th><th style="width:90px;">EMP#</th><th>FULL NAME</th><th>USERNAME</th><th style="text-align:center;width:60px;">GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th><th>PHONE</th>
       </tr>
     </thead>
     <tbody id="staff-info-tbody">${rows}</tbody>
@@ -1627,9 +1590,13 @@ function _renderStaffInfoRows(filter) {
     var dob   = u.dob   || '—';
     var phone = u.phone || '—';
     var isActive = u.active !== false;
-    var activeBadge = isActive
-      ? `<span style="color:var(--ok);font-size:14px;" title="Active">●</span>`
-      : `<span style="color:var(--err);font-size:14px;" title="Inactive">●</span>`;
+    var activeBadge = isTraining(currentUser)
+      ? `<button onclick="toggleStaffActive('${u.username}')"
+           title="${isActive ? 'Click to deactivate' : 'Click to activate'}"
+           style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:6px;
+                  color:${isActive ? 'var(--ok)' : 'var(--err)'};font-size:15px;transition:opacity .1s;"
+           onmouseover="this.style.opacity='.6'" onmouseout="this.style.opacity='1'">●</button>`
+      : `<span style="color:${isActive ? 'var(--ok)' : 'var(--err)'};font-size:14px;" title="${isActive ? 'Active' : 'Inactive'}">●</span>`;
 
     return `<tr style="${isActive ? '' : 'opacity:0.45;'}">
       <td style="text-align:center;vertical-align:middle;">${activeBadge}</td>
@@ -1643,6 +1610,15 @@ function _renderStaffInfoRows(filter) {
     </tr>`;
   }).join('');
 }
+function toggleStaffActive(username) {
+  if (!state.staffInfo[username]) return;
+  var wasActive = state.staffInfo[username].active !== false;
+  state.staffInfo[username].active = !wasActive;
+  syncPush();
+  var tbody = document.getElementById('staff-info-tbody');
+  if (tbody) tbody.innerHTML = _renderStaffInfoRows(staffFilters._info || '');
+}
+
 // Variable to hold the parsed preview data before final confirmation
 let _tempImportedUsers = [];
 
@@ -1990,11 +1966,18 @@ function _renderStaffAttendance() {
 
   // Legend
   const legendHTML = `
-    <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;">
-      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working day
+    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">
+      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working
       <span style="background:rgba(245,158,11,.12);color:var(--warn);padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
-      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:500;">OFF</span> Off / Leave
-      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict with attendance log
+      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
+      <span style="background:rgba(234,179,8,.13);color:#ca8a04;padding:2px 7px;border-radius:4px;font-weight:600;">A</span> Annual
+      <span style="background:rgba(220,38,38,.13);color:#dc2626;padding:2px 7px;border-radius:4px;font-weight:600;">H</span> Holiday
+      <span style="background:rgba(22,163,74,.13);color:#16a34a;padding:2px 7px;border-radius:4px;font-weight:600;">0</span> Day off
+      <span style="background:rgba(225,29,72,.12);color:#e11d48;padding:2px 7px;border-radius:4px;font-weight:600;">U</span> Unpaid
+      <span style="background:rgba(234,88,12,.12);color:#ea580c;padding:2px 7px;border-radius:4px;font-weight:600;">S</span> Sick
+      <span style="background:rgba(8,145,178,.12);color:#0891b2;padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Personal
+      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
+      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
     </div>`;
 
   // Build table header dates
@@ -2079,6 +2062,14 @@ function _renderStaffAttendance() {
     E: ['rgba(14,165,233,.14)','#0ea5e9']
   };
   var _hdColor = ['rgba(167,139,250,.14)','#a78bfa'];
+  var _offColors = {
+    'A': ['rgba(234,179,8,.13)',  '#ca8a04'],
+    'H': ['rgba(220,38,38,.13)', '#dc2626'],
+    '0': ['rgba(22,163,74,.13)', '#16a34a'],
+    'U': ['rgba(225,29,72,.12)', '#e11d48'],
+    'S': ['rgba(234,88,12,.12)', '#ea580c'],
+    'L': ['rgba(8,145,178,.12)', '#0891b2']
+  };
 
   const tbodyRows = filteredUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
@@ -2105,10 +2096,11 @@ function _renderStaffAttendance() {
       if (!parsed) {
         txt = rawCode || '?'; color = 'color:var(--text3);';
       } else if (parsed.type === 'OFF') {
-        bg = 'background:var(--D-bg);';
         const code = String(rawCode).toUpperCase();
-        txt = code === '0' || code === '0.0' ? '0' : (code === 'A' ? 'AL' : code);
-        color = 'color:var(--err);font-weight:600;';
+        txt = code === '0' || code === '0.0' ? '0' : code;
+        const _oc = _offColors[code === '0.0' ? '0' : code] || ['var(--D-bg)', 'var(--err)'];
+        bg = 'background:' + _oc[0] + ';';
+        color = 'color:' + _oc[1] + ';font-weight:600;';
       } else if (parsed.type === 'HD1' || parsed.type === 'HD2') {
         bg = `background:${_hdColor[0]};`;
         color = `color:${_hdColor[1]};font-weight:600;`;
