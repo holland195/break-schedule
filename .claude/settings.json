@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($env:GITHUB_TOKEN; [System.Environment]::GetEnvironmentVariable\\(\"GITHUB_TOKEN\", \"User\"\\); [System.Environment]::GetEnvironmentVariable\\(\"GITHUB_TOKEN\", \"Machine\"\\))",
+      "Bash(git credential *)"
+    ]
+  }
+}
