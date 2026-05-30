@@ -5,7 +5,10 @@
       "Bash(git checkout *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'Fix attendance sort/freeze and schedule fixed-width/current-month' --draft --base main --head claude/ecstatic-maxwell-ki1os --body ' *)",
+      "Bash(where gh *)",
+      "Bash(where git *)"
     ]
   }
 }
