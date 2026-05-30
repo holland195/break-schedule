@@ -559,6 +559,14 @@ function _startFallbackPolling() {
     if (document.hidden) return;
 
     const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
+    if (ok === true) {
+      const noRerenderPages = new Set(['arrange', 'staff']);
+      if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
+        const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
+        const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
+        if (!anyModalOpen) { nav(currentPage); updateBadge(); }
+      }
+    }
     if (!ok) updateSyncBadge('err');
   }, 60 * 1000);
 }
