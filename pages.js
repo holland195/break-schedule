@@ -1589,7 +1589,7 @@ function _renderStaffInfo() {
   <table>
     <thead>
       <tr>
-        <th>EMP#</th><th>FULL NAME</th><th>USERNAME</th><th>GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th><th>ACTIVE</th><th>PHONE</th>
+        <th>ACTIVE</th><th>EMP#</th><th>FULL NAME</th><th>USERNAME</th><th>GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th><th>PHONE</th>
       </tr>
     </thead>
     <tbody id="staff-info-tbody">${rows}</tbody>
@@ -1632,13 +1632,13 @@ function _renderStaffInfoRows(filter) {
       : `<span style="color:var(--err);font-size:14px;" title="Inactive">●</span>`;
 
     return `<tr style="${isActive ? '' : 'opacity:0.45;'}">
+      <td style="text-align:center;vertical-align:middle;">${activeBadge}</td>
       <td class="mono" style="font-size:11px;color:var(--text3);">${empNo}</td>
       <td style="font-weight:600;">${u.name || '—'}</td>
       <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
       <td style="text-align:center;vertical-align:middle;">${g}</td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
       <td style="font-size:11px;color:${roleColor};font-weight:500;">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
-      <td style="text-align:center;vertical-align:middle;">${activeBadge}</td>
       <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${phone}</td>
     </tr>`;
   }).join('');
