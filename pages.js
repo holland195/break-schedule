@@ -1128,6 +1128,9 @@ function _renderArrangeAssignTab(weekRange) {
     <div class="bulk-panel-section">
       <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
     </div>
+    <div class="bulk-panel-section" style="margin-left:auto;">
+      <button class="btn" onclick="_copyBreaksForSlack()" style="font-size:12px;padding:6px 14px;white-space:nowrap;">📋 Copy for Slack</button>
+    </div>
   </div>
 </div>`;
 
@@ -1291,6 +1294,17 @@ function getArrangeDayMemberList(_unused) {
         </td>`;
       }
 
+      var arrMk = _tNow.getFullYear() + '-' + d.split('/')[1];
+      var arrAttCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][arrMk] || {})[d]) : '';
+      var arrAttParsed = arrAttCode ? _parseAttCode(arrAttCode) : null;
+      var arrIsOff = arrAttParsed && arrAttParsed.type === 'OFF';
+
+      if (arrIsOff) {
+        return `<td class="arr-cell${isToday ? ' arr-cell-today' : ''}" style="opacity:0.38;pointer-events:none;background:var(--bg4);">
+          <span style="font-size:10px;color:var(--text3);">${arrAttCode || 'OFF'}</span>
+        </td>`;
+      }
+
       const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
       const br_idx = br ? (slots.indexOf(br.slot)) : -1;
 
@@ -1402,6 +1416,50 @@ function getArrangeDayMemberList(_unused) {
       ${tfoot}
     </table>
   </div>`;
+}
+
+function _copyBreaksForSlack() {
+  var today = _tNow;
+  var todayDk = _pad(today.getDate()) + '/' + _pad(today.getMonth() + 1);
+  var weekRange = getWeekRange(activeMonday);
+  var dk = weekRange.indexOf(todayDk) >= 0 ? todayDk : (weekRange[1] || weekRange[0]);
+
+  var parts = dk.split('/');
+  var d = new Date(_tNow.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  var vnDays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  var vnDay = vnDays[d.getDay()];
+  var shortDate = parts[0] + '/' + parts[1];
+
+  var slotMap = {};
+  (state.users || []).forEach(function(u) {
+    var dn = WEEK_DAYS[weekRange.indexOf(dk)];
+    if ((u.schedule[dk] || u.schedule[dn] || '').toUpperCase() !== (currentShift || '').toUpperCase()) return;
+    var mk = _tNow.getFullYear() + '-' + parts[1];
+    var attCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][mk] || {})[dk]) : '';
+    var attParsed = attCode ? _parseAttCode(attCode) : null;
+    if (attParsed && attParsed.type === 'OFF') return;
+    var br = DB.getBreak(u.id, dk);
+    if (!br) return;
+    if (!slotMap[br.slot]) slotMap[br.slot] = [];
+    slotMap[br.slot].push(u.name.split(' ').slice(-1)[0]);
+  });
+
+  var lines = ['Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.', ''];
+  Object.keys(slotMap).sort().forEach(function(slot) {
+    lines.push(slot + ' — ' + slotMap[slot].join(', '));
+  });
+
+  navigator.clipboard.writeText(lines.join('\n')).then(function() {
+    _showArrangeToast('Copied!');
+  });
+}
+
+function _showArrangeToast(msg) {
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:1.2rem;right:1.2rem;background:var(--accent);color:#fff;padding:6px 14px;border-radius:6px;font-size:13px;z-index:9999;opacity:1;transition:opacity .4s';
+  document.body.appendChild(t);
+  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 400); }, 1500);
 }
 
 // Keep quickAssign for backward compatibility (used by other callers)
