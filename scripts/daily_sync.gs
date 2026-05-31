@@ -4,6 +4,9 @@
 //  Trigger: Daily (e.g. 6AM–7AM)
 // ═══════════════════════════════════════════════
 const SPREADSHEET_ID          = '19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs';
+const SLACK_WEBHOOK_A         = ''; // paste shift-a-15h-00h webhook URL here
+const SLACK_WEBHOOK_D         = ''; // paste shift-d-00h-09h webhook URL here
+const SLACK_WEBHOOK_E         = ''; // paste shift-e-09h-18h webhook URL here
 const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
 const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
@@ -997,4 +1000,141 @@ function testLogbookDetection() {
   } catch(e) {
     Logger.log('✗ Error: ' + e.message);
   }
+}
+
+// ═══════════════════════════════════════════════
+//  SLACK AUTO-POST
+//  Three entry points — one per shift.
+//  Run createSlackTriggers() once to install time-based triggers.
+//  Webhook URLs: set SLACK_WEBHOOK_A/D/E constants above.
+//  On/off toggle: stored in Firebase slackAutoPost[shift].enabled
+// ═══════════════════════════════════════════════
+
+// Entry points — one trigger per shift
+function dailySlackShiftA() { _postShiftBreaks('A', SLACK_WEBHOOK_A, [0, 1, 2, 6]); }
+function dailySlackShiftD() { _postShiftBreaks('D', SLACK_WEBHOOK_D, [0, 1, 2, 6]); }
+function dailySlackShiftE() { _postShiftBreaks('E', SLACK_WEBHOOK_E, [0, 1, 6]);    }
+// Day indices: 0=Sun, 1=Mon, 2=Tue, 6=Sat
+
+function _postShiftBreaks(shift, webhook, allowedDays) {
+  var now = new Date();
+  // Use Vietnam time for day-of-week check
+  var vnNow = new Date(Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', "yyyy-MM-dd'T'HH:mm:ss"));
+  var dow = vnNow.getDay();
+
+  if (allowedDays.indexOf(dow) < 0) {
+    Logger.log('[Slack ' + shift + '] Skipped — not a scheduled day (dow=' + dow + ')');
+    return;
+  }
+  if (!webhook) {
+    Logger.log('[Slack ' + shift + '] No webhook URL configured. Set SLACK_WEBHOOK_' + shift + '.');
+    return;
+  }
+
+  var raw = firebaseGet();
+  var current = raw ? JSON.parse(raw) : {};
+
+  // Check enabled flag in Firebase
+  var cfg = (current.slackAutoPost || {})[shift];
+  if (!cfg || !cfg.enabled) {
+    Logger.log('[Slack ' + shift + '] Auto-post disabled for this shift.');
+    return;
+  }
+
+  // Today's dateKey DD/MM in Vietnam time
+  var dk = Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'dd/MM');
+  var monthKey = Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'yyyy-MM');
+
+  var BREAK_SLOTS_MAP = {
+    A: ['18:00–19:30', '19:30–21:00'],
+    D: ['04:00–05:30', '05:30–07:00'],
+    E: ['09:30–11:00', '11:00–12:30']
+  };
+  var slots = BREAK_SLOTS_MAP[shift] || [];
+  var WEEK_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var dn = WEEK_DAYS[dow];
+  var OFF_CODES = ['A','H','U','S','L','0'];
+  var VALID_ROLES = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor'];
+
+  var users = Array.isArray(current.users) ? current.users : Object.values(current.users || {});
+
+  // Slot → names map (absent staff excluded)
+  var slotMap = {};
+  slots.forEach(function(s) { slotMap[s] = []; });
+
+  users.forEach(function(u) {
+    var sched = ((u.schedule || {})[dk] || (u.schedule || {})[dn] || '').toUpperCase();
+    if (sched !== shift) return;
+    if (VALID_ROLES.indexOf(_resolveRoleGas(u.role)) < 0) return;
+    var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
+      ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').toUpperCase();
+    if (OFF_CODES.indexOf(attCode) >= 0) return;
+    var br = (current.breaks || {})[u.id + '_' + dk];
+    if (!br || !br.slot) return;
+    if (!slotMap[br.slot]) slotMap[br.slot] = [];
+    slotMap[br.slot].push((u.name || '').split(' ').slice(-1)[0]);
+  });
+
+  // Vietnamese day name
+  var vnDays = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+  var vnDay = vnDays[dow];
+  var shortDate = dk.slice(0, 5); // "02/06"
+
+  // Build Block Kit payload
+  var blocks = [];
+  blocks.push({
+    type: 'section',
+    text: { type: 'mrkdwn', text: ':calendar: *Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.*' }
+  });
+  blocks.push({ type: 'divider' });
+
+  slots.forEach(function(slot, i) {
+    var names = slotMap[slot] && slotMap[slot].length ? slotMap[slot].join(', ') : '_Chưa phân công_';
+    blocks.push({
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: '*' + shift + (i + 1) + '* (' + slot + ')' },
+        { type: 'mrkdwn', text: names }
+      ]
+    });
+  });
+
+  // POST to Slack
+  var resp = UrlFetchApp.fetch(webhook, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ blocks: blocks }),
+    muteHttpExceptions: true
+  });
+  Logger.log('[Slack ' + shift + '] Response: ' + resp.getResponseCode() + ' ' + resp.getContentText());
+
+  // Stamp lastPostedAt back to Firebase
+  if (!current.slackAutoPost) current.slackAutoPost = {};
+  if (!current.slackAutoPost[shift]) current.slackAutoPost[shift] = {};
+  current.slackAutoPost[shift].lastPostedAt = now.getTime();
+  firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+  Logger.log('[Slack ' + shift + '] Posted for ' + dk + ' and stamped lastPostedAt.');
+}
+
+// Minimal role resolver matching the web app's _resolveRole()
+function _resolveRoleGas(role) {
+  var aliases = { 'Agent': 'Data Analyst', 'Sr Agent': 'Sr Data Analyst', 'QA': 'Data Supervisor', 'Sr QA': 'Sr Data Supervisor' };
+  return aliases[role] || role || '';
+}
+
+// Run once in GAS editor to install the 3 time-based triggers.
+function createSlackTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    var fn = t.getHandlerFunction();
+    if (fn === 'dailySlackShiftA' || fn === 'dailySlackShiftD' || fn === 'dailySlackShiftE') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // Shift A fires at 15h (day-of-week check inside the function)
+  ScriptApp.newTrigger('dailySlackShiftA').timeBased().atHour(15).nearMinute(15).everyDays(1).create();
+  // Shift D fires at 0h
+  ScriptApp.newTrigger('dailySlackShiftD').timeBased().atHour(0).nearMinute(15).everyDays(1).create();
+  // Shift E fires at 6h
+  ScriptApp.newTrigger('dailySlackShiftE').timeBased().atHour(6).nearMinute(15).everyDays(1).create();
+  Logger.log('✓ Slack triggers created: ShiftA@15h, ShiftD@0h, ShiftE@6h (all daily, day filter inside function)');
 }

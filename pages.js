@@ -1135,7 +1135,7 @@ function _renderArrangeAssignTab(weekRange) {
 </div>`;
 
   const weekTable = getArrangeDayMemberList(null);
-  return combinedPanel + weekTable;
+  return combinedPanel + _renderSlackAutoPostToggle() + weekTable;
 }
 
 function _renderArrangeOverviewTab(weekRange) {
@@ -1421,6 +1421,35 @@ function getArrangeDayMemberList(_unused) {
       ${tfoot}
     </table>
   </div>`;
+}
+
+function _renderSlackAutoPostToggle() {
+  var cfg = (state.slackAutoPost || {})[currentShift] || {};
+  var enabled = !!cfg.enabled;
+  var lastAt = cfg.lastPostedAt ? new Date(cfg.lastPostedAt).toLocaleString('vi-VN') : '—';
+  var schedMap = {A:'Mon, Tue, Sat, Sun · 15:15', D:'Mon, Tue, Sat, Sun · 00:15', E:'Mon, Sat, Sun · 06:15'};
+  var sched = schedMap[currentShift] || '';
+  return `<div class="bulk-panel" style="margin-bottom:16px;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <span style="font-size:12px;font-weight:600;">🔔 Slack Auto-Post</span>
+    <span style="font-size:11px;color:var(--text2);">Shift ${currentShift} · ${sched}</span>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:auto;">
+      <span style="font-size:11px;color:${enabled ? 'var(--accent)' : 'var(--text3)'};">${enabled ? 'ON' : 'OFF'}</span>
+      <div onclick="_toggleSlackAutoPost()" style="width:36px;height:20px;border-radius:10px;
+        background:${enabled ? 'var(--accent)' : 'var(--bg4)'};position:relative;cursor:pointer;transition:background .2s;border:1px solid var(--border);">
+        <div style="position:absolute;top:2px;${enabled ? 'right:2px' : 'left:2px'};width:14px;height:14px;
+          border-radius:50%;background:#fff;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>
+      </div>
+    </label>
+    <span style="font-size:10px;color:var(--text3);">Last post: ${lastAt}</span>
+  </div>`;
+}
+
+async function _toggleSlackAutoPost() {
+  if (!state.slackAutoPost) state.slackAutoPost = {};
+  if (!state.slackAutoPost[currentShift]) state.slackAutoPost[currentShift] = {};
+  state.slackAutoPost[currentShift].enabled = !state.slackAutoPost[currentShift].enabled;
+  if (syncEnabled()) await syncPush();
+  nav('arrange');
 }
 
 function _copyBreaksForSlack() {
