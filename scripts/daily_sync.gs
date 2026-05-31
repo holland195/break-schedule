@@ -7,6 +7,10 @@ const SPREADSHEET_ID          = '19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs';
 const SLACK_WEBHOOK_A         = ''; // paste shift-a-15h-00h webhook URL here
 const SLACK_WEBHOOK_D         = ''; // paste shift-d-00h-09h webhook URL here
 const SLACK_WEBHOOK_E         = ''; // paste shift-e-09h-18h webhook URL here
+const SLACK_BOT_TOKEN         = ''; // xoxb-... bot token (OAuth, files:write + chat:write scope)
+const SLACK_CHANNEL_A         = ''; // channel ID for shift-a-15h-00h  (right-click channel → Copy link → last segment)
+const SLACK_CHANNEL_D         = ''; // channel ID for shift-d-00h-09h
+const SLACK_CHANNEL_E         = ''; // channel ID for shift-e-09h-18h
 const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
 const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
@@ -1011,12 +1015,12 @@ function testLogbookDetection() {
 // ═══════════════════════════════════════════════
 
 // Entry points — one trigger per shift
-function dailySlackShiftA() { _postShiftBreaks('A', SLACK_WEBHOOK_A, [0, 1, 2, 6]); }
-function dailySlackShiftD() { _postShiftBreaks('D', SLACK_WEBHOOK_D, [0, 1, 2, 6]); }
-function dailySlackShiftE() { _postShiftBreaks('E', SLACK_WEBHOOK_E, [0, 1, 6]);    }
+function dailySlackShiftA() { _postShiftBreaks('A', SLACK_WEBHOOK_A, SLACK_CHANNEL_A, [0, 1, 2, 6]); }
+function dailySlackShiftD() { _postShiftBreaks('D', SLACK_WEBHOOK_D, SLACK_CHANNEL_D, [0, 1, 2, 6]); }
+function dailySlackShiftE() { _postShiftBreaks('E', SLACK_WEBHOOK_E, SLACK_CHANNEL_E, [0, 1, 6]);    }
 // Day indices: 0=Sun, 1=Mon, 2=Tue, 6=Sat
 
-function _postShiftBreaks(shift, webhook, allowedDays) {
+function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   var now = new Date();
   // Use Vietnam time for day-of-week check
   var vnNow = new Date(Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', "yyyy-MM-dd'T'HH:mm:ss"));
@@ -1083,7 +1087,7 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
     });
   });
 
-  // Sort: team asc, then role tier desc (Sr D.S first), then name
+  // Sort: team asc, then role tier (Sr D.S → D.S → Sr D.A → D.A), then name
   staffRows.sort(function(a, b) {
     var tc = a.team.localeCompare(b.team, undefined, { numeric: true });
     if (tc !== 0) return tc;
@@ -1093,65 +1097,32 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
     return a.name.localeCompare(b.name);
   });
 
-  // Build monospace table — fixed-width columns matching the modal layout
-  // Columns: Team | Name | Role | Slot
-  var COL_TEAM = 6, COL_NAME = 16, COL_ROLE = 8;
-
-  function pad(s, n) {
-    var str = String(s);
-    while (str.length < n) str += ' ';
-    return str.slice(0, n);
-  }
-
-  var separator = pad('', COL_TEAM) + '+-' + pad('', COL_NAME) + '-+-' + pad('', COL_ROLE) + '-+------';
-  var header    = pad('', COL_TEAM) + '| ' + pad('Name', COL_NAME) + ' | ' + pad('Role', COL_ROLE) + ' | Slot ';
-
-  var lines = [separator, header, separator];
-  var prevTeam = null;
-  staffRows.forEach(function(r) {
-    if (r.team !== prevTeam) {
-      if (prevTeam !== null) lines.push(separator);
-      lines.push(pad('[' + r.team + ']', COL_TEAM) + '| ' + pad('', COL_NAME) + ' | ' + pad('', COL_ROLE) + ' |      ');
-      prevTeam = r.team;
-    }
-    var abbr = ROLE_ABBR[r.role] || r.role;
-    lines.push(pad('', COL_TEAM) + '| ' + pad(r.name, COL_NAME) + ' | ' + pad(abbr, COL_ROLE) + ' | ' + r.slotCode + '    ');
-  });
-  lines.push(separator);
-
-  // Legend footer
-  slots.forEach(function(s, i) {
-    lines.push(shift + (i + 1) + ': ' + s);
-  });
-
   // Vietnamese day name
   var vnDays = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
   var vnDay = vnDays[dow];
   var shortDate = dk.slice(0, 5); // "02/06"
+  var caption = 'Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.';
 
-  // Build Block Kit payload: header + code block table
-  var blocks = [
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: ':calendar: *Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.*' }
-    },
-    {
-      type: 'rich_text',
-      elements: [{
-        type: 'rich_text_preformatted',
-        elements: [{ type: 'text', text: lines.join('\n') }]
-      }]
-    }
-  ];
+  // Build PNG via Google Sheets temp table, then upload to Slack
+  var pngBlob = _buildBreakTablePng(shift, staffRows, slots, dk, caption, ROLE_ABBR);
 
-  // POST to Slack
-  var resp = UrlFetchApp.fetch(webhook, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({ blocks: blocks }),
-    muteHttpExceptions: true
-  });
-  Logger.log('[Slack ' + shift + '] Response: ' + resp.getResponseCode() + ' ' + resp.getContentText());
+  if (SLACK_BOT_TOKEN && channelId && pngBlob) {
+    _slackUploadImage(pngBlob, caption, channelId, shift, dk);
+  } else {
+    // Fallback: webhook text post if bot token / channel not configured
+    Logger.log('[Slack ' + shift + '] Bot token or channelId missing — falling back to webhook text post.');
+    var textLines = [caption, ''];
+    staffRows.forEach(function(r) {
+      var abbr = ROLE_ABBR[r.role] || r.role;
+      textLines.push(r.team + '  ' + r.name + '  ' + abbr + '  ' + r.slotCode);
+    });
+    slots.forEach(function(s, i) { textLines.push(shift + (i+1) + ': ' + s); });
+    UrlFetchApp.fetch(webhook, {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ text: textLines.join('\n') }),
+      muteHttpExceptions: true
+    });
+  }
 
   // Stamp lastPostedAt back to Firebase
   if (!current.slackAutoPost) current.slackAutoPost = {};
@@ -1159,6 +1130,164 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
   current.slackAutoPost[shift].lastPostedAt = now.getTime();
   firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
   Logger.log('[Slack ' + shift + '] Posted for ' + dk + ' and stamped lastPostedAt.');
+}
+
+// Builds a PNG of the break table using a temporary Google Sheet.
+// Returns a Blob, or null on failure.
+function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
+  var ss = SpreadsheetApp.create('_pave_slack_tmp_' + shift);
+  try {
+    var sheet = ss.getActiveSheet();
+
+    // Colors matching the web modal
+    var ACCENT      = '#1f66f1'; // header blue
+    var SLOT1_BG    = '#dbeafe'; // blue tint  (rgba(59,130,246,.18) on white ≈ #dbeafe)
+    var SLOT2_BG    = '#dcfce7'; // green tint (rgba(34,197,94,.18) on white ≈ #dcfce7)
+    var OFF_BG      = { A:'#fef9c3', H:'#fee2e2', '0':'#dcfce7', U:'#ffe4e6', S:'#ffedd5', L:'#cffafe' };
+    var OFF_FG      = { A:'#92680a', H:'#b91c1c', '0':'#15803d', U:'#be123c', S:'#c2410c', L:'#0e7490' };
+    var HEADER_FG   = '#ffffff';
+    var TEXT_DARK   = '#1e293b';
+    var BORDER_CLR  = '#cbd5e1';
+
+    var numRows = staffRows.length + 3; // header + legend rows + staff rows
+    var numCols = 4;
+
+    // Header row (row 1): caption merged across all cols
+    sheet.getRange(1, 1, 1, numCols).merge()
+      .setValue(caption)
+      .setBackground(ACCENT)
+      .setFontColor(HEADER_FG)
+      .setFontWeight('bold')
+      .setFontSize(11)
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+
+    // Column headers (row 2): TEAM | NAME | ROLE | date + legend
+    var datePart = dk.slice(0,5);
+    var dayName = ['SUN','MON','TUE','WED','THU','FRI','SAT'][new Date().getDay()]; // close enough for header
+    var dateHeader = datePart + ' (' + dayName + ')\n' + slots.map(function(s,i){ return shift+(i+1)+': '+s; }).join('\n');
+    var colHeaders = ['TEAM', 'NAME', 'ROLE', dateHeader];
+    colHeaders.forEach(function(h, c) {
+      sheet.getRange(2, c+1)
+        .setValue(h)
+        .setBackground(ACCENT)
+        .setFontColor(HEADER_FG)
+        .setFontWeight('bold')
+        .setFontSize(9)
+        .setHorizontalAlignment(c === 3 ? 'center' : 'left')
+        .setVerticalAlignment('middle')
+        .setWrap(true);
+    });
+
+    // Staff data rows starting at row 3
+    staffRows.forEach(function(r, i) {
+      var row = i + 3;
+      var abbr = roleAbbr[r.role] || r.role;
+      var slotIdx = slots.indexOf(r.slotCode === (shift+'1') ? slots[0] : (r.slotCode === (shift+'2') ? slots[1] : ''));
+      // Determine slot index from slotCode
+      var si = -1;
+      if (r.slotCode === shift + '1') si = 0;
+      else if (r.slotCode === shift + '2') si = 1;
+      var offKey = r.isOff ? r.slotCode : '';
+      var cellBg = r.isOff ? (OFF_BG[offKey] || '#f1f5f9') : si === 0 ? SLOT1_BG : si === 1 ? SLOT2_BG : '#f8fafc';
+      var cellFg = r.isOff ? (OFF_FG[offKey] || TEXT_DARK) : TEXT_DARK;
+      var rowBg  = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+      sheet.getRange(row, 1).setValue(r.team).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
+      sheet.getRange(row, 2).setValue(r.name).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
+      sheet.getRange(row, 3).setValue(abbr).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
+      sheet.getRange(row, 4).setValue(r.slotCode).setBackground(cellBg).setFontColor(cellFg).setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+    });
+
+    // Column widths: Team=60, Name=200, Role=70, Slot=80
+    sheet.setColumnWidth(1, 60);
+    sheet.setColumnWidth(2, 200);
+    sheet.setColumnWidth(3, 70);
+    sheet.setColumnWidth(4, 80);
+
+    // Row heights
+    sheet.setRowHeight(1, 28);
+    sheet.setRowHeight(2, 48);
+    for (var ri = 3; ri < numRows; ri++) sheet.setRowHeight(ri, 26);
+
+    // Border on entire table
+    var tableRange = sheet.getRange(1, 1, staffRows.length + 2, numCols);
+    tableRange.setBorder(true, true, true, true, true, true, BORDER_CLR, SpreadsheetApp.BorderStyle.SOLID);
+
+    SpreadsheetApp.flush();
+
+    // Export the range as PNG via Sheets export URL
+    var ssId = ss.getId();
+    var sheetId = sheet.getSheetId();
+    var lastRow = staffRows.length + 2;
+    // Sheets export URL: r1/c1/r2/c2 are 0-indexed
+    var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
+      + '/export?format=png&gid=' + sheetId
+      + '&r1=0&c1=0&r2=' + lastRow + '&c2=' + numCols
+      + '&scale=2&fzr=false';
+
+    var token = ScriptApp.getOAuthToken();
+    var resp = UrlFetchApp.fetch(exportUrl, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      Logger.log('[Slack PNG] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText());
+      return null;
+    }
+    return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.png');
+
+  } catch (e) {
+    Logger.log('[Slack PNG] Error: ' + e.message);
+    return null;
+  } finally {
+    DriveApp.getFileById(ss.getId()).setTrashed(true);
+  }
+}
+
+// Uploads a PNG blob to a Slack channel via the bot token file upload API.
+function _slackUploadImage(blob, caption, channelId, shift, dk) {
+  try {
+    var bytes = blob.getBytes();
+    var filename = blob.getName();
+
+    // Step 1: get upload URL
+    var urlResp = UrlFetchApp.fetch('https://slack.com/api/files.getUploadURLExternal', {
+      method: 'post',
+      headers: { Authorization: 'Bearer ' + SLACK_BOT_TOKEN },
+      payload: { filename: filename, length: String(bytes.length) },
+      muteHttpExceptions: true
+    });
+    var urlData = JSON.parse(urlResp.getContentText());
+    if (!urlData.ok) { Logger.log('[Slack upload] getUploadURL failed: ' + urlResp.getContentText()); return; }
+
+    // Step 2: upload bytes
+    UrlFetchApp.fetch(urlData.upload_url, {
+      method: 'post',
+      payload: blob.getBytes(),
+      headers: { 'Content-Type': 'image/png' },
+      muteHttpExceptions: true
+    });
+
+    // Step 3: complete upload and post to channel
+    var completeResp = UrlFetchApp.fetch('https://slack.com/api/files.completeUploadExternal', {
+      method: 'post',
+      headers: { Authorization: 'Bearer ' + SLACK_BOT_TOKEN, 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        files: [{ id: urlData.file_id }],
+        channel_id: channelId,
+        initial_comment: ':calendar: *' + caption + '*'
+      }),
+      muteHttpExceptions: true
+    });
+    var completeData = JSON.parse(completeResp.getContentText());
+    if (!completeData.ok) { Logger.log('[Slack upload] complete failed: ' + completeResp.getContentText()); return; }
+
+    Logger.log('[Slack ' + shift + '] PNG uploaded for ' + dk);
+  } catch (e) {
+    Logger.log('[Slack upload] Error: ' + e.message);
+  }
 }
 
 // Minimal role resolver matching the web app's _resolveRole()
