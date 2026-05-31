@@ -1107,21 +1107,32 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   var pngBlob = _buildBreakTablePng(shift, staffRows, slots, dk, caption, ROLE_ABBR);
 
   if (SLACK_BOT_TOKEN && channelId && pngBlob) {
+    // Bot token path: upload PNG image to channel
     _slackUploadImage(pngBlob, caption, channelId, shift, dk);
   } else {
-    // Fallback: webhook text post if bot token / channel not configured
-    Logger.log('[Slack ' + shift + '] Bot token or channelId missing — falling back to webhook text post.');
-    var textLines = [caption, ''];
+    // Webhook path: monospace preformatted table via Block Kit
+    Logger.log('[Slack ' + shift + '] Using webhook path (no bot token configured).');
+    var COL_TEAM = 6, COL_NAME = 24, COL_ROLE = 7;
+    function padC(s, n) { var t = String(s); while (t.length < n) t = t + ' '; return t.slice(0, n); }
+    var sep = '+' + padC('', COL_TEAM+2) + '+' + padC('', COL_NAME+2) + '+' + padC('', COL_ROLE+2) + '+------+';
+    var hdr = '| ' + padC('Team', COL_TEAM) + ' | ' + padC('Name', COL_NAME) + ' | ' + padC('Role', COL_ROLE) + ' | Slot |';
+    var tableLines = [sep, hdr, sep];
     staffRows.forEach(function(r) {
       var abbr = ROLE_ABBR[r.role] || r.role;
-      textLines.push(r.team + '  ' + r.name + '  ' + abbr + '  ' + r.slotCode);
+      tableLines.push('| ' + padC(r.team, COL_TEAM) + ' | ' + padC(r.name, COL_NAME) + ' | ' + padC(abbr, COL_ROLE) + ' | ' + padC(r.slotCode, 4) + ' |');
     });
-    slots.forEach(function(s, i) { textLines.push(shift + (i+1) + ': ' + s); });
-    UrlFetchApp.fetch(webhook, {
+    tableLines.push(sep);
+    slots.forEach(function(s, i) { tableLines.push(shift + (i+1) + ': ' + s); });
+    var blocks = [
+      { type: 'section', text: { type: 'mrkdwn', text: ':calendar: *' + caption + '*' } },
+      { type: 'rich_text', elements: [{ type: 'rich_text_preformatted', elements: [{ type: 'text', text: tableLines.join('\n') }] }] }
+    ];
+    var resp = UrlFetchApp.fetch(webhook, {
       method: 'post', contentType: 'application/json',
-      payload: JSON.stringify({ text: textLines.join('\n') }),
+      payload: JSON.stringify({ blocks: blocks }),
       muteHttpExceptions: true
     });
+    Logger.log('[Slack ' + shift + '] Webhook response: ' + resp.getResponseCode());
   }
 
   // Stamp lastPostedAt back to Firebase
@@ -1214,17 +1225,21 @@ function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
     var tableRange = sheet.getRange(1, 1, staffRows.length + 2, numCols);
     tableRange.setBorder(true, true, true, true, true, true, BORDER_CLR, SpreadsheetApp.BorderStyle.SOLID);
 
+    // Hide all rows/cols beyond the table so the PNG export is tight
+    var lastDataRow = staffRows.length + 2;
+    var totalRows = sheet.getMaxRows();
+    var totalCols = sheet.getMaxColumns();
+    if (totalRows > lastDataRow) sheet.hideRows(lastDataRow + 1, totalRows - lastDataRow);
+    if (totalCols > numCols)     sheet.hideColumns(numCols + 1, totalCols - numCols);
+
     SpreadsheetApp.flush();
 
-    // Export the range as PNG via Sheets export URL
-    var ssId = ss.getId();
+    // Export whole sheet as PNG (hidden rows/cols are excluded automatically)
+    var ssId    = ss.getId();
     var sheetId = sheet.getSheetId();
-    var lastRow = staffRows.length + 2;
-    // Sheets export URL: r1/c1/r2/c2 are 0-indexed
     var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
       + '/export?format=png&gid=' + sheetId
-      + '&r1=0&c1=0&r2=' + lastRow + '&c2=' + numCols
-      + '&scale=2&fzr=false';
+      + '&size=A4&portrait=true&fitw=true&gridlines=false';
 
     var token = ScriptApp.getOAuthToken();
     var resp = UrlFetchApp.fetch(exportUrl, {
@@ -1233,7 +1248,7 @@ function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
     });
 
     if (resp.getResponseCode() !== 200) {
-      Logger.log('[Slack PNG] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText());
+      Logger.log('[Slack PNG] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 200));
       return null;
     }
     return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.png');
