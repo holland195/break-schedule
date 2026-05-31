@@ -1055,24 +1055,73 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
   var dn = WEEK_DAYS[dow];
   var OFF_CODES = ['A','H','U','S','L','0'];
   var VALID_ROLES = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor'];
+  var ROLE_ABBR = {'Data Analyst':'D.A','Sr Data Analyst':'Sr D.A','Data Supervisor':'D.S','Sr Data Supervisor':'Sr D.S'};
+  var ROLE_ORDER = ['Sr Data Supervisor','Data Supervisor','Sr Data Analyst','Data Analyst'];
 
   var users = Array.isArray(current.users) ? current.users : Object.values(current.users || {});
 
-  // Slot → names map (absent staff excluded)
-  var slotMap = {};
-  slots.forEach(function(s) { slotMap[s] = []; });
-
+  // Collect per-staff rows: include absent staff too (show code), exclude non-agents
+  var staffRows = [];
   users.forEach(function(u) {
     var sched = ((u.schedule || {})[dk] || (u.schedule || {})[dn] || '').toUpperCase();
     if (sched !== shift) return;
-    if (VALID_ROLES.indexOf(_resolveRoleGas(u.role)) < 0) return;
+    var resolvedRole = _resolveRoleGas(u.role);
+    if (VALID_ROLES.indexOf(resolvedRole) < 0) return;
     var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
-      ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').toUpperCase();
-    if (OFF_CODES.indexOf(attCode) >= 0) return;
+      ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').replace(/\.0$/, '').toUpperCase();
+    var isOff = OFF_CODES.indexOf(attCode) >= 0;
     var br = (current.breaks || {})[u.id + '_' + dk];
-    if (!br || !br.slot) return;
-    if (!slotMap[br.slot]) slotMap[br.slot] = [];
-    slotMap[br.slot].push((u.name || '').split(' ').slice(-1)[0]);
+    var slotIdx = br ? slots.indexOf(br.slot) : -1;
+    var slotCode = slotIdx >= 0 ? (shift + (slotIdx + 1)) : (isOff ? attCode : '—');
+    staffRows.push({
+      team: u.team || '',
+      name: u.name || '',
+      role: resolvedRole,
+      roleOrder: ROLE_ORDER.indexOf(resolvedRole),
+      slotCode: slotCode,
+      isOff: isOff
+    });
+  });
+
+  // Sort: team asc, then role tier desc (Sr D.S first), then name
+  staffRows.sort(function(a, b) {
+    var tc = a.team.localeCompare(b.team, undefined, { numeric: true });
+    if (tc !== 0) return tc;
+    var ra = a.roleOrder < 0 ? 99 : a.roleOrder;
+    var rb = b.roleOrder < 0 ? 99 : b.roleOrder;
+    if (ra !== rb) return ra - rb;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Build monospace table — fixed-width columns matching the modal layout
+  // Columns: Team | Name | Role | Slot
+  var COL_TEAM = 6, COL_NAME = 16, COL_ROLE = 8;
+
+  function pad(s, n) {
+    var str = String(s);
+    while (str.length < n) str += ' ';
+    return str.slice(0, n);
+  }
+
+  var separator = pad('', COL_TEAM) + '+-' + pad('', COL_NAME) + '-+-' + pad('', COL_ROLE) + '-+------';
+  var header    = pad('', COL_TEAM) + '| ' + pad('Name', COL_NAME) + ' | ' + pad('Role', COL_ROLE) + ' | Slot ';
+
+  var lines = [separator, header, separator];
+  var prevTeam = null;
+  staffRows.forEach(function(r) {
+    if (r.team !== prevTeam) {
+      if (prevTeam !== null) lines.push(separator);
+      lines.push(pad('[' + r.team + ']', COL_TEAM) + '| ' + pad('', COL_NAME) + ' | ' + pad('', COL_ROLE) + ' |      ');
+      prevTeam = r.team;
+    }
+    var abbr = ROLE_ABBR[r.role] || r.role;
+    lines.push(pad('', COL_TEAM) + '| ' + pad(r.name, COL_NAME) + ' | ' + pad(abbr, COL_ROLE) + ' | ' + r.slotCode + '    ');
+  });
+  lines.push(separator);
+
+  // Legend footer
+  slots.forEach(function(s, i) {
+    lines.push(shift + (i + 1) + ': ' + s);
   });
 
   // Vietnamese day name
@@ -1080,24 +1129,20 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
   var vnDay = vnDays[dow];
   var shortDate = dk.slice(0, 5); // "02/06"
 
-  // Build Block Kit payload
-  var blocks = [];
-  blocks.push({
-    type: 'section',
-    text: { type: 'mrkdwn', text: ':calendar: *Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.*' }
-  });
-  blocks.push({ type: 'divider' });
-
-  slots.forEach(function(slot, i) {
-    var names = slotMap[slot] && slotMap[slot].length ? slotMap[slot].join(', ') : '_Chưa phân công_';
-    blocks.push({
+  // Build Block Kit payload: header + code block table
+  var blocks = [
+    {
       type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: '*' + shift + (i + 1) + '* (' + slot + ')' },
-        { type: 'mrkdwn', text: names }
-      ]
-    });
-  });
+      text: { type: 'mrkdwn', text: ':calendar: *Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.*' }
+    },
+    {
+      type: 'rich_text',
+      elements: [{
+        type: 'rich_text_preformatted',
+        elements: [{ type: 'text', text: lines.join('\n') }]
+      }]
+    }
+  ];
 
   // POST to Slack
   var resp = UrlFetchApp.fetch(webhook, {
