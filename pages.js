@@ -1300,8 +1300,13 @@ function getArrangeDayMemberList(_unused) {
       var arrIsOff = arrAttParsed && arrAttParsed.type === 'OFF';
 
       if (arrIsOff) {
-        return `<td class="arr-cell${isToday ? ' arr-cell-today' : ''}" style="opacity:0.38;pointer-events:none;background:var(--bg4);">
-          <span style="font-size:10px;color:var(--text3);">${arrAttCode || 'OFF'}</span>
+        var _offBg = {'A':'rgba(234,179,8,.13)','H':'rgba(220,38,38,.13)','0':'rgba(22,163,74,.13)','U':'rgba(225,29,72,.12)','S':'rgba(234,88,12,.12)','L':'rgba(8,145,178,.12)'};
+        var _offFg = {'A':'#ca8a04','H':'#dc2626','0':'#16a34a','U':'#e11d48','S':'#ea580c','L':'#0891b2'};
+        var _ck = String(arrAttCode).replace(/\.0$/,'').toUpperCase();
+        var _cbg = _offBg[_ck] || 'rgba(107,114,128,.1)';
+        var _cfg = _offFg[_ck] || 'var(--text3)';
+        return `<td class="arr-cell${isToday ? ' arr-cell-today' : ''}" style="background:${_cbg};pointer-events:none;text-align:center;vertical-align:middle;">
+          <span style="font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:${_cfg};">${_ck}</span>
         </td>`;
       }
 
@@ -1446,7 +1451,8 @@ function _copyBreaksForSlack() {
 
   var lines = ['Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.', ''];
   Object.keys(slotMap).sort().forEach(function(slot) {
-    lines.push(slot + ' — ' + slotMap[slot].join(', '));
+    var shortCode = getShortSlot(currentShift, slot);
+    lines.push(shortCode + ' (' + slot + ') — ' + slotMap[slot].join(', '));
   });
 
   navigator.clipboard.writeText(lines.join('\n')).then(function() {
