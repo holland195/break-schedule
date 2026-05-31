@@ -1205,17 +1205,10 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
     var numCols = FIXED + dateCols.length * 2;
     var numDataRows = staffRows.length;
 
-    // ── Row 1: caption merged across all columns ──
-    sheet.getRange(1, 1, 1, numCols).merge()
-      .setValue(caption)
-      .setBackground(ACCENT).setFontColor(HEADER_FG)
-      .setFontWeight('bold').setFontSize(11)
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-
-    // ── Row 2: column headers ──
+    // ── Row 1: column headers (no caption row — caption is sent as Slack message text) ──
     var fixedHeaders = ['TEAM', 'NAME', 'ROLE'];
     fixedHeaders.forEach(function(h, c) {
-      sheet.getRange(2, c+1)
+      sheet.getRange(1, c+1)
         .setValue(h).setBackground(ACCENT).setFontColor(HEADER_FG)
         .setFontWeight('bold').setFontSize(9)
         .setHorizontalAlignment('left').setVerticalAlignment('middle');
@@ -1227,18 +1220,18 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
       var legendLabel = slots.map(function(s, si) { return shift+(si+1)+': '+s; }).join('\n');
       var slotCol  = FIXED + di*2 + 1;
       var legendCol = FIXED + di*2 + 2;
-      sheet.getRange(2, slotCol)
+      sheet.getRange(1, slotCol)
         .setValue(dateLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
         .setFontWeight('bold').setFontSize(9)
         .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
-      sheet.getRange(2, legendCol)
+      sheet.getRange(1, legendCol)
         .setValue(legendLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
         .setFontSize(8).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
     });
 
-    // ── Data rows starting at row 3 ──
+    // ── Data rows starting at row 2 ──
     staffRows.forEach(function(r, i) {
-      var row = i + 3;
+      var row = i + 2;
       var abbr = roleAbbr[r.role] || r.role;
       var rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
       sheet.getRange(row, 1).setValue(r.team).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
@@ -1250,12 +1243,12 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
         var si = slotCode === shift+'1' ? 0 : slotCode === shift+'2' ? 1 : -1;
         var cellBg = isOffCell ? (OFF_BG[slotCode] || '#f1f5f9') : si === 0 ? SLOT1_BG : si === 1 ? SLOT2_BG : rowBg;
         var cellFg = isOffCell ? (OFF_FG[slotCode] || TEXT_DARK) : TEXT_DARK;
-        var slotCol   = FIXED + di*2 + 1;
-        var legendCol = FIXED + di*2 + 2;
-        sheet.getRange(row, slotCol)
+        var slotCol2   = FIXED + di*2 + 1;
+        var legendCol2 = FIXED + di*2 + 2;
+        sheet.getRange(row, slotCol2)
           .setValue(slotCode).setBackground(cellBg).setFontColor(cellFg)
           .setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
-        sheet.getRange(row, legendCol).setBackground(rowBg); // empty legend data cells
+        sheet.getRange(row, legendCol2).setBackground(rowBg);
       });
     });
 
@@ -1269,16 +1262,15 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
     });
 
     // ── Row heights ──
-    sheet.setRowHeight(1, 28);
-    sheet.setRowHeight(2, isTuesday ? 40 : 52);
-    for (var ri = 3; ri <= numDataRows + 2; ri++) sheet.setRowHeight(ri, 24);
+    sheet.setRowHeight(1, isTuesday ? 40 : 52);
+    for (var ri = 2; ri <= numDataRows + 1; ri++) sheet.setRowHeight(ri, 24);
 
     // ── Borders on table ──
-    sheet.getRange(1, 1, numDataRows + 2, numCols)
+    sheet.getRange(1, 1, numDataRows + 1, numCols)
       .setBorder(true, true, true, true, true, true, BORDER, SpreadsheetApp.BorderStyle.SOLID);
 
     // ── Hide unused rows/cols ──
-    var lastRow = numDataRows + 2;
+    var lastRow = numDataRows + 1;
     var maxRows = sheet.getMaxRows();
     var maxCols = sheet.getMaxColumns();
     if (maxRows > lastRow) sheet.hideRows(lastRow + 1, maxRows - lastRow);
