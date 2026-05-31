@@ -1243,8 +1243,8 @@ function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
     var sheetId = sheet.getSheetId();
     // Export as PDF (Sheets supports this reliably), then we send as-is to Slack
     var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
-      + '/export?format=pdf&gid=' + sheetId
-      + '&size=statement&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&attachment=false';
+      + '/export?format=png&gid=' + sheetId
+      + '&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&attachment=false';
 
     var token = ScriptApp.getOAuthToken();
     var resp = UrlFetchApp.fetch(exportUrl, {
@@ -1253,11 +1253,22 @@ function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
     });
 
     if (resp.getResponseCode() !== 200) {
-      Logger.log('[Slack PNG] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 200));
-      return null;
+      // PNG not supported — fall back to PDF
+      Logger.log('[Slack PNG] PNG export failed (' + resp.getResponseCode() + '), trying PDF...');
+      exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
+        + '/export?format=pdf&gid=' + sheetId
+        + '&size=statement&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&attachment=false';
+      resp = UrlFetchApp.fetch(exportUrl, {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true
+      });
+      if (resp.getResponseCode() !== 200) {
+        Logger.log('[Slack PNG] PDF export also failed: ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 200));
+        return null;
+      }
+      return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.pdf').setContentType('application/pdf');
     }
-    // Return as PDF blob — Slack files.upload accepts PDF too
-    return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.pdf').setContentType('application/pdf');
+    return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.png').setContentType('image/png');
 
   } catch (e) {
     Logger.log('[Slack PNG] Error: ' + e.message);
