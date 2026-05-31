@@ -1064,7 +1064,8 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
 
   var users = Array.isArray(current.users) ? current.users : Object.values(current.users || {});
 
-  // Collect per-staff rows: include absent staff too (show code), exclude non-agents
+  // On single-day posts (Mon/Sat/Sun) exclude absent staff — only show on Tuesday multi-day post
+  var isTuesdayPost = (dow === 2);
   var staffRows = [];
   users.forEach(function(u) {
     var sched = ((u.schedule || {})[dk] || (u.schedule || {})[dn] || '').toUpperCase();
@@ -1074,6 +1075,7 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
     var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
       ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').replace(/\.0$/, '').toUpperCase();
     var isOff = OFF_CODES.indexOf(attCode) >= 0;
+    if (isOff && !isTuesdayPost) return; // exclude absent on single-day posts
     var br = (current.breaks || {})[u.id + '_' + dk];
     var slotIdx = br ? slots.indexOf(br.slot) : -1;
     var slotCode = slotIdx >= 0 ? (shift + (slotIdx + 1)) : (isOff ? attCode : '—');
@@ -1103,11 +1105,9 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   var vnDay = vnDays[dow];
   var shortDate = dk.slice(0, 5); // "02/06"
 
-  // Tuesday: collect Wed/Thu/Fri of same week as extra date columns (horizontal layout)
-  // Other days: single date column (portrait layout)
-  var isTuesday = (dow === 2);
-  var dateCols = [dk]; // always start with today
-  if (isTuesday) {
+  // Tuesday: collect Wed/Thu/Fri as extra date columns (landscape). Other days: portrait single column.
+  var dateCols = [dk];
+  if (isTuesdayPost) {
     // Add Wed(+1), Thu(+2), Fri(+3) relative to today
     for (var di = 1; di <= 3; di++) {
       var xd = new Date(vnNow.getFullYear(), vnNow.getMonth(), vnNow.getDate() + di);
@@ -1137,12 +1137,12 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
     });
   });
 
-  var caption = isTuesday
+  var caption = isTuesdayPost
     ? 'Mọi người check lịch break tuần này (Thứ Tư–Thứ Sáu) nha.'
     : 'Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.';
 
   // Build PDF table and upload, or fall back to webhook monospace
-  var pdfBlob = _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, caption, ROLE_ABBR, isTuesday);
+  var pdfBlob = _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, caption, ROLE_ABBR, isTuesdayPost);
 
   if (SLACK_BOT_TOKEN && channelId && pdfBlob) {
     _slackUploadImage(pdfBlob, caption, channelId, shift, dk);
@@ -1234,9 +1234,9 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
       var row = i + 2;
       var abbr = roleAbbr[r.role] || r.role;
       var rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-      sheet.getRange(row, 1).setValue(r.team).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
-      sheet.getRange(row, 2).setValue(r.name).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
-      sheet.getRange(row, 3).setValue(abbr).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(10).setHorizontalAlignment('left');
+      sheet.getRange(row, 1).setValue(r.team).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
+      sheet.getRange(row, 2).setValue(r.name).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
+      sheet.getRange(row, 3).setValue(abbr).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
       dateCols.forEach(function(dki, di) {
         var slotCode = (breaksByDate[dki] || {})[r.id] || '—';
         var isOffCell = slotCode.length <= 2 && ['A','H','U','S','L','0'].indexOf(slotCode) >= 0;
@@ -1247,7 +1247,7 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
         var legendCol2 = FIXED + di*2 + 2;
         sheet.getRange(row, slotCol2)
           .setValue(slotCode).setBackground(cellBg).setFontColor(cellFg)
-          .setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center');
+          .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center');
         sheet.getRange(row, legendCol2).setBackground(rowBg);
       });
     });
@@ -1262,8 +1262,8 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
     });
 
     // ── Row heights ──
-    sheet.setRowHeight(1, isTuesday ? 40 : 52);
-    for (var ri = 2; ri <= numDataRows + 1; ri++) sheet.setRowHeight(ri, 24);
+    sheet.setRowHeight(1, isTuesday ? 32 : 42);
+    for (var ri = 2; ri <= numDataRows + 1; ri++) sheet.setRowHeight(ri, 21);
 
     // ── Borders on table ──
     sheet.getRange(1, 1, numDataRows + 1, numCols)
@@ -1285,7 +1285,8 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
     var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
       + '/export?format=pdf&gid=' + sheetId
       + '&size=statement&portrait=' + orientation
-      + '&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&attachment=false';
+      + '&fitw=true&fith=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false'
+      + '&top_margin=0.1&bottom_margin=0.1&left_margin=0.1&right_margin=0.1&attachment=false';
 
     var token = ScriptApp.getOAuthToken();
     var resp = UrlFetchApp.fetch(exportUrl, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
