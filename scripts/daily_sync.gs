@@ -1234,12 +1234,17 @@ function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
 
     SpreadsheetApp.flush();
 
-    // Export whole sheet as PNG (hidden rows/cols are excluded automatically)
+    SpreadsheetApp.flush();
+    Utilities.sleep(2000); // let Sheets finish rendering before export
+
+    // Export via Drive API as PDF first page then convert, or use Sheets thumbnail
+    // Use the correct Sheets export URL format (no UI print params)
     var ssId    = ss.getId();
     var sheetId = sheet.getSheetId();
+    // Export as PDF (Sheets supports this reliably), then we send as-is to Slack
     var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
-      + '/export?format=png&gid=' + sheetId
-      + '&size=A4&portrait=true&fitw=true&gridlines=false';
+      + '/export?format=pdf&gid=' + sheetId
+      + '&size=statement&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&attachment=false';
 
     var token = ScriptApp.getOAuthToken();
     var resp = UrlFetchApp.fetch(exportUrl, {
@@ -1251,7 +1256,8 @@ function _buildBreakTablePng(shift, staffRows, slots, dk, caption, roleAbbr) {
       Logger.log('[Slack PNG] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 200));
       return null;
     }
-    return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.png');
+    // Return as PDF blob — Slack files.upload accepts PDF too
+    return resp.getBlob().setName('break_' + shift + '_' + dk.replace('/', '-') + '.pdf').setContentType('application/pdf');
 
   } catch (e) {
     Logger.log('[Slack PNG] Error: ' + e.message);
@@ -1281,7 +1287,7 @@ function _slackUploadImage(blob, caption, channelId, shift, dk) {
     UrlFetchApp.fetch(urlData.upload_url, {
       method: 'post',
       payload: blob.getBytes(),
-      headers: { 'Content-Type': 'image/png' },
+      headers: { 'Content-Type': blob.getContentType() },
       muteHttpExceptions: true
     });
 
