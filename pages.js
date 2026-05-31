@@ -1431,46 +1431,58 @@ function _copyBreaksForSlack() {
 
   var parts = dk.split('/');
   var d = new Date(now.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
-  var vnDays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-  var vnDay = vnDays[d.getDay()];
-  var shortDate = parts[0] + '/' + parts[1];
 
-  var slotMap = {};
-  (state.users || []).forEach(function(u) {
-    var dn = WEEK_DAYS[weekRange.indexOf(dk)];
-    if ((u.schedule[dk] || u.schedule[dn] || '').toUpperCase() !== (currentShift || '').toUpperCase()) return;
-    var mk = now.getFullYear() + '-' + parts[1];
-    var attCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][mk] || {})[dk]) : '';
-    var attParsed = attCode ? _parseAttCode(attCode) : null;
-    if (attParsed && attParsed.type === 'OFF') return;
-    var br = DB.getBreak(u.id, dk);
-    if (!br) return;
-    if (!slotMap[br.slot]) slotMap[br.slot] = [];
-    slotMap[br.slot].push(u.name.split(' ').slice(-1)[0]);
+  var dn = WEEK_DAYS[weekRange.indexOf(dk)];
+  var roleAbbr = {'Data Analyst':'D.A','Sr Data Analyst':'Sr D.A','Data Supervisor':'D.S','Sr Data Supervisor':'Sr D.S'};
+  var offBg = {'A':'rgba(234,179,8,.18)','H':'rgba(220,38,38,.18)','0':'rgba(22,163,74,.18)','U':'rgba(225,29,72,.15)','S':'rgba(234,88,12,.15)','L':'rgba(8,145,178,.15)'};
+  var offFg = {'A':'#92680a','H':'#b91c1c','0':'#15803d','U':'#be123c','S':'#c2410c','L':'#0e7490'};
+  var validRoles = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor'];
+  var mk2 = now.getFullYear() + '-' + parts[1];
+  var slots = BREAK_SLOTS[currentShift] || [];
+
+  var shiftUsers = (state.users || []).filter(function(u) {
+    if ((u.schedule[dk] || u.schedule[dn] || '').toUpperCase() !== (currentShift || '').toUpperCase()) return false;
+    return validRoles.indexOf(_resolveRole(u.role)) >= 0;
+  }).sort(function(a, b) {
+    if (a.team !== b.team) return a.team.localeCompare(b.team, undefined, {numeric:true});
+    return _roleSort(a, b);
   });
 
   var tableRows = '';
-  Object.keys(slotMap).sort().forEach(function(slot) {
-    var shortCode = getShortSlot(currentShift, slot);
+  shiftUsers.forEach(function(u) {
+    var attCode2 = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][mk2] || {})[dk]) : '';
+    var attParsed2 = attCode2 ? _parseAttCode(attCode2) : null;
+    var isOff2 = attParsed2 && attParsed2.type === 'OFF';
+    var br2 = DB.getBreak(u.id, dk);
+    var shortCode2 = br2 ? getShortSlot(currentShift, br2.slot) : '';
+    var slotIdx2 = br2 ? slots.indexOf(br2.slot) : -1;
+    var ck2 = isOff2 ? String(attCode2).replace(/\.0$/, '').toUpperCase() : '';
+    var cellBg = isOff2 ? (offBg[ck2] || 'rgba(107,114,128,.1)') : slotIdx2 === 0 ? 'rgba(59,130,246,.18)' : slotIdx2 === 1 ? 'rgba(34,197,94,.18)' : 'var(--bg3)';
+    var cellFg = isOff2 ? (offFg[ck2] || 'var(--text3)') : 'var(--text1)';
+    var cellText = isOff2 ? ck2 : (shortCode2 || '—');
+    var ra = roleAbbr[_resolveRole(u.role)] || _resolveRole(u.role);
+    var td = 'border-right:1px solid var(--border);border-bottom:1px solid var(--border);';
     tableRows += '<tr>'
-      + '<td style="white-space:nowrap;padding:10px 16px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;'
-      + 'border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg3);'
-      + 'color:var(--accent);font-size:13px;vertical-align:top;">'
-      + shortCode + '<br><span style="font-weight:400;font-size:10px;color:var(--text2);">' + slot + '</span>'
-      + '</td>'
-      + '<td style="padding:10px 16px;font-size:13px;line-height:1.8;border-bottom:1px solid var(--border);vertical-align:top;">'
-      + slotMap[slot].join(', ')
-      + '</td>'
+      + '<td style="padding:5px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;color:var(--text2);white-space:nowrap;' + td + '">' + (u.team || '') + '</td>'
+      + '<td style="padding:5px 12px;font-size:12px;white-space:nowrap;' + td + '">' + u.name + '</td>'
+      + '<td style="padding:5px 10px;font-size:11px;color:var(--text2);white-space:nowrap;' + td + '">' + ra + '</td>'
+      + '<td style="padding:5px 10px;text-align:center;font-size:12px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;border-bottom:1px solid var(--border);background:' + cellBg + ';color:' + cellFg + ';">' + cellText + '</td>'
       + '</tr>';
   });
 
-  var html = '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-weight:600;">'
-    + '📅 ' + vnDay + ' (' + shortDate + ') &nbsp;·&nbsp; Shift ' + currentShift
-    + '</div>'
-    + '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+  var legendHtml = slots.map(function(s, i) {
+    return '<span style="font-size:9px;display:block;opacity:.85;">' + currentShift + (i + 1) + ': ' + s + '</span>';
+  }).join('');
+  var dateHeaderLabel = parts[0] + '/' + parts[1] + ' (' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + ')';
+  var thStyle = 'background:var(--accent);color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600;border-right:1px solid rgba(255,255,255,.2);';
+
+  var html = '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border);font-family:\'IBM Plex Sans\',sans-serif;">'
     + '<thead><tr>'
-    + '<th style="background:var(--accent);color:#fff;padding:8px 16px;text-align:left;font-size:11px;width:130px;font-weight:600;">SLOT</th>'
-    + '<th style="background:var(--accent);color:#fff;padding:8px 16px;text-align:left;font-size:11px;font-weight:600;">NGƯỜI TRỰC</th>'
+    + '<th style="' + thStyle + 'width:52px;">Team</th>'
+    + '<th style="' + thStyle + '">Name</th>'
+    + '<th style="' + thStyle + 'width:68px;">Role</th>'
+    + '<th style="background:var(--accent);color:#fff;padding:7px 10px;text-align:center;font-size:11px;font-weight:600;min-width:90px;">'
+    + dateHeaderLabel + '<br>' + legendHtml + '</th>'
     + '</tr></thead>'
     + '<tbody>' + tableRows + '</tbody>'
     + '</table>';
@@ -1481,12 +1493,20 @@ function _copyBreaksForSlack() {
 
 function _screenshotSlackTable() {
   var el = document.getElementById('slack-table-wrap');
-  html2canvas(el, { backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg') || '#fff', scale: 2 }).then(function(canvas) {
-    var url = canvas.toDataURL('image/png');
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'break-schedule.png';
-    a.click();
+  var bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
+  html2canvas(el, {backgroundColor: bgColor, scale: 2, useCORS: true}).then(function(canvas) {
+    canvas.toBlob(function(blob) {
+      try {
+        navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(function() {
+          _showArrangeToast('Image copied! Paste in Slack ✔');
+        });
+      } catch(e) {
+        var url = canvas.toDataURL('image/png');
+        var a = document.createElement('a');
+        a.href = url; a.download = 'break-schedule.png'; a.click();
+        _showArrangeToast('Downloaded (clipboard not supported).');
+      }
+    }, 'image/png');
   });
 }
 
