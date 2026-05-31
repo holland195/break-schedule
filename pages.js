@@ -1294,7 +1294,7 @@ function getArrangeDayMemberList(_unused) {
         </td>`;
       }
 
-      var arrMk = _tNow.getFullYear() + '-' + d.split('/')[1];
+      var arrMk = _now.getFullYear() + '-' + d.split('/')[1];
       var arrAttCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][arrMk] || {})[d]) : '';
       var arrAttParsed = arrAttCode ? _parseAttCode(arrAttCode) : null;
       var arrIsOff = arrAttParsed && arrAttParsed.type === 'OFF';
