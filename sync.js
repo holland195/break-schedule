@@ -304,7 +304,10 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
    });
    save(); // persist merged staffInfo immediately
  }
-  
+
+  if (remote.slackAutoPost && typeof remote.slackAutoPost === 'object') {
+    state.slackAutoPost = Object.assign({}, state.slackAutoPost || {}, remote.slackAutoPost);
+  }
 }
 
 // ── Push to Firebase ──
@@ -341,7 +344,8 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   monthlyAttendance: state.monthlyAttendance || {},
   users:             usersCompact,
   staffInfo:         staffInfoCloud,
-  policyCompliance:  state.policyCompliance || [],   // ← ADD THIS
+  policyCompliance:  state.policyCompliance || [],
+  slackAutoPost:     state.slackAutoPost    || {},
   _updated:          Date.now(),
   _breaksUpdatedAt:       state._breaksUpdatedAt       || Date.now(),
   _breakSplitsUpdatedAt:  state._breakSplitsUpdatedAt  || 0,
