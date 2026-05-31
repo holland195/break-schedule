@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "PowerShell($env:GITHUB_TOKEN; [System.Environment]::GetEnvironmentVariable\\(\"GITHUB_TOKEN\", \"User\"\\); [System.Environment]::GetEnvironmentVariable\\(\"GITHUB_TOKEN\", \"Machine\"\\))",
-      "Bash(git credential *)"
+      "Bash(git credential *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh pr create --repo holland195/break-schedule --head claude/ecstatic-maxwell-ki1os --base main --draft --title 'Schedule: auto-update on 60s poll and highlight today'\\\\''s column' --body ' *)",
+      "PowerShell($env:GITHUB_TOKEN; $env:GH_TOKEN; $env:CLAUDE_GITHUB_TOKEN)",
+      "PowerShell($env:GITHUB_TOKEN)",
+      "PowerShell($env:GH_TOKEN)",
+      "PowerShell($env:CLAUDE_GITHUB_TOKEN)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(cmdkey /list)",
+      "PowerShell($cred = [System.Net.NetworkCredential]::new\\(\"\",\"\"\\).Password; Write-Output \"done\")"
     ]
   }
 }
