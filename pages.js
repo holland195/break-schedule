@@ -1420,7 +1420,7 @@ function getArrangeDayMemberList(_unused) {
 
 function _copyBreaksForSlack() {
   var now = new Date();
-  var todayDk = _pad(now.getDate()) + '/' + _pad(now.getMonth() + 1);
+  var todayDk = String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth() + 1).padStart(2,'0');
   var weekRange = getWeekRange(activeMonday);
   var dk = weekRange.indexOf(todayDk) >= 0 ? todayDk : (weekRange[1] || weekRange[0]);
 
