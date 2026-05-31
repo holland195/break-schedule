@@ -1030,16 +1030,42 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   letter-spacing: .04em;
 }
 
+/* ── ARRANGE BREAKS COLLAPSIBLE CONTROLS ── */
+.arrange-controls-wrap { margin-bottom: 4px; }
+.arrange-controls-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; cursor: pointer; user-select: none;
+  border-radius: 8px; transition: background .15s;
+}
+.arrange-controls-header:hover { background: var(--bg3); }
+.arrange-controls-chevron {
+  font-size: 11px; color: var(--text3);
+  transition: transform .2s; display: inline-block;
+}
+.arrange-controls-header span { font-size: 11px; color: var(--text3); font-weight: 600; }
+.arrange-controls-body {
+  overflow: hidden;
+  max-height: 400px;
+  transition: max-height .25s ease, opacity .2s ease;
+  opacity: 1;
+}
+.arrange-controls-body.collapsed { max-height: 0; opacity: 0; }
+.arrange-controls-chevron.collapsed { transform: rotate(-90deg); }
+
 /* ── ARRANGE BREAKS FULL-WEEK TABLE ── */
 .arr-table-wrap {
   overflow: auto;
-  /* Fill remaining height: viewport - topbar(52px) - content padding(48px)
-     - page-header(60px) - bulk-panel(~138px) - main-tabs(44px) - gap(16px) */
-  max-height: calc(100vh - 52px - 48px - 60px - 138px - 44px - 16px);
-  min-height: 200px; /* always show at least a few rows */
+  /* Expanded: viewport - topbar(52px) - content padding(48px)
+     - page-header(60px) - controls-header(32px) - bulk-panel(~138px) - slack-row(52px) - main-tabs(44px) - gap(16px) */
+  max-height: calc(100vh - 52px - 48px - 60px - 32px - 138px - 52px - 44px - 16px);
+  min-height: 200px;
   border-radius: 10px;
   border: 1px solid var(--border);
   margin-top: 4px;
+}
+.arrange-controls-body.collapsed ~ * .arr-table-wrap,
+.arr-table-wrap.controls-hidden {
+  max-height: calc(100vh - 52px - 48px - 60px - 32px - 44px - 16px);
 }
 .arr-table {
   border-collapse: separate;

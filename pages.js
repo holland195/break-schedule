@@ -1134,8 +1134,38 @@ function _renderArrangeAssignTab(weekRange) {
   </div>
 </div>`;
 
+  var _ctrlCollapsed = localStorage.getItem('arrange-controls-collapsed') === '1';
+  var collapsePanel = `
+<div class="arrange-controls-wrap">
+  <div class="arrange-controls-header" onclick="_toggleArrangeControls()">
+    <span class="arrange-controls-chevron${_ctrlCollapsed ? ' collapsed' : ''}" id="arrange-chevron">▼</span>
+    <span>Controls</span>
+  </div>
+  <div class="arrange-controls-body${_ctrlCollapsed ? ' collapsed' : ''}" id="arrange-controls-body">
+    ${combinedPanel}
+    ${_renderSlackAutoPostToggle()}
+  </div>
+</div>`;
+
   const weekTable = getArrangeDayMemberList(null);
-  return combinedPanel + _renderSlackAutoPostToggle() + weekTable;
+  if (_ctrlCollapsed) {
+    setTimeout(function() {
+      var tw = document.querySelector('.arr-table-wrap');
+      if (tw) tw.classList.add('controls-hidden');
+    }, 0);
+  }
+  return collapsePanel + weekTable;
+}
+
+function _toggleArrangeControls() {
+  var body = document.getElementById('arrange-controls-body');
+  var chevron = document.getElementById('arrange-chevron');
+  var tableWrap = document.querySelector('.arr-table-wrap');
+  if (!body || !chevron) return;
+  var nowCollapsed = body.classList.toggle('collapsed');
+  chevron.classList.toggle('collapsed', nowCollapsed);
+  if (tableWrap) tableWrap.classList.toggle('controls-hidden', nowCollapsed);
+  localStorage.setItem('arrange-controls-collapsed', nowCollapsed ? '1' : '0');
 }
 
 function _renderArrangeOverviewTab(weekRange) {
