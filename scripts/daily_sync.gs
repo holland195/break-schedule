@@ -7,6 +7,10 @@ const SPREADSHEET_ID          = '19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs';
 const SLACK_WEBHOOK_A         = ''; // paste shift-a-15h-00h webhook URL here
 const SLACK_WEBHOOK_D         = ''; // paste shift-d-00h-09h webhook URL here
 const SLACK_WEBHOOK_E         = ''; // paste shift-e-09h-18h webhook URL here
+const SLACK_BOT_TOKEN         = ''; // xoxb-... bot token (OAuth, files:write + chat:write scope)
+const SLACK_CHANNEL_A         = ''; // channel ID for shift-a-15h-00h  (right-click channel → Copy link → last segment)
+const SLACK_CHANNEL_D         = ''; // channel ID for shift-d-00h-09h
+const SLACK_CHANNEL_E         = ''; // channel ID for shift-e-09h-18h
 const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
 const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
@@ -1011,12 +1015,12 @@ function testLogbookDetection() {
 // ═══════════════════════════════════════════════
 
 // Entry points — one trigger per shift
-function dailySlackShiftA() { _postShiftBreaks('A', SLACK_WEBHOOK_A, [0, 1, 2, 6]); }
-function dailySlackShiftD() { _postShiftBreaks('D', SLACK_WEBHOOK_D, [0, 1, 2, 6]); }
-function dailySlackShiftE() { _postShiftBreaks('E', SLACK_WEBHOOK_E, [0, 1, 6]);    }
+function dailySlackShiftA() { _postShiftBreaks('A', SLACK_WEBHOOK_A, SLACK_CHANNEL_A, [0, 1, 2, 6]); }
+function dailySlackShiftD() { _postShiftBreaks('D', SLACK_WEBHOOK_D, SLACK_CHANNEL_D, [0, 1, 2, 6]); }
+function dailySlackShiftE() { _postShiftBreaks('E', SLACK_WEBHOOK_E, SLACK_CHANNEL_E, [0, 1, 6]);    }
 // Day indices: 0=Sun, 1=Mon, 2=Tue, 6=Sat
 
-function _postShiftBreaks(shift, webhook, allowedDays) {
+function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   var now = new Date();
   // Use Vietnam time for day-of-week check
   var vnNow = new Date(Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', "yyyy-MM-dd'T'HH:mm:ss"));
@@ -1060,7 +1064,8 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
 
   var users = Array.isArray(current.users) ? current.users : Object.values(current.users || {});
 
-  // Collect per-staff rows: include absent staff too (show code), exclude non-agents
+  // On single-day posts (Mon/Sat/Sun) exclude absent staff — only show on Tuesday multi-day post
+  var isTuesdayPost = (dow === 2);
   var staffRows = [];
   users.forEach(function(u) {
     var sched = ((u.schedule || {})[dk] || (u.schedule || {})[dn] || '').toUpperCase();
@@ -1070,10 +1075,12 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
     var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
       ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').replace(/\.0$/, '').toUpperCase();
     var isOff = OFF_CODES.indexOf(attCode) >= 0;
+    if (isOff && !isTuesdayPost) return; // exclude absent on single-day posts
     var br = (current.breaks || {})[u.id + '_' + dk];
     var slotIdx = br ? slots.indexOf(br.slot) : -1;
     var slotCode = slotIdx >= 0 ? (shift + (slotIdx + 1)) : (isOff ? attCode : '—');
     staffRows.push({
+      id: u.id,
       team: u.team || '',
       name: u.name || '',
       role: resolvedRole,
@@ -1083,7 +1090,7 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
     });
   });
 
-  // Sort: team asc, then role tier desc (Sr D.S first), then name
+  // Sort: team asc, then role tier (Sr D.S → D.S → Sr D.A → D.A), then name
   staffRows.sort(function(a, b) {
     var tc = a.team.localeCompare(b.team, undefined, { numeric: true });
     if (tc !== 0) return tc;
@@ -1093,65 +1100,77 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
     return a.name.localeCompare(b.name);
   });
 
-  // Build monospace table — fixed-width columns matching the modal layout
-  // Columns: Team | Name | Role | Slot
-  var COL_TEAM = 6, COL_NAME = 16, COL_ROLE = 8;
-
-  function pad(s, n) {
-    var str = String(s);
-    while (str.length < n) str += ' ';
-    return str.slice(0, n);
-  }
-
-  var separator = pad('', COL_TEAM) + '+-' + pad('', COL_NAME) + '-+-' + pad('', COL_ROLE) + '-+------';
-  var header    = pad('', COL_TEAM) + '| ' + pad('Name', COL_NAME) + ' | ' + pad('Role', COL_ROLE) + ' | Slot ';
-
-  var lines = [separator, header, separator];
-  var prevTeam = null;
-  staffRows.forEach(function(r) {
-    if (r.team !== prevTeam) {
-      if (prevTeam !== null) lines.push(separator);
-      lines.push(pad('[' + r.team + ']', COL_TEAM) + '| ' + pad('', COL_NAME) + ' | ' + pad('', COL_ROLE) + ' |      ');
-      prevTeam = r.team;
-    }
-    var abbr = ROLE_ABBR[r.role] || r.role;
-    lines.push(pad('', COL_TEAM) + '| ' + pad(r.name, COL_NAME) + ' | ' + pad(abbr, COL_ROLE) + ' | ' + r.slotCode + '    ');
-  });
-  lines.push(separator);
-
-  // Legend footer
-  slots.forEach(function(s, i) {
-    lines.push(shift + (i + 1) + ': ' + s);
-  });
-
   // Vietnamese day name
   var vnDays = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
   var vnDay = vnDays[dow];
   var shortDate = dk.slice(0, 5); // "02/06"
 
-  // Build Block Kit payload: header + code block table
-  var blocks = [
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: ':calendar: *Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.*' }
-    },
-    {
-      type: 'rich_text',
-      elements: [{
-        type: 'rich_text_preformatted',
-        elements: [{ type: 'text', text: lines.join('\n') }]
-      }]
+  // Tuesday: collect Wed/Thu/Fri as extra date columns (landscape). Other days: portrait single column.
+  var dateCols = [dk];
+  if (isTuesdayPost) {
+    // Add Wed(+1), Thu(+2), Fri(+3) relative to today
+    for (var di = 1; di <= 3; di++) {
+      var xd = new Date(vnNow.getFullYear(), vnNow.getMonth(), vnNow.getDate() + di);
+      dateCols.push(
+        String(xd.getDate()).padStart(2,'0') + '/' + String(xd.getMonth()+1).padStart(2,'0')
+      );
     }
-  ];
+  }
 
-  // POST to Slack
-  var resp = UrlFetchApp.fetch(webhook, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({ blocks: blocks }),
-    muteHttpExceptions: true
+  // For multi-day: re-collect staffRows per date (staffRows currently only has today's breaks)
+  // Build a map: dateKey → {userId → slotCode}
+  var breaksByDate = {};
+  dateCols.forEach(function(dki) {
+    breaksByDate[dki] = {};
+    var dkiParts = dki.split('/');
+    var dni2 = WEEK_DAYS[new Date(vnNow.getFullYear(), parseInt(dkiParts[1])-1, parseInt(dkiParts[0])).getDay()];
+    users.forEach(function(u) {
+      var sched2 = ((u.schedule || {})[dki] || (u.schedule || {})[dni2] || '').toUpperCase();
+      if (sched2 !== shift) return;
+      if (VALID_ROLES.indexOf(_resolveRoleGas(u.role)) < 0) return;
+      var br2 = (current.breaks || {})[u.id + '_' + dki];
+      var attCode2 = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
+        ? (current.monthlyAttendance[u.username][monthKey][dki] || '') : '').replace(/\.0$/, '').toUpperCase();
+      var isOff2 = OFF_CODES.indexOf(attCode2) >= 0;
+      var si2 = br2 ? slots.indexOf(br2.slot) : -1;
+      breaksByDate[dki][u.id] = isOff2 ? attCode2 : (si2 >= 0 ? (shift + (si2+1)) : '—');
+    });
   });
-  Logger.log('[Slack ' + shift + '] Response: ' + resp.getResponseCode() + ' ' + resp.getContentText());
+
+  var caption = isTuesdayPost
+    ? 'Mọi người check lịch break tuần này (Thứ Tư–Thứ Sáu) nha.'
+    : 'Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.';
+
+  // Build PDF table and upload, or fall back to webhook monospace
+  var pdfBlob = _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, caption, ROLE_ABBR, isTuesdayPost);
+
+  if (SLACK_BOT_TOKEN && channelId && pdfBlob) {
+    _slackUploadImage(pdfBlob, caption, channelId, shift, dk);
+  } else {
+    // Webhook fallback: monospace preformatted table
+    Logger.log('[Slack ' + shift + '] Using webhook path (no bot token configured).');
+    var COL_TEAM = 6, COL_NAME = 24, COL_ROLE = 7;
+    function padC(s, n) { var t = String(s); while (t.length < n) t = t + ' '; return t.slice(0, n); }
+    var sep = '+' + padC('', COL_TEAM+2) + '+' + padC('', COL_NAME+2) + '+' + padC('', COL_ROLE+2) + '+------+';
+    var hdr = '| ' + padC('Team', COL_TEAM) + ' | ' + padC('Name', COL_NAME) + ' | ' + padC('Role', COL_ROLE) + ' | Slot |';
+    var tableLines = [sep, hdr, sep];
+    staffRows.forEach(function(r) {
+      var abbr = ROLE_ABBR[r.role] || r.role;
+      tableLines.push('| ' + padC(r.team, COL_TEAM) + ' | ' + padC(r.name, COL_NAME) + ' | ' + padC(abbr, COL_ROLE) + ' | ' + padC(r.slotCode, 4) + ' |');
+    });
+    tableLines.push(sep);
+    slots.forEach(function(s, i) { tableLines.push(shift + (i+1) + ': ' + s); });
+    var blocks = [
+      { type: 'section', text: { type: 'mrkdwn', text: ':calendar: *' + caption + '*' } },
+      { type: 'rich_text', elements: [{ type: 'rich_text_preformatted', elements: [{ type: 'text', text: tableLines.join('\n') }] }] }
+    ];
+    var wResp = UrlFetchApp.fetch(webhook, {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ blocks: blocks }),
+      muteHttpExceptions: true
+    });
+    Logger.log('[Slack ' + shift + '] Webhook response: ' + wResp.getResponseCode());
+  }
 
   // Stamp lastPostedAt back to Firebase
   if (!current.slackAutoPost) current.slackAutoPost = {};
@@ -1159,6 +1178,176 @@ function _postShiftBreaks(shift, webhook, allowedDays) {
   current.slackAutoPost[shift].lastPostedAt = now.getTime();
   firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
   Logger.log('[Slack ' + shift + '] Posted for ' + dk + ' and stamped lastPostedAt.');
+}
+
+// Builds a PDF of the break table using a temporary Google Sheet.
+// Single day → portrait. Tuesday (isTuesday=true) → landscape with Wed/Thu/Fri columns.
+// Legend column placed next to each date column.
+// Returns a Blob, or null on failure.
+function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, caption, roleAbbr, isTuesday) {
+  var ss = SpreadsheetApp.create('_pave_slack_tmp_' + shift);
+  try {
+    var sheet = ss.getActiveSheet();
+
+    var ACCENT    = '#1f66f1';
+    var SLOT1_BG  = '#dbeafe';
+    var SLOT2_BG  = '#dcfce7';
+    var OFF_BG    = { A:'#fef9c3', H:'#fee2e2', '0':'#dcfce7', U:'#ffe4e6', S:'#ffedd5', L:'#cffafe' };
+    var OFF_FG    = { A:'#92680a', H:'#b91c1c', '0':'#15803d', U:'#be123c', S:'#c2410c', L:'#0e7490' };
+    var HEADER_FG = '#ffffff';
+    var TEXT_DARK = '#1e293b';
+    var BORDER    = '#cbd5e1';
+    var DAY_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+    // Column layout: TEAM(1) | NAME(2) | ROLE(3) | [date(4) | legend(5)] [date(6) | legend(7)] ...
+    // Fixed cols = 3, then 2 cols per date (slot cell + legend cell)
+    var FIXED = 3;
+    var numCols = FIXED + dateCols.length * 2;
+    var numDataRows = staffRows.length;
+
+    // ── Row 1: column headers (no caption row — caption is sent as Slack message text) ──
+    var fixedHeaders = ['TEAM', 'NAME', 'ROLE'];
+    fixedHeaders.forEach(function(h, c) {
+      sheet.getRange(1, c+1)
+        .setValue(h).setBackground(ACCENT).setFontColor(HEADER_FG)
+        .setFontWeight('bold').setFontSize(9)
+        .setHorizontalAlignment('left').setVerticalAlignment('middle');
+    });
+    dateCols.forEach(function(dki, di) {
+      var parts = dki.split('/');
+      var dow2 = new Date(new Date().getFullYear(), parseInt(parts[1])-1, parseInt(parts[0])).getDay();
+      var dateLabel = dki.slice(0,5) + '\n(' + DAY_NAMES[dow2] + ')';
+      var legendLabel = slots.map(function(s, si) { return shift+(si+1)+': '+s; }).join('\n');
+      var slotCol  = FIXED + di*2 + 1;
+      var legendCol = FIXED + di*2 + 2;
+      sheet.getRange(1, slotCol)
+        .setValue(dateLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
+        .setFontWeight('bold').setFontSize(9)
+        .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+      sheet.getRange(1, legendCol)
+        .setValue(legendLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
+        .setFontSize(8).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
+    });
+
+    // ── Data rows starting at row 2 ──
+    staffRows.forEach(function(r, i) {
+      var row = i + 2;
+      var abbr = roleAbbr[r.role] || r.role;
+      var rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+      sheet.getRange(row, 1).setValue(r.team).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
+      sheet.getRange(row, 2).setValue(r.name).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
+      sheet.getRange(row, 3).setValue(abbr).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
+      dateCols.forEach(function(dki, di) {
+        var slotCode = (breaksByDate[dki] || {})[r.id] || '—';
+        var isOffCell = slotCode.length <= 2 && ['A','H','U','S','L','0'].indexOf(slotCode) >= 0;
+        var si = slotCode === shift+'1' ? 0 : slotCode === shift+'2' ? 1 : -1;
+        var cellBg = isOffCell ? (OFF_BG[slotCode] || '#f1f5f9') : si === 0 ? SLOT1_BG : si === 1 ? SLOT2_BG : rowBg;
+        var cellFg = isOffCell ? (OFF_FG[slotCode] || TEXT_DARK) : TEXT_DARK;
+        var slotCol2   = FIXED + di*2 + 1;
+        var legendCol2 = FIXED + di*2 + 2;
+        sheet.getRange(row, slotCol2)
+          .setValue(slotCode).setBackground(cellBg).setFontColor(cellFg)
+          .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center');
+        sheet.getRange(row, legendCol2).setBackground(rowBg);
+      });
+    });
+
+    // ── Column widths ──
+    sheet.setColumnWidth(1, 55);   // Team
+    sheet.setColumnWidth(2, 190);  // Name
+    sheet.setColumnWidth(3, 65);   // Role
+    dateCols.forEach(function(_, di) {
+      sheet.setColumnWidth(FIXED + di*2 + 1, 70);  // date/slot
+      sheet.setColumnWidth(FIXED + di*2 + 2, 90);  // legend
+    });
+
+    // ── Row heights ──
+    sheet.setRowHeight(1, isTuesday ? 32 : 42);
+    for (var ri = 2; ri <= numDataRows + 1; ri++) sheet.setRowHeight(ri, 21);
+
+    // ── Borders on table ──
+    sheet.getRange(1, 1, numDataRows + 1, numCols)
+      .setBorder(true, true, true, true, true, true, BORDER, SpreadsheetApp.BorderStyle.SOLID);
+
+    // ── Hide unused rows/cols ──
+    var lastRow = numDataRows + 1;
+    var maxRows = sheet.getMaxRows();
+    var maxCols = sheet.getMaxColumns();
+    if (maxRows > lastRow) sheet.hideRows(lastRow + 1, maxRows - lastRow);
+    if (maxCols > numCols) sheet.hideColumns(numCols + 1, maxCols - numCols);
+
+    SpreadsheetApp.flush();
+    Utilities.sleep(1500);
+
+    var ssId    = ss.getId();
+    var sheetId = sheet.getSheetId();
+    var orientation = isTuesday ? 'false' : 'true'; // portrait=true for single day, landscape for Tuesday
+    var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
+      + '/export?format=pdf&gid=' + sheetId
+      + '&size=statement&portrait=' + orientation
+      + '&fitw=true&fith=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false'
+      + '&top_margin=0.1&bottom_margin=0.1&left_margin=0.1&right_margin=0.1&attachment=false';
+
+    var token = ScriptApp.getOAuthToken();
+    var resp = UrlFetchApp.fetch(exportUrl, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) {
+      Logger.log('[Slack PDF] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 200));
+      return null;
+    }
+    return resp.getBlob()
+      .setName('break_' + shift + '_' + dateCols[0].replace('/', '-') + '.pdf')
+      .setContentType('application/pdf');
+
+  } catch (e) {
+    Logger.log('[Slack PNG] Error: ' + e.message);
+    return null;
+  } finally {
+    DriveApp.getFileById(ss.getId()).setTrashed(true);
+  }
+}
+
+// Uploads a PNG blob to a Slack channel via the bot token file upload API.
+function _slackUploadImage(blob, caption, channelId, shift, dk) {
+  try {
+    var bytes = blob.getBytes();
+    var filename = blob.getName();
+
+    // Step 1: get upload URL
+    var urlResp = UrlFetchApp.fetch('https://slack.com/api/files.getUploadURLExternal', {
+      method: 'post',
+      headers: { Authorization: 'Bearer ' + SLACK_BOT_TOKEN },
+      payload: { filename: filename, length: String(bytes.length) },
+      muteHttpExceptions: true
+    });
+    var urlData = JSON.parse(urlResp.getContentText());
+    if (!urlData.ok) { Logger.log('[Slack upload] getUploadURL failed: ' + urlResp.getContentText()); return; }
+
+    // Step 2: upload bytes
+    UrlFetchApp.fetch(urlData.upload_url, {
+      method: 'post',
+      payload: blob.getBytes(),
+      headers: { 'Content-Type': blob.getContentType() },
+      muteHttpExceptions: true
+    });
+
+    // Step 3: complete upload and post to channel
+    var completeResp = UrlFetchApp.fetch('https://slack.com/api/files.completeUploadExternal', {
+      method: 'post',
+      headers: { Authorization: 'Bearer ' + SLACK_BOT_TOKEN, 'Content-Type': 'application/json' },
+      payload: JSON.stringify({
+        files: [{ id: urlData.file_id }],
+        channel_id: channelId,
+        initial_comment: ':calendar: *' + caption + '*'
+      }),
+      muteHttpExceptions: true
+    });
+    var completeData = JSON.parse(completeResp.getContentText());
+    if (!completeData.ok) { Logger.log('[Slack upload] complete failed: ' + completeResp.getContentText()); return; }
+
+    Logger.log('[Slack ' + shift + '] PNG uploaded for ' + dk);
+  } catch (e) {
+    Logger.log('[Slack upload] Error: ' + e.message);
+  }
 }
 
 // Minimal role resolver matching the web app's _resolveRole()
