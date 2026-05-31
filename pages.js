@@ -1449,14 +1449,44 @@ function _copyBreaksForSlack() {
     slotMap[br.slot].push(u.name.split(' ').slice(-1)[0]);
   });
 
-  var lines = ['Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.', ''];
+  var tableRows = '';
   Object.keys(slotMap).sort().forEach(function(slot) {
     var shortCode = getShortSlot(currentShift, slot);
-    lines.push(shortCode + ' (' + slot + ') — ' + slotMap[slot].join(', '));
+    tableRows += '<tr>'
+      + '<td style="white-space:nowrap;padding:10px 16px;font-weight:700;font-family:\'IBM Plex Mono\',monospace;'
+      + 'border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg3);'
+      + 'color:var(--accent);font-size:13px;vertical-align:top;">'
+      + shortCode + '<br><span style="font-weight:400;font-size:10px;color:var(--text2);">' + slot + '</span>'
+      + '</td>'
+      + '<td style="padding:10px 16px;font-size:13px;line-height:1.8;border-bottom:1px solid var(--border);vertical-align:top;">'
+      + slotMap[slot].join(', ')
+      + '</td>'
+      + '</tr>';
   });
 
-  navigator.clipboard.writeText(lines.join('\n')).then(function() {
-    _showArrangeToast('Copied!');
+  var html = '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-weight:600;">'
+    + '📅 ' + vnDay + ' (' + shortDate + ') &nbsp;·&nbsp; Shift ' + currentShift
+    + '</div>'
+    + '<table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+    + '<thead><tr>'
+    + '<th style="background:var(--accent);color:#fff;padding:8px 16px;text-align:left;font-size:11px;width:130px;font-weight:600;">SLOT</th>'
+    + '<th style="background:var(--accent);color:#fff;padding:8px 16px;text-align:left;font-size:11px;font-weight:600;">NGƯỜI TRỰC</th>'
+    + '</tr></thead>'
+    + '<tbody>' + tableRows + '</tbody>'
+    + '</table>';
+
+  document.getElementById('slack-table-wrap').innerHTML = html;
+  document.getElementById('modal-slack-preview').classList.add('show');
+}
+
+function _screenshotSlackTable() {
+  var el = document.getElementById('slack-table-wrap');
+  html2canvas(el, { backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg') || '#fff', scale: 2 }).then(function(canvas) {
+    var url = canvas.toDataURL('image/png');
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'break-schedule.png';
+    a.click();
   });
 }
 

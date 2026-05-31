@@ -398,6 +398,18 @@
     </div>
   </div>
 
+  <!-- ─── MODAL: SLACK PREVIEW ────────────────────────────── -->
+  <div class="modal-overlay" id="modal-slack-preview">
+    <div class="modal" style="width:560px;max-width:96vw;" onclick="event.stopPropagation()">
+      <div class="modal-title">📋 Break Schedule — Slack Preview</div>
+      <div id="slack-table-wrap" style="margin-bottom:16px;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-slack-preview')">Close</button>
+        <button class="btn btn-accent" onclick="_screenshotSlackTable()">📸 Screenshot</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── TOAST ─────────────────────────────────────────────── -->
   <div class="msg-bar" id="toast"></div>
 
@@ -405,6 +417,7 @@
 
 <!-- 1. Third party -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <!-- 2. Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
