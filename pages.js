@@ -1419,13 +1419,13 @@ function getArrangeDayMemberList(_unused) {
 }
 
 function _copyBreaksForSlack() {
-  var today = _tNow;
-  var todayDk = _pad(today.getDate()) + '/' + _pad(today.getMonth() + 1);
+  var now = new Date();
+  var todayDk = _pad(now.getDate()) + '/' + _pad(now.getMonth() + 1);
   var weekRange = getWeekRange(activeMonday);
   var dk = weekRange.indexOf(todayDk) >= 0 ? todayDk : (weekRange[1] || weekRange[0]);
 
   var parts = dk.split('/');
-  var d = new Date(_tNow.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  var d = new Date(now.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
   var vnDays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   var vnDay = vnDays[d.getDay()];
   var shortDate = parts[0] + '/' + parts[1];
@@ -1434,7 +1434,7 @@ function _copyBreaksForSlack() {
   (state.users || []).forEach(function(u) {
     var dn = WEEK_DAYS[weekRange.indexOf(dk)];
     if ((u.schedule[dk] || u.schedule[dn] || '').toUpperCase() !== (currentShift || '').toUpperCase()) return;
-    var mk = _tNow.getFullYear() + '-' + parts[1];
+    var mk = now.getFullYear() + '-' + parts[1];
     var attCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][mk] || {})[dk]) : '';
     var attParsed = attCode ? _parseAttCode(attCode) : null;
     if (attParsed && attParsed.type === 'OFF') return;
