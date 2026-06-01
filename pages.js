@@ -949,13 +949,15 @@ function _renderBreakSplitTab() {
 </div>`;
 }
 
-function onBreakSplitSlide(shift, rawVal) {
-  const pct1 = parseInt(rawVal);
-  const pct2 = 100 - pct1;
-  const lbl1 = document.getElementById(`split-lbl-${shift}-1`);
-  const lbl2 = document.getElementById(`split-lbl-${shift}-2`);
-  if (lbl1) lbl1.textContent = `${pct1}%`;
-  if (lbl2) lbl2.textContent = `${pct2}%`;
+function onBreakSplitSlide(shift, rawVal, tier) {
+  var pct1 = parseInt(rawVal);
+  var pct2 = 100 - pct1;
+  var id1 = tier ? ('split-lbl-' + shift + '-' + tier + '-1') : ('split-lbl-' + shift + '-1');
+  var id2 = tier ? ('split-lbl-' + shift + '-' + tier + '-2') : ('split-lbl-' + shift + '-2');
+  var lbl1 = document.getElementById(id1);
+  var lbl2 = document.getElementById(id2);
+  if (lbl1) lbl1.textContent = pct1 + '%';
+  if (lbl2) lbl2.textContent = pct2 + '%';
 }
 
 // async function saveBreakSplits() {
@@ -984,6 +986,24 @@ function onBreakSplitSlide(shift, rawVal) {
 async function saveBreakSplits() {
   const changedShifts = new Set();
   VISIBLE_SHIFTS.forEach(shift => {
+    if (shift === 'A') {
+      // Shift A uses per-tier sliders
+      var _sA = document.getElementById('split-slider-A-agent');
+      var _sQ = document.getElementById('split-slider-A-qa');
+      var _sS = document.getElementById('split-slider-A-sr_qa');
+      if (!_sA && !_sQ && !_sS) return;
+      var _nA = _sA ? parseInt(_sA.value) : (getBreakSplitPct('A','agent') ?? 67);
+      var _nQ = _sQ ? parseInt(_sQ.value) : (getBreakSplitPct('A','qa') ?? 67);
+      var _nS = _sS ? parseInt(_sS.value) : (getBreakSplitPct('A','sr_qa') ?? 50);
+      var _oA = getBreakSplitPct('A','agent');
+      var _oQ = getBreakSplitPct('A','qa');
+      var _oS = getBreakSplitPct('A','sr_qa');
+      if (_nA !== _oA || _nQ !== _oQ || _nS !== _oS) changedShifts.add('A');
+      var _sp = _loadBreakSplit();
+      _sp['A'] = { agent: _nA, qa: _nQ, sr_qa: _nS };
+      _saveBreakSplit(_sp);
+      return;
+    }
     const slider = document.getElementById(`split-slider-${shift}`);
     if (!slider) return;
     const newPct = parseInt(slider.value);
@@ -1065,13 +1085,66 @@ function _renderArrangeAssignTab(weekRange) {
 
   const slots = BREAK_SLOTS[currentShift] || [];
 
-  // ── Combined: Break Split + Bulk Assign in one card ──
+  // ── Position abbreviation table (used for group tags and distribution panel) ──
+  var _posAbbr = {
+    'Data Analyst':       ['D.A',    '#f97316', 'rgba(249,115,22,.15)'],
+    'Sr Data Analyst':    ['Sr D.A', '#ea580c', 'rgba(234,88,12,.15)'],
+    'Data Supervisor':    ['D.S',    '#0ea5e9', 'rgba(14,165,233,.15)'],
+    'Sr Data Supervisor': ['Sr D.S', '#a855f7', 'rgba(168,85,247,.15)'],
+  };
+  var _validPosLabels = Object.keys(_posAbbr);
+
+  // Map each team → unique role labels among its members
+  var _teamRoles = {};
+  allShiftTeams.forEach(function(t) {
+    var seen = {};
+    var labels = [];
+    state.users.filter(function(u) { return u.team === t; }).forEach(function(u) {
+      var lbl = getRoleInfo(u.role).label;
+      if (_validPosLabels.includes(lbl) && !seen[lbl]) { seen[lbl] = true; labels.push(lbl); }
+    });
+    _teamRoles[t] = labels;
+  });
+
+  // ── Break Split row ──
+  // Shift A: one slider per position tier; all other shifts: single slider.
+  var _tierDefs = [
+    ['agent', 'D.A',    '#f97316', 'rgba(249,115,22,.15)', 67],
+    ['qa',    'D.S',    '#0ea5e9', 'rgba(14,165,233,.15)', 67],
+    ['sr_qa', 'Sr D.S', '#a855f7', 'rgba(168,85,247,.15)', 50],
+  ];
+
   const _splitSaved  = getBreakSplitPct(currentShift);
   const _splitPct1   = _splitSaved !== null ? _splitSaved : 50;
   const _splitPct2   = 100 - _splitPct1;
   const _splitCustom = _splitSaved !== null;
 
-  const splitRow = slots.length >= 2 ? `
+  const splitRow = slots.length >= 2 ? (currentShift === 'A' ? `
+  <div style="padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+    <span class="bulk-panel-label" style="display:block;margin-bottom:8px;">Split per Position</span>
+    ${_tierDefs.map(([tier, label, color, bg, def]) => {
+      const saved = getBreakSplitPct('A', tier);
+      const p1 = saved !== null ? saved : def;
+      const p2 = 100 - p1;
+      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+        <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;background:${bg};color:${color};min-width:46px;text-align:center;">${label}</span>
+        ${saved !== null
+          ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:1px 7px;border-radius:10px;white-space:nowrap;">${p1}%/${p2}%</span>`
+          : `<span style="font-size:10px;background:var(--bg3);color:var(--text3);padding:1px 7px;border-radius:10px;white-space:nowrap;">default</span>`}
+        <span style="font-size:10px;color:var(--text2);">A1</span>
+        <span id="split-lbl-A-${tier}-1" style="font-size:12px;font-weight:700;color:${color};min-width:26px;text-align:right;">${p1}%</span>
+        <input type="range" id="split-slider-A-${tier}" min="0" max="100" step="1" value="${p1}"
+          style="width:130px;accent-color:${color};"
+          oninput="onBreakSplitSlide('A',this.value,'${tier}')">
+        <span id="split-lbl-A-${tier}-2" style="font-size:12px;font-weight:700;color:${color};min-width:26px;">${p2}%</span>
+        <span style="font-size:10px;color:var(--text2);">A2</span>
+      </div>`;
+    }).join('')}
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:3px 12px;white-space:nowrap;">Save</button>
+      <button onclick="resetBreakSplit('A')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;white-space:nowrap;">↩ Reset all</button>
+    </div>
+  </div>` : `
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;">
     <span class="bulk-panel-label" style="margin-bottom:0;">Split</span>
@@ -1090,20 +1163,71 @@ function _renderArrangeAssignTab(weekRange) {
       style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;white-space:nowrap;">
       ↩ Reset
     </button>
-  </div>` : '';
+  </div>`) : '';
+
+  // ── Shift A: break distribution display ──
+  var _distPanel = '';
+  if (currentShift === 'A' && slots.length >= 2) {
+    var _distTiers = { agent: [], qa: [], sr_qa: [] };
+    var _tierRoleKey = {
+      'data analyst': 'agent', 'sr data analyst': 'agent', 'agent': 'agent', 'sr agent': 'agent',
+      'data supervisor': 'qa', 'qa': 'qa',
+      'sr data supervisor': 'sr_qa', 'sr qa': 'sr_qa',
+    };
+    allShiftTeams.forEach(function(t) {
+      var found = null;
+      state.users.filter(function(u) { return u.team === t; }).forEach(function(u) {
+        if (!found) { found = _tierRoleKey[(u.role || '').toLowerCase().trim()] || null; }
+      });
+      if (found && _distTiers[found]) _distTiers[found].push(t);
+    });
+
+    var _distRows = _tierDefs.map(function(td) {
+      var tier = td[0]; var label = td[1]; var color = td[2]; var bg = td[3]; var def = td[4];
+      var teams = _distTiers[tier];
+      if (!teams || teams.length === 0) return '';
+      var pct = getBreakSplitPct('A', tier);
+      if (pct === null) pct = def;
+      var n1 = Math.round(teams.length * pct / 100);
+      var n2 = teams.length - n1;
+      var t1 = teams.slice(0, n1);
+      var t2 = teams.slice(n1);
+      var chip = '<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;background:' + bg + ';color:' + color + ';min-width:40px;display:inline-block;text-align:center;">' + label + '</span>';
+      return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px;">' +
+        chip +
+        '<span style="font-size:11px;"><b>' + n1 + '</b> group' + (n1 !== 1 ? 's' : '') + ' → <span class="break-slot assigned slot-1" style="font-size:9px;padding:1px 5px;">A1</span>' +
+        (t1.length ? '<span style="font-size:10px;color:var(--text3);margin-left:4px;">(' + t1.join(', ') + ')</span>' : '') + '</span>' +
+        '<span style="font-size:11px;"><b>' + n2 + '</b> group' + (n2 !== 1 ? 's' : '') + ' → <span class="break-slot assigned slot-2" style="font-size:9px;padding:1px 5px;">A2</span>' +
+        (t2.length ? '<span style="font-size:10px;color:var(--text3);margin-left:4px;">(' + t2.join(', ') + ')</span>' : '') + '</span>' +
+        '</div>';
+    }).filter(function(r) { return r; }).join('');
+
+    if (_distRows) _distPanel = `
+    <div style="margin-top:10px;padding:10px 12px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Break Distribution — this week</div>
+      ${_distRows}
+    </div>`;
+  }
 
   const combinedPanel = `
 <div class="bulk-panel" style="margin-bottom:20px;display:block;padding:12px 16px;">
-  ${splitRow}
-  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+  ${splitRow}${_distPanel}
+  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:${currentShift === 'A' && slots.length >= 2 ? '12' : '0'}px;">
     <div class="bulk-panel-section">
       <div class="bulk-panel-label">Groups</div>
       <div class="group-checkbox-list">
-        ${allShiftTeams.map(t => `
-          <label class="group-check-item">
+        ${allShiftTeams.map(t => {
+          const posChips = (_teamRoles[t] || []).map(l => {
+            const info = _posAbbr[l];
+            if (!info) return '';
+            return `<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;background:${info[2]};color:${info[1]};white-space:nowrap;">${info[0]}</span>`;
+          }).join('');
+          return `<label class="group-check-item" style="align-items:center;">
             <input type="checkbox" name="bulk-group" value="${t}"
-              ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()"> ${t}
-          </label>`).join('')}
+              ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()">
+            <span style="font-size:11px;">${t}</span>${posChips ? ' ' + posChips : ''}
+          </label>`;
+        }).join('')}
       </div>
     </div>
     <div class="bulk-panel-section">
