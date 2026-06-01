@@ -43,11 +43,20 @@ function _saveBreakSplit(splits) {
   try { localStorage.setItem(BREAK_SPLIT_KEY, JSON.stringify(splits)); } catch(e) {}
 }
 
-// Returns the saved slot-1 percentage (0–100) for a shift, or null if using rotation.
-function getBreakSplitPct(shift) {
-  const splits = _loadBreakSplit();
-  const val = splits[shift];
-  return (typeof val === 'number') ? val : null;
+// Returns the saved slot-1 percentage (0–100) for a shift (and optionally a tier).
+// Shift value may be a plain number (legacy) or an object with per-tier keys.
+// Returns null if no custom split is configured for the given shift/tier.
+function getBreakSplitPct(shift, tier) {
+  var splits = _loadBreakSplit();
+  var val = splits[shift];
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object') {
+    if (tier && val[tier] !== undefined) return val[tier];
+    if (val.pct !== undefined) return val.pct;
+    return null;
+  }
+  return null;
 }
 
 // Saves a custom slot-1 percentage for a shift. Pass null to clear (revert to rotation).
@@ -255,7 +264,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       Object.entries(tiers).forEach(([tier, members]) => {
         if (members.length === 0) return;
 
-        const customPct  = getBreakSplitPct(shift);
+        const customPct  = getBreakSplitPct(shift, tier);
         const slot1Count = customPct !== null
           ? Math.round(members.length * customPct / 100)
           : Math.ceil(members.length / 2);
