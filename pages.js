@@ -1208,15 +1208,27 @@ function _renderArrangeAssignTab(weekRange) {
     });
 
     var _distRows = _tierDefs.map(function(td) {
-      var tier = td[0]; var label = td[1]; var color = td[2]; var bg = td[3]; var def = td[4];
+      var tier = td[0]; var label = td[1]; var color = td[2]; var bg = td[3];
       var teams = _distTiers[tier];
       if (!teams || teams.length === 0) return '';
-      var pct = getBreakSplitPct('A', tier);
-      if (pct === null) pct = def;
-      var n1 = Math.round(teams.length * pct / 100);
-      var n2 = teams.length - n1;
-      var t1 = teams.slice(0, n1);
-      var t2 = teams.slice(n1);
+      // Read actual break assignments for this week — don't infer from percentage
+      var t1 = [], t2 = [];
+      teams.forEach(function(team) {
+        var s1 = 0, s2 = 0;
+        state.users.filter(function(u) {
+          return u.team === team && _tierRoleKey[(u.role || '').toLowerCase().trim()] === tier;
+        }).forEach(function(u) {
+          weekRange.forEach(function(d, di) {
+            if (u.schedule[d] !== currentShift && u.schedule[WEEK_DAYS[di]] !== currentShift) return;
+            var brk = DB.getBreak(u.id, d);
+            if (!brk || !brk.slot) return;
+            if (_nd(brk.slot) === _nd(slots[0])) s1++;
+            else if (_nd(brk.slot) === _nd(slots[1])) s2++;
+          });
+        });
+        (s2 > s1 ? t2 : t1).push(team);
+      });
+      var n1 = t1.length, n2 = t2.length;
       var chip = '<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;background:' + bg + ';color:' + color + ';min-width:40px;display:inline-block;text-align:center;">' + label + '</span>';
       return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px;">' +
         chip +
