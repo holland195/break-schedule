@@ -1219,7 +1219,7 @@ function _renderArrangeAssignTab(weekRange) {
     }).filter(function(r) { return r; }).join('');
 
     if (_distRows) _distPanel = `
-    <div style="margin-top:10px;padding:10px 12px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);">
+    <div style="padding:10px 12px;background:var(--bg4);border-radius:8px;border:1px solid var(--border);">
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Break Distribution — this week</div>
       ${_distRows}
     </div>`;
@@ -1227,15 +1227,10 @@ function _renderArrangeAssignTab(weekRange) {
 
   const combinedPanel = `
 <div class="bulk-panel" style="margin-bottom:12px;display:block;padding:12px 16px;">
-  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+  <div style="display:flex;gap:0;flex-wrap:wrap;align-items:flex-start;">
 
-    <!-- LEFT: split sliders -->
-    <div style="flex:1;min-width:260px;">
-      ${splitRow || ''}
-    </div>
-
-    <!-- RIGHT: manual assign -->
-    <div style="flex:1;min-width:260px;${splitRow ? 'border-left:1px solid var(--border);padding-left:20px;' : ''}">
+    <!-- COL 1: Manual Assign -->
+    <div style="flex:1;min-width:240px;padding-right:20px;border-right:1px solid var(--border);">
       <span class="bulk-panel-label" style="display:block;margin-bottom:8px;">Manual Assign</span>
       <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
         <div class="bulk-panel-section">
@@ -1283,8 +1278,15 @@ function _renderArrangeAssignTab(weekRange) {
       </div>
     </div>
 
+    <!-- COL 2: Split per Position -->
+    <div style="flex:1;min-width:240px;padding:0 20px;${_distPanel ? 'border-right:1px solid var(--border);' : ''}">
+      ${splitRow || '<span style="color:var(--text3);font-size:11px;">—</span>'}
+    </div>
+
+    <!-- COL 3: Break Distribution (Shift A only) -->
+    ${_distPanel ? `<div style="flex:1;min-width:240px;padding-left:20px;">${_distPanel}</div>` : ''}
+
   </div>
-  ${_distPanel}
 </div>`;
 
   var _ctrlCollapsed = localStorage.getItem('arrange-controls-collapsed') === '1';
