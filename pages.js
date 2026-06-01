@@ -1000,14 +1000,15 @@ function onBreakSplitSlide(shift, rawVal, tier) {
 // }
 
 async function saveBreakSplits() {
-  const changedShifts = new Set();
+  const changedShifts  = new Set(); // value changed — for toast label only
+  const shiftsToProcess = new Set(); // all shifts with visible sliders — always reset+reassign
   VISIBLE_SHIFTS.forEach(shift => {
     if (shift === 'A') {
-      // Shift A uses per-tier sliders
       var _sA = document.getElementById('split-slider-A-agent');
       var _sQ = document.getElementById('split-slider-A-qa');
       var _sS = document.getElementById('split-slider-A-sr_qa');
       if (!_sA && !_sQ && !_sS) return;
+      shiftsToProcess.add('A');
       var _nA = _sA ? parseInt(_sA.value) : (getBreakSplitPct('A','agent') ?? 67);
       var _nQ = _sQ ? parseInt(_sQ.value) : (getBreakSplitPct('A','qa') ?? 67);
       var _nS = _sS ? parseInt(_sS.value) : (getBreakSplitPct('A','sr_qa') ?? 50);
@@ -1022,27 +1023,28 @@ async function saveBreakSplits() {
     }
     const slider = document.getElementById(`split-slider-${shift}`);
     if (!slider) return;
+    shiftsToProcess.add(shift);
     const newPct = parseInt(slider.value);
     const oldPct = getBreakSplitPct(shift);
     if (newPct !== oldPct) changedShifts.add(shift);
     setBreakSplitPct(shift, newPct);
   });
 
-  if (changedShifts.size > 0) {
-    // 1. Clear break records (including manual) from this week onward so the new % takes effect
+  if (shiftsToProcess.size > 0) {
+    // 1. Clear break records (including manual) from next week onward
     var _applyFrom = _nextWeekSunday(activeMonday);
-    _clearAutoBreaksFromWeek(_applyFrom, changedShifts, true);
+    _clearAutoBreaksFromWeek(_applyFrom, shiftsToProcess, true);
 
-    // 2. Clear out the stale chronological rotation historical offsets for the modified shifts
+    // 2. Reset rotation so knownList is rebuilt with interleaved group order
     const rot = _loadRotation();
-    changedShifts.forEach(shift => {
+    shiftsToProcess.forEach(shift => {
       ['agent', 'qa', 'sr_qa'].forEach(tier => {
         delete rot[`${shift}_${tier}`];
       });
     });
     _saveRotation(rot);
 
-    // 3. Re-execute assign operations cleanly
+    // 3. Re-assign with fresh rotation
     const result = autoAssignBreaks(state.users);
     await syncWrite();
     toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${_applyFrom}.`, 'ok');
