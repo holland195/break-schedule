@@ -158,6 +158,46 @@ function _saveRotation(rot) {
 
 // _getSlotMap — circular sliding window rotation.
 //
+// Team-level rotation: assigns each TEAM (group) to a slot, so every member
+// of the same team lands on the same slot. Rotation key: `${shift}_${tier}_teams`.
+// slot2Count = number of teams that go to slot2 this week.
+// Fully idempotent.
+function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Count) {
+  var key = shift + '_' + tier + '_teams';
+  if (!rot[key] || !rot[key].baseDate) rot[key] = {};
+  var entry = rot[key];
+  if (!entry.baseDate) entry.baseDate = sunday;
+  if (!entry.members) entry.members = [];
+
+  var knownList = entry.members;
+  var knownSet  = new Set(knownList);
+
+  var brandNew = teams.filter(function(t) { return !knownSet.has(t); });
+  var existing = teams.filter(function(t) { return  knownSet.has(t); });
+
+  existing.sort(function(a, b) { return knownList.indexOf(a) - knownList.indexOf(b); });
+
+  var baseDate  = _mondayToDate(entry.baseDate);
+  var thisDate  = _mondayToDate(sunday);
+  var weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
+
+  var newA2Count = Math.min(brandNew.length, slot2Count);
+  var remA2      = slot2Count - newA2Count;
+  var N          = existing.length;
+  var wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
+
+  var result = {};
+  existing.forEach(function(t, i) {
+    result[t] = (N > 0 && remA2 > 0 && ((i - wStart + N) % N) < remA2) ? slot2 : slot1;
+  });
+  brandNew.sort(_naturalSort).forEach(function(t, i) {
+    result[t] = i < newA2Count ? slot2 : slot1;
+    if (!knownSet.has(t)) { knownList.push(t); knownSet.add(t); }
+  });
+
+  return result;
+}
+
 // Guarantees EXACTLY slot2Count members on slot2 every week, with the
 // "A2 window" shifting by 1 position each week so every member gets equal
 // time in each slot over the long run.
@@ -286,14 +326,24 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       Object.entries(tiers).forEach(([tier, members]) => {
         if (members.length === 0) return;
 
-        const customPct  = getBreakSplitPct(shift, tier);
-        const slot1Count = customPct !== null
-          ? Math.round(members.length * customPct / 100)
-          : Math.ceil(members.length / 2);
-        const slot2Count = members.length - slot1Count;
+        // Group members by team and compute slot assignment at team level
+        // so all members of the same team always land on the same slot.
+        const teamGroups = {};
+        members.forEach(u => {
+          const t = u.team || '_no_team_';
+          if (!teamGroups[t]) teamGroups[t] = [];
+          teamGroups[t].push(u);
+        });
+        const teams = Object.keys(teamGroups).sort(_naturalSort);
 
-        // Compute slot map — always runs to keep rotation state current (member list)
-        const slotMap = _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count);
+        const customPct      = getBreakSplitPct(shift, tier);
+        const slot1TeamCount = customPct !== null
+          ? Math.round(teams.length * customPct / 100)
+          : Math.ceil(teams.length / 2);
+        const slot2TeamCount = teams.length - slot1TeamCount;
+
+        // Compute team slot map — always runs to keep rotation state current
+        const teamSlotMap = _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2TeamCount);
 
         // Skip writing if every member already has a correct break this week
         const allAlreadyAssigned = members.every(u =>
@@ -309,8 +359,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
         }
 
         members.forEach(u => {
-          const ukey         = u.username || u.id;
-          const assignedSlot = slotMap[ukey] || slot1;
+          const assignedSlot = teamSlotMap[u.team || '_no_team_'] || slot1;
 
           weekDates.forEach((d, i) => {
             if (u.schedule[d] !== shift && u.schedule[WEEK_DAYS[i]] !== shift) return;
