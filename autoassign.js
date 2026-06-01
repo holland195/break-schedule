@@ -104,6 +104,28 @@ function _naturalSort(a, b) {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
+// Round-robin interleave users from different teams so same-group members
+// are spread apart in the rotation list. Teams sorted naturally (AT1 < AT2 …).
+// This prevents the A2 window from lingering on a single group for many
+// consecutive weeks when members of the same group share adjacent positions.
+function _interleaveByTeam(users) {
+  var teamMap = {};
+  users.forEach(function(u) {
+    var t = u.team || '_';
+    if (!teamMap[t]) teamMap[t] = [];
+    teamMap[t].push(u);
+  });
+  var teams = Object.keys(teamMap).sort(_naturalSort);
+  var result = [];
+  var maxLen = teams.reduce(function(m, t) { return Math.max(m, teamMap[t].length); }, 0);
+  for (var ri = 0; ri < maxLen; ri++) {
+    teams.forEach(function(t) {
+      if (ri < teamMap[t].length) result.push(teamMap[t][ri]);
+    });
+  }
+  return result;
+}
+
 
 
 // Convert 'DD/MM' string → JS Date (assume year 2026)
@@ -186,7 +208,7 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
     result[ukey] = (N > 0 && remA2 > 0 && ((i - wStart + N) % N) < remA2) ? slot2 : slot1;
   });
 
-  brandNew.forEach((u, i) => {
+  _interleaveByTeam(brandNew).forEach((u, i) => {
     const ukey = u.username || u.id;
     result[ukey] = i < newA2Count ? slot2 : slot1;
     if (!knownSet.has(ukey)) { knownList.push(ukey); knownSet.add(ukey); }
