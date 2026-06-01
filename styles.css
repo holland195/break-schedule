@@ -1045,8 +1045,8 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 .arrange-controls-header span { font-size: 11px; color: var(--text3); font-weight: 600; }
 .arrange-controls-body {
   overflow: hidden;
-  max-height: 400px;
-  transition: max-height .25s ease, opacity .2s ease;
+  max-height: 2000px;
+  transition: max-height .4s ease, opacity .2s ease;
   opacity: 1;
 }
 .arrange-controls-body.collapsed { max-height: 0; opacity: 0; }
@@ -1055,18 +1055,14 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 /* ── ARRANGE BREAKS FULL-WEEK TABLE ── */
 .arr-table-wrap {
   overflow: auto;
-  /* Expanded: viewport - topbar(52px) - content padding(48px)
-     - page-header(60px) - controls-header(32px) - bulk-panel(~138px) - slack-row(52px) - main-tabs(44px) - gap(16px) */
-  max-height: calc(100vh - 52px - 48px - 60px - 32px - 138px - 52px - 44px - 16px);
+  /* JS (_resizeArrTable) sets this dynamically; fallback for first paint */
+  max-height: calc(100vh - 340px);
   min-height: 200px;
   border-radius: 10px;
   border: 1px solid var(--border);
   margin-top: 4px;
 }
-.arrange-controls-body.collapsed ~ * .arr-table-wrap,
-.arr-table-wrap.controls-hidden {
-  max-height: calc(100vh - 52px - 48px - 60px - 32px - 44px - 16px);
-}
+/* controls-hidden: JS (_resizeArrTable) handles height after collapse/expand */
 .arr-table {
   border-collapse: separate;
   border-spacing: 0;

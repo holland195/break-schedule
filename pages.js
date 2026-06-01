@@ -1272,24 +1272,48 @@ function _renderArrangeAssignTab(weekRange) {
 </div>`;
 
   const weekTable = getArrangeDayMemberList(null);
-  if (_ctrlCollapsed) {
-    setTimeout(function() {
-      var tw = document.querySelector('.arr-table-wrap');
-      if (tw) tw.classList.add('controls-hidden');
-    }, 0);
-  }
+  // Disconnect previous observer so it doesn't fire on stale elements
+  if (_arrResizeObs) { _arrResizeObs.disconnect(); _arrResizeObs = null; }
+  requestAnimationFrame(function() { _initArrResize(); });
   return collapsePanel + weekTable;
+}
+
+function _resizeArrTable() {
+  var wrap = document.querySelector('.arr-table-wrap');
+  if (!wrap) return;
+  var TOPBAR  = 52;
+  var PADDING = 24;
+  var GAP     = 8;
+  var used    = TOPBAR + PADDING + GAP;
+  var ph   = document.querySelector('.page-header');
+  var tabs = document.querySelector('.arrange-tab-bar');
+  var ctrl = document.querySelector('.arrange-controls-wrap');
+  if (ph)   used += ph.offsetHeight   + GAP;
+  if (tabs) used += tabs.offsetHeight + GAP;
+  if (ctrl) used += ctrl.offsetHeight + GAP;
+  wrap.style.maxHeight = Math.max(200, window.innerHeight - used) + 'px';
+}
+
+var _arrResizeObs = null;
+window.addEventListener('resize', function() { _resizeArrTable(); });
+function _initArrResize() {
+  _resizeArrTable();
+  var ctrl = document.querySelector('.arrange-controls-wrap');
+  if (ctrl && window.ResizeObserver && !_arrResizeObs) {
+    _arrResizeObs = new ResizeObserver(_resizeArrTable);
+    _arrResizeObs.observe(ctrl);
+  }
 }
 
 function _toggleArrangeControls() {
   var body = document.getElementById('arrange-controls-body');
   var chevron = document.getElementById('arrange-chevron');
-  var tableWrap = document.querySelector('.arr-table-wrap');
   if (!body || !chevron) return;
   var nowCollapsed = body.classList.toggle('collapsed');
   chevron.classList.toggle('collapsed', nowCollapsed);
-  if (tableWrap) tableWrap.classList.toggle('controls-hidden', nowCollapsed);
   localStorage.setItem('arrange-controls-collapsed', nowCollapsed ? '1' : '0');
+  // Wait for CSS transition to settle then resize
+  setTimeout(_resizeArrTable, 420);
 }
 
 function _renderArrangeOverviewTab(weekRange) {
