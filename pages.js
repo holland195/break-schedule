@@ -1030,8 +1030,9 @@ async function saveBreakSplits() {
 
   if (changedShifts.size > 0) {
     // 1. Clear break records (including manual) from this week onward so the new % takes effect
-    _clearAutoBreaksFromWeek(activeMonday, changedShifts, true);
-    
+    var _applyFrom = _nextWeekSunday(activeMonday);
+    _clearAutoBreaksFromWeek(_applyFrom, changedShifts, true);
+
     // 2. Clear out the stale chronological rotation historical offsets for the modified shifts
     const rot = _loadRotation();
     changedShifts.forEach(shift => {
@@ -1044,7 +1045,7 @@ async function saveBreakSplits() {
     // 3. Re-execute assign operations cleanly
     const result = autoAssignBreaks(state.users);
     await syncWrite();
-    toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${activeMonday}.`, 'ok');
+    toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${_applyFrom}.`, 'ok');
   } else {
     await syncWrite();
     toast('Break distribution settings saved (no changes).', 'ok');
@@ -1068,6 +1069,12 @@ async function resetBreakSplit(shift) {
 // Deletes breaks for the given shifts on or after fromSunday.
 // force=true also clears manually-set breaks, not just auto-assigned ones.
 // Called before re-running autoAssignBreaks so the fresh split % takes effect.
+function _nextWeekSunday(sunStr) {
+  var p = sunStr.split('/');
+  var dt = new Date(2026, parseInt(p[1]) - 1, parseInt(p[0]) + 7);
+  return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
+}
+
 function _clearAutoBreaksFromWeek(fromSunday, shifts, force = false) {
   const [fd, fm] = fromSunday.split('/');
   const fromDate = new Date(2026, parseInt(fm) - 1, parseInt(fd));
