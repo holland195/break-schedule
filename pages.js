@@ -783,11 +783,27 @@ const weekPickerHTML = sundays.length > 0 ? `
     </select>
   </div>` : '';
 
+  var _slackCfg = (state.slackAutoPost || {})[currentShift] || {};
+  var _slackOn  = !!_slackCfg.enabled;
+  var _slackInline = `
+    <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;
+      background:var(--bg3);border:1px solid var(--border);border-radius:8px;white-space:nowrap;cursor:default;">
+      <span style="font-size:11px;font-weight:600;color:var(--text2);">🔔 Auto-Post</span>
+      <div onclick="_toggleSlackAutoPost()" style="width:34px;height:18px;border-radius:10px;
+        background:${_slackOn ? 'var(--accent)' : 'var(--bg4)'};position:relative;cursor:pointer;
+        transition:background .2s;border:1px solid var(--border);">
+        <div style="position:absolute;top:2px;${_slackOn ? 'right:2px' : 'left:2px'};width:12px;height:12px;
+          border-radius:50%;background:#fff;transition:all .2s;box-shadow:0 1px 2px rgba(0,0,0,.3);"></div>
+      </div>
+      <span style="font-size:10px;font-weight:600;color:${_slackOn ? 'var(--accent)' : 'var(--text3)'};">${_slackOn ? 'ON' : 'OFF'}</span>
+    </div>`;
+
   return `
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
     ${weekPickerHTML}
+    ${_slackInline}
     <button id="save-breaks-btn" class="btn btn-accent"
       onclick="saveBreaksToCloud()"
       style="display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 16px;">
@@ -1210,52 +1226,65 @@ function _renderArrangeAssignTab(weekRange) {
   }
 
   const combinedPanel = `
-<div class="bulk-panel" style="margin-bottom:20px;display:block;padding:12px 16px;">
-  ${splitRow}${_distPanel}
-  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:${currentShift === 'A' && slots.length >= 2 ? '12' : '0'}px;">
-    <div class="bulk-panel-section">
-      <div class="bulk-panel-label">Groups</div>
-      <div class="group-checkbox-list">
-        ${allShiftTeams.map(t => {
-          const posChips = (_teamRoles[t] || []).map(l => {
-            const info = _posAbbr[l];
-            if (!info) return '';
-            return `<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;background:${info[2]};color:${info[1]};white-space:nowrap;">${info[0]}</span>`;
-          }).join('');
-          return `<label class="group-check-item" style="align-items:center;">
-            <input type="checkbox" name="bulk-group" value="${t}"
-              ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()">
-            <span style="font-size:11px;">${t}</span>${posChips ? ' ' + posChips : ''}
-          </label>`;
-        }).join('')}
+<div class="bulk-panel" style="margin-bottom:12px;display:block;padding:12px 16px;">
+  <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- LEFT: split sliders -->
+    <div style="flex:1;min-width:260px;">
+      ${splitRow || ''}
+    </div>
+
+    <!-- RIGHT: manual assign -->
+    <div style="flex:1;min-width:260px;${splitRow ? 'border-left:1px solid var(--border);padding-left:20px;' : ''}">
+      <span class="bulk-panel-label" style="display:block;margin-bottom:8px;">Manual Assign</span>
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+        <div class="bulk-panel-section">
+          <div class="bulk-panel-label">Groups</div>
+          <div class="group-checkbox-list">
+            ${allShiftTeams.map(t => {
+              const posChips = (_teamRoles[t] || []).map(l => {
+                const info = _posAbbr[l];
+                if (!info) return '';
+                return `<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;background:${info[2]};color:${info[1]};white-space:nowrap;">${info[0]}</span>`;
+              }).join('');
+              return `<label class="group-check-item" style="align-items:center;">
+                <input type="checkbox" name="bulk-group" value="${t}"
+                  ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()">
+                <span style="font-size:11px;">${t}</span>${posChips ? ' ' + posChips : ''}
+              </label>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="bulk-panel-section">
+          <div class="bulk-panel-label">Days</div>
+          <div class="day-checkbox-list">
+            ${weekRange.map(d => `
+              <label class="day-check-item">
+                <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
+                <span style="font-size:9px;color:var(--text3)">${d}</span>
+                <input type="checkbox" name="bulk-day" value="${d}"
+                  ${_bulkDays.has(d) ? 'checked' : ''} onchange="_saveBulkDays()">
+              </label>`).join('')}
+          </div>
+        </div>
+        <div class="bulk-panel-section">
+          <div class="bulk-panel-label">Slot</div>
+          <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
+            onchange="_bulkSlotIdx=parseInt(this.value)">
+            ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="bulk-panel-section">
+          <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
+        </div>
+        <div class="bulk-panel-section">
+          <button class="btn" onclick="_copyBreaksForSlack()" style="font-size:12px;padding:6px 14px;white-space:nowrap;">📋 Copy for Slack</button>
+        </div>
       </div>
     </div>
-    <div class="bulk-panel-section">
-      <div class="bulk-panel-label">Days</div>
-      <div class="day-checkbox-list">
-        ${weekRange.map(d => `
-          <label class="day-check-item">
-            <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
-            <span style="font-size:9px;color:var(--text3)">${d}</span>
-            <input type="checkbox" name="bulk-day" value="${d}"
-              ${_bulkDays.has(d) ? 'checked' : ''} onchange="_saveBulkDays()">
-          </label>`).join('')}
-      </div>
-    </div>
-    <div class="bulk-panel-section">
-      <div class="bulk-panel-label">Slot</div>
-      <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
-        onchange="_bulkSlotIdx=parseInt(this.value)">
-        ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
-      </select>
-    </div>
-    <div class="bulk-panel-section">
-      <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
-    </div>
-    <div class="bulk-panel-section" style="margin-left:auto;">
-      <button class="btn" onclick="_copyBreaksForSlack()" style="font-size:12px;padding:6px 14px;white-space:nowrap;">📋 Copy for Slack</button>
-    </div>
+
   </div>
+  ${_distPanel}
 </div>`;
 
   var _ctrlCollapsed = localStorage.getItem('arrange-controls-collapsed') === '1';
@@ -1267,7 +1296,6 @@ function _renderArrangeAssignTab(weekRange) {
   </div>
   <div class="arrange-controls-body${_ctrlCollapsed ? ' collapsed' : ''}" id="arrange-controls-body">
     ${combinedPanel}
-    ${_renderSlackAutoPostToggle()}
   </div>
 </div>`;
 
