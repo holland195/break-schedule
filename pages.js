@@ -1222,8 +1222,9 @@ function _renderArrangeAssignTab(weekRange) {
             if (u.schedule[d] !== currentShift && u.schedule[WEEK_DAYS[di]] !== currentShift) return;
             var brk = DB.getBreak(u.id, d);
             if (!brk || !brk.slot) return;
-            if (_nd(brk.slot) === _nd(slots[0])) s1++;
-            else if (_nd(brk.slot) === _nd(slots[1])) s2++;
+            var _bsi = _slotIndex(brk.slot, currentShift);
+            if (_bsi === 0) s1++;
+            else if (_bsi === 1) s2++;
           });
         });
         (s2 > s1 ? t2 : t1).push(team);
@@ -1424,7 +1425,7 @@ const ov_class = br
         width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
         font-family:'IBM Plex Mono',monospace;cursor:pointer;
         ${isActive ? 'outline:2px solid var(--accent);outline-offset:2px;' : ''}"
-      title="${br ? br.slot : 'Not assigned — click to assign'}">
+      title="${br ? getSlotTime(br.slot, d) : 'Not assigned — click to assign'}">
       ${code} </span>
   </td>`;
     }).join('');
@@ -1542,13 +1543,13 @@ function getArrangeDayMemberList(_unused) {
       }
 
       const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
-      const br_idx = br ? (slots.indexOf(br.slot)) : -1;
+      const br_idx = br ? _slotIndex(br.slot, currentShift) : -1;
 
       function _nd(s) { return (s || '').replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, ''); }
 
       const slotBtns = slots.map((s, idx) => {
         // Normalize both sides for comparison to handle any dash variant in stored data
-        const isAssigned = br && nd(br.slot) === nd(s);
+        const isAssigned = br && _slotIndex(br.slot, currentShift) === idx;
         return `<span
     class="arr-slot arr-slot-${idx + 1}${isAssigned ? ' arr-slot-on' : ' arr-slot-off'}"
     onclick="quickAssignByIndex(${u.id},'${d}',${idx})"
@@ -1600,7 +1601,7 @@ function getArrangeDayMemberList(_unused) {
         const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
         if (!br) return;
         //const code = getShortSlot(currentShift, br.slot);
-        const idx = slots.findIndex(s => nd(s) === nd(br.slot));
+        const idx = _slotIndex(br.slot, currentShift);
         if (idx === 0) s1++;
         else if (idx === 1) s2++;
       });
@@ -1715,7 +1716,7 @@ function _copyBreaksForSlack() {
     var isOff2 = attParsed2 && attParsed2.type === 'OFF';
     var br2 = DB.getBreak(u.id, dk);
     var shortCode2 = br2 ? getShortSlot(currentShift, br2.slot) : '';
-    var slotIdx2 = br2 ? slots.indexOf(br2.slot) : -1;
+    var slotIdx2 = br2 ? _slotIndex(br2.slot, currentShift) : -1;
     var ck2 = isOff2 ? String(attCode2).replace(/\.0$/, '').toUpperCase() : '';
     var cellBg = isOff2 ? (offBg[ck2] || 'rgba(107,114,128,.1)') : slotIdx2 === 0 ? 'rgba(59,130,246,.18)' : slotIdx2 === 1 ? 'rgba(34,197,94,.18)' : 'var(--bg3)';
     var cellFg = isOff2 ? (offFg[ck2] || 'var(--text3)') : 'var(--text1)';
@@ -1792,9 +1793,9 @@ function quickAssign(uid, day, slot) {
 // New: uses slot index instead of raw slot string in onclick — avoids en-dash encoding issues
 function quickAssignByIndex(uid, day, slotIdx) {
   if (!isLeader(currentUser)) { toast('Only leaders can assign breaks.', 'err'); return; }
-  const slot = (BREAK_SLOTS[currentShift] || [])[slotIdx];
-  if (!slot) { toast('Invalid slot.', 'err'); return; }
-  quickAssign(uid, day, slot);
+  const slots = BREAK_SLOTS[currentShift] || [];
+  if (slotIdx < 0 || slotIdx >= slots.length) { toast('Invalid slot.', 'err'); return; }
+  quickAssign(uid, day, currentShift + (slotIdx + 1));
 }
 
 function _saveBulkGroups() {
@@ -1813,8 +1814,9 @@ function bulkAssignMulti() {
   if (selectedGroups.length === 0) { toast('Select at least one Group.', 'err'); return; }
   if (selectedDays.length === 0) { toast('Select at least one Day.', 'err'); return; }
 
-  const actualTime = (BREAK_SLOTS[currentShift] || [])[slotIdx];
-  if (!actualTime) { toast('Invalid slot selected.', 'err'); return; }
+  const slots2 = BREAK_SLOTS[currentShift] || [];
+  if (slotIdx < 0 || slotIdx >= slots2.length) { toast('Invalid slot selected.', 'err'); return; }
+  const actualTime = currentShift + (slotIdx + 1);
 
   let totalAssigned = 0;
   selectedDays.forEach(day => {
@@ -1838,7 +1840,7 @@ function autofillDay() {
   const day = todayKey();
   const mates = getShiftMates(currentShift, day);
   const slots = BREAK_SLOTS[currentShift] || [];
-  mates.forEach((u, i) => assign(u.id, day, slots[i % slots.length], 'auto'));
+  mates.forEach((u, i) => assign(u.id, day, currentShift + (i % slots.length + 1), 'auto'));
   toast(`Auto-filled ${mates.length} breaks for today`, 'ok');
   nav('arrange');
 }
@@ -1848,7 +1850,7 @@ function autofillWeek() {
   WEEK_DAYS.forEach(day => {
     const mates = getShiftMates(currentShift, day);
     const slots = BREAK_SLOTS[currentShift] || [];
-    mates.forEach((u, i) => { assign(u.id, day, slots[i % slots.length], 'auto'); count++; });
+    mates.forEach((u, i) => { assign(u.id, day, currentShift + (i % slots.length + 1), 'auto'); count++; });
   });
   toast(`Auto-filled ${count} breaks across the week`, 'ok');
   nav('arrange');
@@ -2924,8 +2926,8 @@ function openAssignModal(uid, day) {
   document.getElementById('assign-title').textContent = `Assign break — ${u?.name || '?'} (${day})`;
   const slots = BREAK_SLOTS[currentShift] || [];
   const cur = getAssigned(uid, day);
-  document.getElementById('assign-slot').innerHTML = slots.map(s =>
-    `<option value="${s}"${cur?.slot === s ? ' selected' : ''}>${s}</option>`
+  document.getElementById('assign-slot').innerHTML = slots.map((s, i) =>
+    `<option value="${currentShift}${i + 1}"${_slotIndex(cur?.slot, currentShift) === i ? ' selected' : ''}>${s}</option>`
   ).join('');
   document.getElementById('assign-note').value = '';
   document.getElementById('modal-assign').classList.add('show');
@@ -2994,7 +2996,7 @@ function _toggleReqScope() {
 function _updateReqDay() {
   const day = document.getElementById('req-day').value;
   const br = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
-  document.getElementById('req-cur').value = br ? br.slot : 'Not assigned';
+  document.getElementById('req-cur').value = br ? getSlotTime(br.slot, day) : 'Not assigned';
   _updateReqPartners();
 }
 
@@ -3397,7 +3399,7 @@ function openExtBreakModal() {
     const sc = target.schedule[dk] || target.schedule[getWkDay(dk)];
     if (sc !== targetShift) return;
     const br = getAssigned(target.id, dk) || getAssigned(target.id, getWkDay(dk));
-    if (br) eligibleDays.push({ dk, slot: br.slot });
+    if (br) eligibleDays.push({ dk, slot: getSlotTime(br.slot, dk) });
   });
   if (eligibleDays.length === 0) {
     weekDates.forEach((dk, i) => {
@@ -3406,7 +3408,7 @@ function openExtBreakModal() {
       const sc = target.schedule[dk] || target.schedule[dn];
       if (sc !== targetShift) return;
       const br = getAssigned(target.id, dk) || getAssigned(target.id, dn);
-      if (br) eligibleDays.push({ dk, slot: br.slot });
+      if (br) eligibleDays.push({ dk, slot: getSlotTime(br.slot, dk) });
     });
   }
 
@@ -3692,4 +3694,148 @@ function renderRotationPanel() {
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
   if (id === 'modal-extbreak') _ebTargetUser = null;
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER: SHIFT CONFIG — manage shift times and break slots
+//  Access: Leader (level 2+)
+// ═══════════════════════════════════════════════
+function renderShiftConfig() {
+  var todayDk = (function() {
+    var n = new Date();
+    return n.getDate().toString().padStart(2,'0') + '/' + (n.getMonth()+1).toString().padStart(2,'0');
+  })();
+  var cfg = getConfigForDate(todayDk);
+  var allShifts = Object.keys(cfg.breakSlots).sort();
+
+  var rows = allShifts.map(function(sh) {
+    var shiftDef = SHIFTS[sh] || null;
+    var times = shiftDef ? shiftDef.start + ' – ' + shiftDef.end : '—';
+    var slots = cfg.breakSlots[sh] || [];
+    var s1 = slots[0] || '—';
+    var s2 = slots[1] || '—';
+    return '<tr>' +
+      '<td style="padding:10px 16px;font-weight:700;font-family:\"IBM Plex Mono\",monospace;font-size:14px;">' +
+        '<span class="sh sh-' + sh + '" style="width:28px;height:28px;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">' + sh + '</span>' +
+      '</td>' +
+      '<td style="padding:10px 12px;font-size:12px;color:var(--text2);">' + times + '</td>' +
+      '<td style="padding:10px 12px;font-size:12px;font-family:\"IBM Plex Mono\",monospace;">' +
+        '<span class="break-slot assigned slot-1" style="font-size:10px;padding:2px 6px;margin-right:4px;">' + sh + '1</span>' + s1 +
+      '</td>' +
+      '<td style="padding:10px 12px;font-size:12px;font-family:\"IBM Plex Mono\",monospace;">' +
+        '<span class="break-slot assigned slot-2" style="font-size:10px;padding:2px 6px;margin-right:4px;">' + sh + '2</span>' + s2 +
+      '</td>' +
+      '<td style="padding:10px 12px;text-align:center;">' +
+        '<button class="btn btn-sm" onclick="openShiftConfigModal(\'' + sh + '\')" style="font-size:11px;">Edit</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  var history = (state.shiftConfig || []).filter(function(e) { return e.effectiveFrom; }).sort(function(a,b) {
+    return _parseDateKey(b.effectiveFrom) - _parseDateKey(a.effectiveFrom);
+  });
+  var historyHTML = history.length > 0
+    ? '<details style="margin-top:24px;"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);">Change History (' + history.length + ')</summary>' +
+      '<div style="margin-top:10px;">' +
+      history.map(function(e) {
+        var changes = Object.entries(e.breakSlots || {}).map(function(kv) {
+          return '<span style="font-size:11px;font-family:\"IBM Plex Mono\",monospace;margin-right:8px;">' + kv[0] + '1: ' + (kv[1][0]||'?') + ' / ' + kv[0] + '2: ' + (kv[1][1]||'?') + '</span>';
+        }).join('');
+        return '<div style="padding:8px 12px;background:var(--bg3);border-radius:6px;margin-bottom:6px;">' +
+          '<span style="font-size:11px;font-weight:700;color:var(--accent);margin-right:12px;">Effective ' + e.effectiveFrom + '</span>' + changes +
+        '</div>';
+      }).join('') +
+      '</div></details>'
+    : '';
+
+  return '<div class="page-header"><div>' +
+    '<div class="page-title">⚙ Shift Configuration</div>' +
+    '<div class="page-sub">Manage shift break slot times. Changes apply to new auto-assignments from the effective date onward.</div>' +
+  '</div>' +
+  '<button class="btn btn-accent" onclick="openShiftConfigModal(null)" style="white-space:nowrap;">+ Add Shift</button></div>' +
+  '<div class="card" style="overflow-x:auto;">' +
+  '<table style="width:100%;border-collapse:collapse;">' +
+  '<thead><tr style="border-bottom:2px solid var(--border);">' +
+    '<th style="padding:8px 16px;text-align:left;font-size:11px;color:var(--text3);">Shift</th>' +
+    '<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Work Hours</th>' +
+    '<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Slot 1</th>' +
+    '<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Slot 2</th>' +
+    '<th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--text3);"></th>' +
+  '</tr></thead>' +
+  '<tbody>' + rows + '</tbody>' +
+  '</table></div>' +
+  '<div style="margin-top:10px;font-size:11px;color:var(--text3);line-height:1.7;">' +
+    '<b>Note:</b> Updating slot times here affects auto-assignment from the effective date onward. ' +
+    'Historical break records are stored as short codes (A1/A2) and display correctly via the original config. ' +
+    'Update <code>BREAK_SLOTS_MAP</code> in <code>scripts/daily_sync.gs</code> to keep Slack posts in sync.' +
+  '</div>' +
+  historyHTML +
+  _shiftConfigModalHTML();
+}
+
+function _shiftConfigModalHTML() {
+  return '<div id="modal-shiftcfg" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-shiftcfg\')">' +
+  '<div class="modal-box" style="max-width:460px;">' +
+    '<div class="modal-title" id="shiftcfg-title">Edit Shift</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">' +
+      '<label style="font-size:12px;">Shift Letter<br>' +
+        '<input id="shiftcfg-letter" type="text" maxlength="2" class="login-input" style="margin-top:4px;text-transform:uppercase;" placeholder="A">' +
+      '</label>' +
+      '<label style="font-size:12px;">Effective From (DD/MM)<br>' +
+        '<input id="shiftcfg-from" type="text" class="login-input" style="margin-top:4px;" placeholder="01/07">' +
+      '</label>' +
+      '<label style="font-size:12px;">Slot 1 (HH:MM–HH:MM)<br>' +
+        '<input id="shiftcfg-s1" type="text" class="login-input" style="margin-top:4px;" placeholder="09:30–11:00">' +
+      '</label>' +
+      '<label style="font-size:12px;">Slot 2 (HH:MM–HH:MM)<br>' +
+        '<input id="shiftcfg-s2" type="text" class="login-input" style="margin-top:4px;" placeholder="11:00–12:30">' +
+      '</label>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">' +
+      '<button class="btn" onclick="closeModal(\'modal-shiftcfg\')">Cancel</button>' +
+      '<button class="btn btn-accent" onclick="saveShiftConfigEntry()">Save</button>' +
+    '</div>' +
+  '</div></div>';
+}
+
+function openShiftConfigModal(shift) {
+  var todayDk = (function() {
+    var n = new Date();
+    return n.getDate().toString().padStart(2,'0') + '/' + (n.getMonth()+1).toString().padStart(2,'0');
+  })();
+  document.getElementById('shiftcfg-title').textContent = shift ? 'Edit Shift ' + shift : 'Add New Shift';
+  document.getElementById('shiftcfg-letter').value = shift || '';
+  document.getElementById('shiftcfg-letter').disabled = !!shift;
+  document.getElementById('shiftcfg-from').value = todayDk;
+  var slots = shift ? (getConfigForDate(todayDk).breakSlots[shift] || []) : [];
+  document.getElementById('shiftcfg-s1').value = slots[0] || '';
+  document.getElementById('shiftcfg-s2').value = slots[1] || '';
+  document.getElementById('modal-shiftcfg').classList.add('show');
+}
+
+function saveShiftConfigEntry() {
+  var letter = document.getElementById('shiftcfg-letter').value.trim().toUpperCase();
+  var from   = document.getElementById('shiftcfg-from').value.trim();
+  var s1     = document.getElementById('shiftcfg-s1').value.trim();
+  var s2     = document.getElementById('shiftcfg-s2').value.trim();
+
+  if (!letter || letter.length > 2) { toast('Enter a shift letter (A–Z).', 'err'); return; }
+  if (!from || !/^\d{1,2}\/\d{1,2}/.test(from)) { toast('Enter effective date as DD/MM.', 'err'); return; }
+  if (!s1 || !s2) { toast('Enter both slot time windows.', 'err'); return; }
+
+  if (!state.shiftConfig) state.shiftConfig = [];
+
+  // Check if existing baseline needs to be created
+  if (state.shiftConfig.length === 0) {
+    state.shiftConfig.push({ effectiveFrom: null, breakSlots: Object.assign({}, BREAK_SLOTS) });
+  }
+
+  // Append new versioned entry
+  state.shiftConfig.push({ effectiveFrom: from, breakSlots: { [letter]: [s1, s2] } });
+  state._shiftConfigUpdatedAt = Date.now();
+  save();
+  if (typeof syncWrite === 'function') syncWrite();
+  closeModal('modal-shiftcfg');
+  toast('Shift config saved. Effective from ' + from + '.', 'ok');
+  nav('shiftconfig');
 }

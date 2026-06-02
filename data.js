@@ -318,6 +318,7 @@ if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 if (!state.monthlyAttendance) state.monthlyAttendance = {};
 if (!state.breakSplits) state.breakSplits = {};
+if (!state.shiftConfig) state.shiftConfig = [];
 // No more SEED_USERS — users come only from schedule import
 
 // Always ensure system admin exists — password '1234', never forced to change
@@ -428,11 +429,69 @@ function monthKeyFromDate(ds) {
 
 function getShortSlot(shift, fullTime) {
   if (!fullTime || fullTime === '\u2014') return '';
+  // Already a short code (e.g., 'A1', 'E2') — return as-is
+  if (fullTime.length === 2 && fullTime[0] === shift && !isNaN(parseInt(fullTime[1]))) return fullTime;
   function nd(s) {
     return (s || '').replace(/[\u2012\u2013\u2014\u002D\u2212\uFE58\uFE63\uFF0D]/g, '-').replace(/\s/g, '');
   }
   const idx = (BREAK_SLOTS[shift] || []).findIndex(s => nd(s) === nd(fullTime));
   return idx !== -1 ? `${shift}${idx + 1}` : fullTime;
+}
+
+// ── Shift config versioning helpers ──
+// Date-versioned shift config lives in state.shiftConfig (synced via Firebase).
+// Each entry: { effectiveFrom: 'DD/MM' | null, breakSlots: { A:[...], E:[...] } }
+// null effectiveFrom = baseline (always applies). Later entries win.
+
+function _parseDateKey(dk) {
+  if (!dk) return 0;
+  var parts = dk.split('/');
+  var d = parseInt(parts[0]) || 1;
+  var m = parseInt(parts[1]) || 1;
+  var y = parseInt(parts[2]) || 2026;
+  return new Date(y, m - 1, d).getTime();
+}
+
+function getConfigForDate(dateStr) {
+  var configs = state.shiftConfig || [];
+  var merged = { breakSlots: Object.assign({}, BREAK_SLOTS) };
+  if (!configs.length) return merged;
+  var dateTs = dateStr ? _parseDateKey(dateStr) : 0;
+  var sorted = configs.slice().sort(function(a, b) {
+    if (!a.effectiveFrom) return -1;
+    if (!b.effectiveFrom) return 1;
+    return _parseDateKey(a.effectiveFrom) - _parseDateKey(b.effectiveFrom);
+  });
+  sorted.forEach(function(entry) {
+    if (!entry.effectiveFrom || (dateStr && _parseDateKey(entry.effectiveFrom) <= dateTs)) {
+      if (entry.breakSlots) Object.assign(merged.breakSlots, entry.breakSlots);
+    }
+  });
+  return merged;
+}
+
+// Returns the slot index (0 or 1) for a break record slot value.
+// Handles both short codes ('A1' → 0) and legacy time strings ('18:00–19:30' → 0).
+function _slotIndex(slot, shift) {
+  if (!slot) return -1;
+  if (slot.length === 2 && slot[0] === shift && !isNaN(parseInt(slot[1]))) {
+    return parseInt(slot[1]) - 1;
+  }
+  function nd(s) { return (s || '').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, ''); }
+  return (BREAK_SLOTS[shift] || []).findIndex(function(s) { return nd(s) === nd(slot); });
+}
+
+// Resolves a slot code to its display time string for the given date context.
+// Short codes ('E1') → '09:30–11:00'; legacy time strings pass through unchanged.
+function getSlotTime(code, dateStr) {
+  if (!code) return '';
+  // Legacy time string — 5+ chars containing a digit-dash-digit pattern
+  if (code.length > 4 && /\d/.test(code) && (code.includes('–') || code.includes('-') || code.includes('—'))) return code;
+  var shift = code[0];
+  var idx = parseInt(code[1]) - 1;
+  if (isNaN(idx) || idx < 0) return code;
+  var slots = getConfigForDate(dateStr || '').breakSlots[shift] || BREAK_SLOTS[shift] || [];
+  return slots[idx] !== undefined ? slots[idx] : code;
 }
 
 

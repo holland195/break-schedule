@@ -33,6 +33,11 @@ function nav(page) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;
   }
+  // Guard: shiftconfig — leader+ (level 2)
+  if (page === 'shiftconfig' && !isLeader(currentUser)) {
+    content.innerHTML = '<div class="empty">Access denied.</div>';
+    return;
+  }
   // policy — no guard, all roles can access
   if (page === 'policy' && !isLeader(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>'; return;
@@ -48,6 +53,7 @@ function nav(page) {
     attendance: renderAttendance,
     staff: renderStaff,
     sync: renderSyncSettings,
+    shiftconfig: renderShiftConfig,
     training_overview: renderTrainingDashboard,
     policy: renderPolicyCompliance,
     feedback: renderPolicyFeedback,
@@ -103,6 +109,7 @@ function _initNavTooltips() {
     policy:    'Policy',
     staff:     'Staff',
     sync:      'Cloud Sync',
+    shiftconfig: 'Shift Config',
   };
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     const page = el.dataset.page;
