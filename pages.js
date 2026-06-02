@@ -3775,7 +3775,7 @@ function renderShiftConfig() {
 
 function _shiftConfigModalHTML() {
   return '<div id="modal-shiftcfg" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-shiftcfg\')">' +
-  '<div class="modal-box" style="max-width:460px;">' +
+  '<div class="modal" style="width:460px;">' +
     '<div class="modal-title" id="shiftcfg-title">Edit Shift</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">' +
       '<label style="font-size:12px;">Shift Letter<br>' +
