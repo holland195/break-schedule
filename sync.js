@@ -308,6 +308,29 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
   if (remote.slackAutoPost && typeof remote.slackAutoPost === 'object') {
     state.slackAutoPost = Object.assign({}, state.slackAutoPost || {}, remote.slackAutoPost);
   }
+
+  // Shift config versioning: remote wins if newer
+  if (remote.shiftConfig) {
+    var localSCAt  = state._shiftConfigUpdatedAt || 0;
+    var remoteSCAt = remote._shiftConfigUpdatedAt || 0;
+    if (remoteSCAt >= localSCAt) {
+      state.shiftConfig = remote.shiftConfig;
+      if (remoteSCAt) state._shiftConfigUpdatedAt = remoteSCAt;
+    }
+  }
+
+  // Migration: convert legacy time-string slots to short codes in memory.
+  // Runs on every pull so old Firebase records are progressively updated.
+  Object.values(state.breaks || {}).forEach(function(r) {
+    if (!r || !r.slot) return;
+    if (r.slot.length <= 3) return; // already a short code
+    var shiftKeys = Object.keys(BREAK_SLOTS);
+    for (var _si = 0; _si < shiftKeys.length; _si++) {
+      var _sh = shiftKeys[_si];
+      var _code = typeof getShortSlot === 'function' ? getShortSlot(_sh, r.slot) : '';
+      if (_code && _code.length === 2 && _code[0] === _sh) { r.slot = _code; break; }
+    }
+  });
 }
 
 // ── Push to Firebase ──
@@ -335,6 +358,12 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
       empNo: u.empNo || '',
       schedule: u.schedule || {},
     }));
+    // Seed shiftConfig baseline if not yet set
+    if (!state.shiftConfig || state.shiftConfig.length === 0) {
+      state.shiftConfig = [{ effectiveFrom: null, breakSlots: Object.assign({}, BREAK_SLOTS) }];
+      state._shiftConfigUpdatedAt = Date.now();
+    }
+
     const payload = {
   breaks:            state.breaks,
   requests:          state.requests,
@@ -346,9 +375,11 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   staffInfo:         staffInfoCloud,
   policyCompliance:  state.policyCompliance || [],
   slackAutoPost:     state.slackAutoPost    || {},
+  shiftConfig:           state.shiftConfig          || [],
   _updated:          Date.now(),
   _breaksUpdatedAt:       state._breaksUpdatedAt       || Date.now(),
   _breakSplitsUpdatedAt:  state._breakSplitsUpdatedAt  || 0,
+  _shiftConfigUpdatedAt:  state._shiftConfigUpdatedAt  || 0,
   _usersUpdatedAt:        state._usersUpdatedAt         || 0,
 };
     const kb = (JSON.stringify(payload).length / 1024).toFixed(1);

@@ -1049,6 +1049,9 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   var dk = Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'dd/MM');
   var monthKey = Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'yyyy-MM');
 
+  // Mirror of data.js BREAK_SLOTS — update both together when shift times change.
+  // The web app now uses Firebase shiftConfig for date-versioned overrides;
+  // GAS reads this hardcoded map for Slack post legends only.
   var BREAK_SLOTS_MAP = {
     A: ['18:00–19:30', '19:30–21:00'],
     D: ['04:00–05:30', '05:30–07:00'],

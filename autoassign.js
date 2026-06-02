@@ -77,6 +77,9 @@ function _nd(s) {
 // Check if a saved slot belongs to the given shift (prevents wrong-shift slots blocking reassignment)
 function _slotBelongsToShift(slot, shift) {
   if (!slot) return false;
+  // Short code form (e.g., 'A1', 'E2') — check shift letter + valid digit
+  if (slot.length === 2 && slot[0] === shift && !isNaN(parseInt(slot[1]))) return true;
+  // Legacy time string — normalize and compare against BREAK_SLOTS
   return (BREAK_SLOTS[shift] || []).some(s => _nd(s) === _nd(slot));
 }
 
@@ -289,19 +292,19 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
   // Load rotation state once — mutate in place across all weeks in this import
   // This ensures future weeks see the correctly accumulated phase from earlier weeks
   const rot    = _loadRotation();
-  const shifts = Object.keys(BREAK_SLOTS);
   let totalAssigned = 0;
 
   sundays.forEach(sunday => {
   const weekDates = getWeekRange(sunday); // now returns Sun–Sat
-    
+    const shifts = Object.keys(getConfigForDate(sunday).breakSlots);
+
     const isFuture  = _isFutureWeek(sunday);
-    
+
     const weekLabel = isFuture ? '(future)' : '(current/past)';
     console.log(`[autoassign] Processing week ${sunday} ${weekLabel}`);
 
     shifts.forEach(shift => {
-      const slots = BREAK_SLOTS[shift];
+      const slots = getConfigForDate(sunday).breakSlots[shift];
       if (!slots || slots.length < 2) return;
       const [slot1, slot2] = slots;
 
@@ -366,7 +369,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
             const ex = DB.getBreak(u.id, d);
             if (ex && _slotBelongsToShift(ex.slot, shift)) return;
             DB.setBreak(u.id, d, {
-              slot: (assignedSlot || '').replace(/[‒–—-]/g, '–'),
+              slot: assignedSlot === slot2 ? shift + '2' : shift + '1',
               note: 'auto',
               by:   null,
               at:   RUN_TIMESTAMP,
