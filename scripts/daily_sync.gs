@@ -1138,7 +1138,7 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   });
 
   var caption = isTuesdayPost
-    ? 'Mọi người check lịch break tuần này (Thứ Tư–Thứ Sáu) nha.'
+    ? 'Mọi người check lịch break tuần này (' + vnDay + '–Thứ Sáu) nha.'
     : 'Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.';
 
   // Build PDF table and upload, or fall back to webhook monospace
@@ -1199,10 +1199,10 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
     var BORDER    = '#cbd5e1';
     var DAY_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 
-    // Column layout: TEAM(1) | NAME(2) | ROLE(3) | [date(4) | legend(5)] [date(6) | legend(7)] ...
-    // Fixed cols = 3, then 2 cols per date (slot cell + legend cell)
+    // Column layout: TEAM(1) | NAME(2) | ROLE(3) | date1 | date2 | ... | legend
+    // Fixed cols = 3, then 1 col per date, then 1 shared legend col at the end
     var FIXED = 3;
-    var numCols = FIXED + dateCols.length * 2;
+    var numCols = FIXED + dateCols.length + 1;
     var numDataRows = staffRows.length;
 
     // ── Row 1: column headers (no caption row — caption is sent as Slack message text) ──
@@ -1217,17 +1217,17 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
       var parts = dki.split('/');
       var dow2 = new Date(new Date().getFullYear(), parseInt(parts[1])-1, parseInt(parts[0])).getDay();
       var dateLabel = dki.slice(0,5) + '\n(' + DAY_NAMES[dow2] + ')';
-      var legendLabel = slots.map(function(s, si) { return shift+(si+1)+': '+s; }).join('\n');
-      var slotCol  = FIXED + di*2 + 1;
-      var legendCol = FIXED + di*2 + 2;
+      var slotCol = FIXED + di + 1;
       sheet.getRange(1, slotCol)
         .setValue(dateLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
         .setFontWeight('bold').setFontSize(9)
         .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
-      sheet.getRange(1, legendCol)
-        .setValue(legendLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
-        .setFontSize(8).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
     });
+    // Single legend column at the end
+    var legendLabel = slots.map(function(s, si) { return shift+(si+1)+': '+s; }).join('\n');
+    sheet.getRange(1, numCols)
+      .setValue(legendLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
+      .setFontSize(8).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
 
     // ── Data rows starting at row 2 ──
     staffRows.forEach(function(r, i) {
@@ -1243,13 +1243,11 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
         var si = slotCode === shift+'1' ? 0 : slotCode === shift+'2' ? 1 : -1;
         var cellBg = isOffCell ? (OFF_BG[slotCode] || '#f1f5f9') : si === 0 ? SLOT1_BG : si === 1 ? SLOT2_BG : rowBg;
         var cellFg = isOffCell ? (OFF_FG[slotCode] || TEXT_DARK) : TEXT_DARK;
-        var slotCol2   = FIXED + di*2 + 1;
-        var legendCol2 = FIXED + di*2 + 2;
-        sheet.getRange(row, slotCol2)
+        sheet.getRange(row, FIXED + di + 1)
           .setValue(slotCode).setBackground(cellBg).setFontColor(cellFg)
           .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center');
-        sheet.getRange(row, legendCol2).setBackground(rowBg);
       });
+      sheet.getRange(row, numCols).setBackground(rowBg);
     });
 
     // ── Column widths ──
@@ -1257,9 +1255,9 @@ function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, ca
     sheet.setColumnWidth(2, 190);  // Name
     sheet.setColumnWidth(3, 65);   // Role
     dateCols.forEach(function(_, di) {
-      sheet.setColumnWidth(FIXED + di*2 + 1, 70);  // date/slot
-      sheet.setColumnWidth(FIXED + di*2 + 2, 90);  // legend
+      sheet.setColumnWidth(FIXED + di + 1, 70);  // date/slot
     });
+    sheet.setColumnWidth(numCols, 90);  // legend (single, at end)
 
     // ── Row heights ──
     sheet.setRowHeight(1, isTuesday ? 32 : 42);
