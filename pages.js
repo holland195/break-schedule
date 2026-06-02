@@ -222,32 +222,58 @@ function renderDashboard() {
       </div>`}
 </div>`;
 
-  // Team breaks today grid
-  const teamGrid = shiftMates.length === 0 ? '' : `
-<div class="card" style="margin-top:16px;">
-  <div class="card-title">👥 Team Breaks Today — Shift ${currentShift} · ${todayDk}</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px;">
-    ${shiftMates.map(u => {
-    const br = getAssigned(u.id, todayDk);
-    const idx = br ? (BREAK_SLOTS[currentShift] || []).indexOf(br.slot) : -1;
-    const isSelf = u.id === currentUser.id;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
-        background:${isSelf ? 'var(--bg4)' : 'var(--bg3)'};border-radius:7px;
-        border:1px solid ${isSelf ? 'var(--accent)' : 'var(--border)'};">
-        <span class="break-slot ${br ? `assigned slot-${idx + 1}` : ''}" style="font-size:10px;padding:3px 8px;min-width:28px;text-align:center;">
-          ${br ? getShortSlot(currentShift, br.slot) : '?'}
-        </span>
-        <div style="min-width:0;">
-          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${u.name}${isSelf ? ' <span style="font-size:10px;color:var(--accent);">(you)</span>' : ''}
-            ${u.gender === 'F' ? '<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>' : ''}
-          </div>
-          <div style="font-size:10px;color:var(--text3);">${u.team} · ${getRoleInfo(u.role).label}</div>
-        </div>
-      </div>`;
-  }).join('')}
-  </div>
-</div>`;
+  // Team breaks today grid — grouped by position
+  var _tgPosOrder = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor'];
+  var _tgPosColor = {
+    'Data Analyst':       ['#f97316','rgba(249,115,22,.12)'],
+    'Sr Data Analyst':    ['#ea580c','rgba(234,88,12,.12)'],
+    'Data Supervisor':    ['#0ea5e9','rgba(14,165,233,.12)'],
+    'Sr Data Supervisor': ['#a855f7','rgba(168,85,247,.12)'],
+  };
+  var _tgGroups = {};
+  shiftMates.forEach(function(u) {
+    var pos = getRoleInfo(u.role).label || 'Other';
+    if (!_tgGroups[pos]) _tgGroups[pos] = [];
+    _tgGroups[pos].push(u);
+  });
+  _tgPosOrder.forEach(function(pos) {
+    if (_tgGroups[pos]) _tgGroups[pos].sort(function(a,b){ return a.team < b.team ? -1 : a.team > b.team ? 1 : 0; });
+  });
+  var _tgSections = _tgPosOrder.filter(function(pos){ return _tgGroups[pos] && _tgGroups[pos].length > 0; });
+  var _tgOther = Object.keys(_tgGroups).filter(function(p){ return !_tgPosOrder.includes(p); });
+  var _tgAllPos = _tgSections.concat(_tgOther);
+  var _tgHTML = _tgAllPos.map(function(pos) {
+    var _col = (_tgPosColor[pos] || ['var(--border)','var(--bg3)']);
+    var _cards = _tgGroups[pos].map(function(u) {
+      var br = getAssigned(u.id, todayDk);
+      var idx = br ? _slotIndex(br.slot, currentShift) : -1;
+      var isSelf = u.id === currentUser.id;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;' +
+        'background:' + (isSelf ? 'var(--bg4)' : 'var(--bg3)') + ';border-radius:7px;' +
+        'border:1px solid ' + (isSelf ? 'var(--accent)' : 'var(--border)') + ';' +
+        'border-left:3px solid ' + _col[0] + ';">' +
+        '<span class="break-slot ' + (br ? 'assigned slot-' + (idx + 1) : '') + '" style="font-size:10px;padding:3px 8px;min-width:28px;text-align:center;">' +
+          (br ? getShortSlot(currentShift, br.slot) : '?') +
+        '</span>' +
+        '<div style="min-width:0;">' +
+          '<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+            u.name + (isSelf ? ' <span style="font-size:10px;color:var(--accent);">(you)</span>' : '') +
+            (u.gender === 'F' ? '<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>' : '') +
+          '</div>' +
+          '<div style="font-size:10px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role).label + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div style="margin-top:10px;">' +
+      '<div style="font-size:10px;font-weight:700;color:' + _col[0] + ';text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">' + pos + '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;">' + _cards + '</div>' +
+    '</div>';
+  }).join('');
+  const teamGrid = shiftMates.length === 0 ? '' :
+    '<div class="card" style="margin-top:16px;">' +
+    '<div class="card-title">👥 Team Breaks Today — Shift ' + currentShift + ' · ' + todayDk + '</div>' +
+    _tgHTML +
+    '</div>';
 
   // No schedule imported yet
   const noSchedule = state.users.length === 0 ? `

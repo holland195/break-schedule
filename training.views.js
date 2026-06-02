@@ -111,7 +111,7 @@ function renderScheduleTraining() {
 
   const todayDk   = (() => {
     const n=new Date(); const d=n.getDay();
-    return curWeekDates[d===0?6:d-1] || curWeekDates[0];
+    return curWeekDates[d] || curWeekDates[0];
   })();
 
   // Selected day for totals (defaults to today if in current week, else Sunday of selected week)
