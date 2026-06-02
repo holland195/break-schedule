@@ -39,3 +39,42 @@
 - `_clearAutoBreaksFromWeek(sunday, shifts, force=false)` — `force=true` clears manual breaks too
 - `state._breakSplitsUpdatedAt` guards breakSplits from cloud overwrite
 - Terser: never `const`/`let` inside loop bodies
+
+---
+
+## New Features (Session 2)
+
+### Date-Versioned Shift Config Manager (PR #91)
+- `state.shiftConfig` — append-only list synced to Firebase; each entry `{ effectiveFrom: 'DD/MM'|null, breakSlots:{} }`
+- New helpers in `data.js`: `_parseDateKey`, `getConfigForDate(dateStr)`, `_slotIndex(slot, shift)`, `getSlotTime(code, dateStr)`
+- Break records now store short codes `A1`/`A2` instead of raw time strings; migration shim in `sync.js → _applyRemoteData` auto-converts legacy slots
+- `autoassign.js` write path stores `shift+'1'`/`shift+'2'`; slot lookup via `getConfigForDate(sunday).breakSlots[shift]`
+- `sync.js`: `_shiftConfigUpdatedAt` timestamp guard; `syncPush` includes shiftConfig; seeds baseline on first push
+- `pages.js`: added `renderShiftConfig()`, `_shiftConfigModalHTML()`, `openShiftConfigModal()`, `saveShiftConfigEntry()`; all slot display sites use `getSlotTime(br.slot, dateStr)`
+- `nav.js`/`index.html`: Shift Config page route + nav item (leader+ guard)
+- `scripts/daily_sync.gs`: comment added to `BREAK_SLOTS_MAP` — must be manually synced with `data.js BREAK_SLOTS`
+
+### Bug Fix — Shift Config Modal Invisible (PR #92)
+- `_shiftConfigModalHTML()` used `class="modal-box"` (no CSS definition) → modal was transparent over dark overlay
+- Fix: `class="modal" style="width:460px;"` — `.modal` is the only correct class in styles.css
+
+### daily_sync.gs Slack Post Fixes (in PR #91)
+- Caption hardcoded `"(Thứ Tư–Thứ Sáu)"` → fixed to `'(' + vnDay + '–Thứ Sáu)'` using already-computed `vnDay`
+- Legend column repeated per date col → fixed to single legend at end; `numCols = FIXED + dateCols.length + 1`
+
+### Team-Level Break Assignment (autoassign.js)
+- Rotation now advances per-team, not per-member — teammates always share a slot each week
+
+### Arrange-Breaks UI Refactors
+- 3-column controls layout; distribution panel reads actual Firebase assignments (not stored percentages)
+- Enforces ≥ 1 group per slot; per-tier split sliders scoped to Shift A only
+- `saveBreakSplits` resets rotation on every Save; uses `force=true` on `_clearAutoBreaksFromWeek`
+
+---
+
+## Critical Invariants (additions from Session 2)
+
+- CSS: only `.modal` exists in styles.css — never use `.modal-box`
+- Short codes in Firebase: `A1`/`A2`; display via `getSlotTime(code, dateStr)`. Legacy time strings pass through unchanged
+- Extra-break modal: `eligibleDays` data attribute populated with `getSlotTime(br.slot, dk)` (resolved time string), not raw short code
+- GAS `BREAK_SLOTS_MAP` must be manually updated alongside `data.js BREAK_SLOTS` when shift times change
