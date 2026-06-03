@@ -2331,26 +2331,107 @@ let _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
   : _attNow.getFullYear();
 let _staffAttConflictFilter = false;
 let _saShiftFilter = 'All';
+let _saFillCode = 'XA';
+var _saFilteredUsernames = [];
+var _saCurrentDates = [];
+var _saCurrentMonthKey = '';
 
 function fillAttRow(username, monthKey) {
-  var u = state.users.find(function(x) { return x.username === username; });
-  if (!u) return;
-  var year = parseInt(monthKey.split('-')[0]);
-  var month = parseInt(monthKey.split('-')[1]);
-  var dates = _getAllDatesInMonth(year, month);
+  if (!_saFillCode) return;
+  var dates = _saCurrentDates.length ? _saCurrentDates : (function() {
+    var y = parseInt(monthKey.split('-')[0]);
+    var m = parseInt(monthKey.split('-')[1]);
+    return _getAllDatesInMonth(y, m);
+  })();
   var existing = Object.assign({}, DB.getMonthlyAtt(username, monthKey));
   var filled = 0;
   dates.forEach(function(dk) {
     if (existing[dk]) return;
-    var sc = (u.schedule && (u.schedule[dk] || u.schedule[getWkDay(dk)])) || '';
-    if (!sc) return;
-    var code = sc === '0' ? '0' : 'X' + sc;
-    existing[dk] = code;
+    existing[dk] = _saFillCode;
     filled++;
   });
   if (filled === 0) return;
   DB.setMonthlyAtt(username, monthKey, existing);
   syncWrite();
+  nav('staff');
+}
+
+function fillAttAll() {
+  if (!_saFillCode || !_saCurrentMonthKey) return;
+  _saFilteredUsernames.forEach(function(username) {
+    var existing = Object.assign({}, DB.getMonthlyAtt(username, _saCurrentMonthKey));
+    var changed = false;
+    _saCurrentDates.forEach(function(dk) {
+      if (existing[dk]) return;
+      existing[dk] = _saFillCode;
+      changed = true;
+    });
+    if (!changed) return;
+    DB.setMonthlyAtt(username, _saCurrentMonthKey, existing);
+  });
+  syncWrite();
+  nav('staff');
+}
+
+function _attCellModalHTML() {
+  return '<div id="modal-att-cell" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-att-cell\')">' +
+    '<div class="modal" style="width:380px;">' +
+      '<div class="modal-title" id="att-cell-modal-title">Edit Attendance</div>' +
+      '<div id="att-cell-code-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0;"></div>' +
+      '<div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">' +
+        '<button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button class="btn btn-sm" onclick="closeModal(\'modal-att-cell\')">Cancel</button>' +
+          '<button class="btn btn-accent btn-sm" onclick="saveAttCell()">Save</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+var _attCellTarget = null;
+var _attCellSelected = '';
+
+function openAttCellModal(username, monthKey, dk) {
+  if (!document.getElementById('modal-att-cell')) {
+    document.body.insertAdjacentHTML('beforeend', _attCellModalHTML());
+  }
+  _attCellTarget = { username: username, monthKey: monthKey, dk: dk };
+  var existing = (DB.getMonthlyAtt(username, monthKey) || {})[dk] || '';
+  _attCellSelected = existing;
+  var uObj = state.users.find(function(x) { return x.username === username; });
+  var uName = uObj ? uObj.name : username;
+  document.getElementById('att-cell-modal-title').textContent = 'Edit ' + dk + ' — ' + uName;
+  var allCodes = ['XA','XD','XE','A1','A2','D1','D2','E1','E2','A','H','0','U','S','L'];
+  var grid = document.getElementById('att-cell-code-grid');
+  grid.innerHTML = allCodes.map(function(c) {
+    var isActive = c === existing;
+    return '<button class="btn btn-sm' + (isActive ? ' btn-accent' : '') + '" ' +
+      'onclick="document.querySelectorAll(\'#att-cell-code-grid .btn\').forEach(function(b){b.classList.remove(\'btn-accent\');});this.classList.add(\'btn-accent\');_attCellSelected=\'' + c + '\'">' +
+      c + '</button>';
+  }).join('');
+  document.getElementById('modal-att-cell').classList.add('show');
+}
+
+function saveAttCell() {
+  if (!_attCellTarget || !_attCellSelected) return;
+  var t = _attCellTarget;
+  var existing = Object.assign({}, DB.getMonthlyAtt(t.username, t.monthKey));
+  existing[t.dk] = _attCellSelected;
+  DB.setMonthlyAtt(t.username, t.monthKey, existing);
+  syncWrite();
+  closeModal('modal-att-cell');
+  nav('staff');
+}
+
+function clearAttCell() {
+  if (!_attCellTarget) return;
+  var t = _attCellTarget;
+  var existing = Object.assign({}, DB.getMonthlyAtt(t.username, t.monthKey));
+  delete existing[t.dk];
+  DB.setMonthlyAtt(t.username, t.monthKey, existing);
+  syncWrite();
+  closeModal('modal-att-cell');
   nav('staff');
 }
 
@@ -2361,7 +2442,7 @@ function _renderStaffAttendance() {
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  const dates = _getAllDatesInMonth(year, month);
+  const dates = _saShiftFilter !== 'All' ? getWeekDates() : _getAllDatesInMonth(year, month);
   const attData = state.monthlyAttendance || {};
 
   const monthPicker = `
@@ -2519,7 +2600,8 @@ function _renderStaffAttendance() {
       const isWknd = dow === 0 || dow === 6;
 
       if (!rawCode && !parsed) {
-        return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};">
+        return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};cursor:pointer;"
+          onclick="openAttCellModal('${u.username}','${monthKey}','${dk}')">
           <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
 
@@ -2578,8 +2660,10 @@ function _renderStaffAttendance() {
           },400);"
         style="cursor:pointer;"` : '';
 
+      const cellInteract = hasConflict ? conflictClick
+        : `onclick="openAttCellModal('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
       return `<td style="text-align:center;padding:2px 2px;min-width:54px;width:54px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
-        title="${title}" ${conflictClick}>
+        title="${title}" ${cellInteract}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
       </td>`;
 
@@ -2595,7 +2679,7 @@ function _renderStaffAttendance() {
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
       <td style="padding:3px 4px;text-align:center;${stickyCell}left:402px;min-width:44px;width:44px;border-left:1px solid var(--border);">
         <button class="btn btn-sm" onclick="fillAttRow('${u.username}','${monthKey}')"
-          style="padding:2px 6px;font-size:11px;min-width:0;" title="Fill empty cells from schedule">↓</button>
+          style="padding:2px 6px;font-size:11px;min-width:0;" title="Fill this person's empty cells with selected code">↓</button>
       </td>
       ${cells}
     </tr>`;
@@ -2626,10 +2710,42 @@ function _renderStaffAttendance() {
       <option value="E" ${_saShiftFilter==='E'?'selected':''}>Shift E</option>
     </select>`;
 
+  const codePicker = `
+    <select class="login-select" style="padding:5px 8px;font-size:12px;width:120px;"
+      onchange="_saFillCode=this.value">
+      <optgroup label="Working">
+        <option value="XA" ${_saFillCode==='XA'?'selected':''}>XA — Shift A</option>
+        <option value="XD" ${_saFillCode==='XD'?'selected':''}>XD — Shift D</option>
+        <option value="XE" ${_saFillCode==='XE'?'selected':''}>XE — Shift E</option>
+      </optgroup>
+      <optgroup label="Half day">
+        <option value="A1" ${_saFillCode==='A1'?'selected':''}>A1</option>
+        <option value="A2" ${_saFillCode==='A2'?'selected':''}>A2</option>
+        <option value="D1" ${_saFillCode==='D1'?'selected':''}>D1</option>
+        <option value="D2" ${_saFillCode==='D2'?'selected':''}>D2</option>
+        <option value="E1" ${_saFillCode==='E1'?'selected':''}>E1</option>
+        <option value="E2" ${_saFillCode==='E2'?'selected':''}>E2</option>
+      </optgroup>
+      <optgroup label="Leave / Off">
+        <option value="A" ${_saFillCode==='A'?'selected':''}>A — Annual</option>
+        <option value="H" ${_saFillCode==='H'?'selected':''}>H — Holiday</option>
+        <option value="0" ${_saFillCode==='0'?'selected':''}>0 — Day off</option>
+        <option value="U" ${_saFillCode==='U'?'selected':''}>U — Unpaid</option>
+        <option value="S" ${_saFillCode==='S'?'selected':''}>S — Sick</option>
+        <option value="L" ${_saFillCode==='L'?'selected':''}>L — Personal</option>
+      </optgroup>
+    </select>
+    <button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>`;
+
+  _saFilteredUsernames = filteredUsers.map(u => u.username);
+  _saCurrentDates = dates;
+  _saCurrentMonthKey = monthKey;
+
   return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-      ${monthPicker}
+      ${_saShiftFilter === 'All' ? monthPicker : ''}
       ${shiftFilterPicker}
+      ${codePicker}
       ${conflictFilterBtn}
       <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
     </div>
