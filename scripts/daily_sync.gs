@@ -1373,3 +1373,217 @@ function createSlackTriggers() {
   ScriptApp.newTrigger('dailySlackShiftE').timeBased().atHour(6).nearMinute(15).everyDays(1).create();
   Logger.log('✓ Slack triggers created: ShiftA@15h, ShiftD@0h, ShiftE@6h (all daily, day filter inside function)');
 }
+
+// ═══════════════════════════════════════════════
+//  ATTENDANCE WRITEBACK
+//  Reads manual attendance edits from Firebase and writes them back to the
+//  logbook Google Sheet. Runs 3× daily, 30 min after each shift starts.
+//  Call createWritebackTriggers() once from the GAS editor to install.
+// ═══════════════════════════════════════════════
+
+function syncAttendanceWriteback() {
+  var startTime = new Date();
+  var log = [];
+  function addLog(msg) { Logger.log(msg); log.push(msg); }
+
+  try {
+    addLog('=== Attendance Writeback Start: ' + startTime.toISOString() + ' ===');
+
+    var raw = firebaseGet();
+    var current = raw ? JSON.parse(raw) : {};
+    var attendance = current.attendance || {};
+
+    // Only process manual edits (note !== 'auto', not deleted)
+    var manualKeys = Object.keys(attendance).filter(function(key) {
+      var rec = attendance[key];
+      return rec && !rec._deleted && rec.note && rec.note !== 'auto';
+    });
+
+    if (manualKeys.length === 0) {
+      addLog('[Writeback] No manual edits found. Done.');
+      return;
+    }
+    addLog('[Writeback] ' + manualKeys.length + ' manual edit(s) to write back.');
+
+    var ss;
+    try { ss = SpreadsheetApp.openById(LOGBOOK_SPREADSHEET_ID); }
+    catch(e) {
+      addLog('[Writeback] ✗ Cannot open logbook spreadsheet: ' + e.message);
+      throw e;
+    }
+
+    var MONTH_NAMES = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+
+    // Build uid list for name-fallback lookup
+    var _usersList = Array.isArray(current.users) ? current.users
+                   : (current.users ? Object.values(current.users) : []);
+    var usernameToUid = {};
+    _usersList.forEach(function(u) {
+      if (u && u.username && u.id != null) usernameToUid[String(u.username).toLowerCase()] = u.id;
+    });
+
+    // Group manual-edit keys by month sheet name
+    var keysByMonth = {};
+    manualKeys.forEach(function(key) {
+      var sep = key.lastIndexOf('_');
+      var dateKey = key.substring(sep + 1); // DD/MM
+      var dateParts = dateKey.split('/');
+      if (dateParts.length < 2) return;
+      var mIdx = parseInt(dateParts[1], 10) - 1;
+      if (isNaN(mIdx) || mIdx < 0 || mIdx > 11) return;
+      var mName = MONTH_NAMES[mIdx];
+      if (!keysByMonth[mName]) keysByMonth[mName] = [];
+      keysByMonth[mName].push(key);
+    });
+
+    var totalWritten = 0, totalSkipped = 0;
+
+    Object.keys(keysByMonth).forEach(function(monthName) {
+      var sheet = ss.getSheetByName(monthName);
+      if (!sheet) {
+        addLog('[Writeback] ✗ Sheet "' + monthName + '" not found — skipping ' + keysByMonth[monthName].length + ' record(s).');
+        totalSkipped += keysByMonth[monthName].length;
+        return;
+      }
+
+      var lastCol = sheet.getLastColumn(), lastRow = sheet.getLastRow();
+      if (lastRow < 3 || lastCol < 5) {
+        addLog('[Writeback] ⚠ Sheet "' + monthName + '" appears empty.');
+        totalSkipped += keysByMonth[monthName].length;
+        return;
+      }
+      var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+      // Detect date header row
+      var dateRow = -1, bestCnt = 0;
+      for (var ri = 0; ri < Math.min(10, allData.length); ri++) {
+        var cnt = 0;
+        for (var c = 4; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c])) cnt++; }
+        if (cnt > bestCnt) { bestCnt = cnt; dateRow = ri; }
+      }
+      if (dateRow < 0 || bestCnt < 2) {
+        addLog('[Writeback] ✗ No date header row found in "' + monthName + '".');
+        totalSkipped += keysByMonth[monthName].length;
+        return;
+      }
+
+      // Detect sub-header row (contains "start" + one of "end"/"early"/"late")
+      var subHdrRow = -1;
+      for (var ri = dateRow+1; ri < Math.min(dateRow+8, allData.length); ri++) {
+        var _hs = false, _ho = false;
+        for (var c = 0; c < allData[ri].length; c++) {
+          var _sv = String(allData[ri][c]).trim().toLowerCase();
+          if (_sv === 'start') _hs = true;
+          if (_sv === 'end' || _sv === 'early' || _sv === 'late') _ho = true;
+        }
+        if (_hs && _ho) { subHdrRow = ri; break; }
+      }
+      if (subHdrRow < 0) {
+        addLog('[Writeback] ✗ No Start/End sub-header row in "' + monthName + '".');
+        totalSkipped += keysByMonth[monthName].length;
+        return;
+      }
+
+      var shiftColIdx = 6;
+      var dataStartRow = subHdrRow + 1;
+      var row1 = allData[dateRow], row3 = allData[subHdrRow];
+
+      // Build dateKey → { startColIdx, endColIdx } (0-based array index)
+      var dateColMap = {};
+      for (var c = shiftColIdx+1; c < row1.length; c++) {
+        if (String(row3[c]||'').trim().toLowerCase() !== 'start') continue;
+        var dk = null;
+        for (var back = 0; back <= 3 && !dk; back++) {
+          if (c - back > shiftColIdx) dk = parseDateHeader(row1[c - back]);
+        }
+        if (!dk) continue;
+        dateColMap[dk] = { startColIdx: c, endColIdx: c + 2 };
+      }
+
+      // Build uid → sheet row (1-based) map
+      var uidToSheetRow = {};
+      for (var ri = dataStartRow; ri < allData.length; ri++) {
+        var row = allData[ri];
+        var name    = String(row[2] || '').trim();
+        var newUser = String(row[4] || '').trim().toLowerCase();
+        var oldUser = String(row[3] || '').trim().toLowerCase();
+        if (!name && !newUser) continue;
+        var uid = newUser ? usernameToUid[newUser] : undefined;
+        if (uid == null && oldUser) uid = usernameToUid[oldUser];
+        if (uid == null && name) {
+          var nl = name.toLowerCase();
+          var mu = _usersList.filter(function(u){ return (u.name||'').toLowerCase()===nl; })[0];
+          if (mu) uid = mu.id;
+        }
+        if (uid != null) uidToSheetRow[uid] = ri + 1; // convert to 1-based
+      }
+
+      addLog('[Writeback] "' + monthName + '": ' + Object.keys(dateColMap).length + ' date cols, '
+        + Object.keys(uidToSheetRow).length + ' employee rows mapped.');
+
+      // Write each manual edit
+      keysByMonth[monthName].forEach(function(key) {
+        var rec = attendance[key];
+        var sep = key.lastIndexOf('_');
+        var uid = parseInt(key.substring(0, sep), 10);
+        var dateKey = key.substring(sep + 1);
+
+        var sheetRow = uidToSheetRow[uid];
+        var colInfo  = dateColMap[dateKey];
+
+        if (!sheetRow || !colInfo) {
+          addLog('[Writeback] ✗ No mapping: uid=' + uid + ' dk=' + dateKey);
+          totalSkipped++;
+          return;
+        }
+
+        // Write start (col is 0-based index, getRange needs 1-based)
+        if (rec.start) sheet.getRange(sheetRow, colInfo.startColIdx + 1).setValue(rec.start);
+        if (rec.end)   sheet.getRange(sheetRow, colInfo.endColIdx   + 1).setValue(rec.end);
+
+        addLog('[Writeback] ✓ ' + key
+          + ' start=' + (rec.start||'-') + ' end=' + (rec.end||'-')
+          + ' by=' + (rec.byName || rec.by || '?'));
+        totalWritten++;
+      });
+    });
+
+    var duration = ((new Date() - startTime) / 1000).toFixed(1);
+    addLog('=== Writeback Complete in ' + duration + 's: '
+      + totalWritten + ' written, ' + totalSkipped + ' skipped ===');
+
+  } catch(e) {
+    Logger.log('✗ Attendance Writeback FAILED: ' + e.message + '\n' + e.stack);
+    try {
+      MailApp.sendEmail({
+        to:      NOTIFY_EMAIL,
+        subject: '⚠ PAVE Attendance Writeback Failed — ' + Utilities.formatDate(startTime, 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'),
+        body:    'Error: ' + e.message + '\n\nStack:\n' + e.stack + '\n\nLog:\n' + log.join('\n'),
+      });
+    } catch(mailErr) { Logger.log('Mail failed: ' + mailErr.message); }
+    throw e;
+  }
+}
+
+// Thin wrappers required because GAS time triggers must target named top-level functions.
+function syncAttendanceWriteback_1530() { syncAttendanceWriteback(); }
+function syncAttendanceWriteback_0030() { syncAttendanceWriteback(); }
+function syncAttendanceWriteback_0630() { syncAttendanceWriteback(); }
+
+// Run once from the GAS editor to install the 3 daily writeback triggers.
+function createWritebackTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    var fn = t.getHandlerFunction();
+    if (fn === 'syncAttendanceWriteback_1530' ||
+        fn === 'syncAttendanceWriteback_0030' ||
+        fn === 'syncAttendanceWriteback_0630') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // Shift A: 15:30 | Shift D: 00:30 | Shift E: 06:30
+  ScriptApp.newTrigger('syncAttendanceWriteback_1530').timeBased().atHour(15).nearMinute(30).everyDays(1).create();
+  ScriptApp.newTrigger('syncAttendanceWriteback_0030').timeBased().atHour(0) .nearMinute(30).everyDays(1).create();
+  ScriptApp.newTrigger('syncAttendanceWriteback_0630').timeBased().atHour(6) .nearMinute(30).everyDays(1).create();
+  Logger.log('✓ Writeback triggers created: ShiftA@15:30, ShiftD@00:30, ShiftE@06:30 (daily)');
+}
