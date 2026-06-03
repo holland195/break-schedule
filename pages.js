@@ -2374,6 +2374,51 @@ function fillAttAll() {
   nav('staff');
 }
 
+function clearAttAll() {
+  if (!_saFillCode || !_saCurrentMonthKey) return;
+  _saFilteredUsernames.forEach(function(username) {
+    var existing = Object.assign({}, DB.getMonthlyAtt(username, _saCurrentMonthKey));
+    var changed = false;
+    _saCurrentDates.forEach(function(dk) {
+      if (existing[dk] !== _saFillCode) return;
+      delete existing[dk];
+      changed = true;
+    });
+    if (!changed) return;
+    DB.setMonthlyAtt(username, _saCurrentMonthKey, existing);
+  });
+  syncWrite();
+  nav('staff');
+}
+
+var _attHoveredCell = null;
+var _attKbdInstalled = false;
+
+function _installAttKbd() {
+  if (_attKbdInstalled) return;
+  _attKbdInstalled = true;
+  document.addEventListener('keydown', function(e) {
+    var tag = (e.target || {}).tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if (!document.getElementById('sa-kbd-marker')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      if (!_attHoveredCell || !_attHoveredCell.code) return;
+      e.preventDefault();
+      _attCopiedCode = _attHoveredCell.code;
+      nav('staff');
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      if (!_attHoveredCell || !_attCopiedCode) return;
+      e.preventDefault();
+      var existing = Object.assign({}, DB.getMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey));
+      existing[_attHoveredCell.dk] = _attCopiedCode;
+      DB.setMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey, existing);
+      syncWrite();
+      nav('staff');
+    }
+  });
+}
+
 function _attCellModalHTML() {
   return '<div id="modal-att-cell" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-att-cell\')">' +
     '<div class="modal" style="width:380px;">' +
@@ -2617,7 +2662,8 @@ function _renderStaffAttendance() {
 
       if (!rawCode && !parsed) {
         return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};cursor:pointer;"
-          onclick="attCellClick('${u.username}','${monthKey}','${dk}')">
+          onclick="attCellClick('${u.username}','${monthKey}','${dk}')"
+          onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:''}">
           <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
 
@@ -2676,10 +2722,11 @@ function _renderStaffAttendance() {
           },400);"
         style="cursor:pointer;"` : '';
 
+      const hoverAttr = `onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:'${(rawCode||'').replace(/'/g,"\\'")}'}"`;
       const cellInteract = hasConflict ? conflictClick
         : `onclick="attCellClick('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
       return `<td style="text-align:center;padding:2px 2px;min-width:54px;width:54px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
-        title="${title}" ${cellInteract}>
+        title="${title}" ${hoverAttr} ${cellInteract}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
       </td>`;
 
@@ -2693,10 +2740,6 @@ function _renderStaffAttendance() {
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
-      <td style="padding:3px 4px;text-align:center;${stickyCell}left:402px;min-width:44px;width:44px;border-left:1px solid var(--border);">
-        <button class="btn btn-sm" onclick="fillAttRow('${u.username}','${monthKey}')"
-          style="padding:2px 6px;font-size:11px;min-width:0;" title="Fill this person's empty cells with selected code">↓</button>
-      </td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2751,14 +2794,17 @@ function _renderStaffAttendance() {
         <option value="L" ${_saFillCode==='L'?'selected':''}>L — Personal</option>
       </optgroup>
     </select>
-    ${['XA','XD','XE'].indexOf(_saFillCode) !== -1 ? '<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>' : ''}`;
+    ${['XA','XD','XE'].indexOf(_saFillCode) !== -1 ? '<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>' : ''}
+    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
   _saCurrentMonthKey = monthKey;
+  _installAttKbd();
 
   return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+      <span id="sa-kbd-marker" style="display:none;"></span>
       ${_saShiftFilter === 'All' ? monthPicker : ''}
       ${shiftFilterPicker}
       ${codePicker}
@@ -2768,7 +2814,7 @@ function _renderStaffAttendance() {
     </div>
     ${legendHTML}
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
-      <table style="border-collapse:separate;border-spacing:0;${_saShiftFilter !== 'All' ? 'width:100%;' : 'width:max-content;min-width:100%;'}">
+      <table style="border-collapse:separate;border-spacing:0;${_saShiftFilter !== 'All' ? 'width:100%;table-layout:fixed;' : 'width:max-content;min-width:100%;'}">
         <thead>
           <tr>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
@@ -2780,9 +2826,6 @@ function _renderStaffAttendance() {
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
               min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
-            <th style="text-align:center;padding:6px 4px;font-size:11px;color:var(--text2);
-              min-width:44px;width:44px;position:sticky;top:0;left:402px;z-index:4;background:var(--bg3);
-              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">FILL</th>
             ${theadDates}
           </tr>
         </thead>
