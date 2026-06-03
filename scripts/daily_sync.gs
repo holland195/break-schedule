@@ -1581,10 +1581,106 @@ function _timeStrToFraction(str) {
   return (h * 3600 + m * 60 + s) / 86400;
 }
 
+// ═══════════════════════════════════════════════
+//  MONTHLY ATTENDANCE WRITEBACK
+//  Writes Firebase monthlyAttendance codes back to the Attendance Google Sheet.
+//  Runs after the logbook writeback via the same 3 daily triggers.
+// ═══════════════════════════════════════════════
+function syncMonthlyAttWriteback() {
+  Logger.log('[MonthlyWriteback] Start: ' + new Date().toISOString());
+
+  var raw, current;
+  try {
+    raw = firebaseGet();
+    current = raw ? JSON.parse(raw) : {};
+  } catch(e) {
+    Logger.log('[MonthlyWriteback] Firebase fetch error: ' + e.message);
+    return;
+  }
+
+  var monthlyAtt = current.monthlyAttendance || {};
+  if (Object.keys(monthlyAtt).length === 0) {
+    Logger.log('[MonthlyWriteback] No monthlyAttendance data. Done.');
+    return;
+  }
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch(e) {
+    Logger.log('[MonthlyWriteback] Cannot open spreadsheet: ' + e.message);
+    return;
+  }
+
+  var sheet = ss.getSheetByName(ATTENDANCE_SHEET);
+  if (!sheet) {
+    Logger.log('[MonthlyWriteback] Sheet not found: ' + ATTENDANCE_SHEET);
+    return;
+  }
+
+  var rows = sheet.getDataRange().getValues();
+  var headerRow = rows[0];
+
+  // Build date columns — same logic as syncAttendance()
+  var dateCols = [];
+  headerRow.forEach(function(h, i) {
+    if (i < 4) return;
+    var dk = parseDateHeader(h);
+    if (dk) dateCols.push({ index: i, dateKey: dk });
+  });
+
+  if (dateCols.length === 0) {
+    Logger.log('[MonthlyWriteback] No date columns found in header row.');
+    return;
+  }
+
+  // Detect working monthKey from first date column
+  var firstDk    = dateCols[0].dateKey;
+  var firstDay   = parseInt(firstDk.split('/')[0]);
+  var firstMonth = parseInt(firstDk.split('/')[1]);
+  var year  = new Date().getFullYear();
+  var month = firstDay >= 25 ? firstMonth + 1 : firstMonth;
+  if (month > 12) { month = 1; year++; }
+  var monthKey = year + '-' + String(month).padStart(2, '0');
+
+  Logger.log('[MonthlyWriteback] Working month: ' + monthKey + ' | ' + dateCols.length + ' date columns');
+
+  // Build username → 1-based row map (data starts row 4 = index 3)
+  var usernameToRow = {};
+  for (var ri = 3; ri < rows.length; ri++) {
+    var row = rows[ri];
+    var nameVal = String(row[2] || '').trim();
+    var empNo   = String(row[1] || '').trim();
+    if (!nameVal && !empNo) continue;
+    var username = findUsername(current, nameVal, empNo);
+    if (username) usernameToRow[username] = ri + 1; // 1-based for getRange
+  }
+
+  // Write codes from Firebase to sheet cells
+  var written = 0;
+  Object.keys(monthlyAtt).forEach(function(username) {
+    var userMonths = monthlyAtt[username];
+    if (!userMonths || !userMonths[monthKey]) return;
+    var monthData = userMonths[monthKey];
+
+    var sheetRow = usernameToRow[username];
+    if (!sheetRow) return;
+
+    dateCols.forEach(function(col) {
+      var code = monthData[col.dateKey];
+      if (!code) return;
+      sheet.getRange(sheetRow, col.index + 1).setValue(code);
+      written++;
+    });
+  });
+
+  Logger.log('[MonthlyWriteback] Done: ' + written + ' cells written to ' + ATTENDANCE_SHEET + '.');
+}
+
 // Thin wrappers required because GAS time triggers must target named top-level functions.
-function syncAttendanceWriteback_1530() { syncAttendanceWriteback(); }
-function syncAttendanceWriteback_0030() { syncAttendanceWriteback(); }
-function syncAttendanceWriteback_0630() { syncAttendanceWriteback(); }
+function syncAttendanceWriteback_1530() { syncAttendanceWriteback(); syncMonthlyAttWriteback(); }
+function syncAttendanceWriteback_0030() { syncAttendanceWriteback(); syncMonthlyAttWriteback(); }
+function syncAttendanceWriteback_0630() { syncAttendanceWriteback(); syncMonthlyAttWriteback(); }
 
 // Run once from the GAS editor to install the 3 daily writeback triggers.
 function createWritebackTriggers() {

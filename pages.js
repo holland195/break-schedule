@@ -2330,6 +2330,29 @@ let _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
   ? _attNow.getFullYear() + 1
   : _attNow.getFullYear();
 let _staffAttConflictFilter = false;
+let _saShiftFilter = 'All';
+
+function fillAttRow(username, monthKey) {
+  var u = state.users.find(function(x) { return x.username === username; });
+  if (!u) return;
+  var year = parseInt(monthKey.split('-')[0]);
+  var month = parseInt(monthKey.split('-')[1]);
+  var dates = _getAllDatesInMonth(year, month);
+  var existing = Object.assign({}, DB.getMonthlyAtt(username, monthKey));
+  var filled = 0;
+  dates.forEach(function(dk) {
+    if (existing[dk]) return;
+    var sc = (u.schedule && (u.schedule[dk] || u.schedule[getWkDay(dk)])) || '';
+    if (!sc) return;
+    var code = sc === '0' ? '0' : 'X' + sc;
+    existing[dk] = code;
+    filled++;
+  });
+  if (filled === 0) return;
+  DB.setMonthlyAtt(username, monthKey, existing);
+  syncWrite();
+  nav('staff');
+}
 
 function _renderStaffAttendance() {
   const year = _attImportYear;
@@ -2456,9 +2479,15 @@ function _renderStaffAttendance() {
   }
 
   const totalConflicts = rowUsers.filter(u => _preConflicts[u.username]?.length > 0).length;
-  const filteredUsers = _staffAttConflictFilter
+  let filteredUsers = _staffAttConflictFilter
     ? rowUsers.filter(u => _preConflicts[u.username]?.length > 0)
     : rowUsers;
+  if (_saShiftFilter !== 'All') {
+    filteredUsers = filteredUsers.filter(u => {
+      const sc = u.schedule || {};
+      return dates.some(dk => sc[dk] === _saShiftFilter || sc[getWkDay(dk)] === _saShiftFilter);
+    });
+  }
 
   var _shColors = {
     A: ['rgba(14,165,233,.14)','#0ea5e9'],
@@ -2564,6 +2593,10 @@ function _renderStaffAttendance() {
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
+      <td style="padding:3px 4px;text-align:center;${stickyCell}left:402px;min-width:44px;width:44px;border-left:1px solid var(--border);">
+        <button class="btn btn-sm" onclick="fillAttRow('${u.username}','${monthKey}')"
+          style="padding:2px 6px;font-size:11px;min-width:0;" title="Fill empty cells from schedule">↓</button>
+      </td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2584,11 +2617,21 @@ function _renderStaffAttendance() {
       ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
+  const shiftFilterPicker = `
+    <select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;"
+      onchange="_saShiftFilter=this.value;nav('staff')">
+      <option value="All" ${_saShiftFilter==='All'?'selected':''}>All shifts</option>
+      <option value="A" ${_saShiftFilter==='A'?'selected':''}>Shift A</option>
+      <option value="D" ${_saShiftFilter==='D'?'selected':''}>Shift D</option>
+      <option value="E" ${_saShiftFilter==='E'?'selected':''}>Shift E</option>
+    </select>`;
+
   return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       ${monthPicker}
+      ${shiftFilterPicker}
       ${conflictFilterBtn}
-      <span style="font-size:11px;color:var(--text3);margin-left:4px;">${rowUsers.length} staff</span>
+      <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
     </div>
     ${legendHTML}
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
@@ -2604,6 +2647,9 @@ function _renderStaffAttendance() {
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
               min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
+            <th style="text-align:center;padding:6px 4px;font-size:11px;color:var(--text2);
+              min-width:44px;width:44px;position:sticky;top:0;left:402px;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">FILL</th>
             ${theadDates}
           </tr>
         </thead>
