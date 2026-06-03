@@ -1539,8 +1539,8 @@ function syncAttendanceWriteback() {
         }
 
         // Write start (col is 0-based index, getRange needs 1-based)
-        if (rec.start) sheet.getRange(sheetRow, colInfo.startColIdx + 1).setValue(rec.start);
-        if (rec.end)   sheet.getRange(sheetRow, colInfo.endColIdx   + 1).setValue(rec.end);
+        if (rec.start) sheet.getRange(sheetRow, colInfo.startColIdx + 1).setValue(_timeStrToFraction(rec.start));
+        if (rec.end)   sheet.getRange(sheetRow, colInfo.endColIdx   + 1).setValue(_timeStrToFraction(rec.end));
 
         addLog('[Writeback] ✓ ' + key
           + ' start=' + (rec.start||'-') + ' end=' + (rec.end||'-')
@@ -1564,6 +1564,18 @@ function syncAttendanceWriteback() {
     } catch(mailErr) { Logger.log('Mail failed: ' + mailErr.message); }
     throw e;
   }
+}
+
+// Converts "HH:MM" or "HH:MM:SS" string → fractional day (0..1) for Sheets time cells.
+// Sheets stores times as fractional days; writing this value preserves native time formatting
+// (e.g. the column's "h:mm:ss AM/PM" format) instead of writing a plain text string.
+function _timeStrToFraction(str) {
+  if (!str) return null;
+  var p = String(str).split(':');
+  var h = parseInt(p[0], 10) || 0;
+  var m = parseInt(p[1], 10) || 0;
+  var s = parseInt(p[2], 10) || 0;
+  return (h * 3600 + m * 60 + s) / 86400;
 }
 
 // Thin wrappers required because GAS time triggers must target named top-level functions.
