@@ -2636,7 +2636,7 @@ function _renderStaffAttendance() {
   if (_saShiftFilter !== 'All') {
     filteredUsers = filteredUsers.filter(u => {
       const sc = u.schedule || {};
-      return dates.some(dk => sc[dk] === _saShiftFilter || sc[getWkDay(dk)] === _saShiftFilter);
+      return dates.some(dk => (sc[dk] || sc[getWkDay(dk)]) === _saShiftFilter);
     });
   }
 
