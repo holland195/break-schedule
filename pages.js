@@ -2335,6 +2335,7 @@ let _saFillCode = 'XA';
 var _saFilteredUsernames = [];
 var _saCurrentDates = [];
 var _saCurrentMonthKey = '';
+var _attCopiedCode = '';
 
 function fillAttRow(username, monthKey) {
   if (!_saFillCode) return;
@@ -2379,7 +2380,10 @@ function _attCellModalHTML() {
       '<div class="modal-title" id="att-cell-modal-title">Edit Attendance</div>' +
       '<div id="att-cell-code-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0;"></div>' +
       '<div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">' +
-        '<button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button>' +
+          '<button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');nav(\'staff\')">Copy</button>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;">' +
           '<button class="btn btn-sm" onclick="closeModal(\'modal-att-cell\')">Cancel</button>' +
           '<button class="btn btn-accent btn-sm" onclick="saveAttCell()">Save</button>' +
@@ -2432,6 +2436,18 @@ function clearAttCell() {
   DB.setMonthlyAtt(t.username, t.monthKey, existing);
   syncWrite();
   closeModal('modal-att-cell');
+  nav('staff');
+}
+
+function attCellClick(username, monthKey, dk) {
+  if (!_attCopiedCode) {
+    openAttCellModal(username, monthKey, dk);
+    return;
+  }
+  var existing = Object.assign({}, DB.getMonthlyAtt(username, monthKey));
+  existing[dk] = _attCopiedCode;
+  DB.setMonthlyAtt(username, monthKey, existing);
+  syncWrite();
   nav('staff');
 }
 
@@ -2601,7 +2617,7 @@ function _renderStaffAttendance() {
 
       if (!rawCode && !parsed) {
         return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};cursor:pointer;"
-          onclick="openAttCellModal('${u.username}','${monthKey}','${dk}')">
+          onclick="attCellClick('${u.username}','${monthKey}','${dk}')">
           <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
 
@@ -2661,7 +2677,7 @@ function _renderStaffAttendance() {
         style="cursor:pointer;"` : '';
 
       const cellInteract = hasConflict ? conflictClick
-        : `onclick="openAttCellModal('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
+        : `onclick="attCellClick('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
       return `<td style="text-align:center;padding:2px 2px;min-width:54px;width:54px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${cellInteract}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
@@ -2735,7 +2751,7 @@ function _renderStaffAttendance() {
         <option value="L" ${_saFillCode==='L'?'selected':''}>L — Personal</option>
       </optgroup>
     </select>
-    <button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>`;
+    ${['XA','XD','XE'].indexOf(_saFillCode) !== -1 ? '<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>' : ''}`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
@@ -2747,11 +2763,12 @@ function _renderStaffAttendance() {
       ${shiftFilterPicker}
       ${codePicker}
       ${conflictFilterBtn}
+      ${_attCopiedCode ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">📋 ${_attCopiedCode} <button onclick="_attCopiedCode='';nav('staff')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:12px;line-height:1;">✕</button></span>` : ''}
       <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
     </div>
     ${legendHTML}
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
-      <table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">
+      <table style="border-collapse:separate;border-spacing:0;${_saShiftFilter !== 'All' ? 'width:100%;' : 'width:max-content;min-width:100%;'}">
         <thead>
           <tr>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
