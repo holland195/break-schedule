@@ -1398,7 +1398,7 @@ function syncAttendanceWriteback() {
     var todayDk = String(_today.getDate()).padStart(2,'0') + '/' + String(_today.getMonth()+1).padStart(2,'0');
     var manualKeys = Object.keys(attendance).filter(function(key) {
       var rec = attendance[key];
-      if (!rec || rec._deleted || !rec.note || rec.note === 'auto') return false;
+      if (!rec || rec._deleted || rec.note === 'auto' || rec.by == null) return false;
       return key.substring(key.lastIndexOf('_') + 1) === todayDk;
     });
 
