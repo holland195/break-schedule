@@ -1393,10 +1393,13 @@ function syncAttendanceWriteback() {
     var current = raw ? JSON.parse(raw) : {};
     var attendance = current.attendance || {};
 
-    // Only process manual edits (note !== 'auto', not deleted)
+    // Only process today's manual edits (note !== 'auto', not deleted)
+    var _today = new Date();
+    var todayDk = String(_today.getDate()).padStart(2,'0') + '/' + String(_today.getMonth()+1).padStart(2,'0');
     var manualKeys = Object.keys(attendance).filter(function(key) {
       var rec = attendance[key];
-      return rec && !rec._deleted && rec.note && rec.note !== 'auto';
+      if (!rec || rec._deleted || !rec.note || rec.note === 'auto') return false;
+      return key.substring(key.lastIndexOf('_') + 1) === todayDk;
     });
 
     if (manualKeys.length === 0) {
