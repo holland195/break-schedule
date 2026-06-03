@@ -2358,13 +2358,18 @@ function fillAttRow(username, monthKey) {
 }
 
 function fillAttAll() {
-  if (!_saFillCode || !_saCurrentMonthKey) return;
+  if (!_saCurrentMonthKey) return;
+  var _fNow = new Date();
+  var _fToday = (_fNow.getDate().toString().padStart(2,'0')) + '/' + ((_fNow.getMonth()+1).toString().padStart(2,'0'));
+  var _fDates = (_saShiftFilter !== 'All') ? [_fToday] : _saCurrentDates;
+  var _fCode = (_saShiftFilter !== 'All') ? ('X' + _saShiftFilter) : _saFillCode;
+  if (!_fCode) return;
   _saFilteredUsernames.forEach(function(username) {
     var existing = Object.assign({}, DB.getMonthlyAtt(username, _saCurrentMonthKey));
     var changed = false;
-    _saCurrentDates.forEach(function(dk) {
+    _fDates.forEach(function(dk) {
       if (existing[dk]) return;
-      existing[dk] = _saFillCode;
+      existing[dk] = _fCode;
       changed = true;
     });
     if (!changed) return;
@@ -2375,12 +2380,19 @@ function fillAttAll() {
 }
 
 function clearAttAll() {
-  if (!_saFillCode || !_saCurrentMonthKey) return;
+  if (!_saCurrentMonthKey) return;
+  var _cNow = new Date();
+  var _cToday = (_cNow.getDate().toString().padStart(2,'0')) + '/' + ((_cNow.getMonth()+1).toString().padStart(2,'0'));
+  var _cDates = (_saShiftFilter !== 'All') ? [_cToday] : _saCurrentDates;
   _saFilteredUsernames.forEach(function(username) {
     var existing = Object.assign({}, DB.getMonthlyAtt(username, _saCurrentMonthKey));
     var changed = false;
-    _saCurrentDates.forEach(function(dk) {
-      if (existing[dk] !== _saFillCode) return;
+    _cDates.forEach(function(dk) {
+      if (_saShiftFilter !== 'All') {
+        if (!existing[dk]) return;
+      } else {
+        if (existing[dk] !== _saFillCode) return;
+      }
       delete existing[dk];
       changed = true;
     });
@@ -2414,6 +2426,10 @@ function _installAttKbd() {
       existing[_attHoveredCell.dk] = _attCopiedCode;
       DB.setMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey, existing);
       syncWrite();
+      nav('staff');
+    }
+    if (e.key === 'Escape' && _attCopiedCode) {
+      _attCopiedCode = '';
       nav('staff');
     }
   });
@@ -2562,7 +2578,7 @@ function _renderStaffAttendance() {
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
     const isSun = dow === 0;
-    return `<th style="min-width:54px;width:54px;padding:4px 2px;text-align:center;
+    return `<th style="min-width:40px;padding:4px 2px;text-align:center;
       font-size:10px;font-weight:600;
       color:${isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)'};
       background:${isWknd ? 'var(--bg4)' : 'var(--bg3)'};
@@ -2725,7 +2741,7 @@ function _renderStaffAttendance() {
       const hoverAttr = `onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:'${(rawCode||'').replace(/'/g,"\\'")}'}"`;
       const cellInteract = hasConflict ? conflictClick
         : `onclick="attCellClick('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
-      return `<td style="text-align:center;padding:2px 2px;min-width:54px;width:54px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
+      return `<td style="text-align:center;padding:2px 2px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${hoverAttr} ${cellInteract}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
       </td>`;
@@ -2769,33 +2785,35 @@ function _renderStaffAttendance() {
       <option value="E" ${_saShiftFilter==='E'?'selected':''}>Shift E</option>
     </select>`;
 
-  const codePicker = `
-    <select class="login-select" style="padding:5px 8px;font-size:12px;width:120px;"
-      onchange="_saFillCode=this.value">
-      <optgroup label="Working">
-        <option value="XA" ${_saFillCode==='XA'?'selected':''}>XA — Shift A</option>
-        <option value="XD" ${_saFillCode==='XD'?'selected':''}>XD — Shift D</option>
-        <option value="XE" ${_saFillCode==='XE'?'selected':''}>XE — Shift E</option>
-      </optgroup>
-      <optgroup label="Half day">
-        <option value="A1" ${_saFillCode==='A1'?'selected':''}>A1</option>
-        <option value="A2" ${_saFillCode==='A2'?'selected':''}>A2</option>
-        <option value="D1" ${_saFillCode==='D1'?'selected':''}>D1</option>
-        <option value="D2" ${_saFillCode==='D2'?'selected':''}>D2</option>
-        <option value="E1" ${_saFillCode==='E1'?'selected':''}>E1</option>
-        <option value="E2" ${_saFillCode==='E2'?'selected':''}>E2</option>
-      </optgroup>
-      <optgroup label="Leave / Off">
-        <option value="A" ${_saFillCode==='A'?'selected':''}>A — Annual</option>
-        <option value="H" ${_saFillCode==='H'?'selected':''}>H — Holiday</option>
-        <option value="0" ${_saFillCode==='0'?'selected':''}>0 — Day off</option>
-        <option value="U" ${_saFillCode==='U'?'selected':''}>U — Unpaid</option>
-        <option value="S" ${_saFillCode==='S'?'selected':''}>S — Sick</option>
-        <option value="L" ${_saFillCode==='L'?'selected':''}>L — Personal</option>
-      </optgroup>
-    </select>
-    ${['XA','XD','XE'].indexOf(_saFillCode) !== -1 ? '<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>' : ''}
-    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`;
+  const codePicker = _saShiftFilter !== 'All'
+    ? `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>
+       <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`
+    : `<select class="login-select" style="padding:5px 8px;font-size:12px;width:120px;"
+        onchange="_saFillCode=this.value">
+        <optgroup label="Working">
+          <option value="XA" ${_saFillCode==='XA'?'selected':''}>XA — Shift A</option>
+          <option value="XD" ${_saFillCode==='XD'?'selected':''}>XD — Shift D</option>
+          <option value="XE" ${_saFillCode==='XE'?'selected':''}>XE — Shift E</option>
+        </optgroup>
+        <optgroup label="Half day">
+          <option value="A1" ${_saFillCode==='A1'?'selected':''}>A1</option>
+          <option value="A2" ${_saFillCode==='A2'?'selected':''}>A2</option>
+          <option value="D1" ${_saFillCode==='D1'?'selected':''}>D1</option>
+          <option value="D2" ${_saFillCode==='D2'?'selected':''}>D2</option>
+          <option value="E1" ${_saFillCode==='E1'?'selected':''}>E1</option>
+          <option value="E2" ${_saFillCode==='E2'?'selected':''}>E2</option>
+        </optgroup>
+        <optgroup label="Leave / Off">
+          <option value="A" ${_saFillCode==='A'?'selected':''}>A — Annual</option>
+          <option value="H" ${_saFillCode==='H'?'selected':''}>H — Holiday</option>
+          <option value="0" ${_saFillCode==='0'?'selected':''}>0 — Day off</option>
+          <option value="U" ${_saFillCode==='U'?'selected':''}>U — Unpaid</option>
+          <option value="S" ${_saFillCode==='S'?'selected':''}>S — Sick</option>
+          <option value="L" ${_saFillCode==='L'?'selected':''}>L — Personal</option>
+        </optgroup>
+      </select>
+      ${['XA','XD','XE'].indexOf(_saFillCode) !== -1 ? '<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>' : ''}
+      <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
