@@ -2331,6 +2331,7 @@ let _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
   : _attNow.getFullYear();
 let _staffAttConflictFilter = false;
 let _saShiftFilter = 'All';
+var _saDateFilter = '';
 let _saFillCode = 'XA';
 var _saFilteredUsernames = [];
 var _saCurrentDates = [];
@@ -2512,19 +2513,20 @@ function _renderStaffAttendance() {
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  const dates = _saShiftFilter !== 'All' ? getWeekDates() : _getAllDatesInMonth(year, month);
+  var allDates = _saShiftFilter !== 'All' ? getWeekDates() : _getAllDatesInMonth(year, month);
+  const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
   const attData = state.monthlyAttendance || {};
 
   const monthPicker = `
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
-        onchange="_attImportMonth=+this.value;nav('staff')">
+        onchange="_attImportMonth=+this.value;_saDateFilter='';nav('staff')">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
     `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
       .toLocaleString('en-US', { month: 'long' })}</option>`
   ).join('')}
       </select>
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
-        onchange="_attImportYear=+this.value;nav('staff')">
+        onchange="_attImportYear=+this.value;_saDateFilter='';nav('staff')">
         ${[2024, 2025, 2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
@@ -2769,9 +2771,16 @@ function _renderStaffAttendance() {
       ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
+  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;nav(\'staff\')">' +
+    '<option value="">All dates</option>' +
+    allDates.map(function(dk) {
+      return '<option value="' + dk + '"' + (_saDateFilter === dk ? ' selected' : '') + '>' + dk + '</option>';
+    }).join('') +
+    '</select>';
+
   const shiftFilterPicker = `
     <select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;"
-      onchange="_saShiftFilter=this.value;nav('staff')">
+      onchange="_saShiftFilter=this.value;_saDateFilter='';nav('staff')">
       <option value="All" ${_saShiftFilter==='All'?'selected':''}>All shifts</option>
       <option value="A" ${_saShiftFilter==='A'?'selected':''}>Shift A</option>
       <option value="D" ${_saShiftFilter==='D'?'selected':''}>Shift D</option>
@@ -2789,6 +2798,7 @@ function _renderStaffAttendance() {
   return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <span id="sa-kbd-marker" style="display:none;"></span>
+      ${datePicker}
       ${_saShiftFilter === 'All' ? monthPicker : ''}
       ${shiftFilterPicker}
       ${codePicker}
