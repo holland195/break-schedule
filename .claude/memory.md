@@ -78,3 +78,56 @@
 - Short codes in Firebase: `A1`/`A2`; display via `getSlotTime(code, dateStr)`. Legacy time strings pass through unchanged
 - Extra-break modal: `eligibleDays` data attribute populated with `getSlotTime(br.slot, dk)` (resolved time string), not raw short code
 - GAS `BREAK_SLOTS_MAP` must be manually updated alongside `data.js BREAK_SLOTS` when shift times change
+
+---
+
+## New Features & Fixes (Session 3)
+
+### GAS Writeback Filter Fix (PR #98)
+- `syncAttendanceWriteback()` was skipping manual edits when `note === ""` (falsy)
+- Fix: replaced `!rec.note ||` with `rec.by == null ||` — `by` is always set for web-app saves, always `null` for GAS auto-imports
+
+### Training Schedule Today-Highlight Fix (PR #98)
+- `renderScheduleTraining()` used `curWeekDates[d===0?6:d-1]` (off by one for Sunday-first array)
+- Fix: `curWeekDates[d]` — `d = getDay()` already maps to Sunday-first indices
+
+### Dashboard Team Grid Fix (PR #98)
+- `BREAK_SLOTS[currentShift].indexOf(br.slot)` returned -1 for short codes → all badges same color
+- Fix: `_slotIndex(br.slot, currentShift)` (data.js helper handles short codes + legacy strings)
+- Added position grouping (Data Analyst / Sr Data Analyst / Data Supervisor / Sr Data Supervisor) + per-position border colors
+
+### Monthly Attendance Fill + GAS Writeback (PR #99)
+- `fillAttRow(username, monthKey)` — fills empty cells with `_saFillCode` for one user's visible dates
+- `fillAttAll()` — fills all visible staff's empty cells for visible dates
+- Shift filter (`_saShiftFilter`) narrows rows to users whose schedule matches the selected shift
+- When shift filter active, table shows only current week (7 cols via `getWeekDates()`) instead of full month
+- `syncMonthlyAttWriteback()` in `daily_sync.gs` — reads Firebase `monthlyAttendance`, writes codes back to Attendance Google Sheet; piggybacked on existing 3 daily triggers (15:30/00:30/06:30)
+
+### Staff Attendance Edit UX (PRs #100–#104)
+- Per-cell click opens code picker modal (`openAttCellModal`) with Save/Clear/Copy buttons
+- Copy button sets `_attCopiedCode`; paste chip appears in controls bar; clicking any cell pastes without modal
+- Ctrl+C on hovered cell copies code; Ctrl+V pastes to hovered cell; Esc exits paste mode
+- `_attHoveredCell` tracked via `onmouseover` on every cell; `_installAttKbd()` registered once with `sa-kbd-marker` guard
+- `clearAttAll()` — removes codes matching `_saFillCode` for visible staff × visible dates (all-shifts: only XA/XD/XE on today; shift-filtered: any code on today)
+- Fill All and Clear scope: **both modes now target today only**
+- All-shifts Fill All: per-user schedule auto-detect (`X + u.schedule[todayDk]`); skips day-off users
+- Shift-filtered Fill All: `X + _saShiftFilter` for all visible staff today
+- Code picker dropdown removed; Fill All auto-detects code from shift/schedule
+- FILL column removed from table; per-row fill replaced by copy-paste mode
+- `table-layout:fixed` when shift filtered → sticky cols locked at 92/165/145px; date cols expand to fill width
+- Date TH uses `min-width:40px` only (no `width:`) so fixed-layout distributes remaining space to date cols
+
+### L (Personal Leave) Color
+- Old: `rgba(8,145,178,.12)` / `#0891b2` (cyan — too close to working code)
+- New: `rgba(99,102,241,.13)` / `#6366f1` (indigo)
+- Updated in both `_offColors` object and `legendHTML` span
+
+---
+
+## Critical Invariants (additions from Session 3)
+
+- `fillAttAll()` / `clearAttAll()` always target today only; existing codes on today are preserved by fill (skips if exists)
+- `_installAttKbd()` uses `#sa-kbd-marker` DOM element to guard Ctrl+C/V/Esc from firing on other pages
+- `table-layout:fixed` needs date TH without explicit `width` so fixed cols stay exact and date cols absorb remaining space
+- `syncMonthlyAttWriteback()` in GAS: uses same sheet/row/col detection as `syncAttendance()`; runs on all 3 daily triggers
+- "A" code: conflict detected if attendance logged same day; excluded from late/early stats; Fill All skips cells that already have any code (including A)
