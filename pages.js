@@ -2551,7 +2551,7 @@ function _renderStaffAttendance() {
   const legendHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">
       <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working
-      <span style="background:rgba(245,158,11,.12);color:var(--warn);padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
+      <span style="background:rgba(167,139,250,.14);color:#a78bfa;padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
       <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
       <span style="background:rgba(234,179,8,.13);color:#ca8a04;padding:2px 7px;border-radius:4px;font-weight:600;">A</span> Annual
       <span style="background:rgba(220,38,38,.13);color:#dc2626;padding:2px 7px;border-radius:4px;font-weight:600;">H</span> Holiday
