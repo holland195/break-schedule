@@ -2250,6 +2250,51 @@ function _renderStaffSchedule() {
     return ma !== mb ? ma - mb : da - db;
   });
 
+  const hasImportedDates = allDates.some(d => /\d{2}\/\d{2}/.test(d));
+
+  const filteredUsers = state.users.filter(u => {
+    var lvl = (ROLES[_resolveRole(u.role)] || {}).level || 0;
+    return lvl >= 1 &&
+      (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+      (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase());
+  });
+
+  const _schedTbl = function(displayDates) {
+    return `<div class="staff-tbl-wrap">
+  <table>
+    <thead>
+      <tr class="filter-row">
+        <td style="min-width:80px;width:80px;"><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
+        <td style="min-width:150px;width:150px;"><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
+        <td style="min-width:90px;width:90px;"><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
+        <td style="min-width:110px;width:110px;"><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
+        <td colspan="${displayDates.length}" style="padding-left:12px;color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
+      </tr>
+      <tr>
+        <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
+        ${displayDates.map(d => `<th class="c" style="min-width:42px;padding:6px 2px;">
+          <div style="color:var(--accent);font-size:11px;">${d}</div>
+          <div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">${getWkDay(d)}</div>
+        </th>`).join('')}
+      </tr>
+    </thead>
+    <tbody id="staff-tbody">${renderStaffRows(filteredUsers, displayDates)}</tbody>
+  </table>
+</div>`;
+  };
+
+  if (!hasImportedDates) {
+    var _wkDates = getWeekDates();
+    return `
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+  <span style="font-size:11px;color:var(--text3);">Current week (weekly assignment)</span>
+  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
+</div>
+${_schedTbl(_wkDates)}`;
+  }
+
   // Available months (zero-padded MM strings) from schedule data
   const availableMonths = [...new Set(allDates.filter(d => /\d{2}\/\d{2}/.test(d)).map(d => d.split('/')[1]))].sort();
 
@@ -2273,13 +2318,6 @@ function _renderStaffSchedule() {
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
-  const filteredUsers = state.users.filter(u =>
-    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
-  );
-
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <label style="font-size:11px;opacity:.7;">Month:</label>
@@ -2298,28 +2336,7 @@ function _renderStaffSchedule() {
   </select>` : ''}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
 </div>
-
-<div class="staff-tbl-wrap">
-  <table>
-    <thead>
-      <tr class="filter-row">
-        <td style="min-width:80px;width:80px;"><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
-        <td style="min-width:150px;width:150px;"><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
-        <td style="min-width:90px;width:90px;"><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
-        <td style="min-width:110px;width:110px;"><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
-        <td colspan="${displayDates.length}" style="padding-left:12px;color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
-      </tr>
-      <tr>
-        <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
-        ${displayDates.map(d => `<th class="c" style="min-width:42px;padding:6px 2px;">
-          <div style="color:var(--accent);font-size:11px;">${d}</div>
-          <div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">${getWkDay(d)}</div>
-        </th>`).join('')}
-      </tr>
-    </thead>
-    <tbody id="staff-tbody">${renderStaffRows(filteredUsers, displayDates)}</tbody>
-  </table>
-</div>`;
+${_schedTbl(displayDates)}`;
 }
 
 var _attNow = new Date();
@@ -3029,7 +3046,7 @@ function renderStaffRows(users, displayDates) {
     <td style="font-weight:600">${u.name}</td>
     <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
     <td style="font-size:11px;color:var(--text2)">${_resolveRole(u.role)}</td>
-    ${displayDates.map(d => { const s = u.schedule[d] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
+    ${displayDates.map(d => { const s = u.schedule[d] || u.schedule[getWkDay(d)] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`).join('');
 }
 
