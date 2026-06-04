@@ -276,7 +276,7 @@ function _fbRenderTeamList() {
       + '<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">' + (g.name || '?').charAt(0) + '</div>'
       + '<div style="flex:1;min-width:0;">'
       + '<div style="font-size:13px;font-weight:600;">' + g.name + (isMe ? ' <span style="font-size:10px;color:var(--accent);background:rgba(31,102,241,.1);padding:1px 7px;border-radius:99px;font-weight:500;">you</span>' : '') + '</div>'
-      + '<div style="font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (g.username || '') + ' &nbsp;&#xb7;&nbsp; ' + (g.role || '') + '</div>'
+      + '<div style="font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (g.username || '') + ' &nbsp;&#xb7;&nbsp; ' + (_resolveRole(g.role) || g.role || '') + '</div>'
       + '</div>'
       + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
       + '<span style="font-size:11px;background:var(--bg4);color:var(--text2);padding:2px 8px;border-radius:99px;">' + g.records.length + ' violation' + (g.records.length !== 1 ? 's' : '') + '</span>'

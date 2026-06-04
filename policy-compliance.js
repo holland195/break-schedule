@@ -29,17 +29,29 @@
 const PC_SEED_DATA = []
 
 const PC_EVENTS = {
+  '1a':'Absent without notice',
   '1b':'Leave notice — not reported on time',
+  '1c':'Exceeded monthly leave limit',
   '1d':'Late arrival / early departure',
   '2a':'Insufficient PAVE hours',
   '2b':'Late login to PAVE',
+  '2c':'Early logout from PAVE',
+  '2d':'Unauthorized overtime',
   '2e':'Break at wrong time slot',
   '2f':'Break duration exceeded',
   '3a':'Wrong PAVE login/logout steps',
+  '3b':'Left workstation without permission',
   '3c':'Performance not updated',
   '3d':'Slack offline during shift',
   '3e':'Slack notification missed',
+  '3f':'Slow response to manager',
+  '3g':'WFH — camera/meeting not enabled',
+  '3h':'Incident not reported',
   '3i':'Disobedience',
+  '4a':'Company property misuse',
+  '4b':'Workplace hygiene violation',
+  '4c':'Smoking in wrong area',
+  '4d':'Noise outside permitted hours',
 };
 
 const PC_RULES = [
@@ -436,7 +448,7 @@ function _pcRenderRecords() {
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">From</div><input type="date" value="'+(f.dateFrom||'')+'" onchange="_pcRF.dateFrom=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">To</div><input type="date" value="'+(f.dateTo||'')+'" onchange="_pcRF.dateTo=this.value;_pcPage=1;_pcApplyFilters();_pcRerender()" style="'+ss+'"></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Processing','Need Review','Need Resolve','Resolved','Cancelled'],'All statuses')+'</div>'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Data Analyst','Data Analyst Leader','Data Analyst Supervisor','Data Supervisor','Sr Data Analyst','Sr Data Supervisor'],'All roles')+'</div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor','Agent Training Manager','Agent Training Assistant'],'All roles')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shift</div>'+mkSel('shift',f.shift,['A','B','C','D','E'],'All')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'+mkSel('event',f.event,Object.keys(PC_EVENTS).map(function(k){return {v:k,l:k+' — '+PC_EVENTS[k].split('—')[0].trim()};}), 'All events')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Leader</div>'+mkSel('leader',f.leader,leaders,'All leaders')+'</div>'
@@ -526,7 +538,7 @@ function _pcRenderSummary() {
     + '<div style="margin-left:8px;"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'
     + '<select style="'+ss+'" onchange="_pcS30Role=this.value;_pcRerender()">'
     + '<option value="">All roles</option>'
-    + ['Data Analyst','Data Analyst Leader','Data Analyst Supervisor','Data Supervisor','Sr Data Analyst','Sr Data Supervisor'].map(function(r){return '<option value="'+r+'"'+(_pcS30Role===r?' selected':'')+'>'+r+'</option>';}).join('')
+    + ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor','Agent Training Manager','Agent Training Assistant'].map(function(r){return '<option value="'+r+'"'+(_pcS30Role===r?' selected':'')+'>'+r+'</option>';}).join('')
     + '</select></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'
     + '<select style="'+ss+'" onchange="_pcS30Event=this.value;_pcRerender()">'
