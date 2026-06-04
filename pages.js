@@ -2253,6 +2253,7 @@ function _renderStaffSchedule() {
   const hasImportedDates = allDates.some(d => /\d{2}\/\d{2}/.test(d));
 
   const filteredUsers = state.users.filter(u =>
+    isTraining(u) &&
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
@@ -3053,6 +3054,7 @@ function _liveFilter() {
   const weekRange = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
   const filtered = state.users.filter(u =>
+    isTraining(u) &&
     (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
     (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
     (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&

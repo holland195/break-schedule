@@ -255,6 +255,9 @@ function syncSchedule(current, log) {
       });
       userIdx = current.users.length - 1;
       result.created = (result.created || 0) + 1;
+    } else {
+      var updTeam = String(row[1] || '').trim();
+      if (updTeam) current.users[userIdx].team = updTeam;
     }
 
     if (!current.users[userIdx].schedule) current.users[userIdx].schedule = {};
