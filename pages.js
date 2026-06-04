@@ -2252,14 +2252,12 @@ function _renderStaffSchedule() {
 
   const hasImportedDates = allDates.some(d => /\d{2}\/\d{2}/.test(d));
 
-  const filteredUsers = state.users.filter(u => {
-    var lvl = (ROLES[_resolveRole(u.role)] || {}).level || 0;
-    return lvl >= 1 &&
-      (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-      (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase());
-  });
+  const filteredUsers = state.users.filter(u =>
+    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
+  );
 
   const _schedTbl = function(displayDates) {
     return `<div class="staff-tbl-wrap">
