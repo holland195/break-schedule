@@ -226,8 +226,20 @@ function syncSchedule(current, log) {
     });
 
     if (userIdx === -1) {
-      notFound.push(username);
-      return;
+      var newName = String(row[2] || '').trim();
+      if (!newName) { notFound.push(username); return; }
+      var newRole = String(row[6] || '').trim();
+      var newTeam = String(row[1] || '').trim();
+      var h = 0;
+      for (var ci = 0; ci < username.length; ci++) {
+        h = ((h << 5) - h) + username.charCodeAt(ci); h |= 0;
+      }
+      current.users.push({
+        id: Math.abs(h), username: username,
+        name: newName, role: newRole, team: newTeam, schedule: {}
+      });
+      userIdx = current.users.length - 1;
+      result.created = (result.created || 0) + 1;
     }
 
     if (!current.users[userIdx].schedule) current.users[userIdx].schedule = {};
@@ -249,7 +261,8 @@ function syncSchedule(current, log) {
   // Stamp timestamp — app detects this and triggers auto-assign
   current._usersUpdatedAt = Date.now();
 
-  log('[Schedule] Done: ' + result.updated + ' users updated');
+  log('[Schedule] Done: ' + result.updated + ' users updated'
+    + (result.created ? ', ' + result.created + ' created' : ''));
   return result;
 }
 
