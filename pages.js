@@ -3067,8 +3067,8 @@ var _STAFF_SORT_RANK = {
 };
 function _sortStaffUsers(users) {
   return users.slice().sort(function(a, b) {
-    var aRole = a.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
-    var bRole = b.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
+    var aRole = a.role || (state.staffInfo[a.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
+    var bRole = b.role || (state.staffInfo[b.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
     var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
     var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
     if (aRnk !== bRnk) return aRnk - bRnk;
