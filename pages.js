@@ -2252,13 +2252,16 @@ function _renderStaffSchedule() {
 
   const hasImportedDates = allDates.some(d => /\d{2}\/\d{2}/.test(d));
 
-  const filteredUsers = state.users.filter(u =>
-    isTraining(u) &&
-    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
-  );
+  const filteredUsers = state.users.filter(u => {
+    var _roleStr = (_resolveRole(u.role) || '').toLowerCase();
+    var _teamCh  = (u.team || '').toUpperCase().charAt(0);
+    var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
+    return _isTrn &&
+      (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+      _roleStr.includes(staffFilters.role.toLowerCase());
+  });
 
   const _schedTbl = function(displayDates) {
     return `<div class="staff-tbl-wrap">
@@ -3053,13 +3056,16 @@ function _liveFilter() {
   const allDates = Object.keys(state.users[0]?.schedule || {});
   const weekRange = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
-  const filtered = state.users.filter(u =>
-    isTraining(u) &&
-    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
-  );
+  const filtered = state.users.filter(u => {
+    var _roleStr = (_resolveRole(u.role) || '').toLowerCase();
+    var _teamCh  = (u.team || '').toUpperCase().charAt(0);
+    var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
+    return _isTrn &&
+      (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+      _roleStr.includes(staffFilters.role.toLowerCase());
+  });
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
   const sub = document.querySelector('#staff-subtab-content .page-sub');

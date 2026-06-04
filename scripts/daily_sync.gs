@@ -255,7 +255,9 @@ function syncSchedule(current, log) {
       result.created = (result.created || 0) + 1;
     } else {
       var updTeam = String(row[1] || '').trim();
+      var updRole = String(row[6] || '').trim();
       if (updTeam) current.users[userIdx].team = updTeam;
+      if (updRole) current.users[userIdx].role = updRole;
     }
 
     if (!current.users[userIdx].schedule) current.users[userIdx].schedule = {};
