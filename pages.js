@@ -386,8 +386,11 @@ function renderSchedule() {
     return u.schedule[dateKey] || u.schedule[dateToDayName[dateKey]] || '0';
   }
 
-  // All users who work this shift at least once this month
+  // All users who work this shift at least once this month (exclude lead/sub/training)
   var allShiftUsers = state.users.filter(function(u) {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    if (_ul >= 2) return false;
     return monthDates.some(function(dk) { return getUserShift(u, dk) === shiftToShow; });
   });
 
@@ -1516,13 +1519,16 @@ function getArrangeDayMemberList(_unused) {
   // Normalize dashes for slot comparison
   const nd = (x) => (x||'').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, '');
 
-  // All users on this shift in ANY day this week
-  const allMates = state.users.filter(u =>
-    weekRange.some(d => {
+  // All users on this shift in ANY day this week (exclude lead/sub/training)
+  const allMates = state.users.filter(u => {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    if (_ul >= 2) return false;
+    return weekRange.some(d => {
       const dn = WEEK_DAYS[weekRange.indexOf(d)];
       return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
-    })
-  );
+    });
+  });
 
   if (!allMates.length) return `<div class="empty" style="padding:60px;">
     <div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
