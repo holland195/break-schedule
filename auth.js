@@ -30,10 +30,15 @@ function _toEmail(username) {
 function _resolveUser(username) {
   if (!username) return null;
   const fromSchedule = state.users.find(u => u.username === username);
-  if (fromSchedule) return fromSchedule;
+  if (fromSchedule) {
+    var _effRole = fromSchedule.role || (state.staffInfo[username]||{}).role
+      || ((STAFF_INFO_DB||[]).find(function(x){return x.username===username;})||{}).role||'';
+    return _effRole === fromSchedule.role ? fromSchedule : Object.assign({}, fromSchedule, {role: _effRole});
+  }
   const si = DB.getStaffInfo(username);
   if (!si || !si.name) return null;
-  return { id: _stableId(username), username, name: si.name, role: si.role || 'Data Analyst', gender: si.gender || '', team: '', schedule: {} };
+  var _siRole = si.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===username;})||{}).role||'Data Analyst';
+  return { id: _stableId(username), username, name: si.name, role: _siRole, gender: si.gender || '', team: '', schedule: {} };
 }
 
 function _stableId(username) {
