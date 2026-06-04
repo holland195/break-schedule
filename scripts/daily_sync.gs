@@ -532,29 +532,39 @@ function parseDateHeader(h) {
 }
 
 function findUsername(data, nameVal, empNo) {
-  if (!data.staffInfo) return null;
   const nameLower = (nameVal || '').toLowerCase().trim();
-  const keys      = Object.keys(data.staffInfo);
+  const empTrim   = (empNo  || '').trim();
 
-  // 1. Match by empNo (most reliable — unique identifier)
-  if (empNo && empNo.trim()) {
-    const empTrim = empNo.trim();
+  // 1. Match by empNo in staffInfo (most reliable)
+  if (empTrim && data.staffInfo) {
+    const keys = Object.keys(data.staffInfo);
     for (var i = 0; i < keys.length; i++) {
       if ((data.staffInfo[keys[i]].empNo || '') === empTrim) return keys[i];
     }
   }
 
-  // 2. Exact name match (case-insensitive)
-  if (nameLower) {
-    for (var j = 0; j < keys.length; j++) {
-      if ((data.staffInfo[keys[j]].name || '').toLowerCase() === nameLower) return keys[j];
+  // 2. Match by empNo in users[] (covers leaders/supervisors whose empNo
+  //    is stored in users[] from schedule import but not yet in staffInfo)
+  if (empTrim && data.users) {
+    var _ul = Array.isArray(data.users) ? data.users : Object.values(data.users);
+    for (var i2 = 0; i2 < _ul.length; i2++) {
+      if (_ul[i2] && String(_ul[i2].empNo || '').trim() === empTrim) return _ul[i2].username;
     }
   }
 
-  // 3. Try matching against users array by name (fallback)
+  // 3. Exact name match in staffInfo (case-insensitive)
+  if (nameLower && data.staffInfo) {
+    const keys2 = Object.keys(data.staffInfo);
+    for (var j = 0; j < keys2.length; j++) {
+      if ((data.staffInfo[keys2[j]].name || '').toLowerCase() === nameLower) return keys2[j];
+    }
+  }
+
+  // 4. Exact name match in users[] (catches anyone not in staffInfo)
   if (nameLower && data.users) {
-    for (var k = 0; k < data.users.length; k++) {
-      if ((data.users[k].name || '').toLowerCase() === nameLower) return data.users[k].username;
+    var _ul2 = Array.isArray(data.users) ? data.users : Object.values(data.users);
+    for (var k = 0; k < _ul2.length; k++) {
+      if (_ul2[k] && (_ul2[k].name || '').toLowerCase() === nameLower) return _ul2[k].username;
     }
   }
 
