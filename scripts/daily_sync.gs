@@ -179,6 +179,7 @@ function syncAttendance(current, log) {
 //  SCHEDULE SYNC
 // ═══════════════════════════════════════════════
 function syncSchedule(current, log) {
+  if (typeof log !== 'function') log = function(m) { console.log(m); };
   const result = { updated: 0, dateCols: 0 };
   let ss;
   try {
@@ -266,6 +267,13 @@ function syncSchedule(current, log) {
   log('[Schedule] Done: ' + result.updated + ' users updated'
     + (result.created ? ', ' + result.created + ' created' : ''));
   return result;
+}
+
+// Run this directly from the GAS editor to test schedule sync
+function runSyncSchedule() {
+  var current = firebaseGet(FIREBASE_URL, FIREBASE_SECRET) || {};
+  syncSchedule(current, function(m) { console.log(m); });
+  firebaseSet(FIREBASE_URL, FIREBASE_SECRET, current);
 }
 
 // ═══════════════════════════════════════════════
