@@ -223,7 +223,7 @@ function syncSchedule(current, log) {
     const username = String(row[3] || '').trim().toLowerCase(); // Col D = index 3
     if (!username) return;
 
-    const userIdx = current.users.findIndex(function(u) {
+    var userIdx = current.users.findIndex(function(u) {
       return (u.username || '').toLowerCase() === username;
     });
 
