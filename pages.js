@@ -2283,7 +2283,7 @@ function _renderStaffSchedule() {
         </th>`).join('')}
       </tr>
     </thead>
-    <tbody id="staff-tbody">${renderStaffRows(filteredUsers, displayDates)}</tbody>
+    <tbody id="staff-tbody">${renderStaffRows(_sortStaffUsers(filteredUsers), displayDates)}</tbody>
   </table>
 </div>`;
   };
@@ -2661,6 +2661,7 @@ function _renderStaffAttendance() {
       return dates.some(dk => (sc[dk] || sc[getWkDay(dk)]) === _saShiftFilter);
     });
   }
+  filteredUsers = _sortStaffUsers(filteredUsers);
 
   var _shColors = {
     A: ['rgba(14,165,233,.14)','#0ea5e9'],
@@ -3045,13 +3046,35 @@ function clearMonthlyAttendance(year, month) {
 }
 
 function renderStaffRows(users, displayDates) {
-  return users.map(u => `<tr>
+  return users.map(function(u) {
+    var _srEffRole = u.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    return `<tr>
     <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
     <td style="font-weight:600">${u.name}</td>
     <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:var(--text2)">${_resolveRole(u.role)}</td>
+    <td style="font-size:11px;color:var(--text2)">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
     ${displayDates.map(d => { const s = u.schedule[d] || u.schedule[getWkDay(d)] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
+}
+
+var _STAFF_SORT_RANK = {
+  'Agent Training Manager':1,'Agent Training Assistant':2,
+  'Data Analyst Leader':3,'Data Analyst Supervisor':4,
+  'Sr Data Supervisor':5,'Data Supervisor':6,
+  'Sr Data Analyst':7,'Data Analyst':8
+};
+function _sortStaffUsers(users) {
+  return users.slice().sort(function(a, b) {
+    var aRole = a.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
+    var bRole = b.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
+    var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
+    var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
+    if (aRnk !== bRnk) return aRnk - bRnk;
+    var aTeam = a.team||'', bTeam = b.team||'';
+    if (aTeam !== bTeam) return aTeam < bTeam ? -1 : 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
 }
 
 function _liveFilter() {
@@ -3070,7 +3093,7 @@ function _liveFilter() {
       _roleStr.includes(staffFilters.role.toLowerCase());
   });
   const tbody = document.getElementById('staff-tbody');
-  if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
+  if (tbody) tbody.innerHTML = renderStaffRows(_sortStaffUsers(filtered), displayDates);
   const sub = document.querySelector('#staff-subtab-content .page-sub');
   if (sub) sub.textContent = `${filtered.length} staff`;
 }
