@@ -2252,13 +2252,17 @@ function _renderStaffSchedule() {
 
   const hasImportedDates = allDates.some(d => /\d{2}\/\d{2}/.test(d));
 
-  const filteredUsers = state.users.filter(u =>
-    isTraining(u) &&
-    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
-  );
+  var _currTrn = isTraining(currentUser);
+  const filteredUsers = state.users.filter(u => {
+    var _roleStr = (_resolveRole(u.role) || '').toLowerCase();
+    var _teamCh  = (u.team || '').toUpperCase().charAt(0);
+    var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
+    if (!_currTrn && _isTrn) return false;   // lead/sub: hide training users
+    return (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+      _roleStr.includes(staffFilters.role.toLowerCase());
+  });
 
   const _schedTbl = function(displayDates) {
     return `<div class="staff-tbl-wrap">
@@ -2761,12 +2765,13 @@ function _renderStaffAttendance() {
 
     const rowBg = conflicts.length ? 'background:rgba(248,113,113,.03);' : '';
     const stickyCell = 'position:sticky;z-index:1;background:var(--bg2);';
+    var _saEffRole = u.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
       <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(_saEffRole).label || _resolveRole(_saEffRole) || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -3053,13 +3058,17 @@ function _liveFilter() {
   const allDates = Object.keys(state.users[0]?.schedule || {});
   const weekRange = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
-  const filtered = state.users.filter(u =>
-    isTraining(u) &&
-    (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-    (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-    (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-    (_resolveRole(u.role) || '').toLowerCase().includes(staffFilters.role.toLowerCase())
-  );
+  var _currTrn2 = isTraining(currentUser);
+  const filtered = state.users.filter(u => {
+    var _roleStr = (_resolveRole(u.role) || '').toLowerCase();
+    var _teamCh  = (u.team || '').toUpperCase().charAt(0);
+    var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
+    if (!_currTrn2 && _isTrn) return false;
+    return (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
+      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
+      _roleStr.includes(staffFilters.role.toLowerCase());
+  });
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(filtered, displayDates);
   const sub = document.querySelector('#staff-subtab-content .page-sub');
