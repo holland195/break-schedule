@@ -35,6 +35,7 @@
 
 // ── Page state ──
 let _fbTab = 'mine'; // 'mine' | 'team'
+var _fbSelectedUser = '';
 
 // ── Helpers ──
 function _fbData() {
@@ -83,9 +84,12 @@ function _fbTimeSince(ts) {
 
 function _fbEventLabel(ev) {
   var map = {
-    '1b':'Leave notice','1d':'Late / early','2a':'PAVE hours','2b':'Late login',
-    '2e':'Break timing','2f':'Break overtime','3a':'PAVE steps','3c':'Performance',
-    '3d':'Slack offline','3e':'Slack notify','3i':'Disobedience'
+    '1a':'Absent w/o notice','1b':'Leave notice','1c':'Leave limit','1d':'Late / early',
+    '2a':'PAVE hours','2b':'Late login','2c':'Early logout','2d':'Unauthorized OT',
+    '2e':'Break timing','2f':'Break overtime',
+    '3a':'PAVE steps','3b':'Left workstation','3c':'Performance','3d':'Slack offline',
+    '3e':'Slack notify','3f':'Slow response','3g':'WFH camera','3h':'Incident unreported','3i':'Disobedience',
+    '4a':'Property misuse','4b':'Hygiene','4c':'Smoking area','4d':'Noise'
   };
   return map[ev] || ev;
 }
@@ -231,13 +235,13 @@ function _fbTabBtn(id, label, count) {
 
 
 // ════════════════════════════════════════════
-//  TEAM TAB (all records, leader + agent)
+//  TEAM TAB — split-panel layout
 // ════════════════════════════════════════════
-function _fbRenderTeamList() {
-  var records  = _fbData().slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  var _search  = window._fbTeamSearch || '';
-  var _sfilt   = window._fbTeamStatus || '';
 
+function _fbGetGroups() {
+  var records = _fbData().slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  var _search = window._fbTeamSearch || '';
+  var _sfilt  = window._fbTeamStatus || '';
   var filtered = records.filter(function(r) {
     if (_sfilt && r.status !== _sfilt) return false;
     if (_search) {
@@ -246,117 +250,150 @@ function _fbRenderTeamList() {
     }
     return true;
   });
-
-  if (filtered.length === 0) {
-    return '<div class="empty"><div class="empty-ico">&#x1F50D;</div>No records match.</div>';
-  }
-
   var byPerson = {};
   filtered.forEach(function(r) {
     var key = r.username || r.name;
     if (!byPerson[key]) byPerson[key] = { name: r.name, username: r.username, role: r.role, records: [] };
     byPerson[key].records.push(r);
   });
+  return Object.values(byPerson).sort(function(a, b) { return b.records.length - a.records.length; });
+}
 
-  var groups = Object.values(byPerson).sort(function(a, b) {
-    return b.records.length - a.records.length;
-  });
-
-  var html = '';
-
-  groups.forEach(function(g) {
-    var isMe        = g.username === currentUser.username;
-    var hasFeedback = g.records.filter(function(r) { return r.agentFeedback; }).length;
-    var newFb       = g.records.filter(function(r) {
-      return r.agentFeedback && !r.feedbackReadByLeader && r.status !== 'Resolved';
-    }).length;
-
-    html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;">'
-      + '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--border);cursor:pointer;" onclick="_fbToggleGroup(\'' + g.username + '\')">'
-      + '<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">' + (g.name || '?').charAt(0) + '</div>'
+function _fbRenderPersonList(groups) {
+  if (groups.length === 0) {
+    return '<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px;">No records match.</div>';
+  }
+  return groups.map(function(g) {
+    var isActive  = g.username === _fbSelectedUser;
+    var isMe      = g.username === currentUser.username;
+    var newFb     = g.records.filter(function(r) { return r.agentFeedback && !r.feedbackReadByLeader && r.status !== 'Resolved'; }).length;
+    var responded = g.records.filter(function(r) { return r.agentFeedback || r.agentDone; }).length;
+    return '<div data-fb-person="' + g.username + '" onclick="_fbSelectPerson(\'' + g.username + '\')" '
+      + 'style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-left:3px solid ' + (isActive ? 'var(--accent)' : 'transparent') + ';background:' + (isActive ? 'rgba(31,102,241,.07)' : '') + ';transition:background .1s;">'
+      + '<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;">' + (g.name||'?').charAt(0) + '</div>'
       + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-size:13px;font-weight:600;">' + g.name + (isMe ? ' <span style="font-size:10px;color:var(--accent);background:rgba(31,102,241,.1);padding:1px 7px;border-radius:99px;font-weight:500;">you</span>' : '') + '</div>'
-      + '<div style="font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (g.username || '') + ' &nbsp;&#xb7;&nbsp; ' + (_resolveRole(g.role) || g.role || '') + '</div>'
+      + '<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + g.name + (isMe ? ' <span style="font-size:9px;color:var(--accent);background:rgba(31,102,241,.1);padding:1px 5px;border-radius:99px;">you</span>' : '') + '</div>'
+      + '<div style="font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (_resolveRole(g.role)||g.role||'') + '</div>'
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'
-      + '<span style="font-size:11px;background:var(--bg4);color:var(--text2);padding:2px 8px;border-radius:99px;">' + g.records.length + ' violation' + (g.records.length !== 1 ? 's' : '') + '</span>'
-      + (hasFeedback > 0 ? '<span style="font-size:11px;background:rgba(74,222,128,.12);color:var(--ok);padding:2px 8px;border-radius:99px;">' + hasFeedback + ' responded</span>' : '')
-      + (newFb > 0 && isLeader(currentUser) ? '<span style="font-size:11px;background:rgba(31,102,241,.15);color:var(--accent);padding:2px 8px;border-radius:99px;font-weight:600;">&#x1F4AC; ' + newFb + ' new</span>' : '')
-      + '</div>'
-      + '<span id="fb-grp-ico-' + g.username + '" style="font-size:12px;color:var(--text3);margin-left:6px;">&#x25BC;</span>'
-      + '</div>'
-      + '<div id="fb-grp-' + g.username + '" style="padding:0 16px 12px;">'
-      + g.records.map(function(r) {
-          var realIdx = _fbData().indexOf(r);
-          var hasFb   = !!r.agentFeedback;
-          var isNewFb = hasFb && !r.feedbackReadByLeader && isLeader(currentUser) && r.status !== 'Resolved';
-
-          return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
-            + '<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">'
-            + '<div style="flex:1;min-width:200px;">'
-            + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
-            + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;font-weight:700;background:rgba(31,102,241,.15);color:var(--accent);padding:1px 8px;border-radius:99px;">' + r.event + '</span>'
-            + '<span style="font-size:11px;color:var(--text2);">' + _fbEventLabel(r.event) + '</span>'
-            + '<span style="font-size:10px;color:var(--text3);">' + r.date + '</span>'
-            + '</div>'
-            + '<div style="font-size:11px;color:var(--text3);line-height:1.6;">' + (r.description || '') + '</div>'
-            + '</div>'
-            + '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">'
-            + _fbStatusDot(r.status)
-            + '<span style="font-size:11px;color:' + _fbStatusColor(r.status) + ';">' + r.status + '</span>'
-            + '</div></div>'
-            + (hasFb
-              ? '<div style="margin-top:8px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.2);border-radius:6px;padding:9px 12px;">'
-                + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ok);font-family:\'IBM Plex Mono\',monospace;margin-bottom:5px;">'
-                + '&#x1F4AC; Agent feedback' + (isNewFb ? ' <span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:99px;font-size:9px;">NEW</span>' : '') + '</div>'
-                + '<div style="font-size:12px;line-height:1.7;color:var(--text);">' + r.agentFeedback + '</div>'
-                + '<div style="font-size:10px;color:var(--text3);margin-top:5px;">' + _fbTimeSince(r.agentFeedbackAt) + '</div>'
-                + (isNewFb && !isTraining(currentUser) ? '<button onclick="_fbMarkRead(' + realIdx + ')" style="margin-top:7px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Mark read</button>' : '')
-                + (isTraining(currentUser) && hasFb ? '<div style="display:flex;gap:6px;margin-top:8px;"><button onclick="_fbResolveRecord(' + realIdx + ')" class="btn btn-sm btn-ok">✓ Mark Resolved</button></div>' : '')
-                + '</div>'
-              : '<div style="margin-top:6px;font-size:11px;color:var(--text3);font-style:italic;">No agent response yet.</div>'
-            )
-            + '</div>';
-        }).join('')
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">'
+      + '<span style="font-size:10px;background:var(--bg4);color:var(--text2);padding:1px 6px;border-radius:99px;">' + g.records.length + '</span>'
+      + (newFb > 0 && isLeader(currentUser) ? '<span style="font-size:10px;background:rgba(31,102,241,.15);color:var(--accent);padding:1px 6px;border-radius:99px;font-weight:600;">&#x1F4AC; ' + newFb + '</span>' : '')
+      + (responded > 0 && newFb === 0 ? '<span style="font-size:10px;background:rgba(74,222,128,.12);color:var(--ok);padding:1px 6px;border-radius:99px;">&#x2713;</span>' : '')
       + '</div>'
       + '</div>';
-  });
+  }).join('');
+}
 
-  return html;
+function _fbRenderPersonDetail(username, groups) {
+  if (!username) {
+    return '<div class="empty" style="padding:60px 0;">Select a person from the list to view their violations.</div>';
+  }
+  var g = null;
+  for (var gi = 0; gi < groups.length; gi++) { if (groups[gi].username === username) { g = groups[gi]; break; } }
+  if (!g) {
+    return '<div class="empty" style="padding:60px 0;">No records for this person match the current filter.</div>';
+  }
+  var newFb = g.records.filter(function(r) { return r.agentFeedback && !r.feedbackReadByLeader && r.status !== 'Resolved'; }).length;
+  var header = '<div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg3);">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    + '<div style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0;">' + (g.name||'?').charAt(0) + '</div>'
+    + '<div style="flex:1;min-width:0;">'
+    + '<div style="font-size:14px;font-weight:700;">' + g.name + '</div>'
+    + '<div style="font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (g.username||'') + ' &nbsp;&#xb7;&nbsp; ' + (_resolveRole(g.role)||g.role||'') + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+    + '<span style="font-size:11px;background:var(--bg4);color:var(--text2);padding:2px 8px;border-radius:99px;">' + g.records.length + ' violation' + (g.records.length !== 1 ? 's' : '') + '</span>'
+    + (newFb > 0 && isLeader(currentUser) ? '<span style="font-size:11px;background:rgba(31,102,241,.15);color:var(--accent);padding:2px 8px;border-radius:99px;font-weight:600;">&#x1F4AC; ' + newFb + ' new</span>' : '')
+    + '</div>'
+    + '</div>'
+    + '</div>';
+  var recordsHtml = g.records.map(function(r) {
+    var realIdx = _fbData().indexOf(r);
+    var hasFb   = !!r.agentFeedback;
+    var isNewFb = hasFb && !r.feedbackReadByLeader && isLeader(currentUser) && r.status !== 'Resolved';
+    return '<div style="padding:12px 16px;border-bottom:1px solid var(--border);">'
+      + '<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'
+      + '<div style="flex:1;min-width:180px;">'
+      + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">'
+      + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;font-weight:700;background:rgba(31,102,241,.15);color:var(--accent);padding:1px 8px;border-radius:99px;">' + r.event + '</span>'
+      + '<span style="font-size:11px;color:var(--text2);">' + _fbEventLabel(r.event) + '</span>'
+      + '<span style="font-size:10px;color:var(--text3);">' + r.date + '</span>'
+      + '</div>'
+      + (r.description ? '<div style="font-size:11px;color:var(--text3);line-height:1.6;">' + r.description + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">'
+      + _fbStatusDot(r.status)
+      + '<span style="font-size:11px;color:' + _fbStatusColor(r.status) + ';">' + r.status + '</span>'
+      + '</div>'
+      + '</div>'
+      + (hasFb
+        ? '<div style="background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.2);border-radius:6px;padding:9px 12px;">'
+          + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ok);font-family:\'IBM Plex Mono\',monospace;margin-bottom:5px;">&#x1F4AC; Agent feedback' + (isNewFb ? ' <span style="background:var(--accent);color:#fff;padding:1px 7px;border-radius:99px;font-size:9px;">NEW</span>' : '') + '</div>'
+          + '<div style="font-size:12px;line-height:1.7;color:var(--text);">' + r.agentFeedback + '</div>'
+          + '<div style="font-size:10px;color:var(--text3);margin-top:5px;">' + _fbTimeSince(r.agentFeedbackAt) + '</div>'
+          + (isNewFb && !isTraining(currentUser) ? '<button onclick="_fbMarkRead(' + realIdx + ')" style="margin-top:7px;font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;">Mark read</button>' : '')
+          + (isTraining(currentUser) && hasFb ? '<div style="display:flex;gap:6px;margin-top:8px;"><button onclick="_fbResolveRecord(' + realIdx + ')" class="btn btn-sm btn-ok">&#x2713; Mark Resolved</button></div>' : '')
+          + '</div>'
+        : '<div style="font-size:11px;color:var(--text3);font-style:italic;">No agent response yet.</div>'
+      )
+      + '</div>';
+  }).join('');
+  return header + recordsHtml;
+}
+
+function _fbSelectPerson(username) {
+  _fbSelectedUser = username;
+  var groups = _fbGetGroups();
+  var dp = document.getElementById('fb-detail-panel');
+  if (dp) dp.innerHTML = _fbRenderPersonDetail(username, groups);
+  document.querySelectorAll('[data-fb-person]').forEach(function(el) {
+    var active = el.dataset.fbPerson === username;
+    el.style.borderLeft = active ? '3px solid var(--accent)' : '3px solid transparent';
+    el.style.background = active ? 'rgba(31,102,241,.07)' : '';
+  });
+}
+
+function _fbRefreshSplit() {
+  var groups = _fbGetGroups();
+  var selMatch = null;
+  for (var si = 0; si < groups.length; si++) { if (groups[si].username === _fbSelectedUser) { selMatch = groups[si]; break; } }
+  if (!selMatch) _fbSelectedUser = groups.length > 0 ? groups[0].username : '';
+  var lp = document.getElementById('fb-person-list');
+  if (lp) lp.innerHTML = _fbRenderPersonList(groups);
+  var dp = document.getElementById('fb-detail-panel');
+  if (dp) dp.innerHTML = _fbRenderPersonDetail(_fbSelectedUser, groups);
+  var totalRecs = 0;
+  for (var ti = 0; ti < groups.length; ti++) totalRecs += groups[ti].records.length;
+  var ct = document.getElementById('fb-team-count');
+  if (ct) ct.textContent = totalRecs + ' records';
 }
 
 function _fbRenderTeam() {
   var _search = window._fbTeamSearch || '';
   var _sfilt  = window._fbTeamStatus || '';
-  var total   = _fbData().length;
-
-  // Compute filtered count for display
-  var filtered = _fbData().filter(function(r) {
-    if (_sfilt && r.status !== _sfilt) return false;
-    if (_search) {
-      var q = _search.toLowerCase();
-      if (!(r.name||'').toLowerCase().includes(q) && !(r.username||'').toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
-
+  var groups  = _fbGetGroups();
+  var selMatch = null;
+  for (var si = 0; si < groups.length; si++) { if (groups[si].username === _fbSelectedUser) { selMatch = groups[si]; break; } }
+  if (!selMatch) _fbSelectedUser = groups.length > 0 ? groups[0].username : '';
+  var totalRecs = 0;
+  for (var ti = 0; ti < groups.length; ti++) totalRecs += groups[ti].records.length;
   var ss = 'height:30px;padding:0 10px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);';
-
   var filterBar = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-    + '<input type="text" id="fb-team-search" value="' + _search + '" placeholder="Search by name or username..." '
-    + 'oninput="window._fbTeamSearch=this.value;var el=document.getElementById(\'fb-team-list\');if(el)el.innerHTML=_fbRenderTeamList();" '
-    + 'style="' + ss + 'width:220px;">'
+    + '<input type="text" id="fb-team-search" value="' + _search + '" placeholder="Search by name or username..." oninput="window._fbTeamSearch=this.value;_fbRefreshSplit();" style="' + ss + 'width:220px;">'
     + '<select style="' + ss + '" onchange="window._fbTeamStatus=this.value;_fbRerender()">'
     + '<option value="">All statuses</option>'
-    + ['Processing','Need Review','Need Resolve','Resolved','Cancelled'].map(function(s){
-        return '<option value="'+s+'"'+(_sfilt===s?' selected':'')+'>'+s+'</option>';
-      }).join('')
+    + ['Processing','Need Review','Need Resolve','Resolved','Cancelled'].map(function(s){ return '<option value="'+s+'"'+(_sfilt===s?' selected':'')+'>'+s+'</option>'; }).join('')
     + '</select>'
-    + '<span id="fb-team-count" style="font-size:11px;color:var(--text3);">' + filtered.length + ' records</span>'
+    + '<span id="fb-team-count" style="font-size:11px;color:var(--text3);">' + totalRecs + ' records</span>'
     + ((_search || _sfilt) ? '<button onclick="window._fbTeamSearch=\'\';window._fbTeamStatus=\'\';_fbRerender()" style="' + ss + 'cursor:pointer;">Clear</button>' : '')
     + '</div>';
-
-  return filterBar + '<div id="fb-team-list">' + _fbRenderTeamList() + '</div>';
+  var leftPanel = '<div id="fb-person-list" style="width:260px;flex-shrink:0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow-y:auto;max-height:calc(100vh - 260px);">'
+    + _fbRenderPersonList(groups)
+    + '</div>';
+  var rightPanel = '<div id="fb-detail-panel" style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow-y:auto;max-height:calc(100vh - 260px);">'
+    + _fbRenderPersonDetail(_fbSelectedUser, groups)
+    + '</div>';
+  return filterBar + '<div style="display:flex;gap:12px;align-items:flex-start;">' + leftPanel + rightPanel + '</div>';
 }
 
 function _fbResolveRecord(realIdx) {
@@ -416,14 +453,6 @@ function _fbMarkRead(realIdx) {
   _fbRerender();
 }
 
-function _fbToggleGroup(username) {
-  var el  = document.getElementById('fb-grp-' + username);
-  var ico = document.getElementById('fb-grp-ico-' + username);
-  if (!el) return;
-  var hidden = el.style.display === 'none';
-  el.style.display  = hidden ? '' : 'none';
-  if (ico) ico.innerHTML = hidden ? '&#x25BC;' : '&#x25B6;';
-}
 
 function _fbRerender() {
   var el = document.getElementById('fb-content');
