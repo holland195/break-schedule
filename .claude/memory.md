@@ -131,3 +131,52 @@
 - `table-layout:fixed` needs date TH without explicit `width` so fixed cols stay exact and date cols absorb remaining space
 - `syncMonthlyAttWriteback()` in GAS: uses same sheet/row/col detection as `syncAttendance()`; runs on all 3 daily triggers
 - "A" code: conflict detected if attendance logged same day; excluded from late/early stats; Fill All skips cells that already have any code (including A)
+
+---
+
+## New Features & Fixes (Session 4 — PRs #109–#119)
+
+### GAS syncSchedule — User Creation + Team/Role Updates (PRs #109–#113)
+- `syncSchedule()` now creates new user entries when username not found (leaders/supervisors not yet in Firebase)
+- New user fields: `id` (hash of username), `username`, `name` (Col C), `role` (Col G), `team` (Col B), `schedule: {}`
+- For existing users: updates `team` (Col B) AND `role` (Col G) on every sync
+- `const userIdx` → `var userIdx` (V8 `const` cannot be reassigned)
+- Default `log` guard: `if (typeof log !== 'function') log = function(m) { console.log(m); };`
+- `runSyncSchedule()` standalone wrapper for GAS editor: fetches Firebase, calls syncSchedule, writes back
+- Firebase returns `current.users` as object (not array) via REST API → normalized with `for...in` loop before `findIndex`
+
+### Staff Schedule Tab (pages.js) — Leader/Training Role-Based Filter
+- **Lead/sub view**: shows all non-training staff (excludes training users)
+- **Training view**: shows all staff
+- Training detection: `isTraining(u) || _roleStr.includes('training') || u.team.charAt(0)==='T'`
+- Day-name fallback in `renderStaffRows`: `u.schedule[d] || u.schedule[getWkDay(d)] || '0'`
+- No-import fallback: when no `DD/MM` date keys exist, shows current week from day-name keys
+- POSITION column: `getRoleInfo(_effRole).label` with `state.staffInfo` → STAFF_INFO_DB fallback chain
+
+### Staff Attendance Tab (pages.js) — Sort Order + POSITION Fix
+- Sort order: Training Manager(1) → Training Assistant(2) → D.A Leader(3) → D.A Supervisor(4) → Sr DS(5) → DS(6) → Sr DA(7) → DA(8)
+- Within each group: sort by team code (L1→L5, S1→S5), then name
+- `_STAFF_SORT_RANK` map + `_sortStaffUsers(users)` helper (applied in both Staff Schedule and Staff Attendance)
+- POSITION cell fallback: `u.role || state.staffInfo[u.username].role || STAFF_INFO_DB lookup`
+- Staff Attendance date selector: `_saDateFilter` variable; date picker before month picker; resets on shift/month/year change
+- Shift filter fix: `(sc[dk] || sc[getWkDay(dk)]) === _saShiftFilter` (date-specific wins over day-name)
+- Half-day D1/D2 legend chip: changed from amber to purple `rgba(167,139,250,.14)` / `#a78bfa`
+
+### Auth — Training Role Nav Visibility (PR #119)
+- `_resolveUser()` was returning `state.users` entry directly even when `role` was empty
+- Empty role → `isLeader('')` = false → all `.leader-only` nav items hidden (Staff, Policy, Logbook)
+- Fix: supplement `fromSchedule.role` with `state.staffInfo[username].role` → STAFF_INFO_DB fallback
+- Returns `Object.assign({}, fromSchedule, {role: _effRole})` to avoid mutating `state.users`
+- Training users must sign out and back in after deploy for nav to update
+
+---
+
+## Critical Invariants (additions from Session 4)
+
+- `state.staffInfo[username].role` is the reliable role source for training users — Firebase `staffInfo` node has correct roles even when `state.users[i].role` is empty
+- Role fallback chain (used in auth.js, pages.js): `u.role || state.staffInfo[u.username].role || STAFF_INFO_DB lookup || default`
+- `_resolveUser()` must not return a user object with empty role — always supplement via fallback chain
+- `_sortStaffUsers()` uses same fallback chain for sort key; without it users with empty role sort to rank 99 (bottom)
+- GAS `syncSchedule`: `var userIdx` (not `const`) — reassigned after user creation
+- `runSyncSchedule()` is the standalone GAS wrapper; `dailySync()` is the production entry point
+- Firebase REST API returns `users` as object with numeric string keys — always normalize with loop before array methods
