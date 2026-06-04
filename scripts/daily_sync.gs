@@ -214,7 +214,7 @@ function syncSchedule(current, log) {
 
   log('[Schedule] ' + dateCols.length + ' date columns | ' + dataRows.length + ' staff rows');
 
-  if (!current.users) current.users = [];
+  if (!Array.isArray(current.users)) current.users = current.users ? Object.values(current.users) : [];
 
   var notFound = [];
 
