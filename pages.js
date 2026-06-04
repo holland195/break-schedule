@@ -2254,7 +2254,8 @@ function _renderStaffSchedule() {
 
   var _currTrn = isTraining(currentUser);
   const filteredUsers = state.users.filter(u => {
-    var _roleStr = (_resolveRole(u.role) || '').toLowerCase();
+    var _effR    = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _roleStr = (_resolveRole(_effR) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
     if (!_currTrn && _isTrn) return false;   // lead/sub: hide training users
@@ -2766,7 +2767,7 @@ function _renderStaffAttendance() {
 
     const rowBg = conflicts.length ? 'background:rgba(248,113,113,.03);' : '';
     const stickyCell = 'position:sticky;z-index:1;background:var(--bg2);';
-    var _saEffRole = u.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    var _saEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
       <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
@@ -3047,7 +3048,7 @@ function clearMonthlyAttendance(year, month) {
 
 function renderStaffRows(users, displayDates) {
   return users.map(function(u) {
-    var _srEffRole = u.role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr>
     <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
     <td style="font-weight:600">${u.name}</td>
@@ -3083,7 +3084,8 @@ function _liveFilter() {
   const displayDates = showFullMonth ? allDates : weekRange;
   var _currTrn2 = isTraining(currentUser);
   const filtered = state.users.filter(u => {
-    var _roleStr = (_resolveRole(u.role) || '').toLowerCase();
+    var _effR2   = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _roleStr = (_resolveRole(_effR2) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
     if (!_currTrn2 && _isTrn) return false;
