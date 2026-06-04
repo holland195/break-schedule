@@ -216,7 +216,19 @@ function syncSchedule(current, log) {
 
   log('[Schedule] ' + dateCols.length + ' date columns | ' + dataRows.length + ' staff rows');
 
-  if (!Array.isArray(current.users)) current.users = current.users ? Object.values(current.users) : [];
+  var _usersRaw = current.users;
+  log('[Schedule] users debug: typeof=' + typeof _usersRaw + ' isArray=' + Array.isArray(_usersRaw));
+  if (!Array.isArray(_usersRaw)) {
+    current.users = [];
+    if (_usersRaw && typeof _usersRaw === 'object') {
+      var _keys = Object.keys(_usersRaw);
+      for (var _ki = 0; _ki < _keys.length; _ki++) {
+        var _u = _usersRaw[_keys[_ki]];
+        if (_u) current.users.push(_u);
+      }
+    }
+    log('[Schedule] users normalized: ' + current.users.length + ' entries');
+  }
 
   var notFound = [];
 
