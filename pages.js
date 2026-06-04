@@ -168,8 +168,11 @@ function renderDashboard() {
   ).length;
   const allPending = state.requests.filter(r => r.status === 'pending').length;
 
-  // Team breaks today (same shift)
-  const shiftMates = getShiftMates(currentShift, todayDk);
+  // Team breaks today (same shift, exclude lead/sub/training)
+  const shiftMates = getShiftMates(currentShift, todayDk).filter(function(u) {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    return (ROLES[_resolveRole(_ur)||_ur] || {}).level < 2;
+  });
   const assigned = shiftMates.filter(u => getAssigned(u.id, todayDk)).length;
 
   const greetHour = new Date().getHours();
