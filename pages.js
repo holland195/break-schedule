@@ -1815,9 +1815,13 @@ function quickAssign(uid, day, slot) {
   if (!isLeader(currentUser)) { toast('Only leaders can assign breaks.', 'err'); return; }
   assign(uid, day, slot, '');
   toast(`Break assigned: ${getShortSlot(currentShift, slot) || slot}`);
-  const wrap = document.querySelector('.arr-table-wrap');
+  var wrap = document.querySelector('.arr-table-wrap');
+  var _sT = wrap ? wrap.scrollTop : 0;
+  var _sL = wrap ? wrap.scrollLeft : 0;
   if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
   else { const c = document.getElementById('arrange-day-content'); if (c) c.innerHTML = getArrangeDayMemberList(null); }
+  var newWrap = document.querySelector('.arr-table-wrap');
+  if (newWrap) { newWrap.scrollTop = _sT; newWrap.scrollLeft = _sL; }
   updateBadge();
 }
 
