@@ -396,6 +396,10 @@ const ROLE_ALIASES = {
   'Agent Supervisor':         'Data Analyst Supervisor',
   'Agent Training Manager':   'Training Manager',
   'Agent Training Assistant': 'Training Assistant',
+  'Senior Data Analyst':      'Sr Data Analyst',
+  'Senior Data Supervisor':   'Sr Data Supervisor',
+  'Senior Data Analyst Leader':    'Data Analyst Leader',
+  'Senior Data Analyst Supervisor':'Data Analyst Supervisor',
 };
 function _resolveRole(role) { return ROLE_ALIASES[role] || role; }
 
