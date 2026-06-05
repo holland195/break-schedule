@@ -193,6 +193,11 @@ function syncSchedule(current, log) {
     return result;
   }
   const sheet = ss.getSheetByName(SCHEDULE_SHEET);
+  if (!sheet) {
+    log('[Schedule] ✗ Sheet "' + SCHEDULE_SHEET + '" not found. Available: '
+      + ss.getSheets().map(function(s){ return s.getName(); }).join(', '));
+    return result;
+  }
 
   const lastCol   = sheet.getLastColumn();
   const lastRow   = sheet.getLastRow();
