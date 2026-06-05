@@ -338,8 +338,12 @@ function renderSchedule() {
   var _curYear = _tNow.getFullYear();
   var _curMonthStr = String(_tNow.getMonth()+1).padStart(2,'0') + '/' + _curYear;
 
-  // Collect available months from schedule keys
-  var _allSchedKeys = Object.keys((state.users[0] && state.users[0].schedule) || {});
+  // Collect available months from schedule keys — aggregate across ALL users
+  var _schedKeySet = {};
+  state.users.forEach(function(u) {
+    Object.keys(u.schedule || {}).forEach(function(k) { _schedKeySet[k] = true; });
+  });
+  var _allSchedKeys = Object.keys(_schedKeySet);
   var _monthSet = {};
   _allSchedKeys.forEach(function(dk) {
     var _p = dk.split('/');
