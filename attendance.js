@@ -328,11 +328,12 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   const weekDates = _getAttendanceWeek();
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Users on this shift in this week (exclude training/admin roles)
+  // Users on this shift in this week (exclude leaders, supervisors, training, admin)
   const shiftUsers = state.users.filter(u => {
     var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
     var _rr = (_resolveRole(_role) || _role).toLowerCase();
-    if (_rr.includes('training') || (ROLES[_resolveRole(_role)] || {}).level >= 3) return false;
+    if (_rr.includes('training') || _rr.includes('leader') || _rr.includes('supervisor') ||
+        (ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
     return weekDates.some(dk => {
       const s = _getUserShiftOnDate(u, dk);
       return s && s.startsWith && (s === currentShift || s.startsWith(currentShift));
