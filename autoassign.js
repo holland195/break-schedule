@@ -286,12 +286,21 @@ function autoAssignBreaks(importedUsers) {
     Object.keys(u.schedule || {}).forEach(d => allDates.add(d));
   });
 
-  // Find all Sunday dates, sort chronologically
-  const sundays = [...allDates]
-  .filter(d => /^\d{1,2}\/\d{1,2}$/.test(d) && getWkDay(d) === 'Sun')
-  .sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
+  // Derive all Sunday anchors from any date in the schedule.
+  // If the import has no Sunday entries (e.g. Mon–Sat only), rewind each date
+  // to its containing Sunday so those weeks are still processed.
+  var _sundaySet = {};
+  [...allDates].filter(function(d) { return /^\d{1,2}\/\d{1,2}$/.test(d); }).forEach(function(d) {
+    var parts = d.split('/');
+    var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+    dt.setDate(dt.getDate() - dt.getDay()); // rewind to Sunday
+    var sd = String(dt.getDate()).padStart(2, '0');
+    var sm = String(dt.getMonth() + 1).padStart(2, '0');
+    _sundaySet[sd + '/' + sm] = true;
+  });
+  const sundays = Object.keys(_sundaySet).sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
 
-if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
+  if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
   // Load rotation state once — mutate in place across all weeks in this import
   // This ensures future weeks see the correctly accumulated phase from earlier weeks
