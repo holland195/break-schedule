@@ -233,7 +233,9 @@ function syncSchedule(current, log) {
   var notFound = [];
 
   dataRows.forEach(function(row) {
-    const username = String(row[3] || '').trim().toLowerCase(); // Col D = index 3
+    var _rawUn = row[3]; // Col D = index 3
+    if (_rawUn instanceof Date || typeof _rawUn === 'number') return; // date-formatted cell — skip
+    var username = String(_rawUn || '').trim().toLowerCase();
     if (!username) return;
 
     var userIdx = current.users.findIndex(function(u) {
