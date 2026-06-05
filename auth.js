@@ -54,7 +54,9 @@ function autoDetectShift() {
   const input = document.getElementById('li-user').value.trim();
   const user  = state.users.find(x => x.username === input);
   if (user) {
-    const sch = user.schedule[todayKey()];
+    var _d = new Date();
+    var _dk = String(_d.getDate()).padStart(2,'0') + '/' + String(_d.getMonth()+1).padStart(2,'0');
+    var sch = _getSched(user.username, _dk);
     if (sch && sch !== '0') document.getElementById('li-shift').value = sch;
   }
 }

@@ -212,7 +212,8 @@ function load() {
   return { users:[], breaks:{}, requests:[], extBreaks:{},
            staffInfo:{}, session:null, imported:false,
            _breaksUpdatedAt:0, _usersUpdatedAt:0,
-           attendance:{}, monthlyAttendance:{}, breakSplits:{} };
+           attendance:{}, monthlyAttendance:{}, breakSplits:{},
+           staffSchedule:{} };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -319,6 +320,7 @@ if (!state.session)    state.session    = null;
 if (!state.monthlyAttendance) state.monthlyAttendance = {};
 if (!state.breakSplits) state.breakSplits = {};
 if (!state.shiftConfig) state.shiftConfig = [];
+if (!state.staffSchedule) state.staffSchedule = {};
 // No more SEED_USERS — users come only from schedule import
 
 // Always ensure system admin exists — password '1234', never forced to change
@@ -403,10 +405,19 @@ function getRoleInfo(r) { const k=_resolveRole(r); return ROLES[k]||{level:0,tag
 function todayKey() {
   const d=new Date(); return WEEK_DAYS[d.getDay()===0?6:d.getDay()-1];
 }
+function _getSched(username, dk) {
+  var sc = state.staffSchedule[username] || {};
+  var v = sc[dk];
+  if (v) return v;
+  if (dk && dk.indexOf('/') !== -1) return sc[getWkDay(dk)] || '0';
+  return '0';
+}
+function _getSchedObj(username) {
+  return state.staffSchedule[username] || {};
+}
 function getShiftMates(shift,day) {
   return state.users.filter(u => {
-    const s = u.schedule[day||todayKey()];
-    return s===shift;
+    return _getSched(u.username, day||todayKey())===shift;
   });
 }
 function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
