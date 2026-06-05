@@ -1626,9 +1626,12 @@ function getArrangeDayMemberList(_unused) {
       tierUsers.forEach(u => {
         var onShift = _getSched(u.username, d) === currentShift;
         if (!onShift) return;
+        var _ftMk = _now.getFullYear() + '-' + d.split('/')[1];
+        var _ftCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][_ftMk] || {})[d]) : '';
+        var _ftParsed = _ftCode ? _parseAttCode(_ftCode) : null;
+        if (_ftParsed && _ftParsed.type === 'OFF') return;
         const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
         if (!br) return;
-        //const code = getShortSlot(currentShift, br.slot);
         const idx = _slotIndex(br.slot, currentShift);
         if (idx === 0) s1++;
         else if (idx === 1) s2++;
