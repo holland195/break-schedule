@@ -9,14 +9,14 @@ const WEEK_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const STAFF_INFO_DB = [
   { username:'admin',                   name:'System Admin',                      gender:'M', role:'Admin'                    },
   { username:'cuong.pham',              name:'Phạm Minh Cường',                   gender:'M', role:'Data Analyst Leader'              },
-  { username:'son.tran',                name:'Trần Thái Sơn',                     gender:'M', role:'Agent Training Manager'    },
-  { username:'anh.tran',                name:'Trần Thị Kim Anh',                  gender:'F', role:'Agent Training Assistant'  },
+  { username:'son.tran',                name:'Trần Thái Sơn',                     gender:'M', role:'Training Manager'          },
+  { username:'anh.tran',                name:'Trần Thị Kim Anh',                  gender:'F', role:'Training Assistant'        },
   { username:'kim.huynh',               name:'Huỳnh Thị Mỹ Kim',                  gender:'F', role:'Data Supervisor'                        },
-  { username:'tu.le',                   name:'Lê Văn Tú',                         gender:'M', role:'Agent Training Assistant'  },
+  { username:'tu.le',                   name:'Lê Văn Tú',                         gender:'M', role:'Training Assistant'        },
   { username:'phuong.nguyen',           name:'Nguyễn Thị Anh Phương',             gender:'F', role:'Sr Data Supervisor'                     },
   { username:'tong.nguyen',             name:'Nguyễn Trần Tông',                  gender:'M', role:'Sr Data Supervisor'                     },
   { username:'thinh.nguyen',            name:'Nguyễn Hữu Thịnh',                  gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'nhan.trinh',              name:'Trịnh Mỹ Nhân',                     gender:'F', role:'Agent Training Assistant'  },
+  { username:'nhan.trinh',              name:'Trịnh Mỹ Nhân',                     gender:'F', role:'Training Assistant'        },
   { username:'uyen.tran',               name:'Trần Hà Phương Uyên',               gender:'F', role:'Data Analyst'                     },
   { username:'dung.tran',               name:'Trần Quốc Dũng',                    gender:'M', role:'Data Analyst Leader'              },
   { username:'tam.to',                  name:'Tô Hoài Tâm',                       gender:'M', role:'Data Analyst Leader'              },
@@ -193,8 +193,8 @@ const SHIFT_DEFAULTS = {
 
 const ROLES = {
   'Admin':                    {level:4,tag:'role-leader',label:'Admin'},
-  'Agent Training Manager':   {level:3,tag:'role-training',label:'Training Manager'},
-  'Agent Training Assistant': {level:3,tag:'role-training',label:'Training Assistant'},
+  'Training Manager':         {level:3,tag:'role-training',label:'Training Manager'},
+  'Training Assistant':       {level:3,tag:'role-training',label:'Training Assistant'},
   'Data Analyst Leader':      {level:2,tag:'role-leader',label:'D.A Leader'},
   'Data Analyst Supervisor':  {level:2,tag:'role-leader',label:'D.A Supervisor'},
   'Sr Data Analyst':          {level:1,tag:'role-agent', label:'Sr Data Analyst'},
@@ -349,7 +349,7 @@ STAFF_INFO_DB.forEach(r => {
   } else {
     // Entry exists — only patch missing name/role/gender, never touch mustChangePassword
     if (!state.staffInfo[r.username].name)   state.staffInfo[r.username].name   = r.name;
-    if (!state.staffInfo[r.username].role)   state.staffInfo[r.username].role   = r.role;
+    state.staffInfo[r.username].role = r.role; // always authoritative from STAFF_INFO_DB
     if (!state.staffInfo[r.username].gender) state.staffInfo[r.username].gender = r.gender;
   }
 });
@@ -388,12 +388,14 @@ applyTheme(currentTheme);
 
 // Maps legacy role names (stored in Firebase) to current names
 const ROLE_ALIASES = {
-  'Agent':            'Data Analyst',
-  'Sr Agent':         'Sr Data Analyst',
-  'QA':               'Data Supervisor',
-  'Sr QA':            'Sr Data Supervisor',
-  'Agent Leader':     'Data Analyst Leader',
-  'Agent Supervisor': 'Data Analyst Supervisor',
+  'Agent':                    'Data Analyst',
+  'Sr Agent':                 'Sr Data Analyst',
+  'QA':                       'Data Supervisor',
+  'Sr QA':                    'Sr Data Supervisor',
+  'Agent Leader':             'Data Analyst Leader',
+  'Agent Supervisor':         'Data Analyst Supervisor',
+  'Agent Training Manager':   'Training Manager',
+  'Agent Training Assistant': 'Training Assistant',
 };
 function _resolveRole(role) { return ROLE_ALIASES[role] || role; }
 
