@@ -437,8 +437,25 @@ function syncLogbook(current, log) {
       continue;
     }
 
+    // Exclude leaders, supervisors, and training roles from logbook import
+    var resolvedUser = newUser || oldUser || '';
+    var _userRole = '';
+    if (resolvedUser && current.staffInfo && current.staffInfo[resolvedUser]) {
+      _userRole = String(current.staffInfo[resolvedUser].role || '').toLowerCase();
+    }
+    if (!_userRole) {
+      var _mu2 = (Array.isArray(current.users) ? current.users : Object.values(current.users||{}))
+                   .find(function(u){ return u && u.id === uid; });
+      if (_mu2) _userRole = String(_mu2.role || '').toLowerCase();
+    }
+    if (_userRole.indexOf('leader') >= 0 || _userRole.indexOf('supervisor') >= 0 ||
+        _userRole.indexOf('training') >= 0 || _userRole.indexOf('manager') >= 0 ||
+        _userRole.indexOf('admin') >= 0) {
+      result.skipped++;
+      continue;
+    }
+
     var wroteAny = false;
-    const resolvedUser = newUser || oldUser || '';
     const debugAnhDao = resolvedUser === 'anh.dao';
 
     dateCols.forEach(function(col) {
