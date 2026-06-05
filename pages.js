@@ -146,14 +146,14 @@ function _roleSort(a, b) {
 }
 
 var _ROLE_COLOR = {
-  'Training Manager':        '#6ee7b7',
-  'Training Assistant':      '#6ee7b7',
-  'Data Analyst Leader':     '#fbbf24',
-  'Data Analyst Supervisor': '#f97316',
-  'Sr Data Supervisor':      '#a78bfa',
-  'Data Supervisor':         '#c4b5fd',
-  'Sr Data Analyst':         '#7dd3fc',
-  'Data Analyst':            '#7dd3fc',
+  'Training Manager':        '#34d399',
+  'Training Assistant':      '#34d399',
+  'Data Analyst Leader':     '#f59e0b',
+  'Data Analyst Supervisor': '#38bdf8',
+  'Sr Data Supervisor':      '#c084fc',
+  'Data Supervisor':         '#818cf8',
+  'Sr Data Analyst':         '#fb923c',
+  'Data Analyst':            '#60a5fa',
 };
 function _roleColor(role) {
   return _ROLE_COLOR[_resolveRole(role)||role] || 'var(--text2)';
@@ -1160,10 +1160,10 @@ function _renderArrangeAssignTab(weekRange) {
 
   // ── Position abbreviation table (used for group tags and distribution panel) ──
   var _posAbbr = {
-    'Data Analyst':       ['D.A',    '#f97316', 'rgba(249,115,22,.15)'],
-    'Sr Data Analyst':    ['Sr D.A', '#ea580c', 'rgba(234,88,12,.15)'],
-    'Data Supervisor':    ['D.S',    '#0ea5e9', 'rgba(14,165,233,.15)'],
-    'Sr Data Supervisor': ['Sr D.S', '#a855f7', 'rgba(168,85,247,.15)'],
+    'Data Analyst':       ['D.A',    '#60a5fa', 'rgba(96,165,250,.2)'],
+    'Sr Data Analyst':    ['Sr D.A', '#fb923c', 'rgba(251,146,60,.2)'],
+    'Data Supervisor':    ['D.S',    '#38bdf8', 'rgba(56,189,248,.2)'],
+    'Sr Data Supervisor': ['Sr D.S', '#c084fc', 'rgba(192,132,252,.2)'],
   };
   var _validPosLabels = Object.keys(_posAbbr);
 
