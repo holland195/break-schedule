@@ -51,8 +51,8 @@ function _computeUserMonthStats(u, year, month) {
   const shiftCounts = {};
 
   dates.forEach(dk => {
-    const shift = u.schedule?.[dk];
-    if (!shift) return;
+    var shift = _getSched(u.username, dk);
+    if (!shift || shift === '0') return;
     // Skip leave codes
     if (['A','H','0','U','S','L'].includes(shift) && shift.length === 1 && !SHIFT_DEFAULTS[shift]) return;
     workDays++;
@@ -77,7 +77,7 @@ function _computeUserDateLog(u, year, month) {
   const dates = _getAllDatesInMonth(year, month);
   const log   = [];
   dates.forEach(dk => {
-    const shift = u.schedule?.[dk];
+    var shift = _getSched(u.username, dk);
     if (!shift || shift === '0') return;
     const shiftChar = shift.charAt(0);
     if (!SHIFT_DEFAULTS[shiftChar]) return;
@@ -124,8 +124,8 @@ function renderTrainingDashboard() {
   const shiftCards = shifts.map(sh => {
     const shiftDef  = SHIFTS[sh] || {};
     const onShift   = state.users.filter(u => {
-      const s = u.schedule?.[today];
-      return s && s.charAt(0) === sh;
+      var s = _getSched(u.username, today);
+      return s && s !== '0' && s.charAt(0) === sh;
     });
     const total    = onShift.length;
 
@@ -169,8 +169,8 @@ function renderTrainingDashboard() {
   // Late/early detail table — ALL shifts
   const allLateEarly = [];
   state.users.forEach(u => {
-    const shift = u.schedule?.[today];
-    if (!shift) return;
+    var shift = _getSched(u.username, today);
+    if (!shift || shift === '0') return;
     const rec = DB.getAttendance(u.id, today);
     if (!rec) return;
     const { lateMin, earlyMin, late, early } = calcLateEarly(u.id, today);
@@ -264,7 +264,7 @@ function renderReport(hideHeader = false) {
   let breaksAssigned=0, breaksTotal=0;
   trackable.forEach(u => {
     dates.forEach(dk => {
-      const shift = u.schedule?.[dk]; if (!shift) return;
+      var shift = _getSched(u.username, dk); if (!shift || shift === '0') return;
       breaksTotal++;
       if (DB.getBreak(u.id, dk)) breaksAssigned++;
     });
@@ -439,8 +439,8 @@ function exportUserReport(uid, month, year) {
   const dates = _getAllDatesInMonth(year, parseInt(month));
   const rows  = [['Date','Day','Shift','Login','Logout','Late By (min)','Early By (min)','Note']];
   dates.forEach(dk => {
-    const shift = u.schedule?.[dk];
-    if (!shift) return;
+    var shift = _getSched(u.username, dk);
+    if (!shift || shift === '0') return;
     const rec = DB.getAttendance(uid, dk) || {};
     const { lateMin, earlyMin } = calcLateEarly(uid, dk);
     rows.push([dk, getWkDay(dk), shift, rec.start||'', rec.end||'', lateMin||0, earlyMin||0, rec.note||'']);

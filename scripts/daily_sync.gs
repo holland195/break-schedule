@@ -251,7 +251,7 @@ function syncSchedule(current, log) {
       }
       current.users.push({
         id: Math.abs(h), username: username,
-        name: newName, role: newRole, team: newTeam, schedule: {}
+        name: newName, role: newRole, team: newTeam
       });
       userIdx = current.users.length - 1;
       result.created = (result.created || 0) + 1;
@@ -262,12 +262,13 @@ function syncSchedule(current, log) {
       if (updRole) current.users[userIdx].role = updRole;
     }
 
-    if (!current.users[userIdx].schedule) current.users[userIdx].schedule = {};
+    if (!current.staffSchedule) current.staffSchedule = {};
+    if (!current.staffSchedule[username]) current.staffSchedule[username] = {};
 
     dateCols.forEach(function(col) {
       const raw   = String(row[col.colIndex] || '').trim().toUpperCase();
       const value = (!raw || raw === '0' || raw === 'OFF' || raw === '') ? '0' : raw;
-      current.users[userIdx].schedule[col.dateKey] = value;
+      current.staffSchedule[username][col.dateKey] = value;
     });
 
     result.updated++;
@@ -1121,7 +1122,8 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   var isTuesdayPost = (dow === 2);
   var staffRows = [];
   users.forEach(function(u) {
-    var sched = ((u.schedule || {})[dk] || (u.schedule || {})[dn] || '').toUpperCase();
+    var _usc = (current.staffSchedule || {})[u.username] || (u.schedule || {});
+    var sched = (_usc[dk] || _usc[dn] || '').toUpperCase();
     if (sched !== shift) return;
     var resolvedRole = _resolveRoleGas(u.role);
     if (VALID_ROLES.indexOf(resolvedRole) < 0) return;
@@ -1178,7 +1180,8 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
     var dkiParts = dki.split('/');
     var dni2 = WEEK_DAYS[new Date(vnNow.getFullYear(), parseInt(dkiParts[1])-1, parseInt(dkiParts[0])).getDay()];
     users.forEach(function(u) {
-      var sched2 = ((u.schedule || {})[dki] || (u.schedule || {})[dni2] || '').toUpperCase();
+      var _usc2 = (current.staffSchedule || {})[u.username] || (u.schedule || {});
+      var sched2 = (_usc2[dki] || _usc2[dni2] || '').toUpperCase();
       if (sched2 !== shift) return;
       if (VALID_ROLES.indexOf(_resolveRoleGas(u.role)) < 0) return;
       var br2 = (current.breaks || {})[u.id + '_' + dki];

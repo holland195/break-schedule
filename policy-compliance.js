@@ -985,13 +985,10 @@ setTimeout(function() {
 
   // Try to auto-detect shift for today
   setTimeout(function() {
-    var u = state.users.find(function(u){return u.username===currentUser.username;});
-    if (u && u.schedule) {
-      var d = new Date();
-      var dk = String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
-      var sch = u.schedule[dk];
-      if (sch && sch!=='0') _pcaSelectShift(sch.charAt(0));
-    }
+    var d = new Date();
+    var dk = String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+    var sch = _getSched(currentUser.username, dk);
+    if (sch && sch!=='0') _pcaSelectShift(sch.charAt(0));
   }, 50);
 }
 
@@ -1042,10 +1039,10 @@ function _pcaAutoFill() {
     
 
     // Auto-fill shift from today's schedule
-    if (user && user.schedule) {
+    if (user) {
       var d  = new Date();
       var dk = String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
-      var sch = user.schedule[dk] || user.schedule[WEEK_DAYS[d.getDay()===0?6:d.getDay()-1]] || null;
+      var sch = _getSched(user.username, dk);
       if (sch && sch!=='0' && 'ABCDE'.indexOf(sch.charAt(0))>=0) {
         _pcaSelectShift(sch.charAt(0));
         window._pcaShift = sch.charAt(0);

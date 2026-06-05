@@ -108,8 +108,9 @@ function _fmtDiff(mins) {
 // Get shift code for a user on a specific date
 // Uses schedule[dateKey] first, falls back to schedule[dayName]
 function _getUserShiftOnDate(u, dateKey) {
-  if (!u || !u.schedule) return null;
-  return u.schedule[dateKey] || u.schedule[getWkDay(dateKey)] || null;
+  if (!u) return null;
+  var s = _getSched(u.username, dateKey);
+  return s && s !== '0' ? s : null;
 }
 
 // Calculate late/early for a given attendance record
@@ -229,9 +230,9 @@ function _getAllAttendanceSundays() {
   }
 
   // Also add any Sundays found in schedule or attendance records
-  state.users.forEach(u => {
-    Object.keys(u.schedule || {}).forEach(dk => {
-      if (getWkDay(dk) === 'Sun') sundays.add(dk);
+  Object.values(state.staffSchedule || {}).forEach(function(sc) {
+    Object.keys(sc || {}).forEach(function(dk) {
+      if (/\d{2}\/\d{2}/.test(dk) && getWkDay(dk) === 'Sun') sundays.add(dk);
     });
   });
   Object.keys(state.attendance || {}).forEach(key => {

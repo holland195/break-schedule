@@ -276,8 +276,12 @@ function autoAssignBreaks(importedUsers) {
   // will have a higher timestamp and always wins on pull.
   const RUN_TIMESTAMP = Date.now();
 
-  // Collect all DD/MM dates from imported schedules
+  // Collect all DD/MM dates from staffSchedule
   const allDates = new Set();
+  Object.values(state.staffSchedule || {}).forEach(function(sc) {
+    Object.keys(sc || {}).forEach(function(d) { allDates.add(d); });
+  });
+  // Fallback: also collect from user objects (backwards compat during migration)
   importedUsers.forEach(u => {
     Object.keys(u.schedule || {}).forEach(d => allDates.add(d));
   });
@@ -314,7 +318,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
       const onShift = importedUsers.filter(u => {
         const role = DB.getStaffInfo(u.username)?.role || u.role || '';
         if (!_roleTier(role)) return false;
-        return weekDates.some((d, i) => u.schedule[d] === shift || u.schedule[WEEK_DAYS[i]] === shift);
+        return weekDates.some((d, i) => _getSched(u.username, d) === shift);
       });
       if (onShift.length === 0) return;
 
@@ -351,7 +355,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
         // Skip writing if every member already has a correct break this week
         const allAlreadyAssigned = members.every(u =>
           weekDates.every((d, i) => {
-            if (u.schedule[d] !== shift && u.schedule[WEEK_DAYS[i]] !== shift) return true;
+            if (_getSched(u.username, d) !== shift) return true;
             const ex = DB.getBreak(u.id, d);
             return ex && _slotBelongsToShift(ex.slot, shift);
           })
@@ -365,7 +369,7 @@ if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
           const assignedSlot = teamSlotMap[u.team || '_no_team_'] || slot1;
 
           weekDates.forEach((d, i) => {
-            if (u.schedule[d] !== shift && u.schedule[WEEK_DAYS[i]] !== shift) return;
+            if (_getSched(u.username, d) !== shift) return;
             const ex = DB.getBreak(u.id, d);
             if (ex && _slotBelongsToShift(ex.slot, shift)) return;
             DB.setBreak(u.id, d, {

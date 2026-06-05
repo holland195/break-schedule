@@ -97,7 +97,7 @@ function _checkAttConflict(u, dk, parsedCode) {
   const weekRec = DB.getAttendance(u.id, dk);
   // Auto-synced records (note='auto') haven't been reviewed by a leader — skip
   if (weekRec?.note === 'auto') return null;
-  const schedShift = (u.schedule?.[dk] || '').charAt(0);
+  var schedShift = _getSched(u.username, dk).charAt(0);
   const conflicts = [];
   // Only flag if start or end is a non-empty, non-dash string
   const hasRealRecord = weekRec &&
@@ -158,8 +158,7 @@ function renderDashboard() {
   // My break today
   const myBr = getAssigned(currentUser.id, todayDk)
     || getAssigned(currentUser.id, getWkDay(todayDk));
-  const myShift = currentUser.schedule?.[todayDk]
-    || currentUser.schedule?.[getWkDay(todayDk)] || '0';
+  var myShift = _getSched(currentUser.username, todayDk);
   const onShift = myShift === currentShift;
 
   // Pending requests
@@ -340,8 +339,8 @@ function renderSchedule() {
 
   // Collect available months from schedule keys — aggregate across ALL users
   var _schedKeySet = {};
-  state.users.forEach(function(u) {
-    Object.keys(u.schedule || {}).forEach(function(k) { _schedKeySet[k] = true; });
+  Object.values(state.staffSchedule || {}).forEach(function(sc) {
+    Object.keys(sc || {}).forEach(function(k) { _schedKeySet[k] = true; });
   });
   var _allSchedKeys = Object.keys(_schedKeySet);
   var _monthSet = {};
@@ -390,7 +389,7 @@ function renderSchedule() {
   });
 
   function getUserShift(u, dateKey) {
-    return u.schedule[dateKey] || u.schedule[dateToDayName[dateKey]] || '0';
+    return _getSched(u.username, dateKey);
   }
 
   // All users who work this shift at least once this month (exclude lead/sub/training)
@@ -800,7 +799,9 @@ function renderArrange() {
   if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
   // Build week picker from available schedule dates
-  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  var _allSDSet = {};
+  Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _allSDSet[k]=1; }); });
+  const allDates = Object.keys(_allSDSet);
   const sundays = allDates.filter(d => getWkDay(d) === 'Sun').sort((a, b) => {
   const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
   return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
@@ -1136,10 +1137,7 @@ function _clearAutoBreaksFromWeek(fromSunday, shifts, force = false) {
 
 function _renderArrangeAssignTab(weekRange) {
   const allShiftTeams = [...new Set(state.users.filter(u =>
-    weekRange.some(d => {
-      const dayName = WEEK_DAYS[weekRange.indexOf(d)];
-      return u.schedule[d] === currentShift || u.schedule[dayName] === currentShift;
-    })
+    weekRange.some(d => _getSched(u.username, d) === currentShift)
   ).map(u => u.team))].sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   );
@@ -1255,7 +1253,7 @@ function _renderArrangeAssignTab(weekRange) {
           return u.team === team && _tierRoleKey[(u.role || '').toLowerCase().trim()] === tier;
         }).forEach(function(u) {
           weekRange.forEach(function(d, di) {
-            if (u.schedule[d] !== currentShift && u.schedule[WEEK_DAYS[di]] !== currentShift) return;
+            if (_getSched(u.username, d) !== currentShift) return;
             var brk = DB.getBreak(u.id, d);
             if (!brk || !brk.slot) return;
             var _bsi = _slotIndex(brk.slot, currentShift);
@@ -1409,10 +1407,7 @@ function _toggleArrangeControls() {
 function _renderArrangeOverviewTab(weekRange) {
   // All users on this shift in the week
   const shiftUsers = state.users.filter(u =>
-    weekRange.some(d => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
-      return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
-    })
+    weekRange.some(d => _getSched(u.username, d) === currentShift)
   );
 
   if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
@@ -1436,7 +1431,7 @@ function _renderArrangeOverviewTab(weekRange) {
   const summaryRows = shiftUsers.map(u => {
     const dayCells = weekRange.map((d, i) => {
       const dn = WEEK_DAYS[i];
-      const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
+      var shiftVal = _getSched(u.username, d);
       const onShift = shiftVal === currentShift;
       const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
 
@@ -1480,10 +1475,7 @@ const ov_class = br
 
   const assignedCount = shiftUsers.reduce((acc, u) =>
     acc + weekRange.filter(d => getAssigned(u.id, d) || getAssigned(u.id, WEEK_DAYS[weekRange.indexOf(d)])).length, 0);
-  const totalSlots = shiftUsers.length * weekRange.filter(d => shiftUsers.some(u => {
-    const dn = WEEK_DAYS[weekRange.indexOf(d)];
-    return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
-  })).length;
+  const totalSlots = shiftUsers.length * weekRange.filter(d => shiftUsers.some(u => _getSched(u.username, d) === currentShift)).length;
 
   return `
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
@@ -1531,10 +1523,7 @@ function getArrangeDayMemberList(_unused) {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
     var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
     if (_ul >= 2) return false;
-    return weekRange.some(d => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
-      return u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
-    });
+    return weekRange.some(d => _getSched(u.username, d) === currentShift);
   });
 
   if (!allMates.length) return `<div class="empty" style="padding:60px;">
@@ -1554,7 +1543,7 @@ function getArrangeDayMemberList(_unused) {
   const tbRows = allMates.map(u => {
     const dayCells = weekRange.map(d => {
       const dn = WEEK_DAYS[weekRange.indexOf(d)];
-      const shiftVal = u.schedule[d] || u.schedule[dn] || '0';
+      var shiftVal = _getSched(u.username, d);
       const onShift = shiftVal === currentShift;
       const isToday = d === todayDk;
 
@@ -1635,7 +1624,7 @@ function getArrangeDayMemberList(_unused) {
       const dn = WEEK_DAYS[weekRange.indexOf(d)];
       let s1 = 0, s2 = 0;
       tierUsers.forEach(u => {
-        const onShift = u.schedule[d] === currentShift || u.schedule[dn] === currentShift;
+        var onShift = _getSched(u.username, d) === currentShift;
         if (!onShift) return;
         const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
         if (!br) return;
@@ -1741,7 +1730,7 @@ function _copyBreaksForSlack() {
   var slots = BREAK_SLOTS[currentShift] || [];
 
   var shiftUsers = (state.users || []).filter(function(u) {
-    if ((u.schedule[dk] || u.schedule[dn] || '').toUpperCase() !== (currentShift || '').toUpperCase()) return false;
+    if (_getSched(u.username, dk).toUpperCase() !== (currentShift || '').toUpperCase()) return false;
     return validRoles.indexOf(_resolveRole(u.role)) >= 0;
   }).sort(function(a, b) {
     if (a.team !== b.team) return a.team.localeCompare(b.team, undefined, {numeric:true});
@@ -1862,7 +1851,7 @@ function bulkAssignMulti() {
     selectedGroups.forEach(team => {
       const dayName = getWkDay(day);
       const targets = state.users.filter(u =>
-        u.team === team && (u.schedule[day] === currentShift || u.schedule[dayName] === currentShift)
+        u.team === team && _getSched(u.username, day) === currentShift
       );
       targets.forEach(u => { assign(u.id, day, actualTime, `Bulk by ${currentUser.name}`); totalAssigned++; });
     });
@@ -2222,8 +2211,14 @@ async function confirmScheduleImport() {
     }
   });
 
-  // 1. Save the parsed users to state
-  state.users = _tempImportedUsers;
+  // 1. Save the parsed users to state; extract schedule into staffSchedule
+  if (!state.staffSchedule) state.staffSchedule = {};
+  _tempImportedUsers.forEach(function(u) {
+    if (u.username && u.schedule) state.staffSchedule[u.username] = u.schedule;
+  });
+  state.users = _tempImportedUsers.map(function(u) {
+    return { id: u.id, username: u.username, name: u.name, team: u.team, role: u.role, gender: u.gender || '' };
+  });
   state._usersUpdatedAt = Date.now();
 
   // 2. TRIGGER THE AUTO-ASSIGN LOGIC
@@ -2254,10 +2249,11 @@ function _renderStaffSchedule() {
 </div>`;
   }
 
-  const allDates = Object.keys(
-    state.users.find(u => Object.keys(u.schedule).some(k => /\d{2}\/\d{2}/.test(k)))?.schedule
-    || state.users[0]?.schedule || {}
-  ).sort((a, b) => {
+  var _sdSet = {};
+  Object.values(state.staffSchedule || {}).forEach(function(sc) {
+    Object.keys(sc || {}).forEach(function(k) { if (/\d{2}\/\d{2}/.test(k)) _sdSet[k] = 1; });
+  });
+  const allDates = Object.keys(_sdSet).sort((a, b) => {
     const [da, ma] = a.split('/').map(Number);
     const [db, mb] = b.split('/').map(Number);
     return ma !== mb ? ma - mb : da - db;
@@ -2403,8 +2399,7 @@ function fillAttAll() {
     if (_saShiftFilter !== 'All') {
       _fCode = 'X' + _saShiftFilter;
     } else {
-      var uObj = state.users.find(function(x) { return x.username === username; });
-      var sc = uObj && uObj.schedule ? (uObj.schedule[_fToday] || uObj.schedule[getWkDay(_fToday)]) : '';
+      var sc = _getSched(username, _fToday);
       _fCode = (sc && sc !== '0') ? 'X' + sc : '';
     }
     if (!_fCode) return;
@@ -2671,8 +2666,7 @@ function _renderStaffAttendance() {
     : rowUsers;
   if (_saShiftFilter !== 'All') {
     filteredUsers = filteredUsers.filter(u => {
-      const sc = u.schedule || {};
-      return dates.some(dk => (sc[dk] || sc[getWkDay(dk)]) === _saShiftFilter);
+      return dates.some(dk => _getSched(u.username, dk) === _saShiftFilter);
     });
   }
   filteredUsers = _sortStaffUsers(filteredUsers);
@@ -2747,7 +2741,7 @@ function _renderStaffAttendance() {
       const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
 
-      const _conflictShift = (u.schedule?.[dk] || u.schedule?.[getWkDay(dk)] || '').charAt(0) || 'A';
+      var _conflictShift = _getSched(u.username, dk).charAt(0) || 'A';
       const conflictClick = hasConflict ? `
         onclick="
           const [_d,_m]='${dk}'.split('/');
@@ -3067,7 +3061,7 @@ function renderStaffRows(users, displayDates) {
     <td style="font-weight:600">${u.name}</td>
     <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
     <td style="font-size:11px;color:var(--text2)">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
-    ${displayDates.map(d => { const s = u.schedule[d] || u.schedule[getWkDay(d)] || '0'; return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
+    ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`;
   }).join('');
 }
@@ -3092,7 +3086,9 @@ function _sortStaffUsers(users) {
 }
 
 function _liveFilter() {
-  const allDates = Object.keys(state.users[0]?.schedule || {});
+  var _lfSet = {};
+  Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _lfSet[k]=1; }); });
+  const allDates = Object.keys(_lfSet);
   const weekRange = getWeekRange(activeMonday);
   const displayDates = showFullMonth ? allDates : weekRange;
   var _currTrn2 = isTraining(currentUser);
@@ -3250,14 +3246,16 @@ function confirmAssign() {
 }
 
 function openRequestModal() {
-  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  var _rmSet = {};
+  Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _rmSet[k]=1; }); });
+  const allDates = Object.keys(_rmSet);
   const weekDates = getWeekDates();
 
   // Build list of days this user is on THIS shift
   const myShiftDays = [];
-  allDates.forEach(dk => { if (currentUser.schedule[dk] === currentShift) myShiftDays.push(dk); });
+  allDates.forEach(dk => { if (_getSched(currentUser.username, dk) === currentShift) myShiftDays.push(dk); });
   if (myShiftDays.length === 0) {
-    WEEK_DAYS.forEach((d, i) => { if (currentUser.schedule[d] === currentShift) myShiftDays.push(weekDates[i]); });
+    weekDates.forEach((dk, i) => { if (_getSched(currentUser.username, dk) === currentShift) myShiftDays.push(dk); });
   }
 
   // Filter out past dates — only show today and future scheduled days
@@ -3318,7 +3316,7 @@ function _updateReqPartners() {
   const partners = state.users.filter(u => {
     if (u.id === currentUser.id) return false;
     if (u.role !== currentUser.role) return false;
-    const shiftVal = u.schedule[day] || u.schedule[getWkDay(day)] || '0';
+    var shiftVal = _getSched(u.username, day);
     if (shiftVal !== currentShift) return false;
     const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
     if (!theirBr) return false;
@@ -3366,15 +3364,14 @@ function submitRequest() {
   if (!requested) { toast('No swap slot available.', 'err'); return; }
 
   // ── Conflict detection: check if partner already has a PENDING request for the same day(s) ──
-  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
   let swapDays = [day];
   if (isWeek) {
     const partner = state.users.find(u => u.id === partnerId);
     // Only use current week dates
     const weekDates = getWeekDates();
     swapDays = weekDates.filter(dk => {
-      const myShift = currentUser.schedule[dk] || currentUser.schedule[getWkDay(dk)] || '0';
-      const ptShift = partner?.schedule[dk] || partner?.schedule[getWkDay(dk)] || '0';
+      var myShift = _getSched(currentUser.username, dk);
+      var ptShift = partner ? _getSched(partner.username, dk) : '0';
       return myShift === currentShift && ptShift === currentShift;
     });
     if (swapDays.length === 0) { toast('No matching shift days found for week swap.', 'err'); return; }
@@ -3484,10 +3481,7 @@ function renderExtBreak() {
   const femaleShiftUsers = isLeader(currentUser)
     ? allFemaleUsers.filter(u => {
         const wd = getWeekDates();
-        return wd.some(dk => {
-          const dn = WEEK_DAYS[wd.indexOf(dk)];
-          return u.schedule[dk] === currentShift || u.schedule[dn] === currentShift;
-        });
+        return wd.some(dk => _getSched(u.username, dk) === currentShift);
       })
     : allFemaleUsers;
 
@@ -3684,7 +3678,9 @@ function openExtBreakModal() {
   const remaining = 3 - used;
   if (remaining <= 0) { toast(`${isOnBehalf ? target.name + ' has' : 'You have'} used all 3 registrations this month.`, 'err'); return; }
 
-  const allDates = state.users.length > 0 ? Object.keys(state.users[0].schedule || {}) : [];
+  var _ebSDSet = {};
+  Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ if(/\d{2}\/\d{2}/.test(k)) _ebSDSet[k]=1; }); });
+  const allDates = Object.keys(_ebSDSet);
   const weekDates = getWeekDates();
   const eligibleDays = [];
 
@@ -3695,14 +3691,15 @@ function openExtBreakModal() {
     return (m - 1) * 100 + d >= _todayMMDD;
   }
 
+  var _tSched = _getSchedObj(target.username);
   const targetShift = isOnBehalf
-    ? (Object.values(target.schedule || {}).find(s => s && s !== '0') || currentShift)
+    ? (Object.values(_tSched).find(s => s && s !== '0') || currentShift)
     : currentShift;
 
   allDates.forEach(dk => {
     if (monthKeyFromDate(dk) !== mk) return;
     if (!_isNotPast(dk)) return;
-    const sc = target.schedule[dk] || target.schedule[getWkDay(dk)];
+    var sc = _getSched(target.username, dk);
     if (sc !== targetShift) return;
     const br = getAssigned(target.id, dk) || getAssigned(target.id, getWkDay(dk));
     if (br) eligibleDays.push({ dk, slot: getSlotTime(br.slot, dk) });
@@ -3710,10 +3707,9 @@ function openExtBreakModal() {
   if (eligibleDays.length === 0) {
     weekDates.forEach((dk, i) => {
       if (!_isNotPast(dk)) return;
-      const dn = WEEK_DAYS[i];
-      const sc = target.schedule[dk] || target.schedule[dn];
+      var sc = _getSched(target.username, dk);
       if (sc !== targetShift) return;
-      const br = getAssigned(target.id, dk) || getAssigned(target.id, dn);
+      const br = getAssigned(target.id, dk) || getAssigned(target.id, WEEK_DAYS[i]);
       if (br) eligibleDays.push({ dk, slot: getSlotTime(br.slot, dk) });
     });
   }

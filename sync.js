@@ -319,6 +319,26 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
     }
   }
 
+  // staffSchedule: remote always wins (GAS is authoritative)
+  if (remote.staffSchedule && typeof remote.staffSchedule === 'object') {
+    if (!state.staffSchedule) state.staffSchedule = {};
+    Object.keys(remote.staffSchedule).forEach(function(uname) {
+      state.staffSchedule[uname] = remote.staffSchedule[uname] || {};
+    });
+  }
+  // Migration shim: copy old u.schedule from remote users into staffSchedule
+  if (remote.users && Array.isArray(remote.users)) {
+    if (!state.staffSchedule) state.staffSchedule = {};
+    remote.users.forEach(function(u) {
+      if (u.username && u.schedule && Object.keys(u.schedule).length > 0) {
+        if (!state.staffSchedule[u.username]) state.staffSchedule[u.username] = {};
+        Object.keys(u.schedule).forEach(function(k) {
+          if (!state.staffSchedule[u.username][k]) state.staffSchedule[u.username][k] = u.schedule[k];
+        });
+      }
+    });
+  }
+
   // Migration: convert legacy time-string slots to short codes in memory.
   // Runs on every pull so old Firebase records are progressively updated.
   Object.values(state.breaks || {}).forEach(function(r) {
@@ -351,12 +371,10 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
     mustChangePassword: si.mustChangePassword === true ? true : false,
   };
 });
-    // Include full schedule — Firebase has no size limits
     const usersCompact = state.users.map(u => ({
       id: u.id, username: u.username, name: u.name,
       team: u.team, role: u.role, gender: u.gender || '',
       empNo: u.empNo || '',
-      schedule: u.schedule || {},
     }));
     // Seed shiftConfig baseline if not yet set
     if (!state.shiftConfig || state.shiftConfig.length === 0) {
@@ -371,6 +389,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   breakSplits:       state.breakSplits || {},
   attendance:        state.attendance || {},
   monthlyAttendance: state.monthlyAttendance || {},
+  staffSchedule:     state.staffSchedule || {},
   users:             usersCompact,
   staffInfo:         staffInfoCloud,
   policyCompliance:  state.policyCompliance || [],

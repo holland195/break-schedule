@@ -121,7 +121,7 @@ function renderScheduleTraining() {
 
   const dateToDayName = {};
   WEEK_DAYS.forEach((d,i)=>{ dateToDayName[weekDates[i]]=d; });
-  const getUS = (u,dk) => u.schedule[dk]||u.schedule[dateToDayName[dk]]||'0';
+  const getUS = (u,dk) => _getSched(u.username,dk);
 
   // Per-shift data
   const SD = {};
@@ -355,7 +355,7 @@ function renderExtBreakTraining() {
     if (_getUserGender(u)!=='F') return;
     const sc={};
     weekDates.forEach(dk=>{
-      const s=u.schedule[dk]||u.schedule[dateToDayName[dk]]||'0';
+      var s=_getSched(u.username,dk);
       if(s&&s!=='0') sc[s]=(sc[s]||0)+1;
     });
     const ps=Object.entries(sc).sort((a,b)=>b[1]-a[1])[0]?.[0];
@@ -569,7 +569,7 @@ function renderAttendanceTraining() {
   const allUsers = state.users.map(u=>{
     const sc={};
     dates.forEach(dk=>{
-      const s=u.schedule?.[dk];
+      var s=_getSched(u.username,dk);
       if(s&&s!=='0'&&SHIFT_DEFAULTS[s]) sc[s.charAt(0)]=(sc[s.charAt(0)]||0)+1;
     });
     const ps=Object.entries(sc).sort((a,b)=>b[1]-a[1])[0]?.[0]||'?';
@@ -623,7 +623,7 @@ function renderAttendanceTraining() {
       const isWknd = dow===0||dow===6;
       const isToday = dk===todayDk;
       const isSunDiv = dow===0&&dk!==dates[0];
-      const shift = u.schedule?.[dk];
+      var shift = _getSched(u.username, dk); if (shift === '0') shift = null;
 
       // Off day
       if (!shift||shift==='0'||!SHIFT_DEFAULTS[shift]) {
