@@ -145,6 +145,20 @@ function _roleSort(a, b) {
   return (a.name || '').localeCompare(b.name || '');
 }
 
+var _ROLE_COLOR = {
+  'Training Manager':        '#6ee7b7',
+  'Training Assistant':      '#6ee7b7',
+  'Data Analyst Leader':     '#fbbf24',
+  'Data Analyst Supervisor': '#f97316',
+  'Sr Data Supervisor':      '#a78bfa',
+  'Data Supervisor':         '#c4b5fd',
+  'Sr Data Analyst':         '#7dd3fc',
+  'Data Analyst':            '#7dd3fc',
+};
+function _roleColor(role) {
+  return _ROLE_COLOR[_resolveRole(role)||role] || 'var(--text2)';
+}
+
 //  RENDER: DASHBOARD
 // ═══════════════════════════════════════════════
 function renderDashboard() {
@@ -1406,9 +1420,12 @@ function _toggleArrangeControls() {
 
 function _renderArrangeOverviewTab(weekRange) {
   // All users on this shift in the week
-  const shiftUsers = state.users.filter(u =>
-    weekRange.some(d => _getSched(u.username, d) === currentShift)
-  );
+  const shiftUsers = state.users.filter(function(u) {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
+    if (_ul >= 2) return false;
+    return weekRange.some(function(d) { return _getSched(u.username, d) === currentShift; });
+  });
 
   if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
 
@@ -1998,11 +2015,7 @@ function _renderStaffInfoRows(filter) {
         ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
         : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
-    var roleLvl = ROLE_SORT_ORDER[_resolveRole(u.role)] ?? 9;
-    var roleColor = roleLvl <= 1 ? 'var(--accent)'
-      : roleLvl <= 2 ? 'var(--warn)'
-        : roleLvl <= 3 ? 'var(--ok)'
-          : 'var(--text2)';
+    var roleColor = _roleColor(u.role);
 
     var empNo = u.empNo || '—';
     var dob   = u.dob   || '—';
@@ -2787,7 +2800,7 @@ function _renderStaffAttendance() {
       <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:var(--text2);">${getRoleInfo(_saEffRole).label || _resolveRole(_saEffRole) || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:${_roleColor(_saEffRole)};">${getRoleInfo(_saEffRole).label || _resolveRole(_saEffRole) || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -3067,7 +3080,7 @@ function renderStaffRows(users, displayDates) {
     <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
     <td style="font-weight:600">${u.name}</td>
     <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:var(--text2)">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
+    <td style="font-size:11px;color:${_roleColor(_srEffRole)}">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
     ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`;
   }).join('');
