@@ -328,13 +328,15 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   const weekDates = _getAttendanceWeek();
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Users on this shift in this week
-  const shiftUsers = state.users.filter(u =>
-    weekDates.some(dk => {
+  // Users on this shift in this week (exclude training/admin roles)
+  const shiftUsers = state.users.filter(u => {
+    var _lvl = (ROLES[_resolveRole(u.role)] || {}).level;
+    if (_lvl >= 3) return false;
+    return weekDates.some(dk => {
       const s = _getUserShiftOnDate(u, dk);
       return s && s.startsWith && (s === currentShift || s.startsWith(currentShift));
-    })
-  ).sort((a, b) => (a.team || '').localeCompare(b.team || '', undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
+    });
+  }).sort((a, b) => (a.team || '').localeCompare(b.team || '', undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
 
   // Week picker: all available sundays
   const allSundays = _getAllAttendanceSundays();
