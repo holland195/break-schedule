@@ -7,16 +7,18 @@ const SPREADSHEET_ID          = '19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs';
 const SLACK_WEBHOOK_A         = ''; // paste shift-a-15h-00h webhook URL here
 const SLACK_WEBHOOK_D         = ''; // paste shift-d-00h-09h webhook URL here
 const SLACK_WEBHOOK_E         = ''; // paste shift-e-09h-18h webhook URL here
-const SLACK_BOT_TOKEN         = ''; // xoxb-... bot token (OAuth, files:write + chat:write scope)
+const SLACK_BOT_TOKEN         = 'xoxb-...'; // xoxb-... bot token (OAuth, files:write + chat:write scope)
 const SLACK_CHANNEL_A         = ''; // channel ID for shift-a-15h-00h  (right-click channel → Copy link → last segment)
 const SLACK_CHANNEL_D         = ''; // channel ID for shift-d-00h-09h
 const SLACK_CHANNEL_E         = ''; // channel ID for shift-e-09h-18h
 const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
 const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
-const ATTENDANCE_SHEET        = 'Attendance-May-2026'; // update each month
-const SCHEDULE_SHEET          = 'Schedule May_26';     // update each month
+const ATTENDANCE_SHEET        = 'Attendance-June-2026'; // update each month
+const SCHEDULE_SHEET          = 'Schedule Jun_26';     // update each month
 const NOTIFY_EMAIL            = Session.getActiveUser().getEmail();
+const POLICY_SPREADSHEET_ID = '1W1cVlJmq_JomZRhROHudWiFQsX_B66-OornRVBx-3RQ';
+const POLICY_SHEET_NAME     = 'Policy compliance-2026'; // adjust if your sheet is named differently
 
 // ═══════════════════════════════════════════════
 //  MASTER ENTRY POINT — set trigger on this only
@@ -667,9 +669,6 @@ function firebasePut(jsonStr) {
 //
 //  Run createPolicyTrigger() once to install the 12AM–1AM daily trigger.
 // ═══════════════════════════════════════════════
-
-const POLICY_SPREADSHEET_ID = '1W1cVlJmq_JomZRhROHudWiFQsX_B66-OornRVBx-3RQ';
-const POLICY_SHEET_NAME     = 'All records'; // adjust if your sheet is named differently
 
 function dailySyncPolicy() {
   var startTime = new Date();
