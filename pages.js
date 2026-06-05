@@ -127,8 +127,8 @@ function _getUserGender(u) {
 // ─────────────────────────────────────────────
 
 const ROLE_SORT_ORDER = {
-  'Agent Training Manager':   0,
-  'Agent Training Assistant': 1,
+  'Training Manager':         0,
+  'Training Assistant':       1,
   'Data Analyst Leader':      2,
   'Data Analyst Supervisor':  3,
   'Sr Data Supervisor':       4,
@@ -3074,7 +3074,7 @@ function renderStaffRows(users, displayDates) {
 }
 
 var _STAFF_SORT_RANK = {
-  'Agent Training Manager':1,'Agent Training Assistant':2,
+  'Training Manager':1,'Training Assistant':2,
   'Data Analyst Leader':3,'Data Analyst Supervisor':4,
   'Sr Data Supervisor':5,'Data Supervisor':6,
   'Sr Data Analyst':7,'Data Analyst':8
