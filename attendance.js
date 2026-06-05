@@ -330,8 +330,9 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 
   // Users on this shift in this week (exclude training/admin roles)
   const shiftUsers = state.users.filter(u => {
-    var _rr = (_resolveRole(u.role || '') || '').toLowerCase();
-    if (_rr.includes('training') || (ROLES[_resolveRole(u.role)] || {}).level >= 4) return false;
+    var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
+    var _rr = (_resolveRole(_role) || _role).toLowerCase();
+    if (_rr.includes('training') || (ROLES[_resolveRole(_role)] || {}).level >= 3) return false;
     return weekDates.some(dk => {
       const s = _getUserShiftOnDate(u, dk);
       return s && s.startsWith && (s === currentShift || s.startsWith(currentShift));
