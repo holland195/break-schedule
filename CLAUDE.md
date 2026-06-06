@@ -66,6 +66,7 @@ Google Sheets → GAS dailySync() [6AM] → Firebase Realtime DB
 | **`force=true` for resets** | `_clearAutoBreaksFromWeek(sun, shifts, force=true)` required in `saveBreakSplits`/`resetBreakSplit` — otherwise `allAlreadyAssigned` guard fires and 0 breaks are assigned. |
 | **`STAFF_INFO_DB` authoritative** | Hardcoded roster in `data.js`; its `role` field always overwrites Firebase `staffInfo` on every load. |
 | **GAS role filter** | `syncLogbook` uses `indexOf('analyst supervisor')` — NOT `indexOf('supervisor')` — to avoid excluding `Data Supervisor` (analyst-tier). |
+| **Branch management** | Before adding any new features or fix bugs, always work on a new git branch. Never commit directly on main. Bug branches must follow naming convention bug/[description], feature branches follow feature/[description]. 
 
 ## Additional Documentation
 
