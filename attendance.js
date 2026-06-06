@@ -285,6 +285,7 @@ function _getLogbookConflicts(userId, weekDates) {
 // ═══════════════════════════════════════════════
 function renderAttendance() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
+  _installAttendKbd();
 
   // Training role owns its entire attendance page (log + report tabs)
   if (isTraining(currentUser)) {
@@ -328,11 +329,15 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   const weekDates = _getAttendanceWeek();
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Users in this week (exclude leaders, supervisors, training, admin — level >= 2)
+  // Users on this shift in this week (exclude leaders, supervisors, training, admin — level >= 2; exclude empty-role)
   const shiftUsers = state.users.filter(u => {
     var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
+    if (!_role) return false;
     if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
-    return true;
+    return weekDates.some(function(dk) {
+      var _s = _getUserShiftOnDate(u, dk);
+      return _s && _s === currentShift;
+    });
   }).sort((a, b) => (a.team || '').localeCompare(b.team || '', undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
 
   // Week picker: all available sundays
@@ -474,13 +479,13 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     const stickyName = 'position:sticky;left:0;z-index:2;background:var(--bg);';
     const stickyUser = 'position:sticky;left:170px;z-index:2;background:var(--bg);border-right:2px solid var(--border);';
     return `<tr>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyName}">
+      <td style="padding:5px 8px;white-space:nowrap;${stickyName}cursor:pointer;" onclick="copyAgentInfo('${u.username}','${u.name.replace(/'/g,"\\'")}')">
         <div style="font-weight:600;font-size:12px;">${u.name}</div>
         <div style="font-size:10px;color:var(--text3);">${u.team || '—'} · <span class="role-tag ${roleInfo.tag}" style="font-size:9px;">${roleInfo.label}</span></div>
         ${logConflicts.length > 0 ? `<div style="font-size:9px;color:var(--err);margin-top:2px;">⚠ ${logConflicts.length} conflict${logConflicts.length > 1 ? 's' : ''}: ${logConflicts.map(c => c.dk).join(', ')}</div>` : ''}
         ${halfDayCells.size > 0 ? `<div style="font-size:9px;color:#3b82f6;margin-top:2px;">½ Half-day: ${[...halfDayCells].join(', ')}</div>` : ''}
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyUser}">
+      <td style="padding:5px 8px;white-space:nowrap;${stickyUser}cursor:pointer;" onclick="copyAgentInfo('${u.username}','${u.name.replace(/'/g,"\\'")}')">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);">${u.username}</div>
       </td>
       ${cells}
@@ -688,6 +693,28 @@ function _addDays(dateKey, n) {
   const dt = new Date(2026, parseInt(m) - 1, parseInt(d));
   dt.setDate(dt.getDate() + n);
   return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}`;
+}
+
+function copyAgentInfo(username, name) {
+  navigator.clipboard.writeText(username + ' | ' + name).then(function() {
+    toast('Copied: ' + username, 'ok');
+  }).catch(function() {
+    toast(username + ' | ' + name, 'ok');
+  });
+}
+
+var _attendKbdInstalled = false;
+function _installAttendKbd() {
+  if (_attendKbdInstalled) return;
+  _attendKbdInstalled = true;
+  document.addEventListener('keydown', function(e) {
+    var modal = document.getElementById('modal-attend');
+    if (!modal || !modal.classList.contains('show')) return;
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      saveAttendance();
+    }
+  });
 }
 
 // ── Dashboard widget: today's late/early summary ──
