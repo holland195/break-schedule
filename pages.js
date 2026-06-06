@@ -1150,9 +1150,13 @@ function _clearAutoBreaksFromWeek(fromSunday, shifts, force = false) {
 }
 
 function _renderArrangeAssignTab(weekRange) {
-  const allShiftTeams = [...new Set(state.users.filter(u =>
-    weekRange.some(d => _getSched(u.username, d) === currentShift)
-  ).map(u => u.team))].sort((a, b) =>
+  // Only include analyst-tier roles (level 0–1) in teams for manual assign
+  const allShiftTeams = [...new Set(state.users.filter(u => {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    if (_ul == null || _ul >= 2) return false;
+    return weekRange.some(d => _getSched(u.username, d) === currentShift);
+  }).map(u => u.team))].sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   );
 
@@ -1167,12 +1171,17 @@ function _renderArrangeAssignTab(weekRange) {
   };
   var _validPosLabels = Object.keys(_posAbbr);
 
-  // Map each team → unique role labels among its members
+  // Map each team → unique analyst-tier role labels among its members
   var _teamRoles = {};
   allShiftTeams.forEach(function(t) {
     var seen = {};
     var labels = [];
-    state.users.filter(function(u) { return u.team === t; }).forEach(function(u) {
+    state.users.filter(function(u) {
+      if (u.team !== t) return false;
+      var _ur2 = u.role || (state.staffInfo[u.username]||{}).role || '';
+      var _ul2 = (ROLES[_resolveRole(_ur2)||_ur2] || {}).level;
+      return _ul2 != null && _ul2 < 2;
+    }).forEach(function(u) {
       var lbl = getRoleInfo(u.role).label;
       if (_validPosLabels.includes(lbl) && !seen[lbl]) { seen[lbl] = true; labels.push(lbl); }
     });
