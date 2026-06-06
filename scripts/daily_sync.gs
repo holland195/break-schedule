@@ -304,7 +304,7 @@ function runSyncSchedule() {
 // ═══════════════════════════════════════════════
 //  LOGBOOK SYNC
 //  Reads clock-in (Start) and clock-out (End) per employee per day.
-//  Writes to state.attendance[uid_dateKey] so the web app can
+//  Writes to state.logbook[uid_dateKey] so the web app can
 //  auto-calculate Late / Early. Row/col layout is FULLY DYNAMIC.
 // ═══════════════════════════════════════════════
 function syncLogbook(current, log) {
@@ -417,7 +417,7 @@ function syncLogbook(current, log) {
     log('[Logbook] staffInfo fallback: ' + Object.keys(usernameToUid).length + ' entries');
   }
 
-  if (!current.attendance) current.attendance = {};
+  if (!current.logbook) current.logbook = {};
   const now = Date.now();
 
   for (var ri = dataStartRow; ri < allData.length; ri++) {
@@ -474,10 +474,10 @@ function syncLogbook(current, log) {
 
       const key = uid + '_' + col.dateKey;
       // Only write if no manual record exists (note !== 'auto'), preserving leader overrides
-      const existing = current.attendance[key];
+      const existing = current.logbook[key];
       if (existing && existing.note !== 'auto') return;
 
-      current.attendance[key] = {
+      current.logbook[key] = {
         start: startStr || '',
         end:   endStr   || '',
         note:  'auto',
@@ -988,7 +988,7 @@ function testFirebaseConnection() {
     Logger.log('  Keys: ' + Object.keys(parsed).join(', '));
     Logger.log('  Users: ' + (parsed.users ? parsed.users.length : 0));
     Logger.log('  StaffInfo entries: ' + Object.keys(parsed.staffInfo || {}).length);
-    Logger.log('  Attendance records: ' + Object.keys(parsed.attendance || {}).length);
+    Logger.log('  Logbook records: ' + Object.keys(parsed.logbook || {}).length);
   } catch (e) {
     Logger.log('✗ Connection failed: ' + e.message);
   }
@@ -1467,13 +1467,13 @@ function syncAttendanceWriteback() {
 
     var raw = firebaseGet();
     var current = raw ? JSON.parse(raw) : {};
-    var attendance = current.attendance || {};
+    var logbook = current.logbook || {};
 
     // Only process today's manual edits (note !== 'auto', not deleted)
     var _today = new Date();
     var todayDk = String(_today.getDate()).padStart(2,'0') + '/' + String(_today.getMonth()+1).padStart(2,'0');
-    var manualKeys = Object.keys(attendance).filter(function(key) {
-      var rec = attendance[key];
+    var manualKeys = Object.keys(logbook).filter(function(key) {
+      var rec = logbook[key];
       if (!rec || rec._deleted || rec.note === 'auto' || rec.by == null) return false;
       return key.substring(key.lastIndexOf('_') + 1) === todayDk;
     });
@@ -1603,7 +1603,7 @@ function syncAttendanceWriteback() {
 
       // Write each manual edit
       keysByMonth[monthName].forEach(function(key) {
-        var rec = attendance[key];
+        var rec = logbook[key];
         var sep = key.lastIndexOf('_');
         var uid = parseInt(key.substring(0, sep), 10);
         var dateKey = key.substring(sep + 1);

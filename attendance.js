@@ -116,7 +116,7 @@ function _getUserShiftOnDate(u, dateKey) {
 // Calculate late/early for a given attendance record
 // Returns { late: null|string, early: null|string, lateMin: 0, earlyMin: 0 }
 function calcLateEarly(uid, dateKey) {
-  const rec = DB.getAttendance(uid, dateKey);
+  const rec = DB.getLogbook(uid, dateKey);
   if (!rec) return { late: null, early: null, lateMin: 0, earlyMin: 0 };
 
   const u = state.users.find(x => x.id === uid);
@@ -235,7 +235,7 @@ function _getAllAttendanceSundays() {
       if (/\d{2}\/\d{2}/.test(dk) && getWkDay(dk) === 'Sun') sundays.add(dk);
     });
   });
-  Object.keys(state.attendance || {}).forEach(key => {
+  Object.keys(state.logbook || {}).forEach(key => {
     const dateKey = key.split('_')[1];
     if (dateKey && getWkDay(dateKey) === 'Sun') sundays.add(dateKey);
   });
@@ -260,7 +260,7 @@ function _getLogbookConflicts(userId, weekDates) {
   const u = state.users.find(x => x.id === userId);
   if (!u) return conflicts;
   weekDates.forEach(dk => {
-    const rec = DB.getAttendance(userId, dk);
+    const rec = DB.getLogbook(userId, dk);
     if (!rec) return;
     if (rec.note === 'auto') return;
     const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
@@ -328,16 +328,11 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   const weekDates = _getAttendanceWeek();
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Users on this shift in this week (exclude leaders, supervisors, training, admin)
+  // Users in this week (exclude leaders, supervisors, training, admin — level >= 2)
   const shiftUsers = state.users.filter(u => {
     var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
-    var _rr = (_resolveRole(_role) || _role).toLowerCase();
-    if (_rr.includes('training') || _rr.includes('leader') || _rr.includes('supervisor') ||
-        (ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
-    return weekDates.some(dk => {
-      const s = _getUserShiftOnDate(u, dk);
-      return s && s.startsWith && (s === currentShift || s.startsWith(currentShift));
-    });
+    if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
+    return true;
   }).sort((a, b) => (a.team || '').localeCompare(b.team || '', undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
 
   // Week picker: all available sundays
@@ -378,7 +373,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       if (!shift || !shift.startsWith(currentShift.charAt(0))) {
         return `<td style="background:var(--bg3);text-align:center;color:var(--text3);font-size:11px;">—</td>`;
       }
-      const rec = DB.getAttendance(u.id, dk);
+      const rec = DB.getLogbook(u.id, dk);
       const { late, early, lateMin, earlyMin } = calcLateEarly(u.id, dk);
       const hasData = rec && (rec.start || rec.end);
       const isLate = lateMin > 0;
@@ -568,7 +563,7 @@ function openAttendanceModal(uid, dateKey) {
   if (!isLeader(currentUser)) return;
   _attendModal = { uid, dateKey };
   const u = state.users.find(x => x.id === uid);
-  const rec = DB.getAttendance(uid, dateKey) || {};
+  const rec = DB.getLogbook(uid, dateKey) || {};
   const shift = _getUserShiftOnDate(u, dateKey);
   const def = SHIFT_DEFAULTS[shift] || {};
 
@@ -662,9 +657,9 @@ if (start && end) {
 }
   if (!start && !end && !note) {
     // Write tombstone so other browsers know this was deleted
-    DB.setAttendance(uid, dateKey, { _deleted: true, at: Date.now() });
+    DB.setLogbook(uid, dateKey, { _deleted: true, at: Date.now() });
   } else {
-    DB.setAttendance(uid, dateKey, { start, end, note, by: currentUser?.id, byName: currentUser?.name, at: Date.now() });
+    DB.setLogbook(uid, dateKey, { start, end, note, by: currentUser?.id, byName: currentUser?.name, at: Date.now() });
   }
   closeModal('modal-attend');
   await syncWrite();
@@ -675,7 +670,7 @@ if (start && end) {
 function deleteAttendance() {
   const { uid, dateKey } = _attendModal;
   // Write tombstone so sync can propagate the deletion to other browsers
-  DB.setAttendance(uid, dateKey, { _deleted: true, at: Date.now() });
+  DB.setLogbook(uid, dateKey, { _deleted: true, at: Date.now() });
   closeModal('modal-attend');
   syncWrite();
   toast('Cleared', 'ok');
@@ -714,7 +709,7 @@ function renderAttendanceWidget() {
 
   if (lateList.length === 0 && earlyList.length === 0) {
     // Check if anyone has attendance recorded today at all
-    const hasAny = allUsers.some(u => DB.getAttendance(u.id, today));
+    const hasAny = allUsers.some(u => DB.getLogbook(u.id, today));
     if (!hasAny) return `
       <div style="font-size:11px;color:var(--text3);padding:8px 0;">
         No attendance recorded for today yet.

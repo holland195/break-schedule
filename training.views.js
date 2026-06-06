@@ -627,7 +627,7 @@ function renderAttendanceTraining() {
 
       // Off day
       if (!shift||shift==='0'||!SHIFT_DEFAULTS[shift]) {
-        const rec = DB.getAttendance(u.id, dk);
+        const rec = DB.getLogbook(u.id, dk);
         return `<td style="text-align:center;padding:2px 1px;
           ${isWknd?'background:var(--bg4);opacity:.65;':''}
           ${isToday?'outline:1px solid var(--accent);outline-offset:-1px;':''}
@@ -638,7 +638,7 @@ function renderAttendanceTraining() {
         </td>`;
       }
 
-      const rec = DB.getAttendance(u.id, dk);
+      const rec = DB.getLogbook(u.id, dk);
       const {lateMin,earlyMin} = calcLateEarly(u.id, dk);
       const hasRec = rec&&(rec.start||rec.end);
       const isLate = lateMin>0, isEarly = earlyMin>0;
