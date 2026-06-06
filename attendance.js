@@ -419,8 +419,6 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     ? shiftUsers.filter(u => _getLogbookConflicts(u.id, displayDates).length > 0)
     : shiftUsers;
 
-  const isMonthView = attendanceLogView === 'month';
-
   const rows = displayUsers.map(u => {
     const logConflicts = _getLogbookConflicts(u.id, displayDates);
     const halfDayCells = _getHalfDayCellSet(u, displayDates);
@@ -502,26 +500,9 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
         window._attHighlight.uid === u.id &&
         window._attHighlight.dateKey === dk;
 
-      if (isMonthView) {
-        // Compact month-view cell: start + end on two lines, no delta rows
-        return `<td id="att-cell-${u.username}-${dk}"
-          style="padding:2px 3px;background:${bg};cursor:pointer;min-width:38px;text-align:center;vertical-align:top;
-            ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
-          onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
-          <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
-            color:${isLate ? 'var(--err)' : (startTxt ? 'var(--ok)' : 'var(--text3)')};white-space:nowrap;">
-            ${startTxt || '—'}
-          </div>
-          <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
-            color:${isEarly ? 'var(--warn)' : (endTxt ? 'var(--ok)' : 'var(--text3)')};white-space:nowrap;">
-            ${endTxt || '—'}
-          </div>
-        </td>`;
-      }
-
       const conflictTitle = logConflict ? `⚠ Time logged on ${logConflict.reason} (${logConflict.code})` : '';
       return `<td id="att-cell-${u.username}-${dk}"
-        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:110px;text-align:center;vertical-align:top;
+        style="padding:3px 4px;background:${bg};cursor:pointer;min-width:90px;text-align:center;vertical-align:top;
           ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
         onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
         ${row1}
@@ -562,15 +543,11 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     </tr>`;
   }).join('');
 
+  const isMonthView = attendanceLogView === 'month';
   const dayHeaders = displayDates.map((dk, i) => {
     const isToday = dk === _todayDateKey();
-    if (isMonthView) {
-      return `<th style="text-align:center;padding:3px 2px;min-width:38px;background:${isToday ? 'var(--accent)' : 'var(--bg4)'};color:${isToday ? '#fff' : 'var(--text2)'};font-size:10px;">
-        <div style="font-weight:400;">${dk}</div>
-      </th>`;
-    }
-    return `<th style="text-align:center;padding:4px 6px;min-width:68px;background:${isToday ? 'var(--accent)' : 'var(--bg4)'};color:${isToday ? '#fff' : 'var(--text2)'};font-size:11px;">
-      <div>${getWkDay(dk)}</div>
+    return `<th style="text-align:center;padding:4px 6px;min-width:90px;background:${isToday ? 'var(--accent)' : 'var(--bg4)'};color:${isToday ? '#fff' : 'var(--text2)'};font-size:11px;">
+      ${isMonthView ? '' : `<div>${getWkDay(dk)}</div>`}
       <div style="font-weight:400;font-size:10px;">${dk}</div>
     </th>`;
   }).join('');
