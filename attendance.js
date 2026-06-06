@@ -172,9 +172,12 @@ function calcLateEarly(uid, dateKey) {
 }
 
 // ── State for attendance page ──
-let attendanceMonday = null;          // null = current week
+let attendanceMonday = null;          // null = current week (Mon anchor)
 let attendanceTab = 'log';            // 'log' | 'report'
 let attendanceConflictFilter = false; // show conflicts-only rows
+let attendanceLogView = 'week';       // 'week' | 'month'
+let _attLogMonth = new Date().getMonth() + 1; // 1–12
+let _attLogYear  = new Date().getFullYear();
 
 // Returns a Set of dateKeys where the user has half-day (HD1/HD2) monthly attendance
 function _getHalfDayCellSet(u, weekDates) {
@@ -194,65 +197,72 @@ function _getHalfDayCellSet(u, weekDates) {
 
 function _getAttendanceWeek() {
   if (attendanceMonday) return getWeekRange(attendanceMonday);
-  // Week is Sun–Sat (not Mon–Sun like break schedule)
+  // Week is Mon–Sun
   const now = new Date();
-  const day = now.getDay(); // 0=Sun
-  const sun = new Date(now); sun.setDate(now.getDate() - day);
+  const dow = now.getDay(); // 0=Sun
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
   const dates = [];
   for (let i = 0; i < 7; i++) {
-    const dt = new Date(sun); dt.setDate(sun.getDate() + i);
+    const dt = new Date(mon); dt.setDate(mon.getDate() + i);
     dates.push(`${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}`);
   }
   return dates;
 }
 
-function _getAttendanceSunday(weekDates) {
-  return weekDates[0]; // first date = Sunday
+function _getAttendanceMonday(weekDates) {
+  return weekDates[0]; // first date = Monday
 }
 
-function _getAllAttendanceSundays() {
-  // Generate 8 weeks back and 4 weeks forward from today
-  // This ensures navigation always works regardless of schedule data
-  const sundays = new Set();
+function _getAllAttendanceMondayss() {
+  // Generate 8 weeks back and 4 weeks forward from today (Mon anchors)
+  const mondays = new Set();
 
-  // Start from 8 weeks ago Sunday
   const now = new Date();
-  const day = now.getDay(); // 0=Sun
-  const thisSun = new Date(now);
-  thisSun.setDate(now.getDate() - day);
-  thisSun.setHours(0, 0, 0, 0);
+  const dow = now.getDay(); // 0=Sun
+  const thisMon = new Date(now);
+  thisMon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  thisMon.setHours(0, 0, 0, 0);
 
   for (let w = -8; w <= 4; w++) {
-    const dt = new Date(thisSun);
-    dt.setDate(thisSun.getDate() + w * 7);
+    const dt = new Date(thisMon);
+    dt.setDate(thisMon.getDate() + w * 7);
     const dk = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
-    sundays.add(dk);
+    mondays.add(dk);
   }
 
-  // Also add any Sundays found in schedule or attendance records
+  // Also add Mondays derived from schedule or logbook records
   Object.values(state.staffSchedule || {}).forEach(function(sc) {
     Object.keys(sc || {}).forEach(function(dk) {
-      if (/\d{2}\/\d{2}/.test(dk) && getWkDay(dk) === 'Sun') sundays.add(dk);
+      if (!/\d{2}\/\d{2}/.test(dk)) return;
+      var parts = dk.split('/');
+      var dt = new Date(new Date().getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      var _d = dt.getDay();
+      dt.setDate(dt.getDate() - (_d === 0 ? 6 : _d - 1));
+      mondays.add(String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0'));
     });
   });
   Object.keys(state.logbook || {}).forEach(key => {
     const dateKey = key.split('_')[1];
-    if (dateKey && getWkDay(dateKey) === 'Sun') sundays.add(dateKey);
+    if (!dateKey || !/\d{2}\/\d{2}/.test(dateKey)) return;
+    var parts = dateKey.split('/');
+    var dt = new Date(new Date().getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    var _d = dt.getDay();
+    dt.setDate(dt.getDate() - (_d === 0 ? 6 : _d - 1));
+    mondays.add(String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0'));
   });
 
-  // Sort chronologically using full date comparison
   const toDate = dk => {
     const [d, m] = dk.split('/');
     const now = new Date();
     const y = now.getFullYear();
-    // Handle year boundary: if month is more than 6 months ahead, it's last year
     const mInt = parseInt(m);
     const curM = now.getMonth() + 1;
     const yr = mInt - curM > 6 ? y - 1 : mInt - curM < -6 ? y + 1 : y;
     return new Date(yr, mInt - 1, parseInt(d));
   };
 
-  return [...sundays].sort((a, b) => toDate(a) - toDate(b));
+  return [...mondays].sort((a, b) => toDate(a) - toDate(b));
 }
 
 function _getLogbookConflicts(userId, weekDates) {
@@ -327,53 +337,89 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     return '<div class="empty">Loading…</div>';
   }
   const weekDates = _getAttendanceWeek();
-  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Users on this shift in this week (exclude leaders, supervisors, training, admin — level >= 2; exclude empty-role)
+  // Determine displayed dates: week view (7 days Mon–Sun) or month view (all dates in month)
+  var displayDates;
+  if (attendanceLogView === 'month') {
+    displayDates = _getAllDatesInMonth(_attLogYear, _attLogMonth);
+  } else {
+    displayDates = weekDates;
+  }
+
+  // Users on this shift in displayDates (exclude leaders, supervisors, training, admin — level >= 2; exclude empty-role)
   const shiftUsers = state.users.filter(u => {
     var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
     if (!_role) return false;
     if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
-    return weekDates.some(function(dk) {
+    return displayDates.some(function(dk) {
       var _s = _getUserShiftOnDate(u, dk);
       return _s && _s === currentShift;
     });
   }).sort((a, b) => (a.team || '').localeCompare(b.team || '', undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
 
-  // Week picker: all available sundays
-  const allSundays = _getAllAttendanceSundays();
-  const curSun = weekDates[0];
-  const curIdx = allSundays.indexOf(curSun);
-  const prevSun = curIdx > 0 ? allSundays[curIdx - 1] : null;
-  const nextSun = curIdx < allSundays.length - 1 ? allSundays[curIdx + 1] : null;
+  // Week picker: all available Mondays
+  const allMondays = _getAllAttendanceMondayss();
+  const curMon = weekDates[0];
+  const curIdx = allMondays.indexOf(curMon);
+  const prevMon = curIdx > 0 ? allMondays[curIdx - 1] : null;
+  const nextMon = curIdx < allMondays.length - 1 ? allMondays[curIdx + 1] : null;
   const btnStyle = (active) => `padding:4px 12px;border-radius:var(--r);
     border:1px solid var(--border2);background:var(--bg2);font-size:13px;
     cursor:${active ? 'pointer' : 'default'};color:${active ? 'var(--text)' : 'var(--text3)'}`;
 
   const weekPicker = `
     <div style="display:flex;align-items:center;gap:6px;">
-      <button style="${btnStyle(!!prevSun)}"
-        ${prevSun ? `onclick="attendanceMonday='${prevSun}';nav('attendance')"` : ''}>‹</button>
+      <button style="${btnStyle(!!prevMon)}"
+        ${prevMon ? `onclick="attendanceMonday='${prevMon}';nav('attendance')"` : ''}>‹</button>
       <select class="login-select" style="font-size:12px;padding:4px 8px;min-width:140px;"
         onchange="attendanceMonday=this.value;nav('attendance')">
-        ${allSundays.map(s =>
-    `<option value="${s}" ${s === curSun ? 'selected' : ''}>${s} – ${_addDays(s, 6)}</option>`
+        ${allMondays.map(s =>
+    `<option value="${s}" ${s === curMon ? 'selected' : ''}>${s} – ${_addDays(s, 6)}</option>`
   ).join('')}
       </select>
-      <button style="${btnStyle(!!nextSun)}"
-        ${nextSun ? `onclick="attendanceMonday='${nextSun}';nav('attendance')"` : ''}>›</button>
+      <button style="${btnStyle(!!nextMon)}"
+        ${nextMon ? `onclick="attendanceMonday='${nextMon}';nav('attendance')"` : ''}>›</button>
     </div>`;
+
+  // Month picker (used when attendanceLogView === 'month')
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthPicker = `
+    <div style="display:flex;align-items:center;gap:6px;">
+      <select class="login-select" style="font-size:12px;padding:4px 8px;"
+        onchange="_attLogMonth=+this.value;nav('attendance')">
+        ${monthNames.map((mn, i) =>
+    `<option value="${i + 1}" ${i + 1 === _attLogMonth ? 'selected' : ''}>${mn}</option>`
+  ).join('')}
+      </select>
+      <select class="login-select" style="font-size:12px;padding:4px 8px;"
+        onchange="_attLogYear=+this.value;nav('attendance')">
+        ${[_attLogYear - 1, _attLogYear, _attLogYear + 1].map(y =>
+    `<option value="${y}" ${y === _attLogYear ? 'selected' : ''}>${y}</option>`
+  ).join('')}
+      </select>
+    </div>`;
+
+  const viewToggle = `<button
+    onclick="attendanceLogView=attendanceLogView==='week'?'month':'week';nav('attendance')"
+    style="padding:4px 12px;border-radius:var(--r);font-size:12px;cursor:pointer;
+      border:1px solid ${attendanceLogView === 'month' ? 'var(--accent)' : 'var(--border2)'};
+      background:${attendanceLogView === 'month' ? 'rgba(31,102,241,.1)' : 'var(--bg2)'};
+      color:${attendanceLogView === 'month' ? 'var(--accent)' : 'var(--text)'};">
+    📅 ${attendanceLogView === 'month' ? 'Month' : 'Week'}
+  </button>`;
 
   // Build rows
   const displayUsers = attendanceConflictFilter
-    ? shiftUsers.filter(u => _getLogbookConflicts(u.id, weekDates).length > 0)
+    ? shiftUsers.filter(u => _getLogbookConflicts(u.id, displayDates).length > 0)
     : shiftUsers;
 
-  const rows = displayUsers.map(u => {
-    const logConflicts = _getLogbookConflicts(u.id, weekDates);
-    const halfDayCells = _getHalfDayCellSet(u, weekDates);
+  const isMonthView = attendanceLogView === 'month';
 
-    const cells = weekDates.map((dk, di) => {
+  const rows = displayUsers.map(u => {
+    const logConflicts = _getLogbookConflicts(u.id, displayDates);
+    const halfDayCells = _getHalfDayCellSet(u, displayDates);
+
+    const cells = displayDates.map((dk, di) => {
       const shift = _getUserShiftOnDate(u, dk);
       if (!shift || !shift.startsWith(currentShift.charAt(0))) {
         return `<td style="background:var(--bg3);text-align:center;color:var(--text3);font-size:11px;">—</td>`;
@@ -450,6 +496,23 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
         window._attHighlight.uid === u.id &&
         window._attHighlight.dateKey === dk;
 
+      if (isMonthView) {
+        // Compact month-view cell: start + end on two lines, no delta rows
+        return `<td id="att-cell-${u.username}-${dk}"
+          style="padding:2px 3px;background:${bg};cursor:pointer;min-width:38px;text-align:center;vertical-align:top;
+            ${isHighlighted ? 'outline:2.5px solid var(--err);outline-offset:-2px;animation:attFlash 1s ease 3;' : ''}"
+          onclick="openAttendanceModal(${u.id},'${dk}');window._attHighlight=null;">
+          <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
+            color:${isLate ? 'var(--err)' : (startTxt ? 'var(--ok)' : 'var(--text3)')};white-space:nowrap;">
+            ${startTxt || '—'}
+          </div>
+          <div style="font-size:9px;font-family:'IBM Plex Mono',monospace;
+            color:${isEarly ? 'var(--warn)' : (endTxt ? 'var(--ok)' : 'var(--text3)')};white-space:nowrap;">
+            ${endTxt || '—'}
+          </div>
+        </td>`;
+      }
+
       const conflictTitle = logConflict ? `⚠ Time logged on ${logConflict.reason} (${logConflict.code})` : '';
       return `<td id="att-cell-${u.username}-${dk}"
         style="padding:3px 4px;background:${bg};cursor:pointer;min-width:110px;text-align:center;vertical-align:top;
@@ -465,7 +528,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 
     // Row summary: count late + early days + conflicts
     let lateDays = 0, earlyDays = 0;
-    weekDates.forEach(dk => {
+    displayDates.forEach(dk => {
       const { lateMin, earlyMin } = calcLateEarly(u.id, dk);
       if (lateMin > 0) lateDays++;
       if (earlyMin > 0) earlyDays++;
@@ -493,10 +556,15 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     </tr>`;
   }).join('');
 
-  const dayHeaders = weekDates.map((dk, i) => {
+  const dayHeaders = displayDates.map((dk, i) => {
     const isToday = dk === _todayDateKey();
+    if (isMonthView) {
+      return `<th style="text-align:center;padding:3px 2px;min-width:38px;background:${isToday ? 'var(--accent)' : 'var(--bg4)'};color:${isToday ? '#fff' : 'var(--text2)'};font-size:10px;">
+        <div style="font-weight:400;">${dk}</div>
+      </th>`;
+    }
     return `<th style="text-align:center;padding:4px 6px;min-width:68px;background:${isToday ? 'var(--accent)' : 'var(--bg4)'};color:${isToday ? '#fff' : 'var(--text2)'};font-size:11px;">
-      <div>${dayLabels[i]}</div>
+      <div>${getWkDay(dk)}</div>
       <div style="font-weight:400;font-size:10px;">${dk}</div>
     </th>`;
   }).join('');
@@ -505,15 +573,16 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 <div class="page-header">
   <div>
     <div class="page-title">⏱ Logbook & Reports</div>
-    <div class="page-sub">Track late arrivals and early departures · Shift ${currentShift} · Week Sun–Sat</div>
+    <div class="page-sub">Track late arrivals and early departures · Shift ${currentShift} · ${isMonthView ? 'Month view' : 'Week Mon–Sun'}</div>
   </div>
 </div>
 ${tabs}
 
-<!-- Week picker -->
+<!-- Controls -->
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-  <label style="font-size:12px;color:var(--text2);">WEEK:</label>
-  ${weekPicker}
+  ${viewToggle}
+  <label style="font-size:12px;color:var(--text2);">${isMonthView ? 'MONTH:' : 'WEEK:'}</label>
+  ${isMonthView ? monthPicker : weekPicker}
   <span style="font-size:11px;color:var(--text3);">${attendanceConflictFilter ? displayUsers.length : shiftUsers.length} staff on Shift ${currentShift}</span>
   <button onclick="attendanceConflictFilter=!attendanceConflictFilter;nav('attendance')"
     style="padding:4px 12px;border-radius:var(--r);font-size:12px;cursor:pointer;
@@ -535,7 +604,7 @@ ${tabs}
 
 ${(() => {
       const allConflicts = shiftUsers.flatMap(u =>
-        _getLogbookConflicts(u.id, weekDates).map(c => ({ ...c, name: u.name }))
+        _getLogbookConflicts(u.id, displayDates).map(c => ({ ...c, name: u.name }))
       );
       if (!allConflicts.length) return '';
       return `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
