@@ -466,7 +466,9 @@ function syncLogbook(current, log) {
                    .find(function(u){ return u && u.id === uid; });
       if (_mu2) _userRole = String(_mu2.role || '').toLowerCase();
     }
-    if (_userRole.indexOf('leader') >= 0 || _userRole.indexOf('supervisor') >= 0 ||
+    // Exclude leadership roles only — 'analyst supervisor' = DA Supervisor (level 2 leader),
+    // NOT 'supervisor' which would also catch regular Data Supervisor (analyst-tier, level 0).
+    if (_userRole.indexOf('leader') >= 0 || _userRole.indexOf('analyst supervisor') >= 0 ||
         _userRole.indexOf('training') >= 0 || _userRole.indexOf('manager') >= 0 ||
         _userRole.indexOf('admin') >= 0) {
       if (resolvedUser === 'hai.cao') log('[Logbook][debug hai.cao] role-filtered: role="' + _userRole + '"');
