@@ -89,6 +89,10 @@ function dailySync() {
 // ═══════════════════════════════════════════════
 function syncAttendance(current, log) {
   const result = { imported: 0, skipped: 0, dateCols: 0 };
+  if (current.gasConfig && current.gasConfig.syncAttendance === false) {
+    log('[Attendance] Skipped (disabled via GAS Function Controls in web app).');
+    return result;
+  }
   let ss;
   try {
     ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -181,6 +185,10 @@ function syncAttendance(current, log) {
 function syncSchedule(current, log) {
   if (typeof log !== 'function') log = function(m) { console.log(m); };
   const result = { updated: 0, dateCols: 0 };
+  if (current.gasConfig && current.gasConfig.syncSchedule === false) {
+    log('[Schedule] Skipped (disabled via GAS Function Controls in web app).');
+    return result;
+  }
   let ss;
   try {
     ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -319,6 +327,10 @@ function syncLogbook(current, log, monthOverride) {
     _selfFetched = true;
   }
   var result = { imported: 0, skipped: 0, dateCols: 0 };
+  if (current.gasConfig && current.gasConfig.syncLogbook === false) {
+    log('[Logbook] Skipped (disabled via GAS Function Controls in web app).');
+    return result;
+  }
 
   var MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December'];
@@ -780,6 +792,10 @@ function dailySyncPolicy() {
 
 function syncPolicy(current, log) {
   var result = { written: 0, skipped: 0, total: 0 };
+  if (current.gasConfig && current.gasConfig.syncPolicy === false) {
+    log('[Policy] Skipped (disabled via GAS Function Controls in web app).');
+    return result;
+  }
 
   var ss;
   try { ss = SpreadsheetApp.openById(POLICY_SPREADSHEET_ID); }
@@ -1576,6 +1592,10 @@ function syncAttendanceWriteback() {
 
     var raw = firebaseGet();
     var current = raw ? JSON.parse(raw) : {};
+    if (current.gasConfig && current.gasConfig.syncAttendanceWriteback === false) {
+      addLog('[Writeback] Skipped (disabled via GAS Function Controls in web app).');
+      return;
+    }
     var logbook = current.logbook || {};
 
     // Only process today's manual edits (note !== 'auto', not deleted)
@@ -1780,6 +1800,11 @@ function syncMonthlyAttWriteback() {
     current = raw ? JSON.parse(raw) : {};
   } catch(e) {
     Logger.log('[MonthlyWriteback] Firebase fetch error: ' + e.message);
+    return;
+  }
+
+  if (current.gasConfig && current.gasConfig.syncMonthlyAttWriteback === false) {
+    Logger.log('[MonthlyWriteback] Skipped (disabled via GAS Function Controls in web app).');
     return;
   }
 

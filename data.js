@@ -321,6 +321,7 @@ if (!state.monthlyAttendance) state.monthlyAttendance = {};
 if (!state.breakSplits) state.breakSplits = {};
 if (!state.shiftConfig) state.shiftConfig = [];
 if (!state.staffSchedule) state.staffSchedule = {};
+if (!state.gasConfig) state.gasConfig = {};
 // No more SEED_USERS — users come only from schedule import
 
 // Always ensure system admin exists — password '1234', never forced to change

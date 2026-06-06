@@ -309,6 +309,10 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
     state.slackAutoPost = Object.assign({}, state.slackAutoPost || {}, remote.slackAutoPost);
   }
 
+  if (remote.gasConfig && typeof remote.gasConfig === 'object') {
+    state.gasConfig = Object.assign({}, state.gasConfig || {}, remote.gasConfig);
+  }
+
   // Shift config versioning: remote wins if newer
   if (remote.shiftConfig) {
     var localSCAt  = state._shiftConfigUpdatedAt || 0;
@@ -394,6 +398,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   staffInfo:         staffInfoCloud,
   policyCompliance:  state.policyCompliance || [],
   slackAutoPost:     state.slackAutoPost    || {},
+  gasConfig:         state.gasConfig        || {},
   shiftConfig:           state.shiftConfig          || [],
   _updated:          Date.now(),
   _breaksUpdatedAt:       state._breaksUpdatedAt       || Date.now(),
@@ -794,6 +799,34 @@ ${dbUrl ? `
   <div id="wipe-status" style="font-size:11px;color:var(--text3);margin-top:8px;min-height:16px;"></div>
 </div>
 
+<!-- GAS Function Controls -->
+<div class="card" style="max-width:620px;margin-top:0;">
+  <div class="card-title">⚙ GAS Function Controls</div>
+  <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7;">
+    Enable or disable individual Google Apps Script sync functions. Changes apply on the next scheduled run.
+    All functions are <b>ON</b> by default.
+  </div>
+  ${[
+    { key:'syncAttendance',         label:'Import Attendance',         dir:'Sheets → Firebase',  desc:'Daily 6AM — imports attendance codes from the Attendance sheet' },
+    { key:'syncSchedule',           label:'Import Schedule',           dir:'Sheets → Firebase',  desc:'Daily 6AM — imports staff shift schedule from the Schedule sheet' },
+    { key:'syncLogbook',            label:'Import Logbook',            dir:'Sheets → Firebase',  desc:'Daily 6AM — imports clock-in/out times from Logbook sheets' },
+    { key:'syncPolicy',             label:'Import Policy Violations',  dir:'Sheets → Firebase',  desc:'Daily 00:00 — imports policy violation records from the Policy sheet' },
+    { key:'syncAttendanceWriteback',label:'Writeback Logbook',         dir:'Firebase → Sheets',  desc:'3× daily (15:30 / 00:30 / 06:30) — writes manual logbook edits back to Logbook sheets' },
+    { key:'syncMonthlyAttWriteback',label:'Writeback Monthly Attendance',dir:'Firebase → Sheets',desc:'3× daily (15:30 / 00:30 / 06:30) — writes monthly attendance codes back to the Attendance sheet' },
+  ].map(function(f) {
+    var enabled = state.gasConfig[f.key] !== false;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="flex:1;padding-right:12px;">' +
+        '<div style="font-size:13px;font-weight:600;">' + f.label + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + f.dir + ' &nbsp;·&nbsp; ' + f.desc + '</div>' +
+      '</div>' +
+      '<button class="btn btn-sm' + (enabled ? ' btn-accent' : '') + '" ' +
+        'onclick="_toggleGasFunc(\'' + f.key + '\')" ' +
+        'style="min-width:46px;">' + (enabled ? 'ON' : 'OFF') + '</button>' +
+    '</div>';
+  }).join('')}
+</div>
+
 <!-- Danger zone -->
 <div class="card" style="max-width:620px;margin-top:0;border-color:var(--err);">
   <div class="card-title" style="color:var(--err);">⚠ Danger Zone</div>
@@ -836,6 +869,13 @@ async function saveSyncCfg() {
 function clearSyncCfg() {
   if (!confirm('Disconnect sync on this device?')) return;
   syncSaveCfg({}); _cachedDbUrl = null; stopSyncPolling(); updateSyncBadge('err'); nav('sync');
+}
+
+async function _toggleGasFunc(key) {
+  if (!state.gasConfig) state.gasConfig = {};
+  state.gasConfig[key] = state.gasConfig[key] === false ? true : false;
+  syncWrite();
+  nav('sync');
 }
 
 async function forceSyncPull() {
