@@ -469,16 +469,24 @@ function syncLogbook(current, log) {
     if (_userRole.indexOf('leader') >= 0 || _userRole.indexOf('supervisor') >= 0 ||
         _userRole.indexOf('training') >= 0 || _userRole.indexOf('manager') >= 0 ||
         _userRole.indexOf('admin') >= 0) {
+      if (resolvedUser === 'hai.cao') log('[Logbook][debug hai.cao] role-filtered: role="' + _userRole + '"');
       result.skipped++;
       continue;
     }
+    if (resolvedUser === 'hai.cao') log('[Logbook][debug hai.cao] UID=' + uid + ' role="' + _userRole + '" — processing…');
 
     var wroteAny = false;
     const debugAnhDao = resolvedUser === 'anh.dao';
+    const debugHaoCao = resolvedUser === 'hai.cao';
 
     dateCols.forEach(function(col) {
       const startStr = _fmtTimeCell(displayRow[col.startColIdx]) || _fmtTimeCell(row[col.startColIdx]);
       const endStr   = _fmtTimeCell(displayRow[col.endColIdx])   || _fmtTimeCell(row[col.endColIdx]);
+
+      if (debugHaoCao) {
+        log('[Logbook][debug hai.cao] ' + col.dateKey + ' start=' + (startStr || '-') + ' end=' + (endStr || '-'));
+      }
+
       if (!startStr && !endStr) return;
 
       if (debugAnhDao) {
@@ -490,11 +498,18 @@ function syncLogbook(current, log) {
       // Exception: if a manual record exists but has no end time and the sheet now has one,
       // patch just the end time (leaders often fill start only; GAS fills end later).
       const existing = current.logbook[key];
+
+      if (debugHaoCao && col.dateKey === '05/06') {
+        log('[Logbook][debug hai.cao] 05/06 existing=' + JSON.stringify(existing));
+      }
+
       if (existing && existing.note !== 'auto') {
         if (endStr && !existing.end) {
           existing.end = endStr;
           existing.at  = now;
           wroteAny = true;
+        } else if (debugHaoCao && col.dateKey === '05/06') {
+          log('[Logbook][debug hai.cao] 05/06 skip patch: endStr=' + (endStr||'empty') + ' existing.end=' + (existing.end||'empty'));
         }
         return;
       }
