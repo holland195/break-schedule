@@ -1153,7 +1153,8 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
     var isOff = OFF_CODES.indexOf(attCode) >= 0;
     if (isOff && !isTuesdayPost) return; // exclude absent on single-day posts
     var br = (current.breaks || {})[u.id + '_' + dk];
-    var slotIdx = br ? slots.indexOf(br.slot) : -1;
+    var slotIdx = -1;
+    if (br) { slotIdx = slots.indexOf(br.slot); if (slotIdx < 0) { if (br.slot === shift+'1') slotIdx = 0; else if (br.slot === shift+'2') slotIdx = 1; } }
     var slotCode = slotIdx >= 0 ? (shift + (slotIdx + 1)) : (isOff ? attCode : '—');
     staffRows.push({
       id: u.id,
@@ -1209,7 +1210,8 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
       var attCode2 = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
         ? (current.monthlyAttendance[u.username][monthKey][dki] || '') : '').replace(/\.0$/, '').toUpperCase();
       var isOff2 = OFF_CODES.indexOf(attCode2) >= 0;
-      var si2 = br2 ? slots.indexOf(br2.slot) : -1;
+      var si2 = -1;
+      if (br2) { si2 = slots.indexOf(br2.slot); if (si2 < 0) { if (br2.slot === shift+'1') si2 = 0; else if (br2.slot === shift+'2') si2 = 1; } }
       breaksByDate[dki][u.id] = isOff2 ? attCode2 : (si2 >= 0 ? (shift + (si2+1)) : '—');
     });
   });
