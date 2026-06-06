@@ -1592,10 +1592,6 @@ function syncAttendanceWriteback() {
 
     var raw = firebaseGet();
     var current = raw ? JSON.parse(raw) : {};
-    if (current.gasConfig && current.gasConfig.syncAttendanceWriteback === false) {
-      addLog('[Writeback] Skipped (disabled via GAS Function Controls in web app).');
-      return;
-    }
     var logbook = current.logbook || {};
 
     // Only process today's manual edits (note !== 'auto', not deleted)
@@ -1803,11 +1799,6 @@ function syncMonthlyAttWriteback() {
     return;
   }
 
-  if (current.gasConfig && current.gasConfig.syncMonthlyAttWriteback === false) {
-    Logger.log('[MonthlyWriteback] Skipped (disabled via GAS Function Controls in web app).');
-    return;
-  }
-
   var monthlyAtt = current.monthlyAttendance || {};
   if (Object.keys(monthlyAtt).length === 0) {
     Logger.log('[MonthlyWriteback] No monthlyAttendance data. Done.');
@@ -1898,9 +1889,22 @@ function syncMonthlyAttWriteback() {
 }
 
 // Thin wrappers required because GAS time triggers must target named top-level functions.
-function syncAttendanceWriteback_1530() { syncAttendanceWriteback(); syncMonthlyAttWriteback(); }
-function syncAttendanceWriteback_0030() { syncAttendanceWriteback(); syncMonthlyAttWriteback(); }
-function syncAttendanceWriteback_0630() { syncAttendanceWriteback(); syncMonthlyAttWriteback(); }
+// Each wrapper checks its per-shift toggle from Firebase before running.
+function syncAttendanceWriteback_1530() {
+  var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
+  if (cfg.writebackShiftA === false) { Logger.log('[Writeback] Shift A skipped (disabled).'); return; }
+  syncAttendanceWriteback(); syncMonthlyAttWriteback();
+}
+function syncAttendanceWriteback_0030() {
+  var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
+  if (cfg.writebackShiftD === false) { Logger.log('[Writeback] Shift D skipped (disabled).'); return; }
+  syncAttendanceWriteback(); syncMonthlyAttWriteback();
+}
+function syncAttendanceWriteback_0630() {
+  var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
+  if (cfg.writebackShiftE === false) { Logger.log('[Writeback] Shift E skipped (disabled).'); return; }
+  syncAttendanceWriteback(); syncMonthlyAttWriteback();
+}
 
 // Run once from the GAS editor to install the 3 daily writeback triggers.
 function createWritebackTriggers() {
