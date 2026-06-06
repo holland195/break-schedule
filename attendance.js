@@ -338,10 +338,16 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   }
   const weekDates = _getAttendanceWeek();
 
-  // Determine displayed dates: week view (7 days Mon–Sun) or month view (all dates in month)
+  // Determine displayed dates: week view (7 days Mon–Sun) or month view (calendar 1st→last)
   var displayDates;
   if (attendanceLogView === 'month') {
-    displayDates = _getAllDatesInMonth(_attLogYear, _attLogMonth);
+    // Plain calendar month — _getAllDatesInMonth uses payroll 25th→24th, not suitable here
+    var _calDates = [];
+    var _calDays = new Date(_attLogYear, _attLogMonth, 0).getDate(); // last day of month
+    for (var _di = 1; _di <= _calDays; _di++) {
+      _calDates.push(String(_di).padStart(2, '0') + '/' + String(_attLogMonth).padStart(2, '0'));
+    }
+    displayDates = _calDates;
   } else {
     displayDates = weekDates;
   }
