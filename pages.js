@@ -1535,11 +1535,12 @@ function getArrangeDayMemberList(_unused) {
   // Normalize dashes for slot comparison
   const nd = (x) => (x||'').replace(/[\u2012\u2013\u2014\u002D\u2212]/g, '-').replace(/\s/g, '');
 
-  // All users on this shift in ANY day this week (exclude lead/sub/training)
+  // Only include Data Analyst, Sr Data Analyst, Data Supervisor, Sr Data Supervisor (level 0–1).
+  // Exclude unknown roles (level == null), leaders, training, admin (level >= 2).
   const allMates = state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
     var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
-    if (_ul >= 2) return false;
+    if (_ul == null || _ul >= 2) return false;
     return weekRange.some(d => _getSched(u.username, d) === currentShift);
   });
 
