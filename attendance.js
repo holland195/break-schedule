@@ -334,9 +334,9 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
     if (!_role) return false;
     if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
-    return weekDates.some(dk => {
-      const s = _getUserShiftOnDate(u, dk);
-      return s && s === currentShift;
+    return weekDates.some(function(dk) {
+      var _s = _getUserShiftOnDate(u, dk);
+      return _s && _s === currentShift;
     });
   }).sort((a, b) => (a.team || '').localeCompare(b.team || '', undefined, { numeric: true }) || (a.name || '').localeCompare(b.name || ''));
 
@@ -708,8 +708,6 @@ function _installAttendKbd() {
   if (_attendKbdInstalled) return;
   _attendKbdInstalled = true;
   document.addEventListener('keydown', function(e) {
-    var tag = (e.target || {}).tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     var modal = document.getElementById('modal-attend');
     if (!modal || !modal.classList.contains('show')) return;
     if (e.key === 'f' || e.key === 'F') {
