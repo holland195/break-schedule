@@ -382,7 +382,12 @@ function syncLogbook(current, log) {
       if (c - back > shiftColIdx) dk = parseDateHeader(row1[c - back]);
     }
     if (!dk) continue;
-    dateCols.push({ dateKey: dk, startColIdx: c, endColIdx: c + 2 });
+    // Detect End column: scan forward up to 5 cols for 'end' in sub-header row
+    var endColIdx = c + 2; // fallback
+    for (var ec = c + 1; ec <= c + 5; ec++) {
+      if (String(row3[ec]||'').trim().toLowerCase() === 'end') { endColIdx = ec; break; }
+    }
+    dateCols.push({ dateKey: dk, startColIdx: c, endColIdx: endColIdx });
   }
   result.dateCols = dateCols.length;
 
