@@ -310,11 +310,13 @@ function runSyncSchedule() {
 function syncLogbook(current, log) {
   if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
   // Self-fetch if called without populated state (e.g. syncLogbook() from GAS editor)
+  var _selfFetched = false;
   if (!current || (!current.users && !current.staffInfo)) {
     log('[Logbook] current.users missing — fetching from Firebase…');
     var _raw = firebaseGet();
     current = _raw ? JSON.parse(_raw) : (current || {});
     log('[Logbook] Firebase keys after fetch: ' + Object.keys(current).join(', '));
+    _selfFetched = true;
   }
   var result = { imported: 0, skipped: 0, dateCols: 0 };
 
@@ -511,6 +513,12 @@ function syncLogbook(current, log) {
 
   if (result.skipped > 5) log('[Logbook] ... and ' + (result.skipped-5) + ' more unmatched');
   log('[Logbook] Done: ' + result.imported + ' matched, ' + result.skipped + ' skipped');
+  // Push back to Firebase if we self-fetched (called directly, not via dailySync)
+  if (_selfFetched && result.imported > 0) {
+    log('[Logbook] Pushing ' + result.imported + ' records to Firebase…');
+    firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+    log('[Logbook] Push OK.');
+  }
   return result;
 }
 
