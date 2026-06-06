@@ -1013,6 +1013,50 @@ function testSheetDetection() {
   }
 }
 
+// One-time migration: copies old 'attendance' node to 'logbook', then deletes 'attendance'.
+// Run once from the GAS editor after deploying the attendance→logbook rename.
+function migrateAttendanceToLogbook() {
+  var raw = firebaseGet();
+  var current = raw ? JSON.parse(raw) : {};
+
+  var oldData = current.attendance;
+  if (!oldData || Object.keys(oldData).length === 0) {
+    Logger.log('[Migrate] No data in "attendance" node — nothing to migrate.');
+    return;
+  }
+
+  var count = Object.keys(oldData).length;
+  Logger.log('[Migrate] Copying ' + count + ' records from "attendance" → "logbook".');
+
+  if (!current.logbook) current.logbook = {};
+  Object.keys(oldData).forEach(function(k) {
+    if (!current.logbook[k]) current.logbook[k] = oldData[k]; // don't overwrite newer records
+  });
+
+  delete current.attendance;
+
+  firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+  Logger.log('[Migrate] Done. "attendance" node removed. ' + count + ' records now in "logbook".');
+}
+
+// Removes the entire 'logbook' node from Firebase (for a clean reset).
+// GAS syncLogbook will repopulate it on the next run.
+function deleteLogbookNode() {
+  var raw = firebaseGet();
+  var current = raw ? JSON.parse(raw) : {};
+
+  if (!current.logbook) {
+    Logger.log('[DeleteLogbook] "logbook" node does not exist — nothing to remove.');
+    return;
+  }
+
+  var count = Object.keys(current.logbook).length;
+  delete current.logbook;
+
+  firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+  Logger.log('[DeleteLogbook] Removed "logbook" node (' + count + ' records deleted).');
+}
+
 // Test logbook sheet detection and column mapping
 function runSyncLogbook() {
   const raw     = firebaseGet();
