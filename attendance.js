@@ -719,6 +719,7 @@ if (start && end) {
     DB.setLogbook(uid, dateKey, { start, end, note, by: currentUser?.id, byName: currentUser?.name, at: Date.now() });
   }
   closeModal('modal-attend');
+  window._attLastSavedAt = Date.now();
   syncWrite();
   toast('Attendance saved', 'ok');
   _updateAttCell(uid, dateKey);
@@ -729,6 +730,7 @@ function deleteAttendance() {
   // Write tombstone so sync can propagate the deletion to other browsers
   DB.setLogbook(uid, dateKey, { _deleted: true, at: Date.now() });
   closeModal('modal-attend');
+  window._attLastSavedAt = Date.now();
   syncWrite();
   toast('Cleared', 'ok');
   _updateAttCell(uid, dateKey);

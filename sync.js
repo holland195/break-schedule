@@ -539,7 +539,10 @@ function _onRemoteUpdate(remote) {
   if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
     const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
     const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
-    if (!anyModalOpen) { nav(currentPage); updateBadge(); }
+    var _attSuppressed = currentPage === 'attendance'
+      && window._attLastSavedAt
+      && (Date.now() - window._attLastSavedAt < 5000);
+    if (!anyModalOpen && !_attSuppressed) { nav(currentPage); updateBadge(); }
   }
   updateSyncBadge('ok');
 }
@@ -614,7 +617,7 @@ function _startFallbackPolling() {
 
     const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
     if (ok === true) {
-      const noRerenderPages = new Set(['arrange', 'staff']);
+      const noRerenderPages = new Set(['arrange', 'staff', 'attendance']);
       if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
         const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
         const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
