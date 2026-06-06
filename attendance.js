@@ -719,11 +719,9 @@ if (start && end) {
     DB.setLogbook(uid, dateKey, { start, end, note, by: currentUser?.id, byName: currentUser?.name, at: Date.now() });
   }
   closeModal('modal-attend');
-  var _savedScrollY = window.scrollY;
-  await syncWrite();
+  syncWrite();
   toast('Attendance saved', 'ok');
-  nav('attendance');
-  requestAnimationFrame(function() { window.scrollTo(0, _savedScrollY); });
+  _updateAttCell(uid, dateKey);
 }
 
 function deleteAttendance() {
@@ -733,7 +731,57 @@ function deleteAttendance() {
   closeModal('modal-attend');
   syncWrite();
   toast('Cleared', 'ok');
-  nav('attendance');
+  _updateAttCell(uid, dateKey);
+}
+
+// Update a single attendance cell in-place without re-rendering the whole page
+function _updateAttCell(uid, dateKey) {
+  var u = state.users.find(function(x) { return x.id === uid; });
+  if (!u) return;
+  var cell = document.getElementById('att-cell-' + u.username + '-' + dateKey);
+  if (!cell) return;
+
+  var rec = DB.getLogbook(uid, dateKey);
+  var _le = calcLateEarly(uid, dateKey);
+  var lateMin = _le.lateMin, earlyMin = _le.earlyMin;
+  var isLate = lateMin > 0, isEarly = earlyMin > 0;
+  var hasData = rec && (rec.start || rec.end);
+  var startTxt = (rec && rec.start) || '';
+  var endTxt   = (rec && rec.end)   || '';
+  var noteTxt  = (rec && rec.note && rec.note !== 'auto') ? rec.note : '';
+
+  // Shift defaults (with half-day override)
+  var _shiftCode = String(_getUserShiftOnDate(u, dateKey) || '').trim().toUpperCase();
+  var _def = SHIFT_DEFAULTS[_shiftCode] || {};
+  var _parts = dateKey.split('/');
+  var _mk = new Date().getFullYear() + '-' + _parts[1];
+  var _hCode = (state.monthlyAttendance && state.monthlyAttendance[u.username])
+    ? ((state.monthlyAttendance[u.username][_mk] || {})[dateKey]) : '';
+  var _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
+  if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
+    var _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
+    var _hdDef = SHIFT_DEFAULTS[_hdKey];
+    if (_hdDef) _def = _hdDef;
+  }
+
+  var isHalfDay = _hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2') && hasData;
+  var bg = isHalfDay ? 'rgba(59,130,246,.13)'
+    : isLate ? 'var(--D-bg)'
+    : isEarly ? 'rgba(245,158,11,.08)'
+    : hasData ? 'var(--C-bg)' : '';
+  cell.style.background = bg;
+
+  var _mono = "font-family:'IBM Plex Mono',monospace;white-space:nowrap;";
+  cell.innerHTML =
+    (startTxt
+      ? '<div style="font-size:10px;' + _mono + 'color:' + (isLate ? 'var(--err)' : 'var(--ok)') + ';">' + startTxt + '</div>'
+        + '<div style="font-size:9px;' + _mono + 'color:' + (isLate ? 'var(--err)' : 'var(--ok)') + ';"><span style="font-weight:700;">' + (isLate ? '(-)' : '(+)') + '</span> ' + _fmtDiffFull(lateMin, startTxt, _def.start) + '</div>'
+      : '<div style="font-size:10px;color:var(--text3);">—</div><div style="font-size:9px;color:var(--text3);">—</div>')
+    + (endTxt
+      ? '<div style="font-size:10px;' + _mono + 'color:' + (isEarly ? 'var(--warn)' : 'var(--ok)') + ';">' + endTxt + '</div>'
+        + '<div style="font-size:9px;' + _mono + 'color:' + (isEarly ? 'var(--warn)' : 'var(--ok)') + ';"><span style="font-weight:700;">' + (isEarly ? '(-)' : '(+)') + '</span> ' + _fmtDiffFull(earlyMin, _def.end, endTxt) + '</div>'
+      : '<div style="font-size:10px;color:var(--text3);">—</div><div style="font-size:9px;color:var(--text3);">—</div>')
+    + (noteTxt ? '<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:120px;text-overflow:ellipsis;" title="' + noteTxt + '">📝 ' + noteTxt + '</div>' : '');
 }
 
 // ── Helpers ──
