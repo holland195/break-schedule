@@ -1830,6 +1830,16 @@ function syncMonthlyAttWriteback() {
 
   Logger.log('[MonthlyWriteback] Working month: ' + monthKey + ' | ' + dateCols.length + ' date columns');
 
+  // Only write today's column — do not overwrite historical data already in the sheet
+  var _now = new Date();
+  var todayDk = String(_now.getDate()).padStart(2, '0') + '/' + String(_now.getMonth() + 1).padStart(2, '0');
+  var todayCols = dateCols.filter(function(col) { return col.dateKey === todayDk; });
+  if (todayCols.length === 0) {
+    Logger.log('[MonthlyWriteback] Today (' + todayDk + ') not in sheet columns — nothing to write.');
+    return;
+  }
+  Logger.log('[MonthlyWriteback] Writing today only: ' + todayDk);
+
   // Build username → 1-based row map (data starts row 4 = index 3)
   var usernameToRow = {};
   for (var ri = 3; ri < rows.length; ri++) {
@@ -1851,7 +1861,7 @@ function syncMonthlyAttWriteback() {
     var sheetRow = usernameToRow[username];
     if (!sheetRow) return;
 
-    dateCols.forEach(function(col) {
+    todayCols.forEach(function(col) {
       var code = monthData[col.dateKey];
       if (!code) return;
       sheet.getRange(sheetRow, col.index + 1).setValue(code);
