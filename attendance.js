@@ -479,13 +479,13 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     const stickyName = 'position:sticky;left:0;z-index:2;background:var(--bg);';
     const stickyUser = 'position:sticky;left:170px;z-index:2;background:var(--bg);border-right:2px solid var(--border);';
     return `<tr>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyName}cursor:pointer;" onclick="copyAgentInfo('${u.username}','${u.name.replace(/'/g,"\\'")}')">
+      <td style="padding:5px 8px;white-space:nowrap;${stickyName}cursor:pointer;" onclick="copyText('${u.name.replace(/'/g,"\\'")}','Name')">
         <div style="font-weight:600;font-size:12px;">${u.name}</div>
         <div style="font-size:10px;color:var(--text3);">${u.team || '—'} · <span class="role-tag ${roleInfo.tag}" style="font-size:9px;">${roleInfo.label}</span></div>
         ${logConflicts.length > 0 ? `<div style="font-size:9px;color:var(--err);margin-top:2px;">⚠ ${logConflicts.length} conflict${logConflicts.length > 1 ? 's' : ''}: ${logConflicts.map(c => c.dk).join(', ')}</div>` : ''}
         ${halfDayCells.size > 0 ? `<div style="font-size:9px;color:#3b82f6;margin-top:2px;">½ Half-day: ${[...halfDayCells].join(', ')}</div>` : ''}
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyUser}cursor:pointer;" onclick="copyAgentInfo('${u.username}','${u.name.replace(/'/g,"\\'")}')">
+      <td style="padding:5px 8px;white-space:nowrap;${stickyUser}cursor:pointer;" onclick="copyText('${u.username}','Username')">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);">${u.username}</div>
       </td>
       ${cells}
@@ -695,11 +695,11 @@ function _addDays(dateKey, n) {
   return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}`;
 }
 
-function copyAgentInfo(username, name) {
-  navigator.clipboard.writeText(username + ' | ' + name).then(function() {
-    toast('Copied: ' + username, 'ok');
+function copyText(text, label) {
+  navigator.clipboard.writeText(text).then(function() {
+    toast((label || 'Copied') + ': ' + text, 'ok');
   }).catch(function() {
-    toast(username + ' | ' + name, 'ok');
+    toast(text, 'ok');
   });
 }
 
