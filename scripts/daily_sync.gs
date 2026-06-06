@@ -307,7 +307,7 @@ function runSyncSchedule() {
 //  Writes to state.logbook[uid_dateKey] so the web app can
 //  auto-calculate Late / Early. Row/col layout is FULLY DYNAMIC.
 // ═══════════════════════════════════════════════
-function syncLogbook(current, log) {
+function syncLogbook(current, log, monthOverride) {
   if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
   // Self-fetch if called without populated state (e.g. syncLogbook() from GAS editor)
   var _selfFetched = false;
@@ -322,7 +322,10 @@ function syncLogbook(current, log) {
 
   var MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December'];
-  var sheetName = MONTH_NAMES[new Date().getMonth()];
+  // monthOverride: 0-based month index (0=Jan … 11=Dec); defaults to current month
+  var _month = (typeof monthOverride === 'number' && monthOverride >= 0 && monthOverride <= 11)
+             ? monthOverride : new Date().getMonth();
+  var sheetName = MONTH_NAMES[_month];
 
   var ss;
   try { ss = SpreadsheetApp.openById(LOGBOOK_SPREADSHEET_ID); }
@@ -1118,6 +1121,23 @@ function runSyncLogbook() {
   }
   Logger.log('[runSyncLogbook] Done: ' + result.imported + ' imported, ' + result.skipped + ' skipped, ' + result.dateCols + ' day cols');
 }
+
+// Run from GAS editor to back-fill a specific month's logbook.
+// monthIndex: 0=January … 11=December  (e.g. 4 = May, 5 = June)
+function runSyncLogbookMonth(monthIndex) {
+  var raw     = firebaseGet();
+  var current = raw ? JSON.parse(raw) : {};
+  Logger.log('[runSyncLogbookMonth] Syncing month index ' + monthIndex);
+  var result  = syncLogbook(current, function(m){ Logger.log(m); }, monthIndex);
+  if (result.imported > 0 || result.dateCols > 0) {
+    firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+    Logger.log('[runSyncLogbookMonth] Pushed to Firebase.');
+  }
+  Logger.log('[runSyncLogbookMonth] Done: ' + result.imported + ' imported, ' + result.skipped + ' skipped, ' + result.dateCols + ' day cols');
+}
+
+// Convenience wrapper — run from GAS editor to sync May logbook
+function runSyncLogbookMay() { runSyncLogbookMonth(4); }
 
 function testLogbookDetection() {
   const MONTH_NAMES = ['January','February','March','April','May','June',
