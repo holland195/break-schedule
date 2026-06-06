@@ -94,7 +94,7 @@ function _getMondayOfWeek(dk) {
 
 function _checkAttConflict(u, dk, parsedCode) {
   if (!parsedCode) return null;
-  const weekRec = DB.getAttendance(u.id, dk);
+  const weekRec = DB.getLogbook(u.id, dk);
   // Auto-synced records (note='auto') haven't been reviewed by a leader — skip
   if (weekRec?.note === 'auto') return null;
   var schedShift = _getSched(u.username, dk).charAt(0);
@@ -3021,8 +3021,8 @@ function importMonthlyAttendance() {
       statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff · ${dateCols.length} dates · ${skipped} not matched</span>`;
       // After import: scan for attendance records that now conflict with OFF/HD codes
       const conflicts = [];
-      Object.keys(state.attendance || {}).forEach(key => {
-        const rec = state.attendance[key];
+      Object.keys(state.logbook || {}).forEach(key => {
+        const rec = state.logbook[key];
         if (!rec || rec._deleted || (!rec.start && !rec.end)) return;
         const [uidStr, dk] = key.split('_');
         const uid = parseInt(uidStr);

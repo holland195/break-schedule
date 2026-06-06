@@ -270,13 +270,13 @@ const DB = {
     return n;
   },
   countExtBreaks:(uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]).length,
-  // attendance: key = `${uid}_${dateKey}` → { start, end, note, by, at }
-  getAttendance: (uid,day)   => {
-    const r = state.attendance[`${uid}_${day}`];
+  // logbook: key = `${uid}_${dateKey}` → { start, end, note, by, at }
+  getLogbook: (uid,day)   => {
+    const r = state.logbook[`${uid}_${day}`];
     return (r && !r._deleted) ? r : null;
   },
-  setAttendance: (uid,day,d) => { state.attendance[`${uid}_${day}`] = d; },
-  delAttendance: (uid,day)   => { delete state.attendance[`${uid}_${day}`]; },
+  setLogbook: (uid,day,d) => { state.logbook[`${uid}_${day}`] = d; },
+  delLogbook: (uid,day)   => { delete state.logbook[`${uid}_${day}`]; },
   // staffInfo: username → { empNo, dob, gender, name, role, password, mustChangePassword }
   getStaffInfo:  username     => state.staffInfo[username] || null,
   setStaffInfo:  (username,d) => { state.staffInfo[username]=d; save(); },
@@ -314,7 +314,7 @@ const DB = {
 let state = load();
 // Migrations
 if (!state.extBreaks)  state.extBreaks  = {};
-if (!state.attendance) state.attendance = {};
+if (!state.logbook) state.logbook = {};
 if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 if (!state.monthlyAttendance) state.monthlyAttendance = {};

@@ -224,17 +224,17 @@ function _applyRemoteData(remote) {
       }
     }
   }
-  if (remote.attendance) {
-    Object.entries(remote.attendance).forEach(([key, remoteEntry]) => {
-      const localEntry = state.attendance[key];
+  if (remote.logbook) {
+    Object.entries(remote.logbook).forEach(([key, remoteEntry]) => {
+      const localEntry = state.logbook[key];
       const remoteAt = remoteEntry.at || 0;
       const localAt  = localEntry?.at || 0;
       if (!localEntry || remoteAt >= localAt) {
         if (remoteEntry._deleted) {
           // Remote tombstone is newer — delete locally too
-          delete state.attendance[key];
+          delete state.logbook[key];
         } else {
-          state.attendance[key] = remoteEntry;
+          state.logbook[key] = remoteEntry;
         }
       }
     });
@@ -387,7 +387,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   requests:          state.requests,
   extBreaks:         state.extBreaks,
   breakSplits:       state.breakSplits || {},
-  attendance:        state.attendance || {},
+  logbook:           state.logbook || {},
   monthlyAttendance: state.monthlyAttendance || {},
   staffSchedule:     state.staffSchedule || {},
   users:             usersCompact,

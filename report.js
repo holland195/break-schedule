@@ -57,7 +57,7 @@ function _computeUserMonthStats(u, year, month) {
     if (['A','H','0','U','S','L'].includes(shift) && shift.length === 1 && !SHIFT_DEFAULTS[shift]) return;
     workDays++;
     if (shift) shiftCounts[shift.charAt(0)] = (shiftCounts[shift.charAt(0)] || 0) + 1;
-    const rec = DB.getAttendance(u.id, dk);
+    const rec = DB.getLogbook(u.id, dk);
     if (rec?.note) noteDays++;
     const { lateMin, earlyMin } = calcLateEarly(u.id, dk);
     if (lateMin  > 0) { lateDays++;  totalLateMin  += lateMin; }
@@ -81,7 +81,7 @@ function _computeUserDateLog(u, year, month) {
     if (!shift || shift === '0') return;
     const shiftChar = shift.charAt(0);
     if (!SHIFT_DEFAULTS[shiftChar]) return;
-    const rec = DB.getAttendance(u.id, dk);
+    const rec = DB.getLogbook(u.id, dk);
     const { lateMin, earlyMin } = calcLateEarly(u.id, dk);
     if (lateMin > 0 || earlyMin > 0 || (rec?.note && rec.note !== 'auto')) {
       log.push({
@@ -171,7 +171,7 @@ function renderTrainingDashboard() {
   state.users.forEach(u => {
     var shift = _getSched(u.username, today);
     if (!shift || shift === '0') return;
-    const rec = DB.getAttendance(u.id, today);
+    const rec = DB.getLogbook(u.id, today);
     if (!rec) return;
     const { lateMin, earlyMin, late, early } = calcLateEarly(u.id, today);
     if (lateMin > 0 || earlyMin > 0) {
@@ -441,7 +441,7 @@ function exportUserReport(uid, month, year) {
   dates.forEach(dk => {
     var shift = _getSched(u.username, dk);
     if (!shift || shift === '0') return;
-    const rec = DB.getAttendance(uid, dk) || {};
+    const rec = DB.getLogbook(uid, dk) || {};
     const { lateMin, earlyMin } = calcLateEarly(uid, dk);
     rows.push([dk, getWkDay(dk), shift, rec.start||'', rec.end||'', lateMin||0, earlyMin||0, rec.note||'']);
   });
