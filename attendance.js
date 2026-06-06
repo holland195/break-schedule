@@ -667,9 +667,11 @@ if (start && end) {
     DB.setLogbook(uid, dateKey, { start, end, note, by: currentUser?.id, byName: currentUser?.name, at: Date.now() });
   }
   closeModal('modal-attend');
+  var _savedScrollY = window.scrollY;
   await syncWrite();
   toast('Attendance saved', 'ok');
   nav('attendance');
+  requestAnimationFrame(function() { window.scrollTo(0, _savedScrollY); });
 }
 
 function deleteAttendance() {
