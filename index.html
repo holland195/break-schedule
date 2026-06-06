@@ -249,13 +249,7 @@
   
 
   <!-- ─── MODAL: ATTENDANCE ───────────────────────────────────── -->
-  <div class="modal-overlay" id="modal-attend" onclick="if(event.target===this){
-      const s=document.getElementById('attend-start')?.value?.trim();
-      const e=document.getElementById('attend-end')?.value?.trim();
-      const n=document.getElementById('attend-note')?.value?.trim();
-      if(s||e||n) saveAttendance();
-      else closeModal('modal-attend');
-    }">
+  <div class="modal-overlay" id="modal-attend" onclick="if(event.target===this)closeModal('modal-attend')">
     <div class="modal" style="width:420px;" onclick="event.stopPropagation()">
       <div class="modal-title">⏱ Fill Attendance</div>
       <div id="attend-modal-title" style="font-size:13px;font-weight:600;margin-bottom:4px;"></div>

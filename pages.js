@@ -1999,6 +1999,7 @@ function _renderStaffInfo() {
 function _renderStaffInfoRows(filter) {
   const all = Object.entries(state.staffInfo || {})
     .map(([username, d]) => ({ username, ...d }))
+    .filter(u => _resolveRole(u.role))
     .sort(_roleSort);
   const f = (filter || '').toLowerCase();
   return all.filter(u =>
@@ -3093,7 +3094,10 @@ var _STAFF_SORT_RANK = {
   'Sr Data Analyst':7,'Data Analyst':8
 };
 function _sortStaffUsers(users) {
-  return users.slice().sort(function(a, b) {
+  return users.filter(function(u) {
+    var _r = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    return !!_resolveRole(_r);
+  }).sort(function(a, b) {
     var aRole = a.role || (state.staffInfo[a.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
     var bRole = b.role || (state.staffInfo[b.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
     var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
