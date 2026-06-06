@@ -478,9 +478,18 @@ function syncLogbook(current, log) {
       }
 
       const key = uid + '_' + col.dateKey;
-      // Only write if no manual record exists (note !== 'auto'), preserving leader overrides
+      // Only write if no manual record exists (note !== 'auto'), preserving leader overrides.
+      // Exception: if a manual record exists but has no end time and the sheet now has one,
+      // patch just the end time (leaders often fill start only; GAS fills end later).
       const existing = current.logbook[key];
-      if (existing && existing.note !== 'auto') return;
+      if (existing && existing.note !== 'auto') {
+        if (endStr && !existing.end) {
+          existing.end = endStr;
+          existing.at  = now;
+          wroteAny = true;
+        }
+        return;
+      }
 
       current.logbook[key] = {
         start: startStr || '',
