@@ -309,7 +309,13 @@ function runSyncSchedule() {
 // ═══════════════════════════════════════════════
 function syncLogbook(current, log) {
   if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
-  if (!current) current = {};
+  // Self-fetch if called without populated state (e.g. syncLogbook() from GAS editor)
+  if (!current || (!current.users && !current.staffInfo)) {
+    log('[Logbook] current.users missing — fetching from Firebase…');
+    var _raw = firebaseGet();
+    current = _raw ? JSON.parse(_raw) : (current || {});
+    log('[Logbook] Firebase keys after fetch: ' + Object.keys(current).join(', '));
+  }
   var result = { imported: 0, skipped: 0, dateCols: 0 };
 
   var MONTH_NAMES = ['January','February','March','April','May','June',
