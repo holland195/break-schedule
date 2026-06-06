@@ -547,7 +547,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
   const dayHeaders = displayDates.map((dk, i) => {
     const isToday = dk === _todayDateKey();
     return `<th style="text-align:center;padding:4px 6px;min-width:90px;background:${isToday ? 'var(--accent)' : 'var(--bg4)'};color:${isToday ? '#fff' : 'var(--text2)'};font-size:11px;">
-      ${isMonthView ? '' : `<div>${getWkDay(dk)}</div>`}
+      <div>${getWkDay(dk)}</div>
       <div style="font-weight:400;font-size:10px;">${dk}</div>
     </th>`;
   }).join('');
