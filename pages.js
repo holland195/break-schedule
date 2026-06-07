@@ -2325,9 +2325,11 @@ async function confirmScheduleImport() {
 }
 // ── Sub-tab 2: Staff Schedule ──
 function _renderStaffSchedule() {
-  // DA/DS/Sr DA/Sr DS: default to their working shift so they don't see all 3 shifts at once
-  if (!isLeader(currentUser) && !isTraining(currentUser) && _ssShiftFilter === 'All') {
-    _ssShiftFilter = currentShift || 'A';
+  // DA/DS/Sr DA/Sr DS: default to their working shift; force week view (no full-month for non-leaders)
+  var _isNonLeader = !isLeader(currentUser) && !isTraining(currentUser);
+  if (_isNonLeader) {
+    if (_ssShiftFilter === 'All') _ssShiftFilter = currentShift || 'A';
+    showFullMonth = false; // non-leaders always see week view
   }
   const hasUsers = state.users && state.users.length > 0;
 
@@ -2442,7 +2444,8 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   }
 
   const monthMondays = _sortDateKeys(allDates.filter(function(d) { return getWkDay(d) === 'Mon' && d.split('/')[1] === _schedMonth; }));
-  const weekRange = getWeekRange(_ssActiveMonday);
+  // Clip week range to selected month so it never leaks into adjacent months
+  const weekRange = getWeekRange(_ssActiveMonday).filter(function(d) { return d.split('/')[1] === _schedMonth; });
   const monthDates = _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth));
   const displayDates = showFullMonth ? monthDates : weekRange;
 
@@ -2454,19 +2457,22 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
+  // Month picker: for non-leaders switching months stays in week view
+  var _monthPickerChange = _isNonLeader ? '_schedMonth=this.value;nav(\'staff\')' : '_schedMonth=this.value;showFullMonth=true;nav(\'staff\')';
+
   return `
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
   ${_searchBar}
   <div style="width:1px;height:20px;background:var(--border);"></div>
-  <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
+  ${!_isNonLeader ? `<button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
     ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
-  </button>
-  <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;showFullMonth=true;nav('staff')">
+  </button>` : ''}
+  <select class="login-select" style="width:130px;padding:4px;" onchange="${_monthPickerChange}">
     ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
   </select>
   ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;nav('staff')">
     ${monthMondays.map(function(mon) {
-      var end = getWeekRange(mon)[6];
+      var end = getWeekRange(mon).filter(function(d){return d.split('/')[1]===_schedMonth;}).pop() || mon;
       return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
     }).join('')}
   </select>` : ''}
