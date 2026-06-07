@@ -3315,7 +3315,7 @@ function _dayoffSwapModalHTML() {
         '<div id="dos-my-date-wrap"></div>' +
       '</div>' +
       '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same group)</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same position, different day-off)</div>' +
         '<select id="dos-target-user" class="login-select" style="width:100%;font-size:13px;" onchange="_dosUpdateDates()">' +
           '<option value="">— Select person —</option>' +
         '</select>' +
@@ -3363,22 +3363,23 @@ function openDayoffSwapModal(dateKey) {
   document.getElementById('modal-dayoff-swap').classList.add('show');
 }
 
-// Populate same-group users who are working that week and have a day-off to offer
+// Populate same-role users who are working that week and have a day-off to offer
 function _dosUpdateUsers() {
   var _sel = document.getElementById('dos-target-user');
   document.getElementById('dos-target-date-wrap').innerHTML = '';
   document.getElementById('dos-validation-msg').style.display = 'none';
   if (!_dosMyDate) { _sel.innerHTML = '<option value="">— Select person —</option>'; return; }
-  var _myTeam = currentUser.team || (state.staffInfo[currentUser.username]||{}).team || '';
-  var _weekDates = _dosGetWeekDates(_dosMyDate);
+  var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
+  // Use the displayed week (same window as the schedule view) for all date checks
+  var _weekDates = getWeekRange(_ssActiveMonday);
   var _candidates = state.users.filter(function(u) {
     if (u.username === currentUser.username) return false;
-    var _uTeam = u.team || (state.staffInfo[u.username]||{}).team || '';
-    if (!_myTeam || !_uTeam || _uTeam !== _myTeam) return false;
-    // Must be working at least 1 day in the week
+    var _uRole = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+    if (!_myRole || !_uRole || _uRole !== _myRole) return false;
+    // Must be working at least 1 day in the displayed week
     var _hasWork = _weekDates.some(function(d) { return _getSched(u.username, d) !== '0'; });
     if (!_hasWork) return false;
-    // Must have at least 1 day-off in the week (something to offer)
+    // Must have a day-off on a DIFFERENT date than the requester in the same week
     var _hasOff = _weekDates.some(function(d) { return d !== _dosMyDate && _getSched(u.username, d) === '0'; });
     return _hasOff;
   });
@@ -3393,8 +3394,8 @@ function _dosUpdateDates() {
   var wrap = document.getElementById('dos-target-date-wrap');
   document.getElementById('dos-validation-msg').style.display = 'none';
   if (!targetUsername || !_dosMyDate) { wrap.innerHTML = ''; return; }
-  // Show only day-offs in the same Mon–Sun week as _dosMyDate
-  var _weekDates = _dosGetWeekDates(_dosMyDate);
+  // Show only day-offs in the displayed week that differ from the requester's date
+  var _weekDates = getWeekRange(_ssActiveMonday);
   var _dayoffs = _weekDates.filter(function(d) {
     return d !== _dosMyDate && _getSched(targetUsername, d) === '0';
   });
