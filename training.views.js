@@ -120,7 +120,8 @@ function renderScheduleTraining() {
 
   const todayDk   = (() => {
     const n=new Date(); const d=n.getDay();
-    return curWeekDates[d] || curWeekDates[0];
+    var idx = d === 0 ? 6 : d - 1; // getDay() is Sun-first (0=Sun); curWeekDates is Mon-first (0=Mon)
+    return curWeekDates[idx] || curWeekDates[0];
   })();
 
   // Selected day for totals (defaults to today if in current week, else Sunday of selected week)
