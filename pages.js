@@ -2306,21 +2306,18 @@ function _renderStaffSchedule() {
   });
 
   var _stickyTh = 'background:var(--bg2);position:sticky;z-index:20;top:0;';
-  var _stickyTd = 'background:var(--bg);position:sticky;z-index:2;';
   var _shadowR   = 'box-shadow:3px 0 6px rgba(0,0,0,.12);';
+
+  var _searchBar = '<input class="filter-input" style="width:72px;" placeholder="Group…"  value="' + staffFilters.team + '" oninput="staffFilters.team=this.value;_liveFilter()">' +
+    '<input class="filter-input" style="width:120px;" placeholder="Name…"   value="' + staffFilters.name + '" oninput="staffFilters.name=this.value;_liveFilter()">' +
+    '<input class="filter-input" style="width:96px;"  placeholder="User…"   value="' + staffFilters.user + '" oninput="staffFilters.user=this.value;_liveFilter()">' +
+    '<input class="filter-input" style="width:96px;"  placeholder="Role…"   value="' + staffFilters.role + '" oninput="staffFilters.role=this.value;_liveFilter()">';
 
   const _schedTbl = function(displayDates, shiftFilteredUsers) {
     var _tblUsers = _sortStaffUsers(shiftFilteredUsers || filteredUsers);
     return `<div class="staff-tbl-wrap">
   <table>
     <thead>
-      <tr class="filter-row">
-        <td style="min-width:80px;width:80px;${_stickyTh}left:0;"><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
-        <td style="min-width:150px;width:150px;${_stickyTh}left:80px;"><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
-        <td style="min-width:90px;width:90px;${_stickyTh}left:230px;"><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
-        <td style="min-width:110px;width:110px;${_stickyTh}left:320px;${_shadowR}"><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
-        <td colspan="${displayDates.length}" style="padding-left:12px;color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
-      </tr>
       <tr>
         <th style="${_stickyTh}left:0;">GROUP</th>
         <th style="${_stickyTh}left:80px;">FULL NAME</th>
@@ -2347,8 +2344,10 @@ function _renderStaffSchedule() {
       return _wkDates.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; });
     });
     return `
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-  <span style="font-size:11px;color:var(--text3);">Current week (weekly assignment)</span>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+  ${_searchBar}
+  <div style="width:1px;height:20px;background:var(--border);"></div>
+  <span style="font-size:11px;color:var(--text3);">Current week</span>
   ${_shiftPicker}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_wkFiltered.length} staff</span>
 </div>
@@ -2384,22 +2383,21 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
   return `
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-  <label style="font-size:11px;opacity:.7;">Month:</label>
-  <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;showFullMonth=true;nav('staff')">
-    ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
-  </select>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+  ${_searchBar}
+  <div style="width:1px;height:20px;background:var(--border);"></div>
   <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
     ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
   </button>
-  ${!showFullMonth ? `${_shiftPicker}
-  <label style="font-size:11px;opacity:.7;">Week:</label>
-  <select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;nav('staff')">
+  <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;showFullMonth=true;nav('staff')">
+    ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
+  </select>
+  ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;nav('staff')">
     ${monthMondays.map(function(mon) {
       var end = getWeekRange(mon)[6];
       return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
     }).join('')}
-  </select>` : ''}
+  </select>${_shiftPicker}` : ''}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
 ${_schedTbl(displayDates, _displayUsers)}`;
@@ -3110,10 +3108,10 @@ function renderStaffRows(users, displayDates) {
   return users.map(function(u) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr>
-    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg);">${u.team || '—'}</td>
-    <td style="font-weight:600;position:sticky;left:80px;z-index:2;background:var(--bg);">${u.name}</td>
-    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:230px;z-index:2;background:var(--bg);">${u.username || ''}</td>
-    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:320px;z-index:2;background:var(--bg);box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
+    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg2);">${u.team || '—'}</td>
+    <td style="font-weight:600;position:sticky;left:80px;z-index:2;background:var(--bg2);">${u.name}</td>
+    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:230px;z-index:2;background:var(--bg2);">${u.username || ''}</td>
+    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:320px;z-index:2;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
     ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`;
   }).join('');
