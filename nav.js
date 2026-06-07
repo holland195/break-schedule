@@ -23,11 +23,7 @@ function nav(page) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;
   }
-  // Guard: staff — leader+ (level ≥ 2)
-  if (page === 'staff' && !isLeader(currentUser)) {
-    content.innerHTML = '<div class="empty">Access denied.</div>';
-    return;
-  }
+  // Guard: staff — all authenticated users may view (non-leaders see schedule sub-tab only)
   // Guard: sync — admin only (level 4)
   if (page === 'sync' && !isAdmin(currentUser)) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
