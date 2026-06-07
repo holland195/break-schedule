@@ -2299,19 +2299,18 @@ function _renderStaffSchedule() {
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
     if (!_currTrn && _isTrn) return false;   // lead/sub: hide training users
-    return (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-      _roleStr.includes(staffFilters.role.toLowerCase());
+    var _sq = (staffFilters.search || '').toLowerCase();
+    if (!_sq) return true;
+    return (u.team || '').toLowerCase().includes(_sq) ||
+      (u.name || '').toLowerCase().includes(_sq) ||
+      (u.username || '').toLowerCase().includes(_sq) ||
+      _roleStr.includes(_sq);
   });
 
   var _stickyTh = 'background:var(--bg2);position:sticky;z-index:20;top:0;';
   var _shadowR   = 'box-shadow:3px 0 6px rgba(0,0,0,.12);';
 
-  var _searchBar = '<input class="filter-input" style="width:72px;" placeholder="Group…"  value="' + staffFilters.team + '" oninput="staffFilters.team=this.value;_liveFilter()">' +
-    '<input class="filter-input" style="width:120px;" placeholder="Name…"   value="' + staffFilters.name + '" oninput="staffFilters.name=this.value;_liveFilter()">' +
-    '<input class="filter-input" style="width:96px;"  placeholder="User…"   value="' + staffFilters.user + '" oninput="staffFilters.user=this.value;_liveFilter()">' +
-    '<input class="filter-input" style="width:96px;"  placeholder="Role…"   value="' + staffFilters.role + '" oninput="staffFilters.role=this.value;_liveFilter()">';
+  var _searchBar = '<input class="filter-input" style="width:200px;" placeholder="Search group, name, user, role…" value="' + (staffFilters.search || '') + '" oninput="staffFilters.search=this.value;_liveFilter()">';
 
   const _schedTbl = function(displayDates, shiftFilteredUsers) {
     var _tblUsers = _sortStaffUsers(shiftFilteredUsers || filteredUsers);
@@ -2319,10 +2318,10 @@ function _renderStaffSchedule() {
   <table>
     <thead>
       <tr>
-        <th style="${_stickyTh}left:0;">GROUP</th>
-        <th style="${_stickyTh}left:80px;">FULL NAME</th>
-        <th style="${_stickyTh}left:230px;">USER</th>
-        <th style="${_stickyTh}left:320px;${_shadowR}">POSITION</th>
+        <th style="${_stickyTh}left:0;min-width:60px;width:60px;">GROUP</th>
+        <th style="${_stickyTh}left:60px;min-width:200px;width:200px;">FULL NAME</th>
+        <th style="${_stickyTh}left:260px;min-width:130px;width:130px;">USER</th>
+        <th style="${_stickyTh}left:390px;min-width:140px;width:140px;${_shadowR}">POSITION</th>
         ${displayDates.map(function(d) { return '<th class="c" style="min-width:42px;padding:6px 2px;">' +
           '<div style="color:var(--accent);font-size:11px;">' + d + '</div>' +
           '<div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">' + getWkDay(d) + '</div>' +
@@ -3108,10 +3107,10 @@ function renderStaffRows(users, displayDates) {
   return users.map(function(u) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr>
-    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg2);">${u.team || '—'}</td>
-    <td style="font-weight:600;position:sticky;left:80px;z-index:2;background:var(--bg2);">${u.name}</td>
-    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:230px;z-index:2;background:var(--bg2);">${u.username || ''}</td>
-    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:320px;z-index:2;background:var(--bg2);box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
+    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg2);min-width:60px;width:60px;">${u.team || '—'}</td>
+    <td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg2);min-width:200px;width:200px;">${u.name}</td>
+    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg2);min-width:130px;width:130px;">${u.username || ''}</td>
+    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:390px;z-index:2;background:var(--bg2);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
     ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`;
   }).join('');
@@ -3152,10 +3151,12 @@ function _liveFilter() {
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
     if (!_currTrn2 && _isTrn) return false;
-    return (u.team || '').toLowerCase().includes(staffFilters.team.toLowerCase()) &&
-      (u.name || '').toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-      (u.username || '').toLowerCase().includes(staffFilters.user.toLowerCase()) &&
-      _roleStr.includes(staffFilters.role.toLowerCase());
+    var _sq2 = (staffFilters.search || '').toLowerCase();
+    if (!_sq2) return true;
+    return (u.team || '').toLowerCase().includes(_sq2) ||
+      (u.name || '').toLowerCase().includes(_sq2) ||
+      (u.username || '').toLowerCase().includes(_sq2) ||
+      _roleStr.includes(_sq2);
   });
   const tbody = document.getElementById('staff-tbody');
   if (tbody) tbody.innerHTML = renderStaffRows(_sortStaffUsers(filtered), displayDates);

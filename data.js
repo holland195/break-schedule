@@ -377,7 +377,7 @@ let _ssActiveMonday = (() => {
   const mon = new Date(now); mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
   return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
 })();
-let staffFilters  = { team:'', name:'', user:'', role:'' };
+let staffFilters  = { team:'', name:'', user:'', role:'', search:'' };
 let staffSubTab   = 'info'; // 'info' | 'schedule'
 let importedUsers = [];
 
