@@ -291,7 +291,32 @@ function renderDashboard() {
     _tgHTML +
     '</div>';
 
-  // No schedule imported yet
+  // This Week card — Mon-Sun, shift + break per day
+  var _wkMonSun = [1,2,3,4,5,6,0].map(function(i) { return weekDates[i]; });
+  var _thisWeekRows = _wkMonSun.map(function(dk) {
+    var _isToday = dk === todayDk;
+    var _sched = _getSched(currentUser.username, dk);
+    var _isOff = !_sched || _sched === '0';
+    var _br = getAssigned(currentUser.id, dk);
+    var _slotTime = _br ? getSlotTime(_br.slot, dk) : '';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;' +
+      (_isToday ? 'background:var(--bg4);border-left:3px solid var(--accent);' : 'border-left:3px solid transparent;') + '">' +
+      '<span style="font-size:10px;font-weight:700;color:var(--text3);width:28px;">' + getWkDay(dk) + '</span>' +
+      '<span style="font-size:11px;font-family:monospace;color:var(--text2);width:36px;">' + dk + '</span>' +
+      '<span class="sh sh-' + (_isOff ? '0' : _sched) + '" style="font-size:10px;padding:2px 7px;">' + (_isOff ? '—' : _sched) + '</span>' +
+      '<span style="font-size:11px;flex:1;">' +
+        (_isOff ? '<span style="color:var(--text3);">Day off</span>' :
+         _slotTime ? _slotTime :
+         '<span style="color:var(--warn);">Not assigned</span>') +
+      '</span>' +
+      (_isToday ? '<span style="font-size:9px;color:var(--accent);font-weight:700;letter-spacing:.04em;">TODAY</span>' : '') +
+    '</div>';
+  }).join('');
+  var _thisWeekCard = '<div class="card" style="margin-bottom:0;">' +
+    '<div class="card-title">📅 This Week</div>' +
+    '<div style="margin-top:6px;">' + _thisWeekRows + '</div>' +
+    '</div>';
+
   const noSchedule = state.users.length === 0 ? `
 <div class="card" style="border-color:var(--warn);background:var(--D-bg);">
   <div style="font-size:13px;color:var(--warn);font-weight:600;">⚠ No schedule imported on this browser</div>
@@ -312,15 +337,7 @@ ${noSchedule}
 ${statsRow}
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
   ${myBreakCard}
-  <div class="card" style="margin-bottom:0;">
-    <div class="card-title">📋 Quick Links</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
-      <button class="btn" onclick="nav('schedule')" style="text-align:left;justify-content:flex-start;">📅 View Break Schedule</button>
-      ${!isLeader(currentUser) ? `<button class="btn" onclick="nav('requests')" style="text-align:left;justify-content:flex-start;">🔄 My Requests ${myPending > 0 ? `<span class="nav-badge" style="display:inline;">${myPending}</span>` : ''}</button>` : ''}
-      ${isLeader(currentUser) ? `<button class="btn btn-accent" onclick="nav('arrange')" style="text-align:left;justify-content:flex-start;">✏️ Arrange Breaks ${allPending > 0 ? `<span style="color:var(--warn);font-size:11px;">(${allPending} pending)</span>` : ''}</button>` : ''}
-      ${_getUserGender(currentUser) === 'F' || isLeader(currentUser) ? `<button class="btn" onclick="nav('extbreak')" style="text-align:left;justify-content:flex-start;">🌸 30-min Breaks</button>` : ''}
-    </div>
-  </div>
+  ${_thisWeekCard}
 </div>
 ${teamGrid}`;
 }
