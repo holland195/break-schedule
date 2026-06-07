@@ -2307,7 +2307,7 @@ function _renderStaffSchedule() {
       _roleStr.includes(_sq);
   });
 
-  var _stickyTh = 'background:var(--bg2);position:sticky;z-index:20;top:0;';
+  var _stickyTh = 'background:var(--bg3);position:sticky;z-index:20;top:0;';
   var _shadowR   = 'box-shadow:3px 0 6px rgba(0,0,0,.12);';
 
   var _searchBar = '<input class="filter-input" style="width:200px;" placeholder="Search group, name, user, role…" value="' + (staffFilters.search || '') + '" oninput="staffFilters.search=this.value;_liveFilter()">';
@@ -3107,10 +3107,10 @@ function renderStaffRows(users, displayDates) {
   return users.map(function(u) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr>
-    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg2);min-width:60px;width:60px;">${u.team || '—'}</td>
-    <td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg2);min-width:200px;width:200px;">${u.name}</td>
-    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg2);min-width:130px;width:130px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:390px;z-index:2;background:var(--bg2);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
+    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">${u.team || '—'}</td>
+    <td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg3);min-width:200px;width:200px;">${u.name}</td>
+    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg3);min-width:130px;width:130px;">${u.username || ''}</td>
+    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
     ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`;
   }).join('');
