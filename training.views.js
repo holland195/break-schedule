@@ -93,21 +93,30 @@ function _shiftBlock(sh, hdrExtra, tableHTML, cnt) {
 // ═══════════════════════════════════════════════
 //  1. BREAK SCHEDULE — TRAINING VIEW
 // ═══════════════════════════════════════════════
-// Week offset helper — returns Sunday of the week N weeks before/after sunStr
-function _weekOffset(sunStr, n) {
-  const [d,m] = sunStr.split('/');
+// Week offset helper — returns Monday of the week N weeks before/after monStr
+function _weekOffset(monStr, n) {
+  const [d,m] = monStr.split('/');
   const dt = new Date(2026, parseInt(m)-1, parseInt(d));
   dt.setDate(dt.getDate() + n*7);
   return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
 }
 
+// Returns Mon–Sun dates for the current real week
+function _curWeekMonDates() {
+  const now = new Date();
+  const dow = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  return getWeekRange(`${String(mon.getDate()).padStart(2,'0')}/${String(mon.getMonth()+1).padStart(2,'0')}`);
+}
+
 function renderScheduleTraining() {
-  const curWeekDates  = getWeekDates(); // always current real week
-  const curWeekSunday = curWeekDates[0];
-  // Use selected week from state, or default to current week
-  const selWeekSunday = TS.schedWeek || curWeekSunday;
-  const weekDates     = TS.schedWeek ? getWeekRange(TS.schedWeek) : curWeekDates;
-  const isCurWeek     = selWeekSunday === curWeekSunday;
+  const curWeekDates  = _curWeekMonDates(); // Mon–Sun, always current real week
+  const curWeekMonday = curWeekDates[0];
+  // Use selected week from state (stored as Monday DD/MM), or default to current week
+  const selWeekMonday = TS.schedWeek || curWeekMonday;
+  const weekDates     = getWeekRange(selWeekMonday); // Mon–Sun
+  const isCurWeek     = selWeekMonday === curWeekMonday;
 
   const todayDk   = (() => {
     const n=new Date(); const d=n.getDay();
@@ -119,15 +128,18 @@ function renderScheduleTraining() {
   const selDay = TS.schedDay && weekDates.includes(TS.schedDay)
     ? TS.schedDay : defaultSelDay;
 
-  const dateToDayName = {};
-  WEEK_DAYS.forEach((d,i)=>{ dateToDayName[weekDates[i]]=d; });
   const getUS = (u,dk) => _getSched(u.username,dk);
 
-  // Per-shift data
+  // Per-shift data (exclude leaders/supervisors/training from the table)
   const SD = {};
   ['A','D','E'].forEach(sh => {
     const slots = BREAK_SLOTS[sh]||[];
-    const users = state.users.filter(u=>weekDates.some(dk=>getUS(u,dk)===sh));
+    const users = state.users.filter(function(u) {
+      var _r = u.role || (state.staffInfo[u.username]||{}).role || '';
+      var _rr = _resolveRole(_r) || _r;
+      if ((ROLES[_rr]||{}).level >= 2) return false; // skip leaders, supervisors, training
+      return weekDates.some(function(dk) { return getUS(u,dk)===sh; });
+    });
     // Count slots for SELECTED DAY only
     let s1=0,s2=0,total=0;
     users.forEach(u => {
@@ -147,9 +159,9 @@ if (idx===0) s1++; else if (idx===1) s2++;
   const searchQ     = (TS.search||'').toLowerCase();
 
   // ── Row 1: title + week navigation ──
-  const prevSunday = _weekOffset(selWeekSunday, -1);
-  const nextSunday = _weekOffset(selWeekSunday, +1);
-  const weekStatusLabel = isCurWeek ? 'Current week' : selWeekSunday > curWeekSunday ? 'Future week' : 'Past week';
+  const prevMonday = _weekOffset(selWeekMonday, -1);
+  const nextMonday = _weekOffset(selWeekMonday, +1);
+  const weekStatusLabel = isCurWeek ? 'Current week' : selWeekMonday > curWeekMonday ? 'Future week' : 'Past week';
   const titleRow = `
     <div style="margin-bottom:10px;">
       <div class="page-title">Break Schedule</div>
@@ -157,12 +169,12 @@ if (idx===0) s1++; else if (idx===1) s2++;
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
       <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;"
-        onclick="window._tState.schedWeek='${prevSunday}';window._tState.schedDay=null;nav('schedule')">&#8249;</button>
+        onclick="window._tState.schedWeek='${prevMonday}';window._tState.schedDay=null;nav('schedule')">&#8249;</button>
       <span style="font-size:12px;font-weight:600;min-width:160px;text-align:center;">
         ${weekDates[0]} &ndash; ${weekDates[6]}
       </span>
       <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;"
-        onclick="window._tState.schedWeek='${nextSunday}';window._tState.schedDay=null;nav('schedule')">&#8250;</button>
+        onclick="window._tState.schedWeek='${nextMonday}';window._tState.schedDay=null;nav('schedule')">&#8250;</button>
       ${!isCurWeek ? `<button class="btn btn-sm" style="font-size:11px;color:var(--accent);border-color:var(--accent);"
         onclick="window._tState.schedWeek=null;window._tState.schedDay=null;nav('schedule')">Current week</button>` : ''}
     </div>`;
@@ -214,7 +226,7 @@ if (idx===0) s1++; else if (idx===1) s2++;
             background:${isAct?'var(--accent)':'var(--bg2)'};
             color:${isAct?'#fff':isTod?'var(--accent)':'var(--text2)'};
             font-weight:${isAct||isTod?600:400};">
-          ${WEEK_DAYS[i]} ${dk}${isTod?' · today':''}
+          ${getWkDay(dk)} ${dk}${isTod?' · today':''}
         </button>`;
       }).join('')}
     </div>`;
@@ -258,7 +270,7 @@ if (idx===0) s1++; else if (idx===1) s2++;
         background:${isSel?'rgba(31,102,241,.08)':isTod?'rgba(31,102,241,.04)':'var(--bg3)'};
         border-bottom:2px solid ${isSel?'var(--accent)':isTod?'rgba(31,102,241,.4)':'var(--border2)'};
         position:sticky;top:0;z-index:2;">
-        <div style="font-size:11px;font-weight:${isSel||isTod?700:500};color:${isSel||isTod?'var(--accent)':'var(--text2)'};">${WEEK_DAYS[i]}</div>
+        <div style="font-size:11px;font-weight:${isSel||isTod?700:500};color:${isSel||isTod?'var(--accent)':'var(--text2)'};">${getWkDay(dk)}</div>
         <div style="font-size:10px;color:${isSel||isTod?'var(--accent)':'var(--text3)'};">${dk}</div>
         ${isTod?`<div style="font-size:8px;color:var(--accent);font-weight:700;">today</div>`:''}
       </th>`;
@@ -294,8 +306,12 @@ const cls=slotNum>0?`slot-${slotNum}`:'';
        <span style="font-size:11px;color:var(--text2);margin-right:6px;">${time}</span>`
     ).join('');
 
-    // Break split indicator (read-only)
-    const _sp = typeof getBreakSplitPct === 'function' ? getBreakSplitPct(sh) : null;
+    // Break split indicator (read-only) — Shift A stores per-tier splits; use agent tier as representative
+    var _sp = null;
+    if (typeof getBreakSplitPct === 'function') {
+      _sp = getBreakSplitPct(sh, 'agent');
+      if (_sp === null) _sp = getBreakSplitPct(sh);
+    }
     const _p1 = _sp !== null ? _sp : 50;
     const _p2 = 100 - _p1;
     const splitLabel = d.slots.length >= 2
@@ -536,10 +552,13 @@ ${blocks||'<div class="empty">No female staff found.</div>'}`;
 function renderAttendanceTraining() {
   const year  = TS.attYear;
   const month = TS.attMonth;
-  const prevM = month===1?12:month-1;
-  const prevY = month===1?year-1:year;
-  const monthLabel = `${new Date(prevY,prevM-1,25).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(year,month-1,24).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`;
-  const dates   = _getAllDatesInMonth(year, month);
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthLabel = new Date(year, month-1, 1).toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+  // Calendar month: 1st to last day (not the 25-prev–24-cur working-month billing period)
+  const dates = [];
+  for (var _di = 1; _di <= lastDay; _di++) {
+    dates.push(String(_di).padStart(2,'0') + '/' + String(month).padStart(2,'0'));
+  }
   const todayDk = _todayDateKey();
   const q       = (TS.search||'').toLowerCase();
   const shF     = TS.shiftFilter; // 'all' | 'A'..'E'
@@ -618,7 +637,7 @@ function renderAttendanceTraining() {
 
     const cells = dates.map(dk=>{
       const [_d,_m] = dk.split('/');
-      const cellY = parseInt(_m)===month ? year : (month===1?year-1:year);
+      const cellY = year;
       const dow = new Date(cellY, parseInt(_m)-1, parseInt(_d)).getDay();
       const isWknd = dow===0||dow===6;
       const isToday = dk===todayDk;
