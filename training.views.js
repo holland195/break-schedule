@@ -584,8 +584,12 @@ function renderAttendanceTraining() {
       <span style="font-size:12px;color:var(--text2);">${monthLabel}</span>
     </div>`;
 
-  // Collect ALL users, determine their primary shift for this month
-  const allUsers = state.users.map(u=>{
+  // Collect analyst-tier users only (exclude leaders, supervisors, training managers/assistants)
+  const allUsers = state.users.filter(function(u) {
+    var _r = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _rr = _resolveRole(_r) || _r;
+    return (ROLES[_rr]||{}).level < 2;
+  }).map(u=>{
     const sc={};
     dates.forEach(dk=>{
       var s=_getSched(u.username,dk);
