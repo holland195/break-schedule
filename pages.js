@@ -628,7 +628,9 @@ function renderRequests() {
   if (!_reqFilterYM) _reqFilterYM = currentMonthKey();
   const filterYM = _reqFilterYM;
 
-  const allReqs = isLeader(currentUser) ? state.requests : state.requests.filter(r => r.userId === currentUser.id);
+  const allReqs = (isLeader(currentUser) || isTraining(currentUser))
+    ? state.requests
+    : state.requests.filter(r => r.userId === currentUser.id || r.targetId === currentUser.id);
   const myReqs = allReqs.filter(r => {
     const d = new Date(r.at);
     const rym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -639,6 +641,50 @@ function renderRequests() {
   const rest = myReqs.filter(r => r.status !== 'pending');
 
   const card = (r) => {
+    if (r.type === 'dayoff-swap') {
+      var _dosEmp = state.users.find(u => u.id === r.userId);
+      var _dosTgt = state.users.find(u => u.id === r.targetId);
+      var _dosIdx = state.requests.indexOf(r);
+      var _dosIsOwn = r.userId === currentUser.id;
+      var _dosCanApprove = (isLeader(currentUser) || isTraining(currentUser)) && !_dosIsOwn;
+      var _dosApprover = r.resolvedBy ? state.users.find(u => u.id === r.resolvedBy) : null;
+      return '<div class="req-card ' + r.status + '">' +
+        '<div class="req-card-top">' +
+          '<div>' +
+            '<div class="req-card-name">' + (_dosEmp ? _dosEmp.name : 'Unknown') +
+              ' <span class="req-scope day" style="background:rgba(99,102,241,.13);color:#6366f1;">DAY-OFF</span>' +
+            '</div>' +
+            '<div class="req-card-meta">' + timeSince(r.at) + '</div>' +
+          '</div>' +
+          '<span class="req-status ' + r.status + '">' + r.status.toUpperCase() + '</span>' +
+        '</div>' +
+        '<hr class="req-card-divider">' +
+        '<div class="req-card-row"><span class="req-card-lbl">Their day off</span>' +
+          '<span class="req-card-val" style="font-weight:600;">' + r.myDate + ' (' + getWkDay(r.myDate) + ')</span>' +
+        '</div>' +
+        '<div class="req-card-row"><span class="req-card-lbl">↔ Swap with</span>' +
+          '<span class="req-card-val">' + (_dosTgt ? _dosTgt.name + ' <span style="color:var(--text3)">(' + (_dosTgt.team||'?') + ')</span>' : '—') + '</span>' +
+        '</div>' +
+        '<div class="req-card-row"><span class="req-card-lbl">Their day off</span>' +
+          '<span class="req-card-val" style="font-weight:600;">' + r.theirDate + ' (' + getWkDay(r.theirDate) + ')</span>' +
+        '</div>' +
+        (r.reason ? '<div class="req-card-reason">"' + r.reason + '"</div>' : '') +
+        (_dosApprover && r.status !== 'pending'
+          ? '<div class="req-resolved ' + r.status + '">' +
+              (r.status === 'approved' ? '✓ Approved' : '✗ Rejected') +
+              ' by <b>' + _dosApprover.name + '</b> · ' + timeSince(r.resolvedAt) +
+            '</div>'
+          : '') +
+        (_dosCanApprove && r.status === 'pending'
+          ? '<div class="req-actions">' +
+              '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + _dosIdx + ',\'approved\')">✓ Approve</button>' +
+              '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + _dosIdx + ',\'rejected\')">✗ Reject</button>' +
+            '</div>'
+          : (_dosIsOwn && r.status === 'pending'
+            ? '<div class="req-actions"><button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + _dosIdx + ')">✗ Cancel</button></div>'
+            : '')) +
+      '</div>';
+    }
     const emp = state.users.find(u => u.id === r.userId);
     const partner = r.swapPartnerId ? state.users.find(u => u.id === r.swapPartnerId) : null;
     const approver = r.resolvedBy
@@ -757,9 +803,12 @@ function renderRequests() {
 <div class="page-header">
   <div>
     <div class="page-title">🔄 Break Swap</div>
-    <div class="page-sub">${isLeader(currentUser) ? `${cntPending} pending · your shift` : 'Your break swap requests'}</div>
+    <div class="page-sub">${(isLeader(currentUser)||isTraining(currentUser)) ? `${cntPending} pending` : 'Your swap requests'}</div>
   </div>
-  ${!isLeader(currentUser) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ New swap</button>` : ''}
+  ${!(isLeader(currentUser)||isTraining(currentUser)) ? `<div style="display:flex;gap:8px;">
+    <button class="btn btn-accent" onclick="openRequestModal()">+ Break swap</button>
+    <button class="btn" onclick="staffSubTab='schedule';nav('staff')" title="Go to Staff Schedule to request a day-off swap">↔ Day-off swap</button>
+  </div>` : ''}
 </div>
 ${_monthPickerHTML(filterYM, '_setReqFilterYM', 'requests')}
 ${filterBar}
@@ -1941,32 +1990,22 @@ function autofillWeek() {
 //  Tab 2: Staff Schedule (shift grid, no gender col)
 // ═══════════════════════════════════════════════
 function renderStaff() {
+  var _canSeeAll = isLeader(currentUser) || isTraining(currentUser);
+  if (!_canSeeAll && staffSubTab !== 'schedule') staffSubTab = 'schedule';
+  var _tabStyle = function(tab) {
+    return 'padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;' +
+      'color:' + (staffSubTab === tab ? 'var(--accent)' : 'var(--text2)') + ';' +
+      'border-bottom:3px solid ' + (staffSubTab === tab ? 'var(--accent)' : 'transparent') + ';' +
+      'margin-bottom:-2px;transition:all .12s;';
+  };
   return `
 <div class="page-header">
   <div><div class="page-title">Staff</div></div>
 </div>
 <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
-  <button onclick="staffSubTab='info';nav('staff')"
-    style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
-      background:none;color:${staffSubTab === 'info' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${staffSubTab === 'info' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px;transition:all .12s;">
-    👤 Staff Info
-  </button>
-  <button onclick="staffSubTab='schedule';nav('staff')"
-    style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
-      background:none;color:${staffSubTab === 'schedule' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${staffSubTab === 'schedule' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px;transition:all .12s;">
-    📅 Staff Schedule
-  </button>
-  <button onclick="staffSubTab='attendance';nav('staff')"
-    style="padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;border:none;
-      background:none;color:${staffSubTab === 'attendance' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${staffSubTab === 'attendance' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px;transition:all .12s;">
-    📋 Staff Attendance
-  </button>
+  ${_canSeeAll ? `<button onclick="staffSubTab='info';nav('staff')" style="${_tabStyle('info')}">👤 Staff Info</button>` : ''}
+  <button onclick="staffSubTab='schedule';nav('staff')" style="${_tabStyle('schedule')}">📅 Staff Schedule</button>
+  ${_canSeeAll ? `<button onclick="staffSubTab='attendance';nav('staff')" style="${_tabStyle('attendance')}">📋 Staff Attendance</button>` : ''}
 </div>
 <div id="staff-subtab-content">
   ${staffSubTab === 'info'
@@ -2390,10 +2429,10 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   const monthDates = _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth));
   const displayDates = showFullMonth ? monthDates : weekRange;
 
-  var _weekFiltered = (!showFullMonth && _ssShiftFilter !== 'All')
-    ? filteredUsers.filter(function(u) { return weekRange.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; }); })
-    : filteredUsers;
-  var _displayUsers = showFullMonth ? filteredUsers : _weekFiltered;
+  var _sfDates = showFullMonth ? monthDates : weekRange;
+  var _displayUsers = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
+    return _sfDates.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; });
+  });
 
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
@@ -2413,7 +2452,8 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
       var end = getWeekRange(mon)[6];
       return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
     }).join('')}
-  </select>${_shiftPicker}` : ''}
+  </select>` : ''}
+  ${_shiftPicker}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
 ${_schedTbl(displayDates, _displayUsers)}`;
@@ -3121,15 +3161,26 @@ function clearMonthlyAttendance(year, month) {
 }
 
 function renderStaffRows(users, displayDates) {
+  var _canReqSwap = !isLeader(currentUser) && !isTraining(currentUser);
   return users.map(function(u) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
-    return `<tr>
-    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">${u.team || '—'}</td>
-    <td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg3);min-width:200px;width:200px;">${u.name}</td>
-    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg3);min-width:130px;width:130px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
-    ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
-  </tr>`;
+    var _isMyRow = u.username === currentUser.username && _canReqSwap;
+    return '<tr>' +
+    '<td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">' + (u.team || '—') + '</td>' +
+    '<td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg3);min-width:200px;width:200px;">' + u.name + '</td>' +
+    '<td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg3);min-width:130px;width:130px;">' + (u.username || '') + '</td>' +
+    '<td style="font-size:11px;color:' + _roleColor(_srEffRole) + ';position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">' + (getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—') + '</td>' +
+    displayDates.map(function(d) {
+      var s = _getSched(u.username, d);
+      if (_isMyRow && s === '0') {
+        return '<td class="c" style="cursor:pointer;" onclick="openDayoffSwapModal(\'' + d + '\')" title="Request day-off swap">' +
+          '<span class="sh sh-0">—</span>' +
+          '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">↔</div>' +
+          '</td>';
+      }
+      return '<td class="c"><span class="sh sh-' + s + '">' + (s === '0' ? '—' : s) + '</span></td>';
+    }).join('') +
+    '</tr>';
   }).join('');
 }
 
@@ -3179,6 +3230,116 @@ function _liveFilter() {
   if (tbody) tbody.innerHTML = renderStaffRows(_sortStaffUsers(filtered), displayDates);
   const sub = document.querySelector('#staff-subtab-content .page-sub');
   if (sub) sub.textContent = `${filtered.length} staff`;
+}
+
+// ═══════════════════════════════════════════════
+//  DAY-OFF SWAP REQUEST
+// ═══════════════════════════════════════════════
+var _dosMyDate = '';
+
+function _dayoffSwapModalHTML() {
+  return '<div id="modal-dayoff-swap" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-dayoff-swap\')">' +
+    '<div class="modal" style="width:420px;">' +
+      '<div class="modal-title">↔ Request Day-Off Swap</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Your day off</div>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--accent);" id="dos-my-date">—</div>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same position)</div>' +
+        '<select id="dos-target-user" class="login-select" style="width:100%;font-size:13px;" onchange="_dosUpdateDates()">' +
+          '<option value="">— Select person —</option>' +
+        '</select>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;" id="dos-target-date-wrap"></div>' +
+      '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Reason (optional)</div>' +
+        '<input id="dos-reason" class="login-input" style="width:100%;box-sizing:border-box;font-size:13px;" placeholder="e.g. family event…" />' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="btn" onclick="closeModal(\'modal-dayoff-swap\')">Cancel</button>' +
+        '<button class="btn btn-accent" onclick="submitDayoffSwap()">Submit Request</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function openDayoffSwapModal(dateKey) {
+  if (!document.getElementById('modal-dayoff-swap')) {
+    document.body.insertAdjacentHTML('beforeend', _dayoffSwapModalHTML());
+  }
+  _dosMyDate = dateKey;
+  document.getElementById('dos-my-date').textContent = dateKey + ' (' + getWkDay(dateKey) + ')';
+  document.getElementById('dos-reason').value = '';
+  document.getElementById('dos-target-date-wrap').innerHTML = '';
+  var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
+  var _sel = document.getElementById('dos-target-user');
+  _sel.innerHTML = '<option value="">— Select person —</option>' +
+    state.users.filter(function(u) {
+      if (u.username === currentUser.username) return false;
+      var _ur = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+      return _ur === _myRole;
+    }).map(function(u) {
+      return '<option value="' + u.username + '">' + u.name + ' (' + (u.team || '?') + ')</option>';
+    }).join('');
+  document.getElementById('modal-dayoff-swap').classList.add('show');
+}
+
+function _dosUpdateDates() {
+  var targetUsername = document.getElementById('dos-target-user').value;
+  var wrap = document.getElementById('dos-target-date-wrap');
+  if (!targetUsername) { wrap.innerHTML = ''; return; }
+  var sc = state.staffSchedule[targetUsername] || {};
+  var _now = new Date();
+  var _todayTs = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime();
+  var _dayoffs = Object.keys(sc).filter(function(k) {
+    if (!/^\d{2}\/\d{2}$/.test(k)) return false;
+    if (sc[k] !== '0') return false;
+    if (k === _dosMyDate) return false;
+    var parts = k.split('/');
+    var ts = new Date(_now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[0])).getTime();
+    return ts >= _todayTs;
+  }).sort(function(a, b) {
+    var ap = a.split('/'); var bp = b.split('/');
+    return (parseInt(ap[1])*100+parseInt(ap[0])) - (parseInt(bp[1])*100+parseInt(bp[0]));
+  });
+  if (_dayoffs.length === 0) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);">No upcoming day-offs found for this person.</div>';
+    return;
+  }
+  wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their day off</div>' +
+    '<select id="dos-target-date" class="login-select" style="width:100%;font-size:13px;">' +
+    '<option value="">— Select date —</option>' +
+    _dayoffs.map(function(d) { return '<option value="' + d + '">' + d + ' (' + getWkDay(d) + ')</option>'; }).join('') +
+    '</select>';
+}
+
+function submitDayoffSwap() {
+  var targetUsername = document.getElementById('dos-target-user').value;
+  var targetDateEl = document.getElementById('dos-target-date');
+  var targetDate = targetDateEl ? targetDateEl.value : '';
+  var reason = (document.getElementById('dos-reason').value || '').trim();
+  if (!targetUsername || !targetDate) { toast('Please select a person and their day off.', 'err'); return; }
+  var targetUser = state.users.find(function(u) { return u.username === targetUsername; });
+  if (!targetUser) return;
+  state.requests.push({
+    type: 'dayoff-swap',
+    userId: currentUser.id,
+    username: currentUser.username,
+    targetId: targetUser.id,
+    targetUsername: targetUsername,
+    myDate: _dosMyDate,
+    theirDate: targetDate,
+    status: 'pending',
+    at: Date.now(),
+    reason: reason,
+    resolvedBy: null,
+    resolvedAt: null
+  });
+  syncWrite();
+  closeModal('modal-dayoff-swap');
+  toast('Day-off swap request submitted', 'ok');
+  nav('requests');
 }
 
 // ═══════════════════════════════════════════════
@@ -3494,6 +3655,26 @@ function resolveRequest(idx, status) {
   r.resolvedAt = Date.now();
 
   if (status === 'approved') {
+    if (r.type === 'dayoff-swap') {
+      // Determine each person's normal shift by looking at their most-used schedule code
+      var _getShift = function(username) {
+        var sc = state.staffSchedule[username] || {};
+        var _counts = {};
+        Object.keys(sc).forEach(function(k) {
+          var v = sc[k]; if (v && v !== '0') _counts[v] = (_counts[v] || 0) + 1;
+        });
+        var _best = Object.keys(_counts).sort(function(a, b) { return _counts[b] - _counts[a]; })[0];
+        return _best || 'A';
+      };
+      if (!state.staffSchedule[r.username]) state.staffSchedule[r.username] = {};
+      if (!state.staffSchedule[r.targetUsername]) state.staffSchedule[r.targetUsername] = {};
+      // Requester: give up their day off, work on target's date
+      state.staffSchedule[r.username][r.myDate] = _getShift(r.username);
+      state.staffSchedule[r.username][r.theirDate] = '0';
+      // Target: give up their day off, work on requester's date
+      state.staffSchedule[r.targetUsername][r.theirDate] = _getShift(r.targetUsername);
+      state.staffSchedule[r.targetUsername][r.myDate] = '0';
+    } else {
     const days = r.swapDays || [r.day];
     days.forEach(d => {
       // Give requester the partner's slot
@@ -3505,10 +3686,11 @@ function resolveRequest(idx, status) {
       }
     });
 
-    // Auto-deny any other pending requests that conflict with the same partner + days
+    // Auto-deny any other pending break-swap requests that conflict with same partner + days
     state.requests.forEach((other, i) => {
       if (i === idx) return;
       if (other.status !== 'pending') return;
+      if (other.type === 'dayoff-swap') return;
       if (other.swapPartnerId !== r.swapPartnerId) return;
       const otherDays = other.swapDays || [other.day];
       const days2 = r.swapDays || [r.day];
@@ -3519,6 +3701,7 @@ function resolveRequest(idx, status) {
         other.resolvedAt = Date.now();
       }
     });
+    } // end break-swap else
   }
 
   if (typeof syncWrite === 'function') syncWrite(); else save();
