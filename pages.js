@@ -1997,7 +1997,7 @@ function _renderStaffInfo() {
   <table>
     <thead>
       <tr>
-        <th style="text-align:center;width:52px;">ACTIVE</th><th style="width:90px;">EMP#</th><th>FULL NAME</th><th>USERNAME</th><th style="text-align:center;width:60px;">GENDER</th><th>DATE OF BIRTH</th><th>POSITION</th><th>PHONE</th>
+        <th style="text-align:center;width:52px;background:var(--bg3);">ACTIVE</th><th style="width:90px;background:var(--bg3);">EMP#</th><th style="background:var(--bg3);">FULL NAME</th><th style="background:var(--bg3);">USERNAME</th><th style="text-align:center;width:60px;background:var(--bg3);">GENDER</th><th style="background:var(--bg3);">DATE OF BIRTH</th><th style="background:var(--bg3);">POSITION</th><th style="background:var(--bg3);">PHONE</th>
       </tr>
     </thead>
     <tbody id="staff-info-tbody">${rows}</tbody>
@@ -2823,7 +2823,7 @@ function _renderStaffAttendance() {
     }).join('');
 
     const rowBg = conflicts.length ? 'background:rgba(248,113,113,.03);' : '';
-    const stickyCell = 'position:sticky;z-index:1;background:var(--bg2);';
+    const stickyCell = 'position:sticky;z-index:1;background:var(--bg3);';
     var _saEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
