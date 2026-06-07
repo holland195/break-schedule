@@ -370,6 +370,13 @@ let activeMonday = (() => {
 })();
 let showFullMonth = false;
 let _schedMonth   = null; // null = auto-detect from activeMonday
+let _ssShiftFilter = 'All'; // staff schedule shift filter (week mode only)
+// Monday anchor for Staff Schedule (separate from activeMonday which is Sunday-based for Arrange)
+let _ssActiveMonday = (() => {
+  const now = new Date(); const dow = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+})();
 let staffFilters  = { team:'', name:'', user:'', role:'' };
 let staffSubTab   = 'info'; // 'info' | 'schedule'
 let importedUsers = [];

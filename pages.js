@@ -2305,38 +2305,54 @@ function _renderStaffSchedule() {
       _roleStr.includes(staffFilters.role.toLowerCase());
   });
 
-  const _schedTbl = function(displayDates) {
+  var _stickyTh = 'background:var(--bg2);position:sticky;z-index:20;top:0;';
+  var _stickyTd = 'background:var(--bg);position:sticky;z-index:2;';
+  var _shadowR   = 'box-shadow:3px 0 6px rgba(0,0,0,.12);';
+
+  const _schedTbl = function(displayDates, shiftFilteredUsers) {
+    var _tblUsers = _sortStaffUsers(shiftFilteredUsers || filteredUsers);
     return `<div class="staff-tbl-wrap">
   <table>
     <thead>
       <tr class="filter-row">
-        <td style="min-width:80px;width:80px;"><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
-        <td style="min-width:150px;width:150px;"><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
-        <td style="min-width:90px;width:90px;"><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
-        <td style="min-width:110px;width:110px;"><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
+        <td style="min-width:80px;width:80px;${_stickyTh}left:0;"><input class="filter-input" placeholder="Group…"  value="${staffFilters.team}" oninput="staffFilters.team=this.value;_liveFilter()"></td>
+        <td style="min-width:150px;width:150px;${_stickyTh}left:80px;"><input class="filter-input" placeholder="Name…"   value="${staffFilters.name}" oninput="staffFilters.name=this.value;_liveFilter()"></td>
+        <td style="min-width:90px;width:90px;${_stickyTh}left:230px;"><input class="filter-input" placeholder="User…"   value="${staffFilters.user}" oninput="staffFilters.user=this.value;_liveFilter()"></td>
+        <td style="min-width:110px;width:110px;${_stickyTh}left:320px;${_shadowR}"><input class="filter-input" placeholder="Role…"   value="${staffFilters.role}" oninput="staffFilters.role=this.value;_liveFilter()"></td>
         <td colspan="${displayDates.length}" style="padding-left:12px;color:var(--text3);font-size:10px;font-family:'IBM Plex Mono',monospace;">SCHEDULE</td>
       </tr>
       <tr>
-        <th>GROUP</th><th>FULL NAME</th><th>USER</th><th>POSITION</th>
-        ${displayDates.map(d => `<th class="c" style="min-width:42px;padding:6px 2px;">
-          <div style="color:var(--accent);font-size:11px;">${d}</div>
-          <div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">${getWkDay(d)}</div>
-        </th>`).join('')}
+        <th style="${_stickyTh}left:0;">GROUP</th>
+        <th style="${_stickyTh}left:80px;">FULL NAME</th>
+        <th style="${_stickyTh}left:230px;">USER</th>
+        <th style="${_stickyTh}left:320px;${_shadowR}">POSITION</th>
+        ${displayDates.map(function(d) { return '<th class="c" style="min-width:42px;padding:6px 2px;">' +
+          '<div style="color:var(--accent);font-size:11px;">' + d + '</div>' +
+          '<div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">' + getWkDay(d) + '</div>' +
+          '</th>'; }).join('')}
       </tr>
     </thead>
-    <tbody id="staff-tbody">${renderStaffRows(_sortStaffUsers(filteredUsers), displayDates)}</tbody>
+    <tbody id="staff-tbody">${renderStaffRows(_tblUsers, displayDates)}</tbody>
   </table>
 </div>`;
   };
 
+  var _shiftPicker = '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="_ssShiftFilter=this.value;nav(\'staff\')">' +
+    ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
+    '</select>';
+
   if (!hasImportedDates) {
-    var _wkDates = getWeekDates();
+    var _wkDates = getWeekRange(_ssActiveMonday);
+    var _wkFiltered = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
+      return _wkDates.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; });
+    });
     return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <span style="font-size:11px;color:var(--text3);">Current week (weekly assignment)</span>
-  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
+  ${_shiftPicker}
+  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_wkFiltered.length} staff</span>
 </div>
-${_schedTbl(_wkDates)}`;
+${_schedTbl(_wkDates, _wkFiltered)}`;
   }
 
   // Available months (zero-padded MM strings) from schedule data
@@ -2344,20 +2360,25 @@ ${_schedTbl(_wkDates)}`;
 
   // Auto-init or validate _schedMonth
   if (!_schedMonth || !availableMonths.includes(_schedMonth)) {
-    const activeMM = activeMonday.split('/')[1];
+    const activeMM = _ssActiveMonday.split('/')[1];
     _schedMonth = availableMonths.includes(activeMM) ? activeMM : (availableMonths[0] || activeMM);
   }
 
-  // Snap activeMonday to selected month if it drifted
-  if (activeMonday.split('/')[1] !== _schedMonth) {
-    const firstSun = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun' && d.split('/')[1] === _schedMonth))[0];
-    if (firstSun) activeMonday = firstSun;
+  // Snap _ssActiveMonday to selected month if it drifted
+  if (_ssActiveMonday.split('/')[1] !== _schedMonth) {
+    var _firstMon = _sortDateKeys(allDates.filter(function(d) { return getWkDay(d) === 'Mon' && d.split('/')[1] === _schedMonth; }))[0];
+    if (_firstMon) _ssActiveMonday = _firstMon;
   }
 
-  const monthSundays = _sortDateKeys(allDates.filter(d => getWkDay(d) === 'Sun' && d.split('/')[1] === _schedMonth));
-  const weekRange = getWeekRange(activeMonday);
+  const monthMondays = _sortDateKeys(allDates.filter(function(d) { return getWkDay(d) === 'Mon' && d.split('/')[1] === _schedMonth; }));
+  const weekRange = getWeekRange(_ssActiveMonday);
   const monthDates = _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth));
   const displayDates = showFullMonth ? monthDates : weekRange;
+
+  var _weekFiltered = (!showFullMonth && _ssShiftFilter !== 'All')
+    ? filteredUsers.filter(function(u) { return weekRange.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; }); })
+    : filteredUsers;
+  var _displayUsers = showFullMonth ? filteredUsers : _weekFiltered;
 
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
@@ -2371,16 +2392,17 @@ ${_schedTbl(_wkDates)}`;
   <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
     ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
   </button>
-  ${!showFullMonth ? `<label style="font-size:11px;opacity:.7;">Week:</label>
-  <select class="login-select" style="width:160px;padding:4px;" onchange="activeMonday=this.value;nav('staff')">
-    ${monthSundays.map(s => {
-      const end = getWeekRange(s)[6];
-      return `<option value="${s}" ${s === activeMonday ? 'selected' : ''}>${s} – ${end}</option>`;
+  ${!showFullMonth ? `${_shiftPicker}
+  <label style="font-size:11px;opacity:.7;">Week:</label>
+  <select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;nav('staff')">
+    ${monthMondays.map(function(mon) {
+      var end = getWeekRange(mon)[6];
+      return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
     }).join('')}
   </select>` : ''}
-  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${filteredUsers.length} staff</span>
+  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
-${_schedTbl(displayDates)}`;
+${_schedTbl(displayDates, _displayUsers)}`;
 }
 
 var _attNow = new Date();
@@ -3088,10 +3110,10 @@ function renderStaffRows(users, displayDates) {
   return users.map(function(u) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr>
-    <td class="mono" style="font-size:11px;">${u.team || '—'}</td>
-    <td style="font-weight:600">${u.name}</td>
-    <td class="mono" style="color:var(--accent);font-size:11px;">${u.username || ''}</td>
-    <td style="font-size:11px;color:${_roleColor(_srEffRole)}">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
+    <td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg);">${u.team || '—'}</td>
+    <td style="font-weight:600;position:sticky;left:80px;z-index:2;background:var(--bg);">${u.name}</td>
+    <td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:230px;z-index:2;background:var(--bg);">${u.username || ''}</td>
+    <td style="font-size:11px;color:${_roleColor(_srEffRole)};position:sticky;left:320px;z-index:2;background:var(--bg);box-shadow:3px 0 6px rgba(0,0,0,.12);">${getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—'}</td>
     ${displayDates.map(d => { var s = _getSched(u.username, d); return `<td class="c"><span class="sh sh-${s}">${s === '0' ? '—' : s}</span></td>`; }).join('')}
   </tr>`;
   }).join('');
