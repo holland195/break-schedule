@@ -2393,6 +2393,9 @@ function _renderStaffSchedule() {
     ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
     '</select>';
 
+  var _ssCanSwap = !isLeader(currentUser) && !isTraining(currentUser);
+  var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">↔ Day-off Swap</button>' : '';
+
   if (!hasImportedDates) {
     var _wkDates = getWeekRange(_ssActiveMonday);
     var _wkFiltered = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
@@ -2404,6 +2407,7 @@ function _renderStaffSchedule() {
   <div style="width:1px;height:20px;background:var(--border);"></div>
   <span style="font-size:11px;color:var(--text3);">Current week</span>
   ${_shiftPicker}
+  ${_dosSwapBtn}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_wkFiltered.length} staff</span>
 </div>
 ${_schedTbl(_wkDates, _wkFiltered)}`;
@@ -2454,6 +2458,7 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
     }).join('')}
   </select>` : ''}
   ${_shiftPicker}
+  ${_dosSwapBtn}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
 ${_schedTbl(displayDates, _displayUsers)}`;
@@ -3237,28 +3242,93 @@ function _liveFilter() {
 // ═══════════════════════════════════════════════
 var _dosMyDate = '';
 
+// Return the 7 Mon–Sun dates for the week containing dk (DD/MM)
+function _dosGetWeekDates(dk) {
+  var p = dk.split('/');
+  var yr = new Date().getFullYear();
+  var dt = new Date(yr, parseInt(p[1])-1, parseInt(p[0]));
+  var dow = dt.getDay();
+  var monDt = new Date(dt);
+  monDt.setDate(dt.getDate() - (dow === 0 ? 6 : dow - 1));
+  var monDk = ('0'+monDt.getDate()).slice(-2) + '/' + ('0'+(monDt.getMonth()+1)).slice(-2);
+  return getWeekRange(monDk);
+}
+
+// Returns {ok, reason} — checks that neither party ends up with 8+ consecutive working days
+function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
+  var _yr = new Date().getFullYear();
+  var _dk2dt = function(dk) {
+    var p = dk.split('/');
+    return new Date(_yr, parseInt(p[1])-1, parseInt(p[0]));
+  };
+  var _dt2dk = function(dt) {
+    return ('0'+dt.getDate()).slice(-2) + '/' + ('0'+(dt.getMonth()+1)).slice(-2);
+  };
+  var _getShiftCode = function(username) {
+    var sc = state.staffSchedule[username] || {};
+    var counts = {};
+    Object.keys(sc).forEach(function(k) {
+      var v = sc[k]; if (v && v !== '0') counts[v] = (counts[v]||0)+1;
+    });
+    var best = Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];
+    return best || 'A';
+  };
+  // Check max consecutive working days for username after simulating: turnOnDate becomes working, turnOffDate becomes day-off
+  var _checkUser = function(username, turnOnDate, turnOffDate) {
+    var dtOn = _dk2dt(turnOnDate);
+    var dtOff = _dk2dt(turnOffDate);
+    var dtMin = dtOn < dtOff ? dtOn : dtOff;
+    var dtMax = dtOn > dtOff ? dtOn : dtOff;
+    var start = new Date(dtMin); start.setDate(start.getDate()-14);
+    var end = new Date(dtMax); end.setDate(end.getDate()+14);
+    var overrides = {};
+    overrides[turnOnDate] = _getShiftCode(username);
+    overrides[turnOffDate] = '0';
+    var maxRun = 0, run = 0;
+    var cur = new Date(start);
+    while (cur <= end) {
+      var dk = _dt2dk(cur);
+      var code = overrides[dk] !== undefined ? overrides[dk] : _getSched(username, dk);
+      if (code && code !== '0') { run++; if (run > maxRun) maxRun = run; }
+      else { run = 0; }
+      cur.setDate(cur.getDate()+1);
+    }
+    return maxRun;
+  };
+  // myUsername: myDate (currently off) → working; theirDate → day-off
+  var myRun = _checkUser(myUsername, myDate, theirDate);
+  // theirUsername: theirDate (currently off) → working; myDate → day-off
+  var theirRun = _checkUser(theirUsername, theirDate, myDate);
+  var myName = (state.users.find(function(u){return u.username===myUsername;})||{name:myUsername}).name;
+  var theirName = (state.users.find(function(u){return u.username===theirUsername;})||{name:theirUsername}).name;
+  if (myRun >= 8) return {ok:false, reason: myName + ' would work ' + myRun + ' consecutive days.'};
+  if (theirRun >= 8) return {ok:false, reason: theirName + ' would work ' + theirRun + ' consecutive days.'};
+  return {ok:true, reason:''};
+}
+
 function _dayoffSwapModalHTML() {
   return '<div id="modal-dayoff-swap" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-dayoff-swap\')">' +
     '<div class="modal" style="width:420px;">' +
       '<div class="modal-title">↔ Request Day-Off Swap</div>' +
       '<div style="margin-bottom:12px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Your day off</div>' +
-        '<div style="font-size:14px;font-weight:700;color:var(--accent);" id="dos-my-date">—</div>' +
+        '<div id="dos-my-date-wrap"></div>' +
       '</div>' +
       '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same position)</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same group)</div>' +
         '<select id="dos-target-user" class="login-select" style="width:100%;font-size:13px;" onchange="_dosUpdateDates()">' +
           '<option value="">— Select person —</option>' +
         '</select>' +
       '</div>' +
       '<div style="margin-bottom:12px;" id="dos-target-date-wrap"></div>' +
+      '<div id="dos-validation-msg" style="display:none;margin-bottom:10px;padding:8px 10px;background:rgba(239,68,68,.1);border-left:3px solid var(--err);border-radius:4px;font-size:12px;color:var(--err);"></div>' +
       '<div style="margin-bottom:16px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Reason (optional)</div>' +
         '<input id="dos-reason" class="login-input" style="width:100%;box-sizing:border-box;font-size:13px;" placeholder="e.g. family event…" />' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
         '<button class="btn" onclick="closeModal(\'modal-dayoff-swap\')">Cancel</button>' +
-        '<button class="btn btn-accent" onclick="submitDayoffSwap()">Submit Request</button>' +
+        '<button class="btn btn-accent" id="dos-submit-btn" onclick="submitDayoffSwap()">Submit Request</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -3268,50 +3338,98 @@ function openDayoffSwapModal(dateKey) {
   if (!document.getElementById('modal-dayoff-swap')) {
     document.body.insertAdjacentHTML('beforeend', _dayoffSwapModalHTML());
   }
-  _dosMyDate = dateKey;
-  document.getElementById('dos-my-date').textContent = dateKey + ' (' + getWkDay(dateKey) + ')';
   document.getElementById('dos-reason').value = '';
   document.getElementById('dos-target-date-wrap').innerHTML = '';
-  var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
-  var _sel = document.getElementById('dos-target-user');
-  _sel.innerHTML = '<option value="">— Select person —</option>' +
-    state.users.filter(function(u) {
-      if (u.username === currentUser.username) return false;
-      var _ur = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
-      return _ur === _myRole;
-    }).map(function(u) {
-      return '<option value="' + u.username + '">' + u.name + ' (' + (u.team || '?') + ')</option>';
-    }).join('');
+  document.getElementById('dos-validation-msg').style.display = 'none';
+  document.getElementById('dos-target-user').innerHTML = '<option value="">— Select person —</option>';
+
+  if (!dateKey) {
+    // Button mode: show date picker for user's day-offs in current week view
+    var _myWeekDates = getWeekRange(_ssActiveMonday);
+    var _myDayoffs = _myWeekDates.filter(function(d) { return _getSched(currentUser.username, d) === '0'; });
+    if (_myDayoffs.length === 0) { toast('No day-offs found in the current week view.', 'err'); return; }
+    _dosMyDate = '';
+    document.getElementById('dos-my-date-wrap').innerHTML =
+      '<select id="dos-my-date-sel" class="login-select" style="width:100%;font-size:13px;" onchange="_dosMyDate=this.value;_dosUpdateUsers()">' +
+      '<option value="">— Select your day-off —</option>' +
+      _myDayoffs.map(function(d) { return '<option value="'+d+'">'+d+' ('+getWkDay(d)+')</option>'; }).join('') +
+      '</select>';
+  } else {
+    _dosMyDate = dateKey;
+    document.getElementById('dos-my-date-wrap').innerHTML =
+      '<div style="font-size:14px;font-weight:700;color:var(--accent);">'+dateKey+' ('+getWkDay(dateKey)+')</div>';
+    _dosUpdateUsers();
+  }
   document.getElementById('modal-dayoff-swap').classList.add('show');
+}
+
+// Populate same-group users who are working that week and have a day-off to offer
+function _dosUpdateUsers() {
+  var _sel = document.getElementById('dos-target-user');
+  document.getElementById('dos-target-date-wrap').innerHTML = '';
+  document.getElementById('dos-validation-msg').style.display = 'none';
+  if (!_dosMyDate) { _sel.innerHTML = '<option value="">— Select person —</option>'; return; }
+  var _myTeam = currentUser.team || (state.staffInfo[currentUser.username]||{}).team || '';
+  var _weekDates = _dosGetWeekDates(_dosMyDate);
+  var _candidates = state.users.filter(function(u) {
+    if (u.username === currentUser.username) return false;
+    var _uTeam = u.team || (state.staffInfo[u.username]||{}).team || '';
+    if (!_myTeam || !_uTeam || _uTeam !== _myTeam) return false;
+    // Must be working at least 1 day in the week
+    var _hasWork = _weekDates.some(function(d) { return _getSched(u.username, d) !== '0'; });
+    if (!_hasWork) return false;
+    // Must have at least 1 day-off in the week (something to offer)
+    var _hasOff = _weekDates.some(function(d) { return d !== _dosMyDate && _getSched(u.username, d) === '0'; });
+    return _hasOff;
+  });
+  _sel.innerHTML = '<option value="">— Select person —</option>' +
+    _candidates.map(function(u) {
+      return '<option value="'+u.username+'">'+u.name+' ('+( u.team || '?')+')</option>';
+    }).join('');
 }
 
 function _dosUpdateDates() {
   var targetUsername = document.getElementById('dos-target-user').value;
   var wrap = document.getElementById('dos-target-date-wrap');
-  if (!targetUsername) { wrap.innerHTML = ''; return; }
-  var sc = state.staffSchedule[targetUsername] || {};
-  var _now = new Date();
-  var _todayTs = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime();
-  var _dayoffs = Object.keys(sc).filter(function(k) {
-    if (!/^\d{2}\/\d{2}$/.test(k)) return false;
-    if (sc[k] !== '0') return false;
-    if (k === _dosMyDate) return false;
-    var parts = k.split('/');
-    var ts = new Date(_now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[0])).getTime();
-    return ts >= _todayTs;
-  }).sort(function(a, b) {
-    var ap = a.split('/'); var bp = b.split('/');
-    return (parseInt(ap[1])*100+parseInt(ap[0])) - (parseInt(bp[1])*100+parseInt(bp[0]));
+  document.getElementById('dos-validation-msg').style.display = 'none';
+  if (!targetUsername || !_dosMyDate) { wrap.innerHTML = ''; return; }
+  // Show only day-offs in the same Mon–Sun week as _dosMyDate
+  var _weekDates = _dosGetWeekDates(_dosMyDate);
+  var _dayoffs = _weekDates.filter(function(d) {
+    return d !== _dosMyDate && _getSched(targetUsername, d) === '0';
   });
   if (_dayoffs.length === 0) {
-    wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);">No upcoming day-offs found for this person.</div>';
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);">No day-offs this week for this person.</div>';
     return;
   }
-  wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their day off</div>' +
-    '<select id="dos-target-date" class="login-select" style="width:100%;font-size:13px;">' +
+  wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their day off (same week)</div>' +
+    '<select id="dos-target-date" class="login-select" style="width:100%;font-size:13px;" onchange="_dosValidate()">' +
     '<option value="">— Select date —</option>' +
-    _dayoffs.map(function(d) { return '<option value="' + d + '">' + d + ' (' + getWkDay(d) + ')</option>'; }).join('') +
+    _dayoffs.map(function(d) { return '<option value="'+d+'">'+d+' ('+getWkDay(d)+')</option>'; }).join('') +
     '</select>';
+}
+
+// Validate swap and show/hide warning; enable/disable submit
+function _dosValidate() {
+  var targetUsername = document.getElementById('dos-target-user').value;
+  var targetDateEl = document.getElementById('dos-target-date');
+  var targetDate = targetDateEl ? targetDateEl.value : '';
+  var msgEl = document.getElementById('dos-validation-msg');
+  var submitBtn = document.getElementById('dos-submit-btn');
+  if (!_dosMyDate || !targetUsername || !targetDate) {
+    msgEl.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  var result = _checkDayoffSwapValid(currentUser.username, _dosMyDate, targetUsername, targetDate);
+  if (!result.ok) {
+    msgEl.textContent = '⚠ ' + result.reason;
+    msgEl.style.display = 'block';
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.5'; }
+  } else {
+    msgEl.style.display = 'none';
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+  }
 }
 
 function submitDayoffSwap() {
@@ -3319,7 +3437,10 @@ function submitDayoffSwap() {
   var targetDateEl = document.getElementById('dos-target-date');
   var targetDate = targetDateEl ? targetDateEl.value : '';
   var reason = (document.getElementById('dos-reason').value || '').trim();
+  if (!_dosMyDate) { toast('Please select your day-off date.', 'err'); return; }
   if (!targetUsername || !targetDate) { toast('Please select a person and their day off.', 'err'); return; }
+  var result = _checkDayoffSwapValid(currentUser.username, _dosMyDate, targetUsername, targetDate);
+  if (!result.ok) { toast('Cannot swap: ' + result.reason, 'err'); return; }
   var targetUser = state.users.find(function(u) { return u.username === targetUsername; });
   if (!targetUser) return;
   state.requests.push({
