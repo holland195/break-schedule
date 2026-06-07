@@ -2337,7 +2337,7 @@ function _renderStaffSchedule() {
 </div>`;
   };
 
-  var _shiftPicker = '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="_ssShiftFilter=this.value;nav(\'staff\')">' +
+  var _shiftPicker = '<select class="login-select" style="width:120px;padding:4px 8px;font-size:11px;" onchange="_ssShiftFilter=this.value;nav(\'staff\')">' +
     ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
     '</select>';
 
