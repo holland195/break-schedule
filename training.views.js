@@ -366,10 +366,13 @@ function renderExtBreakTraining() {
   const dateToDayName = {};
   WEEK_DAYS.forEach((d,i)=>{dateToDayName[weekDates[i]]=d;});
 
-  // Group all female staff by primary shift
+  // Group all female staff by primary shift (exclude leaders, DA Supervisors, training team — level ≥ 2)
   const femaleByShift = {A:[],B:[],C:[],D:[],E:[]};
   state.users.forEach(u=>{
     if (_getUserGender(u)!=='F') return;
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _urr = _resolveRole(_ur) || _ur;
+    if ((ROLES[_urr]||{}).level >= 2) return;
     const sc={};
     weekDates.forEach(dk=>{
       var s=_getSched(u.username,dk);
