@@ -1270,8 +1270,9 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   users.forEach(function(u) {
     var _usc = (current.staffSchedule || {})[u.username] || (u.schedule || {});
     var sched = (_usc[dk] || _usc[dn] || '').toUpperCase();
+    var _rawRole = u.role || ((current.staffInfo || {})[u.username] || {}).role || '';
+    var resolvedRole = _resolveRoleGas(_rawRole);
     if (sched !== shift) return;
-    var resolvedRole = _resolveRoleGas(u.role);
     if (VALID_ROLES.indexOf(resolvedRole) < 0) return;
     var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
       ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').replace(/\.0$/, '').toUpperCase();
@@ -1330,7 +1331,8 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
       var _usc2 = (current.staffSchedule || {})[u.username] || (u.schedule || {});
       var sched2 = (_usc2[dki] || _usc2[dni2] || '').toUpperCase();
       if (sched2 !== shift) return;
-      if (VALID_ROLES.indexOf(_resolveRoleGas(u.role)) < 0) return;
+      var _rawRole2 = u.role || ((current.staffInfo || {})[u.username] || {}).role || '';
+      if (VALID_ROLES.indexOf(_resolveRoleGas(_rawRole2)) < 0) return;
       var br2 = (current.breaks || {})[u.id + '_' + dki];
       var attCode2 = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
         ? (current.monthlyAttendance[u.username][monthKey][dki] || '') : '').replace(/\.0$/, '').toUpperCase();
@@ -1554,7 +1556,12 @@ function _slackUploadImage(blob, caption, channelId, shift, dk) {
 
 // Minimal role resolver matching the web app's _resolveRole()
 function _resolveRoleGas(role) {
-  var aliases = { 'Agent': 'Data Analyst', 'Sr Agent': 'Sr Data Analyst', 'QA': 'Data Supervisor', 'Sr QA': 'Sr Data Supervisor' };
+  var aliases = {
+    'Agent': 'Data Analyst', 'Sr Agent': 'Sr Data Analyst',
+    'QA': 'Data Supervisor', 'Sr QA': 'Sr Data Supervisor',
+    'Senior Data Analyst': 'Sr Data Analyst',
+    'Senior Data Supervisor': 'Sr Data Supervisor'
+  };
   return aliases[role] || role || '';
 }
 

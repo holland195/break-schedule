@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════
 
 function nav(page) {
+  var _prevPage = currentPage; // capture before update for reset logic below
   currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page);
@@ -12,6 +13,10 @@ function nav(page) {
   // Training roles: redirect default dashboard → their overview
   if (page === 'dashboard' && isTraining(currentUser)) {
     page = 'training_overview';
+  }
+  // Policy page: reset to "All Records" tab for training users on fresh navigation
+  if (page === 'policy' && _prevPage !== 'policy' && typeof isTraining === 'function' && isTraining(currentUser)) {
+    if (typeof _pcTab !== 'undefined') _pcTab = 'records';
   }
   // Guard: attendance — leader+ only (level ≥ 2)
   if (page === 'attendance' && !isLeader(currentUser)) {

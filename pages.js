@@ -882,16 +882,16 @@ function renderArrange() {
   var _allSDSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _allSDSet[k]=1; }); });
   const allDates = Object.keys(_allSDSet);
-  const sundays = allDates.filter(d => getWkDay(d) === 'Sun').sort((a, b) => {
+  const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort((a, b) => {
   const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
   return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
 });
-const weekPickerHTML = sundays.length > 0 ? `
+const weekPickerHTML = mondays.length > 0 ? `
   <div style="display:flex;align-items:center;gap:8px;">
     <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
     <select class="login-select" style="padding:4px 8px;font-size:11px;"
       onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
-      ${sundays.map(s => {
+      ${mondays.map(s => {
         const [d, m] = s.split('/');
         const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
         const endStr = `${end.getDate().toString().padStart(2,'0')}/${(end.getMonth()+1).toString().padStart(2,'0')}`;
@@ -1149,7 +1149,7 @@ async function saveBreakSplits() {
 
   if (shiftsToProcess.size > 0) {
     // 1. Clear break records (including manual) from next week onward
-    var _applyFrom = _nextWeekSunday(activeMonday);
+    var _applyFrom = _nextWeekMonday(activeMonday);
     _clearAutoBreaksFromWeek(_applyFrom, shiftsToProcess, true);
 
     // 2. Reset rotation so knownList is rebuilt with interleaved group order
@@ -1188,8 +1188,8 @@ async function resetBreakSplit(shift) {
 // Deletes breaks for the given shifts on or after fromSunday.
 // force=true also clears manually-set breaks, not just auto-assigned ones.
 // Called before re-running autoAssignBreaks so the fresh split % takes effect.
-function _nextWeekSunday(sunStr) {
-  var p = sunStr.split('/');
+function _nextWeekMonday(monStr) {
+  var p = monStr.split('/');
   var dt = new Date(2026, parseInt(p[1]) - 1, parseInt(p[0]) + 7);
   return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
 }
@@ -1504,7 +1504,8 @@ function _renderArrangeOverviewTab(weekRange) {
 
   if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
 
-  const todayDkOv = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  var _todayNow = new Date();
+  const todayDkOv = String(_todayNow.getDate()).padStart(2,'0') + '/' + String(_todayNow.getMonth()+1).padStart(2,'0');
   const summaryHeaders = weekRange.map((d, i) => {
     const isToday = d === todayDkOv;
     const isActive = d === arrangeActiveDay;
@@ -1515,14 +1516,14 @@ function _renderArrangeOverviewTab(weekRange) {
       color:${isToday ? '#fff' : isActive ? 'var(--accent)' : 'var(--text2)'};
       border-bottom:2px solid ${isToday ? 'var(--accent2)' : 'var(--border)'};
       ">
-      ${WEEK_DAYS[i]}<br>
+      ${getWkDay(d)}<br>
       <span style="font-weight:400;font-size:9px;opacity:0.7;">${d}</span>
     </th>`;
   }).join('');
 
   const summaryRows = shiftUsers.map(u => {
     const dayCells = weekRange.map((d, i) => {
-      const dn = WEEK_DAYS[i];
+      const dn = getWkDay(d);
       var shiftVal = _getSched(u.username, d);
       const onShift = shiftVal === currentShift;
       const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
@@ -1602,7 +1603,7 @@ function switchArrangeDay(day) {
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
-  const weekRange = getWeekRange(activeMonday); // now Sun–Sat since activeMonday = Sunday
+  const weekRange = getWeekRange(activeMonday); // Mon–Sun since activeMonday = Monday
   const slots = BREAK_SLOTS[currentShift] || [];
   // Compute today's dateKey directly (robust, no index math)
   const _now = new Date();
@@ -1635,7 +1636,7 @@ function getArrangeDayMemberList(_unused) {
   // Table rows — one per member
   const tbRows = allMates.map(u => {
     const dayCells = weekRange.map(d => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      const dn = getWkDay(d);
       var shiftVal = _getSched(u.username, d);
       const onShift = shiftVal === currentShift;
       const isToday = d === todayDk;
@@ -1714,7 +1715,7 @@ function getArrangeDayMemberList(_unused) {
     const isTotal = tier.label === 'Total';
 
     const footCells = weekRange.map(d => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      const dn = getWkDay(d);
       let s1 = 0, s2 = 0;
       tierUsers.forEach(u => {
         var onShift = _getSched(u.username, d) === currentShift;
@@ -1817,7 +1818,7 @@ function _copyBreaksForSlack() {
   var parts = dk.split('/');
   var d = new Date(now.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
 
-  var dn = WEEK_DAYS[weekRange.indexOf(dk)];
+  var dn = getWkDay(dk);
   var roleAbbr = {'Data Analyst':'D.A','Sr Data Analyst':'Sr D.A','Data Supervisor':'D.S','Sr Data Supervisor':'Sr D.S'};
   var offBg = {'A':'rgba(234,179,8,.18)','H':'rgba(220,38,38,.18)','0':'rgba(22,163,74,.18)','U':'rgba(225,29,72,.15)','S':'rgba(234,88,12,.15)','L':'rgba(8,145,178,.15)'};
   var offFg = {'A':'#92680a','H':'#b91c1c','0':'#15803d','U':'#be123c','S':'#c2410c','L':'#0e7490'};
@@ -2325,6 +2326,12 @@ async function confirmScheduleImport() {
 }
 // ── Sub-tab 2: Staff Schedule ──
 function _renderStaffSchedule() {
+  // DA/DS/Sr DA/Sr DS: default to their working shift; force week view (no full-month for non-leaders)
+  var _isNonLeader = !isLeader(currentUser) && !isTraining(currentUser);
+  if (_isNonLeader) {
+    if (_ssShiftFilter === 'All') _ssShiftFilter = currentShift || 'A';
+    showFullMonth = false; // non-leaders always see week view
+  }
   const hasUsers = state.users && state.users.length > 0;
 
   if (!hasUsers) {
@@ -2336,17 +2343,35 @@ function _renderStaffSchedule() {
 </div>`;
   }
 
+  // Collect available months across all schedule data (fast: only MM strings)
+  var _allMonthSet = {};
+  Object.values(state.staffSchedule || {}).forEach(function(sc) {
+    Object.keys(sc || {}).forEach(function(k) {
+      if (/^\d{2}\/\d{2}$/.test(k)) _allMonthSet[k.split('/')[1]] = 1;
+    });
+  });
+  var availableMonths = Object.keys(_allMonthSet).sort();
+
+  // Auto-init or validate _schedMonth before restricting date collection
+  if (!_schedMonth || !availableMonths.includes(_schedMonth)) {
+    var _activeMM0 = _ssActiveMonday.split('/')[1];
+    _schedMonth = availableMonths.includes(_activeMM0) ? _activeMM0 : (availableMonths[availableMonths.length - 1] || _activeMM0);
+  }
+
+  // Collect dates ONLY for the selected month (avoids iterating all months for every render)
   var _sdSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) {
-    Object.keys(sc || {}).forEach(function(k) { if (/\d{2}\/\d{2}/.test(k)) _sdSet[k] = 1; });
+    Object.keys(sc || {}).forEach(function(k) {
+      if (/^\d{2}\/\d{2}$/.test(k) && k.split('/')[1] === _schedMonth) _sdSet[k] = 1;
+    });
   });
-  const allDates = Object.keys(_sdSet).sort((a, b) => {
-    const [da, ma] = a.split('/').map(Number);
-    const [db, mb] = b.split('/').map(Number);
+  const allDates = Object.keys(_sdSet).sort(function(a, b) {
+    var da = parseInt(a.split('/')[0]), ma = parseInt(a.split('/')[1]);
+    var db = parseInt(b.split('/')[0]), mb = parseInt(b.split('/')[1]);
     return ma !== mb ? ma - mb : da - db;
   });
 
-  const hasImportedDates = allDates.some(d => /\d{2}\/\d{2}/.test(d));
+  const hasImportedDates = allDates.length > 0;
 
   var _currTrn = isTraining(currentUser);
   const filteredUsers = state.users.filter(u => {
@@ -2393,6 +2418,9 @@ function _renderStaffSchedule() {
     ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
     '</select>';
 
+  var _ssCanSwap = !isLeader(currentUser) && !isTraining(currentUser);
+  var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">↔ Day-off Swap</button>' : '';
+
   if (!hasImportedDates) {
     var _wkDates = getWeekRange(_ssActiveMonday);
     var _wkFiltered = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
@@ -2404,18 +2432,10 @@ function _renderStaffSchedule() {
   <div style="width:1px;height:20px;background:var(--border);"></div>
   <span style="font-size:11px;color:var(--text3);">Current week</span>
   ${_shiftPicker}
+  ${_dosSwapBtn}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_wkFiltered.length} staff</span>
 </div>
 ${_schedTbl(_wkDates, _wkFiltered)}`;
-  }
-
-  // Available months (zero-padded MM strings) from schedule data
-  const availableMonths = [...new Set(allDates.filter(d => /\d{2}\/\d{2}/.test(d)).map(d => d.split('/')[1]))].sort();
-
-  // Auto-init or validate _schedMonth
-  if (!_schedMonth || !availableMonths.includes(_schedMonth)) {
-    const activeMM = _ssActiveMonday.split('/')[1];
-    _schedMonth = availableMonths.includes(activeMM) ? activeMM : (availableMonths[0] || activeMM);
   }
 
   // Snap _ssActiveMonday to selected month if it drifted
@@ -2425,7 +2445,8 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   }
 
   const monthMondays = _sortDateKeys(allDates.filter(function(d) { return getWkDay(d) === 'Mon' && d.split('/')[1] === _schedMonth; }));
-  const weekRange = getWeekRange(_ssActiveMonday);
+  // Clip week range to selected month so it never leaks into adjacent months
+  const weekRange = getWeekRange(_ssActiveMonday).filter(function(d) { return d.split('/')[1] === _schedMonth; });
   const monthDates = _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth));
   const displayDates = showFullMonth ? monthDates : weekRange;
 
@@ -2437,23 +2458,27 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
+  // Month picker: for non-leaders switching months stays in week view
+  var _monthPickerChange = _isNonLeader ? '_schedMonth=this.value;nav(\'staff\')' : '_schedMonth=this.value;showFullMonth=true;nav(\'staff\')';
+
   return `
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
   ${_searchBar}
   <div style="width:1px;height:20px;background:var(--border);"></div>
-  <button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
+  ${!_isNonLeader ? `<button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
     ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
-  </button>
-  <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;showFullMonth=true;nav('staff')">
+  </button>` : ''}
+  <select class="login-select" style="width:130px;padding:4px;" onchange="${_monthPickerChange}">
     ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
   </select>
   ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;nav('staff')">
     ${monthMondays.map(function(mon) {
-      var end = getWeekRange(mon)[6];
+      var end = getWeekRange(mon).filter(function(d){return d.split('/')[1]===_schedMonth;}).pop() || mon;
       return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
     }).join('')}
   </select>` : ''}
   ${_shiftPicker}
+  ${_dosSwapBtn}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
 ${_schedTbl(displayDates, _displayUsers)}`;
@@ -3162,6 +3187,8 @@ function clearMonthlyAttendance(year, month) {
 
 function renderStaffRows(users, displayDates) {
   var _canReqSwap = !isLeader(currentUser) && !isTraining(currentUser);
+  var _nowMs = new Date().setHours(0,0,0,0);
+  var _nowYr = new Date().getFullYear();
   return users.map(function(u) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     var _isMyRow = u.username === currentUser.username && _canReqSwap;
@@ -3173,10 +3200,15 @@ function renderStaffRows(users, displayDates) {
     displayDates.map(function(d) {
       var s = _getSched(u.username, d);
       if (_isMyRow && s === '0') {
-        return '<td class="c" style="cursor:pointer;" onclick="openDayoffSwapModal(\'' + d + '\')" title="Request day-off swap">' +
-          '<span class="sh sh-0">—</span>' +
-          '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">↔</div>' +
-          '</td>';
+        var _dp = d.split('/');
+        var _ddt = new Date(_nowYr, parseInt(_dp[1])-1, parseInt(_dp[0]));
+        var _eligible = Math.floor((_ddt - _nowMs) / 86400000) >= 2;
+        if (_eligible) {
+          return '<td class="c" style="cursor:pointer;" onclick="openDayoffSwapModal(\'' + d + '\')" title="Request day-off swap">' +
+            '<span class="sh sh-0">—</span>' +
+            '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">↔</div>' +
+            '</td>';
+        }
       }
       return '<td class="c"><span class="sh sh-' + s + '">' + (s === '0' ? '—' : s) + '</span></td>';
     }).join('') +
@@ -3237,28 +3269,93 @@ function _liveFilter() {
 // ═══════════════════════════════════════════════
 var _dosMyDate = '';
 
+// Return the 7 Mon–Sun dates for the week containing dk (DD/MM)
+function _dosGetWeekDates(dk) {
+  var p = dk.split('/');
+  var yr = new Date().getFullYear();
+  var dt = new Date(yr, parseInt(p[1])-1, parseInt(p[0]));
+  var dow = dt.getDay();
+  var monDt = new Date(dt);
+  monDt.setDate(dt.getDate() - (dow === 0 ? 6 : dow - 1));
+  var monDk = ('0'+monDt.getDate()).slice(-2) + '/' + ('0'+(monDt.getMonth()+1)).slice(-2);
+  return getWeekRange(monDk);
+}
+
+// Returns {ok, reason} — checks that neither party ends up with 8+ consecutive working days
+function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
+  var _yr = new Date().getFullYear();
+  var _dk2dt = function(dk) {
+    var p = dk.split('/');
+    return new Date(_yr, parseInt(p[1])-1, parseInt(p[0]));
+  };
+  var _dt2dk = function(dt) {
+    return ('0'+dt.getDate()).slice(-2) + '/' + ('0'+(dt.getMonth()+1)).slice(-2);
+  };
+  var _getShiftCode = function(username) {
+    var sc = state.staffSchedule[username] || {};
+    var counts = {};
+    Object.keys(sc).forEach(function(k) {
+      var v = sc[k]; if (v && v !== '0') counts[v] = (counts[v]||0)+1;
+    });
+    var best = Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];
+    return best || 'A';
+  };
+  // Check max consecutive working days for username after simulating: turnOnDate becomes working, turnOffDate becomes day-off
+  var _checkUser = function(username, turnOnDate, turnOffDate) {
+    var dtOn = _dk2dt(turnOnDate);
+    var dtOff = _dk2dt(turnOffDate);
+    var dtMin = dtOn < dtOff ? dtOn : dtOff;
+    var dtMax = dtOn > dtOff ? dtOn : dtOff;
+    var start = new Date(dtMin); start.setDate(start.getDate()-14);
+    var end = new Date(dtMax); end.setDate(end.getDate()+14);
+    var overrides = {};
+    overrides[turnOnDate] = _getShiftCode(username);
+    overrides[turnOffDate] = '0';
+    var maxRun = 0, run = 0;
+    var cur = new Date(start);
+    while (cur <= end) {
+      var dk = _dt2dk(cur);
+      var code = overrides[dk] !== undefined ? overrides[dk] : _getSched(username, dk);
+      if (code && code !== '0') { run++; if (run > maxRun) maxRun = run; }
+      else { run = 0; }
+      cur.setDate(cur.getDate()+1);
+    }
+    return maxRun;
+  };
+  // myUsername: myDate (currently off) → working; theirDate → day-off
+  var myRun = _checkUser(myUsername, myDate, theirDate);
+  // theirUsername: theirDate (currently off) → working; myDate → day-off
+  var theirRun = _checkUser(theirUsername, theirDate, myDate);
+  var myName = (state.users.find(function(u){return u.username===myUsername;})||{name:myUsername}).name;
+  var theirName = (state.users.find(function(u){return u.username===theirUsername;})||{name:theirUsername}).name;
+  if (myRun >= 8) return {ok:false, reason: myName + ' would work ' + myRun + ' consecutive days.'};
+  if (theirRun >= 8) return {ok:false, reason: theirName + ' would work ' + theirRun + ' consecutive days.'};
+  return {ok:true, reason:''};
+}
+
 function _dayoffSwapModalHTML() {
   return '<div id="modal-dayoff-swap" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-dayoff-swap\')">' +
     '<div class="modal" style="width:420px;">' +
       '<div class="modal-title">↔ Request Day-Off Swap</div>' +
       '<div style="margin-bottom:12px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Your day off</div>' +
-        '<div style="font-size:14px;font-weight:700;color:var(--accent);" id="dos-my-date">—</div>' +
+        '<div id="dos-my-date-wrap"></div>' +
       '</div>' +
       '<div style="margin-bottom:12px;">' +
-        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same position)</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same position, different day-off)</div>' +
         '<select id="dos-target-user" class="login-select" style="width:100%;font-size:13px;" onchange="_dosUpdateDates()">' +
           '<option value="">— Select person —</option>' +
         '</select>' +
       '</div>' +
       '<div style="margin-bottom:12px;" id="dos-target-date-wrap"></div>' +
+      '<div id="dos-validation-msg" style="display:none;margin-bottom:10px;padding:8px 10px;background:rgba(239,68,68,.1);border-left:3px solid var(--err);border-radius:4px;font-size:12px;color:var(--err);"></div>' +
       '<div style="margin-bottom:16px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Reason (optional)</div>' +
         '<input id="dos-reason" class="login-input" style="width:100%;box-sizing:border-box;font-size:13px;" placeholder="e.g. family event…" />' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
         '<button class="btn" onclick="closeModal(\'modal-dayoff-swap\')">Cancel</button>' +
-        '<button class="btn btn-accent" onclick="submitDayoffSwap()">Submit Request</button>' +
+        '<button class="btn btn-accent" id="dos-submit-btn" onclick="submitDayoffSwap()">Submit Request</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -3268,50 +3365,164 @@ function openDayoffSwapModal(dateKey) {
   if (!document.getElementById('modal-dayoff-swap')) {
     document.body.insertAdjacentHTML('beforeend', _dayoffSwapModalHTML());
   }
-  _dosMyDate = dateKey;
-  document.getElementById('dos-my-date').textContent = dateKey + ' (' + getWkDay(dateKey) + ')';
   document.getElementById('dos-reason').value = '';
   document.getElementById('dos-target-date-wrap').innerHTML = '';
-  var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
-  var _sel = document.getElementById('dos-target-user');
-  _sel.innerHTML = '<option value="">— Select person —</option>' +
-    state.users.filter(function(u) {
-      if (u.username === currentUser.username) return false;
-      var _ur = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
-      return _ur === _myRole;
-    }).map(function(u) {
-      return '<option value="' + u.username + '">' + u.name + ' (' + (u.team || '?') + ')</option>';
-    }).join('');
+  document.getElementById('dos-validation-msg').style.display = 'none';
+  document.getElementById('dos-target-user').innerHTML = '<option value="">— Select person —</option>';
+
+  // Must be at least 2 calendar days before the day-off date
+  var _dosIsAdvance = function(dk) {
+    var p = dk.split('/');
+    var yr = new Date().getFullYear();
+    var dt = new Date(yr, parseInt(p[1])-1, parseInt(p[0]));
+    var today = new Date(); today.setHours(0,0,0,0);
+    return Math.floor((dt - today) / 86400000) >= 2;
+  };
+
+  if (!dateKey) {
+    // Button mode: show date picker for user's eligible day-offs; scan up to 4 future weeks if needed
+    var _myWeekDates = getWeekRange(_ssActiveMonday);
+    var _myDayoffs = _myWeekDates.filter(function(d) {
+      return _getSched(currentUser.username, d) === '0' && _dosIsAdvance(d);
+    });
+    if (_myDayoffs.length === 0) {
+      // Navigate to nearest future week that has an eligible day-off
+      var _found = null, _foundWeekMon = null;
+      for (var _wi = 1; _wi <= 4 && !_found; _wi++) {
+        var _wDt = new Date(); _wDt.setHours(0,0,0,0);
+        var _wDow = _wDt.getDay();
+        _wDt.setDate(_wDt.getDate() - (_wDow === 0 ? 6 : _wDow - 1) + _wi * 7);
+        var _wMon = ('0'+_wDt.getDate()).slice(-2)+'/'+('0'+(_wDt.getMonth()+1)).slice(-2);
+        var _wDates = getWeekRange(_wMon);
+        var _wDayoffs = _wDates.filter(function(d) {
+          return _getSched(currentUser.username, d) === '0' && _dosIsAdvance(d);
+        });
+        if (_wDayoffs.length > 0) { _found = _wDayoffs; _foundWeekMon = _wMon; }
+      }
+      if (!_found) { toast('No eligible day-offs in the next 4 weeks.', 'err'); return; }
+      _ssActiveMonday = _foundWeekMon;
+      _myDayoffs = _found;
+    }
+    _dosMyDate = '';
+    document.getElementById('dos-my-date-wrap').innerHTML =
+      '<select id="dos-my-date-sel" class="login-select" style="width:100%;font-size:13px;" onchange="_dosMyDate=this.value;_dosUpdateUsers()">' +
+      '<option value="">— Select your day-off —</option>' +
+      _myDayoffs.map(function(d) { return '<option value="'+d+'">'+d+' ('+getWkDay(d)+')</option>'; }).join('') +
+      '</select>';
+  } else {
+    if (!_dosIsAdvance(dateKey)) { toast('Request must be made at least 2 days before the day-off.', 'err'); return; }
+    _dosMyDate = dateKey;
+    document.getElementById('dos-my-date-wrap').innerHTML =
+      '<div style="font-size:14px;font-weight:700;color:var(--accent);">'+dateKey+' ('+getWkDay(dateKey)+')</div>';
+    _dosUpdateUsers();
+  }
   document.getElementById('modal-dayoff-swap').classList.add('show');
+}
+
+// Standard day-off days in the BPO rotation schedule
+var _DOS_STD_DAYS = ['Mon', 'Sat', 'Sun'];
+
+// Returns the adjacent standard off-days (±1 calendar day, Mon/Sat/Sun only) for a given date key
+function _dosAdjacentDates(dk) {
+  var _p = dk.split('/');
+  var _yr = new Date().getFullYear();
+  var _dt = new Date(_yr, parseInt(_p[1])-1, parseInt(_p[0]));
+  var _dt2dk = function(d) { return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2); };
+  var _prev = new Date(_dt); _prev.setDate(_dt.getDate()-1);
+  var _next = new Date(_dt); _next.setDate(_dt.getDate()+1);
+  var _result = [];
+  var _prevDk = _dt2dk(_prev), _nextDk = _dt2dk(_next);
+  if (_DOS_STD_DAYS.indexOf(getWkDay(_prevDk)) !== -1) _result.push(_prevDk);
+  if (_DOS_STD_DAYS.indexOf(getWkDay(_nextDk)) !== -1) _result.push(_nextDk);
+  return _result;
+}
+
+// Populate same-role, same-shift users who have a standard day-off on adjacent dates to _dosMyDate
+function _dosUpdateUsers() {
+  var _sel = document.getElementById('dos-target-user');
+  document.getElementById('dos-target-date-wrap').innerHTML = '';
+  document.getElementById('dos-validation-msg').style.display = 'none';
+  if (!_dosMyDate) { _sel.innerHTML = '<option value="">— Select person —</option>'; return; }
+  var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
+  // Use the displayed week for shift detection (working days excluding day-off)
+  var _weekDates = getWeekRange(_ssActiveMonday);
+  // Adjacent dates are the valid swap targets (±1 day, restricted to Mon/Sat/Sun)
+  var _adjDates = _dosAdjacentDates(_dosMyDate);
+  // Determine requester's working shift from their schedule in the displayed week
+  var _myShift = '';
+  _weekDates.forEach(function(d) {
+    if (!_myShift && d !== _dosMyDate) {
+      var s = _getSched(currentUser.username, d);
+      if (s && s !== '0') _myShift = s;
+    }
+  });
+  var _candidates = state.users.filter(function(u) {
+    if (u.username === currentUser.username) return false;
+    var _uRole = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+    if (!_myRole || !_uRole || _uRole !== _myRole) return false;
+    // Must work the same shift as the requester
+    if (_myShift) {
+      var _uWeekDates = getWeekRange(_ssActiveMonday);
+      var _sameShift = _uWeekDates.some(function(d) {
+        var s = _getSched(u.username, d);
+        return s && s !== '0' && s === _myShift;
+      });
+      if (!_sameShift) return false;
+    }
+    // Must have a day-off on one of the adjacent dates
+    var _hasOff = _adjDates.some(function(d) {
+      return _getSched(u.username, d) === '0';
+    });
+    return _hasOff;
+  });
+  _sel.innerHTML = '<option value="">— Select person —</option>' +
+    _candidates.map(function(u) {
+      return '<option value="'+u.username+'">'+u.name+' ('+( u.team || '?')+')</option>';
+    }).join('');
 }
 
 function _dosUpdateDates() {
   var targetUsername = document.getElementById('dos-target-user').value;
   var wrap = document.getElementById('dos-target-date-wrap');
-  if (!targetUsername) { wrap.innerHTML = ''; return; }
-  var sc = state.staffSchedule[targetUsername] || {};
-  var _now = new Date();
-  var _todayTs = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()).getTime();
-  var _dayoffs = Object.keys(sc).filter(function(k) {
-    if (!/^\d{2}\/\d{2}$/.test(k)) return false;
-    if (sc[k] !== '0') return false;
-    if (k === _dosMyDate) return false;
-    var parts = k.split('/');
-    var ts = new Date(_now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[0])).getTime();
-    return ts >= _todayTs;
-  }).sort(function(a, b) {
-    var ap = a.split('/'); var bp = b.split('/');
-    return (parseInt(ap[1])*100+parseInt(ap[0])) - (parseInt(bp[1])*100+parseInt(bp[0]));
+  document.getElementById('dos-validation-msg').style.display = 'none';
+  if (!targetUsername || !_dosMyDate) { wrap.innerHTML = ''; return; }
+  // Show only adjacent standard off-days where the target user also has a day-off
+  var _adjDates = _dosAdjacentDates(_dosMyDate);
+  var _dayoffs = _adjDates.filter(function(d) {
+    return _getSched(targetUsername, d) === '0';
   });
   if (_dayoffs.length === 0) {
-    wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);">No upcoming day-offs found for this person.</div>';
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);">No eligible adjacent day-offs for this person.</div>';
     return;
   }
-  wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their day off</div>' +
-    '<select id="dos-target-date" class="login-select" style="width:100%;font-size:13px;">' +
+  wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their adjacent day off</div>' +
+    '<select id="dos-target-date" class="login-select" style="width:100%;font-size:13px;" onchange="_dosValidate()">' +
     '<option value="">— Select date —</option>' +
-    _dayoffs.map(function(d) { return '<option value="' + d + '">' + d + ' (' + getWkDay(d) + ')</option>'; }).join('') +
+    _dayoffs.map(function(d) { return '<option value="'+d+'">'+d+' ('+getWkDay(d)+')</option>'; }).join('') +
     '</select>';
+}
+
+// Validate swap and show/hide warning; enable/disable submit
+function _dosValidate() {
+  var targetUsername = document.getElementById('dos-target-user').value;
+  var targetDateEl = document.getElementById('dos-target-date');
+  var targetDate = targetDateEl ? targetDateEl.value : '';
+  var msgEl = document.getElementById('dos-validation-msg');
+  var submitBtn = document.getElementById('dos-submit-btn');
+  if (!_dosMyDate || !targetUsername || !targetDate) {
+    msgEl.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  var result = _checkDayoffSwapValid(currentUser.username, _dosMyDate, targetUsername, targetDate);
+  if (!result.ok) {
+    msgEl.textContent = '⚠ ' + result.reason;
+    msgEl.style.display = 'block';
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.5'; }
+  } else {
+    msgEl.style.display = 'none';
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+  }
 }
 
 function submitDayoffSwap() {
@@ -3319,7 +3530,10 @@ function submitDayoffSwap() {
   var targetDateEl = document.getElementById('dos-target-date');
   var targetDate = targetDateEl ? targetDateEl.value : '';
   var reason = (document.getElementById('dos-reason').value || '').trim();
+  if (!_dosMyDate) { toast('Please select your day-off date.', 'err'); return; }
   if (!targetUsername || !targetDate) { toast('Please select a person and their day off.', 'err'); return; }
+  var result = _checkDayoffSwapValid(currentUser.username, _dosMyDate, targetUsername, targetDate);
+  if (!result.ok) { toast('Cannot swap: ' + result.reason, 'err'); return; }
   var targetUser = state.users.find(function(u) { return u.username === targetUsername; });
   if (!targetUser) return;
   state.requests.push({
