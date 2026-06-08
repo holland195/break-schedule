@@ -882,16 +882,16 @@ function renderArrange() {
   var _allSDSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _allSDSet[k]=1; }); });
   const allDates = Object.keys(_allSDSet);
-  const sundays = allDates.filter(d => getWkDay(d) === 'Sun').sort((a, b) => {
+  const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort((a, b) => {
   const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
   return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
 });
-const weekPickerHTML = sundays.length > 0 ? `
+const weekPickerHTML = mondays.length > 0 ? `
   <div style="display:flex;align-items:center;gap:8px;">
     <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
     <select class="login-select" style="padding:4px 8px;font-size:11px;"
       onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
-      ${sundays.map(s => {
+      ${mondays.map(s => {
         const [d, m] = s.split('/');
         const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
         const endStr = `${end.getDate().toString().padStart(2,'0')}/${(end.getMonth()+1).toString().padStart(2,'0')}`;
@@ -1149,7 +1149,7 @@ async function saveBreakSplits() {
 
   if (shiftsToProcess.size > 0) {
     // 1. Clear break records (including manual) from next week onward
-    var _applyFrom = _nextWeekSunday(activeMonday);
+    var _applyFrom = _nextWeekMonday(activeMonday);
     _clearAutoBreaksFromWeek(_applyFrom, shiftsToProcess, true);
 
     // 2. Reset rotation so knownList is rebuilt with interleaved group order
@@ -1188,8 +1188,8 @@ async function resetBreakSplit(shift) {
 // Deletes breaks for the given shifts on or after fromSunday.
 // force=true also clears manually-set breaks, not just auto-assigned ones.
 // Called before re-running autoAssignBreaks so the fresh split % takes effect.
-function _nextWeekSunday(sunStr) {
-  var p = sunStr.split('/');
+function _nextWeekMonday(monStr) {
+  var p = monStr.split('/');
   var dt = new Date(2026, parseInt(p[1]) - 1, parseInt(p[0]) + 7);
   return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
 }
@@ -1504,7 +1504,8 @@ function _renderArrangeOverviewTab(weekRange) {
 
   if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
 
-  const todayDkOv = getWeekDates()[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  var _todayNow = new Date();
+  const todayDkOv = String(_todayNow.getDate()).padStart(2,'0') + '/' + String(_todayNow.getMonth()+1).padStart(2,'0');
   const summaryHeaders = weekRange.map((d, i) => {
     const isToday = d === todayDkOv;
     const isActive = d === arrangeActiveDay;
@@ -1515,14 +1516,14 @@ function _renderArrangeOverviewTab(weekRange) {
       color:${isToday ? '#fff' : isActive ? 'var(--accent)' : 'var(--text2)'};
       border-bottom:2px solid ${isToday ? 'var(--accent2)' : 'var(--border)'};
       ">
-      ${WEEK_DAYS[i]}<br>
+      ${getWkDay(d)}<br>
       <span style="font-weight:400;font-size:9px;opacity:0.7;">${d}</span>
     </th>`;
   }).join('');
 
   const summaryRows = shiftUsers.map(u => {
     const dayCells = weekRange.map((d, i) => {
-      const dn = WEEK_DAYS[i];
+      const dn = getWkDay(d);
       var shiftVal = _getSched(u.username, d);
       const onShift = shiftVal === currentShift;
       const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
@@ -1602,7 +1603,7 @@ function switchArrangeDay(day) {
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
-  const weekRange = getWeekRange(activeMonday); // now Sun–Sat since activeMonday = Sunday
+  const weekRange = getWeekRange(activeMonday); // Mon–Sun since activeMonday = Monday
   const slots = BREAK_SLOTS[currentShift] || [];
   // Compute today's dateKey directly (robust, no index math)
   const _now = new Date();
@@ -1635,7 +1636,7 @@ function getArrangeDayMemberList(_unused) {
   // Table rows — one per member
   const tbRows = allMates.map(u => {
     const dayCells = weekRange.map(d => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      const dn = getWkDay(d);
       var shiftVal = _getSched(u.username, d);
       const onShift = shiftVal === currentShift;
       const isToday = d === todayDk;
@@ -1714,7 +1715,7 @@ function getArrangeDayMemberList(_unused) {
     const isTotal = tier.label === 'Total';
 
     const footCells = weekRange.map(d => {
-      const dn = WEEK_DAYS[weekRange.indexOf(d)];
+      const dn = getWkDay(d);
       let s1 = 0, s2 = 0;
       tierUsers.forEach(u => {
         var onShift = _getSched(u.username, d) === currentShift;
@@ -1817,7 +1818,7 @@ function _copyBreaksForSlack() {
   var parts = dk.split('/');
   var d = new Date(now.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
 
-  var dn = WEEK_DAYS[weekRange.indexOf(dk)];
+  var dn = getWkDay(dk);
   var roleAbbr = {'Data Analyst':'D.A','Sr Data Analyst':'Sr D.A','Data Supervisor':'D.S','Sr Data Supervisor':'Sr D.S'};
   var offBg = {'A':'rgba(234,179,8,.18)','H':'rgba(220,38,38,.18)','0':'rgba(22,163,74,.18)','U':'rgba(225,29,72,.15)','S':'rgba(234,88,12,.15)','L':'rgba(8,145,178,.15)'};
   var offFg = {'A':'#92680a','H':'#b91c1c','0':'#15803d','U':'#be123c','S':'#c2410c','L':'#0e7490'};
