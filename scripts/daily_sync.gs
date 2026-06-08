@@ -1267,12 +1267,17 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
   // On single-day posts (Mon/Sat/Sun) exclude absent staff — only show on Tuesday multi-day post
   var isTuesdayPost = (dow === 2);
   var staffRows = [];
+  var _debugSrDs = [];
   users.forEach(function(u) {
     var _usc = (current.staffSchedule || {})[u.username] || (u.schedule || {});
     var sched = (_usc[dk] || _usc[dn] || '').toUpperCase();
-    if (sched !== shift) return;
     var _rawRole = u.role || ((current.staffInfo || {})[u.username] || {}).role || '';
     var resolvedRole = _resolveRoleGas(_rawRole);
+    // Debug: track Sr D.S users at every filter stage
+    if (_rawRole.toLowerCase().indexOf('sr') >= 0 && _rawRole.toLowerCase().indexOf('supervisor') >= 0) {
+      _debugSrDs.push(u.username + ' | sched=' + sched + ' | rawRole=' + _rawRole + ' | resolved=' + resolvedRole + ' | validRoles=' + (VALID_ROLES.indexOf(resolvedRole) >= 0));
+    }
+    if (sched !== shift) return;
     if (VALID_ROLES.indexOf(resolvedRole) < 0) return;
     var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
       ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').replace(/\.0$/, '').toUpperCase();
@@ -1292,6 +1297,7 @@ function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
       isOff: isOff
     });
   });
+  Logger.log('[Slack ' + shift + '] Sr D.S debug (' + _debugSrDs.length + ' found): ' + _debugSrDs.slice(0,10).join(' || '));
 
   // Sort: team asc, then role tier (Sr D.S → D.S → Sr D.A → D.A), then name
   staffRows.sort(function(a, b) {
