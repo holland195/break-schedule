@@ -2035,6 +2035,9 @@ function _renderStaffInfo() {
 
   const rows = _renderStaffInfoRows(infoFilter);
 
+  if (!document.getElementById('modal-staff-info')) {
+    document.body.insertAdjacentHTML('beforeend', _staffInfoModalHTML());
+  }
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
   <input class="filter-input" style="width:260px;" placeholder="Search name, username, emp#, role…"
@@ -2043,6 +2046,7 @@ function _renderStaffInfo() {
   <span style="font-size:11px;color:var(--text3);">${filtered.length} records</span>
   ${isTraining(currentUser) ? `
   <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="btn btn-accent btn-sm" onclick="openStaffInfoModal(null)" style="font-size:11px;">+ Add Staff</button>
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;">
       <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="font-size:11px;max-width:200px;">
     </label>
@@ -2054,7 +2058,7 @@ function _renderStaffInfo() {
   <table>
     <thead>
       <tr>
-        <th style="text-align:center;width:52px;background:var(--bg3);">ACTIVE</th><th style="width:90px;background:var(--bg3);">EMP#</th><th style="background:var(--bg3);">FULL NAME</th><th style="background:var(--bg3);">USERNAME</th><th style="text-align:center;width:60px;background:var(--bg3);">GENDER</th><th style="background:var(--bg3);">DATE OF BIRTH</th><th style="background:var(--bg3);">POSITION</th><th style="background:var(--bg3);">PHONE</th>
+        <th style="text-align:center;width:52px;background:var(--bg3);">ACTIVE</th><th style="width:90px;background:var(--bg3);">EMP#</th><th style="background:var(--bg3);">FULL NAME</th><th style="background:var(--bg3);">USERNAME</th><th style="text-align:center;width:60px;background:var(--bg3);">GENDER</th><th style="background:var(--bg3);">DATE OF BIRTH</th><th style="background:var(--bg3);">POSITION</th><th style="background:var(--bg3);">PHONE</th>${isTraining(currentUser) ? '<th style="width:80px;text-align:center;background:var(--bg3);">ACTIONS</th>' : ''}
       </tr>
     </thead>
     <tbody id="staff-info-tbody">${rows}</tbody>
@@ -2097,16 +2101,21 @@ function _renderStaffInfoRows(filter) {
            onmouseover="this.style.opacity='.6'" onmouseout="this.style.opacity='1'">●</button>`
       : `<span style="color:${isActive ? 'var(--ok)' : 'var(--err)'};font-size:14px;" title="${isActive ? 'Active' : 'Inactive'}">●</span>`;
 
-    return `<tr style="${isActive ? '' : 'opacity:0.45;'}">
-      <td style="text-align:center;vertical-align:middle;">${activeBadge}</td>
-      <td class="mono" style="font-size:11px;color:var(--text3);">${empNo}</td>
-      <td style="font-weight:600;">${u.name || '—'}</td>
-      <td class="mono" style="color:var(--accent);font-size:11px;">${u.username}</td>
-      <td style="text-align:center;vertical-align:middle;">${g}</td>
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${dob}</td>
-      <td style="font-size:11px;color:${roleColor};font-weight:500;">${getRoleInfo(u.role).label || _resolveRole(u.role) || '—'}</td>
-      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);">${phone}</td>
-    </tr>`;
+    var actionBtns = isTraining(currentUser)
+      ? '<button onclick="openStaffInfoModal(\'' + u.username + '\')" title="Edit" style="background:none;border:none;cursor:pointer;padding:2px 5px;font-size:13px;color:var(--accent);border-radius:4px;" onmouseover="this.style.background=\'rgba(31,102,241,.1)\'" onmouseout="this.style.background=\'none\'">✎</button>' +
+        '<button onclick="deleteStaffInfo(\'' + u.username + '\')" title="Delete" style="background:none;border:none;cursor:pointer;padding:2px 5px;font-size:13px;color:var(--err);border-radius:4px;" onmouseover="this.style.background=\'rgba(220,38,38,.1)\'" onmouseout="this.style.background=\'none\'">✕</button>'
+      : '';
+    return '<tr style="' + (isActive ? '' : 'opacity:0.45;') + '">' +
+      '<td style="text-align:center;vertical-align:middle;">' + activeBadge + '</td>' +
+      '<td class="mono" style="font-size:11px;color:var(--text3);">' + empNo + '</td>' +
+      '<td style="font-weight:600;">' + (u.name || '—') + '</td>' +
+      '<td class="mono" style="color:var(--accent);font-size:11px;">' + u.username + '</td>' +
+      '<td style="text-align:center;vertical-align:middle;">' + g + '</td>' +
+      '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text2);">' + dob + '</td>' +
+      '<td style="font-size:11px;color:' + roleColor + ';font-weight:500;">' + (getRoleInfo(u.role).label || _resolveRole(u.role) || '—') + '</td>' +
+      '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text2);">' + phone + '</td>' +
+      (isTraining(currentUser) ? '<td style="text-align:center;white-space:nowrap;">' + actionBtns + '</td>' : '') +
+      '</tr>';
   }).join('');
 }
 function toggleStaffActive(username) {
@@ -2116,6 +2125,130 @@ function toggleStaffActive(username) {
   syncPush();
   var tbody = document.getElementById('staff-info-tbody');
   if (tbody) tbody.innerHTML = _renderStaffInfoRows(staffFilters._info || '');
+}
+
+// ── Staff Info CRUD ──
+function _staffInfoModalHTML() {
+  var roleOpts = Object.keys(ROLES).map(function(r) {
+    return '<option value="' + r + '">' + (ROLES[r].label || r) + '</option>';
+  }).join('');
+  return '<div id="modal-staff-info" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-staff-info\')">' +
+    '<div class="modal" style="width:500px;">' +
+      '<div class="modal-title" id="sif-modal-title">Add Staff</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:16px 0;">' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Full Name *</label>' +
+          '<input id="sif-name" class="filter-input" style="width:100%;" placeholder="Nguyen Van A"></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Username *</label>' +
+          '<input id="sif-username" class="filter-input" style="width:100%;" placeholder="a.nguyen"></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Emp #</label>' +
+          '<input id="sif-empno" class="filter-input" style="width:100%;" placeholder="1234"></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Team</label>' +
+          '<input id="sif-team" class="filter-input" style="width:100%;" placeholder="SR1"></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Position *</label>' +
+          '<select id="sif-role" class="login-select" style="width:100%;">' + roleOpts + '</select></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Gender</label>' +
+          '<select id="sif-gender" class="login-select" style="width:100%;"><option value="">—</option><option value="M">Male</option><option value="F">Female</option></select></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Date of Birth</label>' +
+          '<input id="sif-dob" class="filter-input" style="width:100%;" placeholder="DD/MM/YYYY"></div>' +
+        '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Phone</label>' +
+          '<input id="sif-phone" class="filter-input" style="width:100%;" placeholder="09xxxxxxxx"></div>' +
+      '</div>' +
+      '<div id="sif-error" style="font-size:11px;color:var(--err);min-height:16px;margin-bottom:8px;"></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="btn" onclick="closeModal(\'modal-staff-info\')">Cancel</button>' +
+        '<button class="btn btn-accent" onclick="saveStaffInfoModal()">Save</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+var _sifEditingUsername = null;
+
+function openStaffInfoModal(username) {
+  if (!document.getElementById('modal-staff-info')) {
+    document.body.insertAdjacentHTML('beforeend', _staffInfoModalHTML());
+  }
+  _sifEditingUsername = username || null;
+  document.getElementById('sif-modal-title').textContent = username ? 'Edit Staff' : 'Add Staff';
+  document.getElementById('sif-error').textContent = '';
+  var usernameEl = document.getElementById('sif-username');
+  if (username) {
+    var d = state.staffInfo[username] || {};
+    document.getElementById('sif-name').value = d.name || '';
+    usernameEl.value = username;
+    usernameEl.disabled = true;
+    document.getElementById('sif-empno').value = d.empNo || '';
+    document.getElementById('sif-team').value = d.team || '';
+    document.getElementById('sif-role').value = _resolveRole(d.role) || d.role || 'Data Analyst';
+    document.getElementById('sif-gender').value = d.gender || '';
+    document.getElementById('sif-dob').value = d.dob || '';
+    document.getElementById('sif-phone').value = d.phone || '';
+  } else {
+    document.getElementById('sif-name').value = '';
+    usernameEl.value = '';
+    usernameEl.disabled = false;
+    document.getElementById('sif-empno').value = '';
+    document.getElementById('sif-team').value = '';
+    document.getElementById('sif-role').value = 'Data Analyst';
+    document.getElementById('sif-gender').value = '';
+    document.getElementById('sif-dob').value = '';
+    document.getElementById('sif-phone').value = '';
+  }
+  document.getElementById('modal-staff-info').classList.add('show');
+}
+
+function saveStaffInfoModal() {
+  var name     = (document.getElementById('sif-name').value || '').trim();
+  var username = _sifEditingUsername || (document.getElementById('sif-username').value || '').trim().toLowerCase();
+  var empNo    = (document.getElementById('sif-empno').value || '').trim();
+  var team     = (document.getElementById('sif-team').value || '').trim();
+  var role     = document.getElementById('sif-role').value;
+  var gender   = document.getElementById('sif-gender').value;
+  var dob      = (document.getElementById('sif-dob').value || '').trim();
+  var phone    = (document.getElementById('sif-phone').value || '').trim();
+  var errEl    = document.getElementById('sif-error');
+  if (!name) { errEl.textContent = 'Full name is required.'; return; }
+  if (!username) { errEl.textContent = 'Username is required.'; return; }
+  if (!_sifEditingUsername && state.staffInfo[username]) { errEl.textContent = 'Username already exists.'; return; }
+  if (!state.staffInfo) state.staffInfo = {};
+  var existing = state.staffInfo[username] || {};
+  state.staffInfo[username] = Object.assign({}, existing, { name: name, role: role, team: team, active: existing.active !== false });
+  if (empNo)  state.staffInfo[username].empNo  = empNo;
+  if (gender) state.staffInfo[username].gender = gender;
+  if (dob)    state.staffInfo[username].dob    = dob;
+  if (phone)  state.staffInfo[username].phone  = phone;
+  // Sync to state.users
+  var uIdx = -1;
+  for (var i = 0; i < state.users.length; i++) { if (state.users[i].username === username) { uIdx = i; break; } }
+  if (uIdx >= 0) {
+    state.users[uIdx].name = name;
+    state.users[uIdx].role = role;
+    state.users[uIdx].team = team;
+    if (empNo)  state.users[uIdx].empNo  = empNo;
+    if (gender) state.users[uIdx].gender = gender;
+    if (dob)    state.users[uIdx].dob    = dob;
+    if (phone)  state.users[uIdx].phone  = phone;
+  } else {
+    var h = 0;
+    for (var ci = 0; ci < username.length; ci++) { h = ((h << 5) - h) + username.charCodeAt(ci); h |= 0; }
+    state.users.push({ id: Math.abs(h), username: username, name: name, role: role, team: team,
+      empNo: empNo, gender: gender, dob: dob, phone: phone, active: true });
+  }
+  syncPush();
+  closeModal('modal-staff-info');
+  nav('staff');
+}
+
+function deleteStaffInfo(username) {
+  if (!username || !state.staffInfo[username]) return;
+  var uName = state.staffInfo[username].name || username;
+  if (!confirm('Delete ' + uName + '? Their break and attendance records are kept.')) return;
+  delete state.staffInfo[username];
+  for (var i = 0; i < state.users.length; i++) {
+    if (state.users[i].username === username) { state.users.splice(i, 1); break; }
+  }
+  syncPush();
+  nav('staff');
 }
 
 // Variable to hold the parsed preview data before final confirmation
