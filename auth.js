@@ -156,6 +156,85 @@ async function doLogin() {
   }
 }
 
+async function doGoogleLogin() {
+  const s   = document.getElementById('li-shift').value;
+  const err = document.getElementById('login-err');
+  const btn = document.getElementById('google-signin-btn');
+
+  err.style.color = 'var(--text3)';
+  err.textContent = '☁ Opening Google sign-in…';
+  if (btn) btn.disabled = true;
+  window._loginInProgress = true;
+
+  try {
+    const credential = await firebaseSignInWithGoogle();
+    const email = credential.user.email || '';
+
+    if (!email.endsWith('@discoveryloft.com')) {
+      await firebaseSignOut();
+      window._loginInProgress = false;
+      if (btn) btn.disabled = false;
+      err.style.color = '';
+      err.textContent = 'Only @discoveryloft.com accounts are allowed.';
+      return;
+    }
+
+    const u = email.split('@')[0].toLowerCase();
+    const user = _resolveUser(u);
+
+    if (!user) {
+      await firebaseSignOut();
+      window._loginInProgress = false;
+      if (btn) btn.disabled = false;
+      err.style.color = '';
+      err.textContent = 'Username not found in staff data. Ask admin to import staff.';
+      return;
+    }
+
+    const isAdminUser = (ROLES[_resolveRole(user.role)]?.level || 0) >= 3;
+    if (!isAdminUser && !s) {
+      await firebaseSignOut();
+      window._loginInProgress = false;
+      if (btn) btn.disabled = false;
+      err.style.color = '';
+      err.textContent = 'Please select your current shift before signing in with Google.';
+      return;
+    }
+
+    currentUser  = user;
+    currentShift = _guardShift(s || 'E');
+    err.textContent = '';
+
+    if (typeof syncEnabled === 'function' && syncEnabled()) {
+      err.style.color = 'var(--text3)';
+      err.textContent = '☁ Loading…';
+      await syncPull();
+      err.textContent = '';
+    }
+
+    // Google users skip password-change prompt — mark as already changed
+    localStorage.setItem('pw_changed_' + u, '1');
+
+    DB.saveSession({ username: u, userId: user.id, shift: currentShift });
+    window._loginInProgress = false;
+    if (btn) btn.disabled = false;
+    _afterLogin();
+
+  } catch (e) {
+    window._loginInProgress = false;
+    if (btn) btn.disabled = false;
+    err.style.color = '';
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+      err.textContent = '';
+    } else if (e.code === 'auth/network-request-failed') {
+      err.textContent = 'Network error. Check your connection.';
+    } else {
+      err.textContent = 'Google sign-in failed: ' + (e.message || e.code || 'unknown error');
+      console.warn('[auth] Google sign-in error:', e);
+    }
+  }
+}
+
 // ─────────────────────────────────────────────
 //  FORGOT PASSWORD
 // ─────────────────────────────────────────────
