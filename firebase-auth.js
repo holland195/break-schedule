@@ -59,6 +59,13 @@ async function firebaseSendPasswordReset(email) {
   return auth.sendPasswordResetEmail(email);
 }
 
+async function firebaseSignInWithGoogle() {
+  const auth = _initFirebase();
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ hd: 'discoveryloft.com' });
+  return auth.signInWithPopup(provider);
+}
+
 // ── onAuthStateChanged: called once at boot in index.html ──
 // Fires on every page load. If Firebase has a valid session token,
 // it auto-logs the user in without showing the login screen.
