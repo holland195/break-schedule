@@ -864,8 +864,10 @@ function _reqSetFilter(f) {
 //  Tab 1: Arrange Breaks (bulk panel + day tabs)
 //  Tab 2: Week Overview (full grid)
 // ═══════════════════════════════════════════════
-let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'split'
+let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'month'
 let arrangeActiveDay = null;   // set on first render
+var _arrMonthYear  = new Date().getFullYear();
+var _arrMonthMonth = new Date().getMonth() + 1; // 1–12
 // Persisted bulk-panel state — survives re-renders and sync polls
 let _bulkGroups = new Set(); // selected group checkboxes
 let _bulkDays = new Set(); // selected day checkboxes
@@ -946,10 +948,18 @@ const weekPickerHTML = mondays.length > 0 ? `
       margin-bottom:-2px; transition:all .12s;">
     📊 Week Overview
   </button>
+  <button onclick="switchArrangeMainTab('month')"
+    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+      background:none; color:${arrangeMainTab === 'month' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab === 'month' ? 'var(--accent)' : 'transparent'};
+      margin-bottom:-2px; transition:all .12s;">
+    📅 Month Overview
+  </button>
 </div>
 
 <div id="arrange-main-content">
   ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange)
+    : arrangeMainTab === 'month' ? _renderArrangeMonthOverview()
     : _renderArrangeOverviewTab(weekRange)}
 </div>`;
 }
@@ -1599,6 +1609,154 @@ function switchArrangeDay(day) {
   // The table re-renders with the new active day highlighted
   const wrap = document.querySelector('.arr-table-wrap');
   if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
+}
+
+// ── Month Overview tab ──
+function _renderArrangeMonthOverview() {
+  var year  = _arrMonthYear;
+  var month = _arrMonthMonth;
+  var dates = _getAllDatesInMonth(year, month);
+  if (!dates || !dates.length) return '<div class="empty">No dates.</div>';
+
+  var now = new Date();
+  var todayDk = String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
+
+  // Collect all teams that have at least one member on this shift during the month
+  var teamSet = {};
+  state.users.forEach(function(u) {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
+    if (_ul >= 2) return;
+    var onShift = dates.some(function(dk) { return _getSched(u.username, dk) === currentShift; });
+    if (!onShift) return;
+    var resolvedRole = _resolveRole(u.role || _ur) || u.role || '';
+    if (!teamSet[u.team]) teamSet[u.team] = resolvedRole;
+  });
+
+  // Sort teams: by role tier (same as ROLE_SORT_ORDER), then team name
+  var teams = Object.keys(teamSet).sort(function(a, b) {
+    var ra = ROLE_SORT_ORDER[teamSet[a]] !== undefined ? ROLE_SORT_ORDER[teamSet[a]] : 99;
+    var rb = ROLE_SORT_ORDER[teamSet[b]] !== undefined ? ROLE_SORT_ORDER[teamSet[b]] : 99;
+    if (ra !== rb) return ra - rb;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+
+  if (!teams.length) return '<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ' + currentShift + ' this month.</div>';
+
+  // Month/year pickers + shift is inherited from currentShift (controlled by sidebar)
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var monthPicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;" onchange="_arrMonthMonth=+this.value;nav(\'arrange\')">' +
+    [1,2,3,4,5,6,7,8,9,10,11,12].map(function(m) {
+      return '<option value="' + m + '"' + (m === month ? ' selected' : '') + '>' + monthNames[m-1] + '</option>';
+    }).join('') + '</select>';
+  var yearPicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:80px;" onchange="_arrMonthYear=+this.value;nav(\'arrange\')">' +
+    [2025,2026,2027].map(function(y) {
+      return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
+    }).join('') + '</select>';
+
+  // Column headers: compact date + day name
+  var theadCols = dates.map(function(dk) {
+    var isToday = dk === todayDk;
+    var dayName = getWkDay(dk).substring(0,3);
+    var dd = dk.split('/')[0];
+    var isWeekend = dayName === 'Sat' || dayName === 'Sun';
+    return '<th style="text-align:center;min-width:32px;padding:4px 2px;font-size:10px;font-weight:700;' +
+      'background:' + (isToday ? 'var(--accent)' : 'var(--bg3)') + ';' +
+      'color:' + (isToday ? '#fff' : isWeekend ? 'var(--text3)' : 'var(--text2)') + ';' +
+      'position:sticky;top:0;z-index:10;">' +
+      '<div>' + dd + '</div>' +
+      '<div style="font-size:9px;font-weight:400;opacity:' + (isToday ? '1' : '.65') + ';">' + dayName + '</div>' +
+    '</th>';
+  }).join('');
+
+  // Group rows by role tier (show tier label when it changes)
+  var prevTier = null;
+  var tbodyRows = teams.map(function(team) {
+    var resolvedRole = teamSet[team];
+    var tierLabel = getRoleInfo(resolvedRole).label || resolvedRole;
+
+    // Tier separator row
+    var separator = '';
+    if (tierLabel !== prevTier) {
+      prevTier = tierLabel;
+      var tierColor = _roleColor(resolvedRole);
+      separator = '<tr><td colspan="' + (dates.length + 1) + '" style="padding:6px 8px 2px;font-size:10px;font-weight:700;' +
+        'color:' + tierColor + ';text-transform:uppercase;letter-spacing:.06em;' +
+        'border-top:1px solid var(--border);background:var(--bg2);">' + tierLabel + '</td></tr>';
+    }
+
+    // Data cells for each date
+    var cells = dates.map(function(dk) {
+      var isToday = dk === todayDk;
+      var isWeekend = getWkDay(dk) === 'Sat' || getWkDay(dk) === 'Sun';
+
+      // Check if any team member is scheduled on this shift this day
+      var teamMembers = state.users.filter(function(u) { return u.team === team; });
+      var onShiftCount = teamMembers.filter(function(u) {
+        return _getSched(u.username, dk) === currentShift;
+      }).length;
+
+      if (onShiftCount === 0) {
+        return '<td style="text-align:center;padding:3px 1px;' +
+          'background:' + (isToday ? 'rgba(31,102,241,.04)' : isWeekend ? 'var(--bg4)' : '') + ';">' +
+          '<span style="color:var(--text3);font-size:10px;">—</span></td>';
+      }
+
+      // Get slot assignment for this team on this day (check any member)
+      var slot = null;
+      for (var i = 0; i < teamMembers.length; i++) {
+        var br = DB.getBreak(teamMembers[i].id, dk);
+        if (br && br.slot) { slot = br.slot; break; }
+      }
+
+      var slotCode = slot ? (function() {
+        var si = -1;
+        if (slot === currentShift + '1') si = 0;
+        else if (slot === currentShift + '2') si = 1;
+        else si = _slotIndex(slot, currentShift);
+        return si >= 0 ? (currentShift + (si + 1)) : '?';
+      })() : null;
+
+      var badgeStyle, badgeText;
+      if (slotCode === currentShift + '1') {
+        badgeStyle = 'background:rgba(31,102,241,.15);color:var(--accent);';
+        badgeText = '1';
+      } else if (slotCode === currentShift + '2') {
+        badgeStyle = 'background:rgba(245,158,11,.15);color:var(--warn);';
+        badgeText = '2';
+      } else {
+        badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);';
+        badgeText = '?';
+      }
+
+      return '<td style="text-align:center;padding:3px 1px;' +
+        'background:' + (isToday ? 'rgba(31,102,241,.04)' : '') + ';">' +
+        '<span style="display:inline-flex;align-items:center;justify-content:center;' +
+          'width:20px;height:16px;border-radius:3px;font-size:10px;font-weight:700;' +
+          'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
+    }).join('');
+
+    return separator +
+      '<tr onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'\'">' +
+      '<td style="padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
+        'position:sticky;left:0;background:var(--bg2);z-index:5;border-right:1px solid var(--border);">' + team + '</td>' +
+      cells +
+      '</tr>';
+  }).join('');
+
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">' +
+    monthPicker + yearPicker +
+    '<span style="font-size:11px;color:var(--text3);">' + teams.length + ' teams · Shift ' + currentShift + '</span>' +
+    '</div>' +
+    '<div style="overflow-x:auto;">' +
+    '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
+    '<thead><tr>' +
+      '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:4px 10px;' +
+        'font-size:10px;font-weight:700;color:var(--text2);text-align:left;border-right:1px solid var(--border);">TEAM</th>' +
+      theadCols +
+    '</tr></thead>' +
+    '<tbody>' + tbodyRows + '</tbody>' +
+    '</table></div>';
 }
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
