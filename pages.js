@@ -291,8 +291,8 @@ function renderDashboard() {
     _tgHTML +
     '</div>';
 
-  // This Week card — Mon-Sun, shift + break per day
-  var _wkMonSun = [1,2,3,4,5,6,0].map(function(i) { return weekDates[i]; });
+  // This Week card — Mon-Sun using activeMonday anchor
+  var _wkMonSun = getWeekRange(activeMonday);
   var _thisWeekRows = _wkMonSun.map(function(dk) {
     var _isToday = dk === todayDk;
     var _sched = _getSched(currentUser.username, dk);
