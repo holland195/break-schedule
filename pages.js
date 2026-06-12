@@ -866,6 +866,7 @@ function _reqSetFilter(f) {
 // ═══════════════════════════════════════════════
 let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'month'
 let arrangeActiveDay = null;   // set on first render
+var _arrangeMonth = '';        // 'MM/YYYY' filter for week picker; '' = show all
 var _arrMonthYear  = new Date().getFullYear();
 var _arrMonthMonth = new Date().getMonth() + 1; // 1–12
 // Persisted bulk-panel state — survives re-renders and sync polls
@@ -883,24 +884,60 @@ function renderArrange() {
   // Build week picker from available schedule dates
   var _allSDSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _allSDSet[k]=1; }); });
-  const allDates = Object.keys(_allSDSet);
-  const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort((a, b) => {
-  const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-  return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
-});
-const weekPickerHTML = mondays.length > 0 ? `
-  <div style="display:flex;align-items:center;gap:8px;">
-    <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
-    <select class="login-select" style="padding:4px 8px;font-size:11px;"
-      onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
-      ${mondays.map(s => {
-        const [d, m] = s.split('/');
-        const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
-        const endStr = `${end.getDate().toString().padStart(2,'0')}/${(end.getMonth()+1).toString().padStart(2,'0')}`;
-        return `<option value="${s}" ${s === activeMonday ? 'selected' : ''}>${s} – ${endStr}</option>`;
-      }).join('')}
-    </select>
-  </div>` : '';
+  var allDates = Object.keys(_allSDSet);
+
+  // Derive sorted list of all Mondays
+  var allMondays = allDates.filter(function(d) { return getWkDay(d) === 'Mon'; }).sort(function(a, b) {
+    var pa = a.split('/'), pb = b.split('/');
+    return new Date(2026, parseInt(pa[1])-1, parseInt(pa[0])) - new Date(2026, parseInt(pb[1])-1, parseInt(pb[0]));
+  });
+
+  // Derive unique months present in allMondays as 'MM/YYYY' labels
+  var _monthSet = {}, _monthOrder = [];
+  allMondays.forEach(function(mon) {
+    var parts = mon.split('/');
+    var key = parts[1] + '/' + '2026'; // MM/YYYY
+    if (!_monthSet[key]) { _monthSet[key] = true; _monthOrder.push(key); }
+  });
+
+  // Ensure _arrangeMonth is valid; default to current month if possible
+  if (_arrangeMonth && !_monthSet[_arrangeMonth]) _arrangeMonth = '';
+  if (!_arrangeMonth) {
+    var _nowMM = String(new Date().getMonth()+1).padStart(2,'0');
+    var _curKey = _nowMM + '/2026';
+    _arrangeMonth = _monthSet[_curKey] ? _curKey : (_monthOrder[0] || '');
+  }
+
+  // Filter mondays to selected month
+  var mondays = _arrangeMonth ? allMondays.filter(function(mon) {
+    var p = mon.split('/');
+    return p[1] + '/2026' === _arrangeMonth;
+  }) : allMondays;
+
+  // If activeMonday is not in the filtered list, snap to first available
+  if (mondays.length && mondays.indexOf(activeMonday) === -1) {
+    activeMonday = mondays[0];
+    arrangeActiveDay = null;
+  }
+
+  var _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var monthPickerHTML = _monthOrder.length > 1 ? '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="_arrangeMonth=this.value;nav(\'arrange\')">' +
+    _monthOrder.map(function(mk) {
+      var mm = parseInt(mk.split('/')[0]);
+      return '<option value="' + mk + '"' + (mk === _arrangeMonth ? ' selected' : '') + '>' + _monthNames[mm-1] + '</option>';
+    }).join('') + '</select>' : '';
+
+  var weekPickerHTML = mondays.length > 0 ? '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<span style="font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">WEEK:</span>' +
+    (monthPickerHTML ? monthPickerHTML : '') +
+    '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="activeMonday=this.value;arrangeActiveDay=null;nav(\'arrange\')">' +
+    mondays.map(function(s) {
+      var p = s.split('/');
+      var end = new Date(2026, parseInt(p[1])-1, parseInt(p[0])+6);
+      var endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
+      return '<option value="' + s + '"' + (s === activeMonday ? ' selected' : '') + '>' + s + ' – ' + endStr + '</option>';
+    }).join('') +
+    '</select></div>' : '';
 
   var _slackCfg = (state.slackAutoPost || {})[currentShift] || {};
   var _slackOn  = !!_slackCfg.enabled;
