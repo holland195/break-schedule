@@ -921,23 +921,29 @@ function renderArrange() {
   }
 
   var _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var monthPickerHTML = _monthOrder.length > 1 ? '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="_arrangeMonth=this.value;nav(\'arrange\')">' +
-    _monthOrder.map(function(mk) {
-      var mm = parseInt(mk.split('/')[0]);
-      return '<option value="' + mk + '"' + (mk === _arrangeMonth ? ' selected' : '') + '>' + _monthNames[mm-1] + '</option>';
-    }).join('') + '</select>' : '';
+  var _monoLbl = 'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;';
 
-  var weekPickerHTML = mondays.length > 0 ? '<div style="display:flex;align-items:center;gap:8px;">' +
-    '<span style="font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">WEEK:</span>' +
-    (monthPickerHTML ? monthPickerHTML : '') +
-    '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="activeMonday=this.value;arrangeActiveDay=null;nav(\'arrange\')">' +
-    mondays.map(function(s) {
-      var p = s.split('/');
-      var end = new Date(2026, parseInt(p[1])-1, parseInt(p[0])+6);
-      var endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
-      return '<option value="' + s + '"' + (s === activeMonday ? ' selected' : '') + '>' + s + ' – ' + endStr + '</option>';
-    }).join('') +
-    '</select></div>' : '';
+  var monthPickerHTML = _monthOrder.length > 1
+    ? '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="' + _monoLbl + '">MONTH:</span>' +
+      '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="_arrangeMonth=this.value;nav(\'arrange\')">' +
+      _monthOrder.map(function(mk) {
+        var mm = parseInt(mk.split('/')[0]);
+        return '<option value="' + mk + '"' + (mk === _arrangeMonth ? ' selected' : '') + '>' + _monthNames[mm-1] + '</option>';
+      }).join('') + '</select></div>'
+    : '';
+
+  var weekPickerHTML = mondays.length > 0
+    ? '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="' + _monoLbl + '">WEEK:</span>' +
+      '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="activeMonday=this.value;arrangeActiveDay=null;nav(\'arrange\')">' +
+      mondays.map(function(s) {
+        var p = s.split('/');
+        var end = new Date(2026, parseInt(p[1])-1, parseInt(p[0])+6);
+        var endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
+        return '<option value="' + s + '"' + (s === activeMonday ? ' selected' : '') + '>' + s + ' – ' + endStr + '</option>';
+      }).join('') + '</select></div>'
+    : '';
 
   var _slackCfg = (state.slackAutoPost || {})[currentShift] || {};
   var _slackOn  = !!_slackCfg.enabled;
@@ -958,6 +964,7 @@ function renderArrange() {
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    ${monthPickerHTML}
     ${weekPickerHTML}
     ${_slackInline}
     <button id="save-breaks-btn" class="btn btn-accent"
