@@ -1615,11 +1615,26 @@ function switchArrangeDay(day) {
 function _renderArrangeMonthOverview() {
   var year  = _arrMonthYear;
   var month = _arrMonthMonth;
-  var dates = _getAllDatesInMonth(year, month);
+  // True calendar month: 1st to last day (NOT the 25th-24th payroll cycle)
+  var dates = (function() {
+    var days = [], last = new Date(year, month, 0).getDate();
+    for (var d = 1; d <= last; d++) {
+      days.push(String(d).padStart(2,'0') + '/' + String(month).padStart(2,'0'));
+    }
+    return days;
+  })();
   if (!dates || !dates.length) return '<div class="empty">No dates.</div>';
 
   var now = new Date();
   var todayDk = String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
+
+  // 3-tier grouping: DA+SrDA → 'analyst', DS → 'supervisor', SrDS → 'sr_supervisor'
+  var _arrTierKey = {
+    'Data Analyst': 'analyst', 'Sr Data Analyst': 'analyst',
+    'Data Supervisor': 'supervisor', 'Sr Data Supervisor': 'sr_supervisor'
+  };
+  var _arrTierOrder = ['analyst', 'supervisor', 'sr_supervisor'];
+  var _arrTierLabel = { 'analyst': 'Data Analyst', 'supervisor': 'Data Supervisor', 'sr_supervisor': 'Sr Data Supervisor' };
 
   // Collect all teams that have at least one member on this shift during the month
   var teamSet = {};
@@ -1633,11 +1648,11 @@ function _renderArrangeMonthOverview() {
     if (!teamSet[u.team]) teamSet[u.team] = resolvedRole;
   });
 
-  // Sort teams: by role tier (same as ROLE_SORT_ORDER), then team name
+  // Sort teams: by 3-tier order (analyst < supervisor < sr_supervisor), then team name
   var teams = Object.keys(teamSet).sort(function(a, b) {
-    var ra = ROLE_SORT_ORDER[teamSet[a]] !== undefined ? ROLE_SORT_ORDER[teamSet[a]] : 99;
-    var rb = ROLE_SORT_ORDER[teamSet[b]] !== undefined ? ROLE_SORT_ORDER[teamSet[b]] : 99;
-    if (ra !== rb) return ra - rb;
+    var ta = _arrTierOrder.indexOf(_arrTierKey[teamSet[a]] || 'analyst');
+    var tb = _arrTierOrder.indexOf(_arrTierKey[teamSet[b]] || 'analyst');
+    if (ta !== tb) return ta - tb;
     return a.localeCompare(b, undefined, { numeric: true });
   });
 
@@ -1669,16 +1684,17 @@ function _renderArrangeMonthOverview() {
     '</th>';
   }).join('');
 
-  // Group rows by role tier (show tier label when it changes)
+  // Group rows by 3-tier (show tier separator when tier changes)
   var prevTier = null;
   var tbodyRows = teams.map(function(team) {
     var resolvedRole = teamSet[team];
-    var tierLabel = getRoleInfo(resolvedRole).label || resolvedRole;
+    var tierKey = _arrTierKey[resolvedRole] || 'analyst';
+    var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
 
     // Tier separator row
     var separator = '';
-    if (tierLabel !== prevTier) {
-      prevTier = tierLabel;
+    if (tierKey !== prevTier) {
+      prevTier = tierKey;
       var tierColor = _roleColor(resolvedRole);
       separator = '<tr><td colspan="' + (dates.length + 1) + '" style="padding:6px 8px 2px;font-size:10px;font-weight:700;' +
         'color:' + tierColor + ';text-transform:uppercase;letter-spacing:.06em;' +
