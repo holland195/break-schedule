@@ -400,6 +400,64 @@ function autoAssignBreaks(importedUsers) {
     });
   });
 
+  // ── Post-process: ensure slot 2 is present on Mon, Sat, Sun ──
+  // After the main rotation, check each week × shift × {Mon,Sat,Sun}.
+  // If no team is on slot 2 that day (because the slot-2 team is absent),
+  // pick the first present team that is currently on slot 1 and override
+  // just that day's assignments to slot 2.
+  var _checkDays = new Set(['Mon', 'Sat', 'Sun']);
+  sundays.forEach(function(sunday) {
+    var weekDates2 = getWeekRange(sunday);
+    var shifts2 = Object.keys(getConfigForDate(sunday).breakSlots);
+    shifts2.forEach(function(shift) {
+      var slots2 = getConfigForDate(sunday).breakSlots[shift];
+      if (!slots2 || slots2.length < 2) return;
+      var slot2Code = shift + '2';
+
+      weekDates2.forEach(function(dk) {
+        if (!_checkDays.has(getWkDay(dk))) return;
+
+        // Collect all users on this shift on this day
+        var dayUsers = importedUsers.filter(function(u) {
+          var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
+          if (!_roleTier(role)) return false;
+          return _getSched(u.username, dk) === shift;
+        });
+        if (dayUsers.length === 0) return;
+
+        // Check if anyone already has slot 2 this day
+        var hasSlot2 = dayUsers.some(function(u) {
+          var br = DB.getBreak(u.id, dk);
+          return br && br.slot === slot2Code;
+        });
+        if (hasSlot2) return;
+
+        // No slot 2 — group present users by team and pick first team
+        var teamGroups2 = {};
+        dayUsers.forEach(function(u) {
+          var t = u.team || '_no_team_';
+          if (!teamGroups2[t]) teamGroups2[t] = [];
+          teamGroups2[t].push(u);
+        });
+        var sortedTeams2 = Object.keys(teamGroups2).sort(_naturalSort);
+        if (!sortedTeams2.length) return;
+
+        // Pick first team and assign slot 2 for this specific day only
+        var pickedTeam = sortedTeams2[0];
+        teamGroups2[pickedTeam].forEach(function(u) {
+          DB.setBreak(u.id, dk, {
+            slot: slot2Code,
+            note: 'auto',
+            by:   null,
+            at:   RUN_TIMESTAMP,
+          });
+          totalAssigned++;
+        });
+        console.log('[autoassign] weekend-fill: ' + shift + ' ' + dk + ' → slot2 assigned to team ' + pickedTeam);
+      });
+    });
+  });
+
   // Persist the updated rotation state
   _saveRotation(rot);
 
