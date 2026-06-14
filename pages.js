@@ -2858,6 +2858,24 @@ var _saFilteredUsernames = [];
 var _saCurrentDates = [];
 var _saCurrentMonthKey = '';
 var _attCopiedCode = '';
+var _staffAttUndoStack = []; // [{monthKey, username, data}] snapshots before clear
+
+function _staffAttSnapshot() {
+  var snap = [];
+  _saFilteredUsernames.forEach(function(username) {
+    var d = DB.getMonthlyAtt(username, _saCurrentMonthKey);
+    if (d && Object.keys(d).length) snap.push({ username: username, monthKey: _saCurrentMonthKey, data: Object.assign({}, d) });
+  });
+  return snap;
+}
+
+function undoClearAtt() {
+  if (!_staffAttUndoStack.length) return;
+  var snap = _staffAttUndoStack.pop();
+  snap.forEach(function(entry) { DB.setMonthlyAtt(entry.username, entry.monthKey, entry.data); });
+  syncWrite();
+  _navStaff();
+}
 
 function fillAttRow(username, monthKey) {
   if (!_saFillCode) return;
@@ -2903,6 +2921,7 @@ function fillAttAll() {
 
 function clearAttAll() {
   if (!_saCurrentMonthKey) return;
+  _staffAttUndoStack.push(_staffAttSnapshot()); // save for Ctrl+Z
   var _cNow = new Date();
   var _cToday = (_cNow.getDate().toString().padStart(2,'0')) + '/' + ((_cNow.getMonth()+1).toString().padStart(2,'0'));
   _saFilteredUsernames.forEach(function(username) {
@@ -2927,11 +2946,17 @@ function _installAttKbd() {
     var tag = (e.target || {}).tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (!document.getElementById('sa-kbd-marker')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if (!_staffAttUndoStack.length) return;
+      e.preventDefault();
+      undoClearAtt();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
       if (!_attHoveredCell || !_attHoveredCell.code) return;
       e.preventDefault();
       _attCopiedCode = _attHoveredCell.code;
-      nav('staff');
+      _navStaff();
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
       if (!_attHoveredCell || !_attCopiedCode) return;
@@ -2940,11 +2965,11 @@ function _installAttKbd() {
       existing[_attHoveredCell.dk] = _attCopiedCode;
       DB.setMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey, existing);
       syncWrite();
-      nav('staff');
+      _navStaff();
     }
     if (e.key === 'Escape' && _attCopiedCode) {
       _attCopiedCode = '';
-      nav('staff');
+      _navStaff();
     }
   });
 }
@@ -3040,7 +3065,7 @@ function _renderStaffAttendance() {
     var _n = new Date();
     var _dow = _n.getDay(); // 0=Sun
     var _mon = new Date(_n);
-    _mon.setDate(_n.getDate() + (_dow === 0 ? 1 : 1 - _dow)); // Monday anchor
+    _mon.setDate(_n.getDate() + (_dow === 0 ? -6 : 1 - _dow)); // Monday of current week
     var _days = [];
     for (var _i = 0; _i < 7; _i++) {
       var _dt = new Date(_mon);
@@ -3054,14 +3079,14 @@ function _renderStaffAttendance() {
 
   const monthPicker = `
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
-        onchange="_attImportMonth=+this.value;_saDateFilter='';nav('staff')">
+        onchange="_attImportMonth=+this.value;_saDateFilter='';_navStaff()">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
     `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
       .toLocaleString('en-US', { month: 'long' })}</option>`
   ).join('')}
       </select>
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
-        onchange="_attImportYear=+this.value;_saDateFilter='';nav('staff')">
+        onchange="_attImportYear=+this.value;_saDateFilter='';_navStaff()">
         ${[2024, 2025, 2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
@@ -3309,7 +3334,7 @@ function _renderStaffAttendance() {
       ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
-  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;nav(\'staff\')">' +
+  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;_navStaff()">' +
     '<option value="">All dates</option>' +
     allDates.map(function(dk) {
       return '<option value="' + dk + '"' + (_saDateFilter === dk ? ' selected' : '') + '>' + dk + '</option>';
@@ -3318,7 +3343,7 @@ function _renderStaffAttendance() {
 
   const shiftFilterPicker = `
     <select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;"
-      onchange="_saShiftFilter=this.value;_saDateFilter='';nav('staff')">
+      onchange="_saShiftFilter=this.value;_saDateFilter='';_navStaff()">
       <option value="All" ${_saShiftFilter==='All'?'selected':''}>All shifts</option>
       <option value="A" ${_saShiftFilter==='A'?'selected':''}>Shift A</option>
       <option value="D" ${_saShiftFilter==='D'?'selected':''}>Shift D</option>
@@ -3326,7 +3351,8 @@ function _renderStaffAttendance() {
     </select>`;
 
   const codePicker = `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>
-    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`;
+    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>
+    ${_staffAttUndoStack.length ? '<button class="btn btn-sm" onclick="undoClearAtt()" title="Undo last clear (Ctrl+Z)" style="font-size:11px;">↩ Undo</button>' : ''}`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
