@@ -3069,7 +3069,7 @@ function _renderStaffAttendance() {
     var _n = new Date();
     var _dow = _n.getDay(); // 0=Sun
     var _mon = new Date(_n);
-    _mon.setDate(_n.getDate() + (_dow === 0 ? 1 : 1 - _dow)); // Monday anchor
+    _mon.setDate(_n.getDate() + (_dow === 0 ? -6 : 1 - _dow)); // Monday of current week
     var _days = [];
     for (var _i = 0; _i < 7; _i++) {
       var _dt = new Date(_mon);
@@ -3083,14 +3083,14 @@ function _renderStaffAttendance() {
 
   const monthPicker = `
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
-        onchange="_attImportMonth=+this.value;_saDateFilter='';nav('staff')">
+        onchange="_attImportMonth=+this.value;_saDateFilter='';_navStaff()">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
     `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
       .toLocaleString('en-US', { month: 'long' })}</option>`
   ).join('')}
       </select>
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
-        onchange="_attImportYear=+this.value;_saDateFilter='';nav('staff')">
+        onchange="_attImportYear=+this.value;_saDateFilter='';_navStaff()">
         ${[2024, 2025, 2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
@@ -3338,7 +3338,7 @@ function _renderStaffAttendance() {
       ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
-  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;nav(\'staff\')">' +
+  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;_navStaff()">' +
     '<option value="">All dates</option>' +
     allDates.map(function(dk) {
       return '<option value="' + dk + '"' + (_saDateFilter === dk ? ' selected' : '') + '>' + dk + '</option>';
@@ -3347,7 +3347,7 @@ function _renderStaffAttendance() {
 
   const shiftFilterPicker = `
     <select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;"
-      onchange="_saShiftFilter=this.value;_saDateFilter='';nav('staff')">
+      onchange="_saShiftFilter=this.value;_saDateFilter='';_navStaff()">
       <option value="All" ${_saShiftFilter==='All'?'selected':''}>All shifts</option>
       <option value="A" ${_saShiftFilter==='A'?'selected':''}>Shift A</option>
       <option value="D" ${_saShiftFilter==='D'?'selected':''}>Shift D</option>
