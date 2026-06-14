@@ -3033,10 +3033,22 @@ function _renderStaffAttendance() {
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  var _wd = getWeekDates(); // [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
-  var allDates = _saShiftFilter !== 'All'
-    ? _wd.slice(1).concat([_wd[0]])  // Mon–Sun order
-    : _getAllDatesInMonth(year, month);
+  // Generate Mon–Sun week containing today.
+  // When today is Sunday (dow=0), treat it as day 7 → Monday is tomorrow.
+  var allDates = (function() {
+    if (_saShiftFilter === 'All') return _getAllDatesInMonth(year, month);
+    var _n = new Date();
+    var _dow = _n.getDay(); // 0=Sun
+    var _mon = new Date(_n);
+    _mon.setDate(_n.getDate() + (_dow === 0 ? 1 : 1 - _dow)); // Monday anchor
+    var _days = [];
+    for (var _i = 0; _i < 7; _i++) {
+      var _dt = new Date(_mon);
+      _dt.setDate(_mon.getDate() + _i);
+      _days.push(_dt.getDate().toString().padStart(2,'0') + '/' + (_dt.getMonth()+1).toString().padStart(2,'0'));
+    }
+    return _days;
+  })();
   const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
   const attData = state.monthlyAttendance || {};
 
