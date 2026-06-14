@@ -2835,6 +2835,14 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
 ${_schedTbl(displayDates, _displayUsers)}`;
 }
 
+// nav('staff') preserving scroll position so fill/clear ops don't jump to top
+function _navStaff() {
+  var sc = document.getElementById('main-content');
+  var top = sc ? sc.scrollTop : window.pageYOffset;
+  nav('staff');
+  if (sc) sc.scrollTop = top; else window.scrollTo(0, top);
+}
+
 var _attNow = new Date();
 let _attImportMonth = _attNow.getDate() >= 25
   ? (_attNow.getMonth() === 11 ? 1 : _attNow.getMonth() + 2)
@@ -2868,7 +2876,7 @@ function fillAttRow(username, monthKey) {
   if (filled === 0) return;
   DB.setMonthlyAtt(username, monthKey, existing);
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 function fillAttAll() {
@@ -2890,7 +2898,7 @@ function fillAttAll() {
     DB.setMonthlyAtt(username, _saCurrentMonthKey, existing);
   });
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 function clearAttAll() {
@@ -2906,7 +2914,7 @@ function clearAttAll() {
     DB.setMonthlyAtt(username, _saCurrentMonthKey, existing);
   });
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 var _attHoveredCell = null;
@@ -2992,7 +3000,7 @@ function saveAttCell() {
   DB.setMonthlyAtt(t.username, t.monthKey, existing);
   syncWrite();
   closeModal('modal-att-cell');
-  nav('staff');
+  _navStaff();
 }
 
 function clearAttCell() {
@@ -3003,7 +3011,7 @@ function clearAttCell() {
   DB.setMonthlyAtt(t.username, t.monthKey, existing);
   syncWrite();
   closeModal('modal-att-cell');
-  nav('staff');
+  _navStaff();
 }
 
 function attCellClick(username, monthKey, dk) {
@@ -3015,7 +3023,7 @@ function attCellClick(username, monthKey, dk) {
   existing[dk] = _attCopiedCode;
   DB.setMonthlyAtt(username, monthKey, existing);
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 function _renderStaffAttendance() {
@@ -3025,7 +3033,10 @@ function _renderStaffAttendance() {
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  var allDates = _saShiftFilter !== 'All' ? getWeekDates() : _getAllDatesInMonth(year, month);
+  var _wd = getWeekDates(); // [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+  var allDates = _saShiftFilter !== 'All'
+    ? _wd.slice(1).concat([_wd[0]])  // Mon–Sun order
+    : _getAllDatesInMonth(year, month);
   const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
   const attData = state.monthlyAttendance || {};
 
@@ -3092,7 +3103,7 @@ function _renderStaffAttendance() {
       border-bottom:2px solid ${isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
       border-left:${isSun ? '2px solid var(--border)' : 'none'};
       position:sticky;top:0;z-index:2;white-space:nowrap;">
-      <div style="font-size:9px;opacity:.65;line-height:1.5;">${WDAY_SHORT[dow]}</div>
+      <div style="font-size:9px;${isWknd ? '' : 'opacity:.65;'}line-height:1.5;">${WDAY_SHORT[dow]}</div>
       <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
     </th>`;
   }).join('');
@@ -3174,6 +3185,8 @@ function _renderStaffAttendance() {
   const tbodyRows = filteredUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
     const conflicts = _preConflicts[u.username] || [];
+    var _uEffRoleForConflict = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+    var _uIsTraining = (ROLES[_uEffRoleForConflict]||{}).level === 3;
 
     const cells = dates.map(dk => {
       const rawCode = uAtt[dk];
@@ -3192,7 +3205,7 @@ function _renderStaffAttendance() {
 
       const _preCell = conflicts.find(c => c.dk === dk);
       const conflictList = _preCell ? _preCell.msgs : null;
-      const hasConflict = !!_preCell;
+      const hasConflict = !_uIsTraining && !!_preCell;
 
       let bg = '', txt = '', color = '';
       if (!parsed) {
@@ -3221,7 +3234,7 @@ function _renderStaffAttendance() {
 
       const conflictBadge = hasConflict
         ? `<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>` : '';
-      const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
+      const dimWknd = false; // weekends are full contrast
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
 
       var _conflictShift = _getSched(u.username, dk).charAt(0) || 'A';
