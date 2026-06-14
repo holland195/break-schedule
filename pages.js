@@ -2837,9 +2837,13 @@ ${_schedTbl(displayDates, _displayUsers)}`;
 
 // nav('staff') preserving scroll position so fill/clear ops don't jump to top
 function _navStaff() {
+  var wrap = document.getElementById('sa-table-wrap');
+  var wrapTop = wrap ? wrap.scrollTop : 0;
   var sc = document.getElementById('main-content');
   var top = sc ? sc.scrollTop : window.pageYOffset;
   nav('staff');
+  var newWrap = document.getElementById('sa-table-wrap');
+  if (newWrap) newWrap.scrollTop = wrapTop;
   if (sc) sc.scrollTop = top; else window.scrollTo(0, top);
 }
 
@@ -2858,6 +2862,24 @@ var _saFilteredUsernames = [];
 var _saCurrentDates = [];
 var _saCurrentMonthKey = '';
 var _attCopiedCode = '';
+var _staffAttUndoStack = [];
+
+function _staffAttSnapshot() {
+  var snap = [];
+  _saFilteredUsernames.forEach(function(username) {
+    var d = DB.getMonthlyAtt(username, _saCurrentMonthKey);
+    snap.push({ username: username, monthKey: _saCurrentMonthKey, data: Object.assign({}, d) });
+  });
+  return snap;
+}
+
+function undoClearAtt() {
+  if (!_staffAttUndoStack.length) return;
+  var snap = _staffAttUndoStack.pop();
+  snap.forEach(function(entry) { DB.setMonthlyAtt(entry.username, entry.monthKey, entry.data); });
+  syncWrite();
+  _navStaff();
+}
 
 function fillAttRow(username, monthKey) {
   if (!_saFillCode) return;
@@ -2903,6 +2925,7 @@ function fillAttAll() {
 
 function clearAttAll() {
   if (!_saCurrentMonthKey) return;
+  _staffAttUndoStack.push(_staffAttSnapshot());
   var _cNow = new Date();
   var _cToday = (_cNow.getDate().toString().padStart(2,'0')) + '/' + ((_cNow.getMonth()+1).toString().padStart(2,'0'));
   _saFilteredUsernames.forEach(function(username) {
@@ -2927,11 +2950,17 @@ function _installAttKbd() {
     var tag = (e.target || {}).tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (!document.getElementById('sa-kbd-marker')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if (!_staffAttUndoStack.length) return;
+      e.preventDefault();
+      undoClearAtt();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
       if (!_attHoveredCell || !_attHoveredCell.code) return;
       e.preventDefault();
       _attCopiedCode = _attHoveredCell.code;
-      nav('staff');
+      _navStaff();
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
       if (!_attHoveredCell || !_attCopiedCode) return;
@@ -2940,11 +2969,11 @@ function _installAttKbd() {
       existing[_attHoveredCell.dk] = _attCopiedCode;
       DB.setMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey, existing);
       syncWrite();
-      nav('staff');
+      _navStaff();
     }
     if (e.key === 'Escape' && _attCopiedCode) {
       _attCopiedCode = '';
-      nav('staff');
+      _navStaff();
     }
   });
 }
@@ -2957,7 +2986,7 @@ function _attCellModalHTML() {
       '<div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">' +
         '<div style="display:flex;gap:8px;">' +
           '<button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button>' +
-          '<button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');nav(\'staff\')">Copy</button>' +
+          '<button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');_navStaff()">Copy</button>' +
         '</div>' +
         '<div style="display:flex;gap:8px;">' +
           '<button class="btn btn-sm" onclick="closeModal(\'modal-att-cell\')">Cancel</button>' +
@@ -3326,7 +3355,8 @@ function _renderStaffAttendance() {
     </select>`;
 
   const codePicker = `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>
-    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`;
+    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>
+    <button class="btn btn-sm" onclick="undoClearAtt()" title="Undo last clear (Ctrl+Z)" style="font-size:11px;${!_staffAttUndoStack.length ? 'opacity:.35;cursor:not-allowed;' : ''}">↩ Undo</button>`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
@@ -3345,7 +3375,7 @@ function _renderStaffAttendance() {
       <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
     </div>
     ${legendHTML}
-    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
+    <div id="sa-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
       <table style="border-collapse:separate;border-spacing:0;${_saShiftFilter !== 'All' ? 'width:100%;table-layout:fixed;' : 'width:max-content;min-width:100%;'}">
         <thead>
           <tr>
