@@ -1670,6 +1670,7 @@ function _movIsPast(dk, year) {
 function _renderArrangeMonthOverview() {
   var now = new Date();
   var todayDk = String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
+  var curMonth = now.getMonth() + 1; // 1-12
 
   // Show May 2026 through current month + 2 ahead (capped at Dec 2026)
   var endMonth = Math.min(12, now.getMonth() + 3); // +3 because getMonth() is 0-indexed
@@ -1806,8 +1807,8 @@ function _renderArrangeMonthOverview() {
         cells + '</tr>';
     }).join('');
 
-    var isCurrent = month === now.getMonth() + 1 && year === now.getFullYear();
-    return '<div style="margin-bottom:28px;">' +
+    var isCurrent = month === curMonth && year === now.getFullYear();
+    return '<div id="mov-m' + month + '-' + year + '" style="margin-bottom:28px;scroll-margin-top:52px;">' +
       '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;' +
         'padding:6px 12px;background:var(--bg3);border-radius:6px;' +
         'border-left:3px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border2)') + ';' +
@@ -1827,7 +1828,35 @@ function _renderArrangeMonthOverview() {
       '</table></div></div>';
   }).join('');
 
-  return sections || '<div class="empty">No data.</div>';
+  if (!sections) return '<div class="empty">No data.</div>';
+
+  // Sticky month-nav bar: quick-jump chips for each month
+  var navChips = months.map(function(m) {
+    var isCur = m === curMonth;
+    return '<a href="#mov-m' + m + '-2026" onclick="event.preventDefault();' +
+      'document.getElementById(\'mov-m' + m + '-2026\').scrollIntoView({behavior:\'smooth\',block:\'start\'});" ' +
+      'style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;' +
+        'font-size:11px;font-weight:' + (isCur ? '700' : '500') + ';text-decoration:none;' +
+        'background:' + (isCur ? 'var(--accent)' : 'var(--bg4)') + ';' +
+        'color:' + (isCur ? '#fff' : 'var(--text2)') + ';' +
+        'border:1px solid ' + (isCur ? 'var(--accent)' : 'var(--border)') + ';' +
+        'transition:opacity .15s;cursor:pointer;" ' +
+      'onmouseover="this.style.opacity=\'.75\'" onmouseout="this.style.opacity=\'1\'">' +
+      _monthNames[m-1].substring(0,3) + '</a>';
+  }).join('');
+
+  var navBar = '<div style="position:sticky;top:0;z-index:20;background:var(--bg2);' +
+    'padding:8px 0 8px;margin-bottom:16px;' +
+    'border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">' +
+    navChips + '</div>';
+
+  // Auto-scroll to current month after render
+  var autoScroll = '<script>(function(){' +
+    'var el=document.getElementById("mov-m' + curMonth + '-2026");' +
+    'if(el)el.scrollIntoView({block:"start"});' +
+    '})()</script>';
+
+  return navBar + sections + autoScroll;
 }
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
