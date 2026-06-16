@@ -1655,168 +1655,179 @@ function switchArrangeDay(day) {
   if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
 }
 
-// ── Month Overview tab ──
-function _renderArrangeMonthOverview() {
-  var year  = _arrMonthYear;
-  var month = _arrMonthMonth;
-  // True calendar month: 1st to last day (NOT the 25th-24th payroll cycle)
-  var dates = (function() {
-    var days = [], last = new Date(year, month, 0).getDate();
-    for (var d = 1; d <= last; d++) {
-      days.push(String(d).padStart(2,'0') + '/' + String(month).padStart(2,'0'));
-    }
-    return days;
-  })();
-  if (!dates || !dates.length) return '<div class="empty">No dates.</div>';
+// ── Month Overview tab — all months stacked vertically ──
+// Data cutoff: hide breaks before May 11 2026 (app go-live date)
+var _MOV_CUTOFF = { year: 2026, month: 5, day: 11 };
 
+function _movIsPast(dk, year) {
+  var parts = dk.split('/');
+  var dd = parseInt(parts[0]), mm = parseInt(parts[1]);
+  if (year !== _MOV_CUTOFF.year) return year < _MOV_CUTOFF.year;
+  if (mm !== _MOV_CUTOFF.month) return mm < _MOV_CUTOFF.month;
+  return dd < _MOV_CUTOFF.day;
+}
+
+function _renderArrangeMonthOverview() {
   var now = new Date();
   var todayDk = String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
 
-  // 3-tier grouping: DA+SrDA → 'analyst', DS → 'supervisor', SrDS → 'sr_supervisor'
+  // Show May 2026 through current month + 2 ahead (capped at Dec 2026)
+  var endMonth = Math.min(12, now.getMonth() + 3); // +3 because getMonth() is 0-indexed
+  var months = [];
+  for (var _mi = 5; _mi <= endMonth; _mi++) { months.push(_mi); }
+
   var _arrTierKey = {
     'Data Analyst': 'analyst', 'Sr Data Analyst': 'analyst',
     'Data Supervisor': 'supervisor', 'Sr Data Supervisor': 'sr_supervisor'
   };
   var _arrTierOrder = ['analyst', 'supervisor', 'sr_supervisor'];
   var _arrTierLabel = { 'analyst': 'Data Analyst', 'supervisor': 'Data Supervisor', 'sr_supervisor': 'Sr Data Supervisor' };
+  var _monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  // Collect all teams that have at least one member on this shift during the month
-  var teamSet = {};
-  state.users.forEach(function(u) {
-    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
-    if (_ul >= 2) return;
-    var onShift = dates.some(function(dk) { return _getSched(u.username, dk) === currentShift; });
-    if (!onShift) return;
-    var resolvedRole = _resolveRole(u.role || _ur) || u.role || '';
-    if (!teamSet[u.team]) teamSet[u.team] = resolvedRole;
-  });
-
-  // Sort teams: by 3-tier order (analyst < supervisor < sr_supervisor), then team name
-  var teams = Object.keys(teamSet).sort(function(a, b) {
-    var ta = _arrTierOrder.indexOf(_arrTierKey[teamSet[a]] || 'analyst');
-    var tb = _arrTierOrder.indexOf(_arrTierKey[teamSet[b]] || 'analyst');
-    if (ta !== tb) return ta - tb;
-    return a.localeCompare(b, undefined, { numeric: true });
-  });
-
-  if (!teams.length) return '<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ' + currentShift + ' this month.</div>';
-
-  // Month/year pickers + shift is inherited from currentShift (controlled by sidebar)
-  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  var monthPicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;" onchange="_arrMonthMonth=+this.value;nav(\'arrange\')">' +
-    [1,2,3,4,5,6,7,8,9,10,11,12].map(function(m) {
-      return '<option value="' + m + '"' + (m === month ? ' selected' : '') + '>' + monthNames[m-1] + '</option>';
-    }).join('') + '</select>';
-  var yearPicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:80px;" onchange="_arrMonthYear=+this.value;nav(\'arrange\')">' +
-    [2025,2026,2027].map(function(y) {
-      return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
-    }).join('') + '</select>';
-
-  // Column headers: compact date + day name
-  var theadCols = dates.map(function(dk) {
-    var isToday = dk === todayDk;
-    var dayName = getWkDay(dk).substring(0,3);
-    var dd = dk.split('/')[0];
-    var isWeekend = dayName === 'Sat' || dayName === 'Sun';
-    return '<th style="text-align:center;min-width:32px;padding:4px 2px;font-size:10px;font-weight:700;' +
-      'background:' + (isToday ? 'var(--accent)' : 'var(--bg3)') + ';' +
-      'color:' + (isToday ? '#fff' : isWeekend ? 'var(--text3)' : 'var(--text2)') + ';' +
-      'position:sticky;top:0;z-index:10;">' +
-      '<div>' + dd + '</div>' +
-      '<div style="font-size:9px;font-weight:400;opacity:' + (isToday ? '1' : '.65') + ';">' + dayName + '</div>' +
-    '</th>';
-  }).join('');
-
-  // Group rows by 3-tier (show tier separator when tier changes)
-  var prevTier = null;
-  var tbodyRows = teams.map(function(team) {
-    var resolvedRole = teamSet[team];
-    var tierKey = _arrTierKey[resolvedRole] || 'analyst';
-    var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
-
-    // Tier separator row
-    var separator = '';
-    if (tierKey !== prevTier) {
-      prevTier = tierKey;
-      var tierColor = _roleColor(resolvedRole);
-      separator = '<tr><td colspan="' + (dates.length + 1) + '" style="padding:6px 8px 2px;font-size:10px;font-weight:700;' +
-        'color:' + tierColor + ';text-transform:uppercase;letter-spacing:.06em;' +
-        'border-top:1px solid var(--border);background:var(--bg2);">' + tierLabel + '</td></tr>';
+  var sections = months.map(function(month) {
+    var year = 2026;
+    var lastDay = new Date(year, month, 0).getDate();
+    var dates = [];
+    for (var d = 1; d <= lastDay; d++) {
+      dates.push(String(d).padStart(2,'0') + '/' + String(month).padStart(2,'0'));
     }
 
-    // Data cells for each date
-    var cells = dates.map(function(dk) {
+    // Teams on this shift this month (level < 2 only)
+    var teamSet = {};
+    state.users.forEach(function(u) {
+      var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+      var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
+      if (_ul >= 2) return;
+      var onShift = dates.some(function(dk) { return _getSched(u.username, dk) === currentShift; });
+      if (!onShift) return;
+      var resolvedRole = _resolveRole(u.role || _ur) || u.role || '';
+      if (!teamSet[u.team]) teamSet[u.team] = resolvedRole;
+    });
+
+    var teams = Object.keys(teamSet).sort(function(a, b) {
+      var ta = _arrTierOrder.indexOf(_arrTierKey[teamSet[a]] || 'analyst');
+      var tb = _arrTierOrder.indexOf(_arrTierKey[teamSet[b]] || 'analyst');
+      if (ta !== tb) return ta - tb;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+
+    if (!teams.length) return '';
+
+    // Column headers
+    var theadCols = dates.map(function(dk) {
       var isToday = dk === todayDk;
-      var isWeekend = getWkDay(dk) === 'Sat' || getWkDay(dk) === 'Sun';
-
-      // Check if any team member is scheduled on this shift this day
-      var teamMembers = state.users.filter(function(u) { return u.team === team; });
-      var onShiftCount = teamMembers.filter(function(u) {
-        return _getSched(u.username, dk) === currentShift;
-      }).length;
-
-      if (onShiftCount === 0) {
-        return '<td style="text-align:center;padding:3px 1px;' +
-          'background:' + (isToday ? 'rgba(31,102,241,.04)' : isWeekend ? 'var(--bg4)' : '') + ';">' +
-          '<span style="color:var(--text3);font-size:10px;">—</span></td>';
-      }
-
-      // Get slot assignment for this team on this day (check any member)
-      var slot = null;
-      for (var i = 0; i < teamMembers.length; i++) {
-        var br = DB.getBreak(teamMembers[i].id, dk);
-        if (br && br.slot) { slot = br.slot; break; }
-      }
-
-      var slotCode = slot ? (function() {
-        var si = -1;
-        if (slot === currentShift + '1') si = 0;
-        else if (slot === currentShift + '2') si = 1;
-        else si = _slotIndex(slot, currentShift);
-        return si >= 0 ? (currentShift + (si + 1)) : '?';
-      })() : null;
-
-      var badgeStyle, badgeText;
-      if (slotCode === currentShift + '1') {
-        badgeStyle = 'background:rgba(31,102,241,.15);color:var(--accent);';
-        badgeText = '1';
-      } else if (slotCode === currentShift + '2') {
-        badgeStyle = 'background:rgba(245,158,11,.15);color:var(--warn);';
-        badgeText = '2';
-      } else {
-        badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);';
-        badgeText = '?';
-      }
-
-      return '<td style="text-align:center;padding:3px 1px;' +
-        'background:' + (isToday ? 'rgba(31,102,241,.04)' : '') + ';">' +
-        '<span style="display:inline-flex;align-items:center;justify-content:center;' +
-          'width:20px;height:16px;border-radius:3px;font-size:10px;font-weight:700;' +
-          'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
+      var dayName = getWkDay(dk).substring(0,3);
+      var dd = dk.split('/')[0];
+      var isWeekend = dayName === 'Sat' || dayName === 'Sun';
+      var isPast = _movIsPast(dk, year);
+      return '<th style="text-align:center;min-width:32px;padding:4px 2px;font-size:10px;font-weight:700;' +
+        'background:' + (isToday ? 'var(--accent)' : isPast ? 'var(--bg4)' : 'var(--bg3)') + ';' +
+        'color:' + (isToday ? '#fff' : (isPast || isWeekend) ? 'var(--text3)' : 'var(--text2)') + ';' +
+        'opacity:' + (isPast ? '.4' : '1') + ';' +
+        'position:sticky;top:0;z-index:10;">' +
+        '<div>' + dd + '</div>' +
+        '<div style="font-size:9px;font-weight:400;opacity:.65;">' + dayName + '</div>' +
+      '</th>';
     }).join('');
 
-    return separator +
-      '<tr onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'\'">' +
-      '<td style="padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
-        'position:sticky;left:0;background:var(--bg2);z-index:5;border-right:1px solid var(--border);">' + team + '</td>' +
-      cells +
-      '</tr>';
+    // Team rows with tier separators
+    var prevTier = null;
+    var tbodyRows = teams.map(function(team) {
+      var resolvedRole = teamSet[team];
+      var tierKey = _arrTierKey[resolvedRole] || 'analyst';
+      var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
+
+      var separator = '';
+      if (tierKey !== prevTier) {
+        prevTier = tierKey;
+        var tierColor = _roleColor(resolvedRole);
+        separator = '<tr><td colspan="' + (dates.length + 1) + '" style="padding:6px 8px 2px;font-size:10px;font-weight:700;' +
+          'color:' + tierColor + ';text-transform:uppercase;letter-spacing:.06em;' +
+          'border-top:1px solid var(--border);background:var(--bg2);">' + tierLabel + '</td></tr>';
+      }
+
+      var cells = dates.map(function(dk) {
+        var isToday = dk === todayDk;
+        var isWeekend = getWkDay(dk) === 'Sat' || getWkDay(dk) === 'Sun';
+        var isPast = _movIsPast(dk, year);
+
+        if (isPast) {
+          return '<td style="padding:3px 1px;background:var(--bg4);opacity:.25;border:none;"></td>';
+        }
+
+        var teamMembers = state.users.filter(function(u) { return u.team === team; });
+        var onShiftCount = teamMembers.filter(function(u) {
+          return _getSched(u.username, dk) === currentShift;
+        }).length;
+
+        if (onShiftCount === 0) {
+          return '<td style="text-align:center;padding:3px 1px;' +
+            'background:' + (isToday ? 'rgba(31,102,241,.04)' : isWeekend ? 'var(--bg4)' : '') + ';">' +
+            '<span style="color:var(--text3);font-size:10px;">—</span></td>';
+        }
+
+        var slot = null;
+        for (var i = 0; i < teamMembers.length; i++) {
+          var br = DB.getBreak(teamMembers[i].id, dk);
+          if (br && br.slot) { slot = br.slot; break; }
+        }
+
+        var slotCode = slot ? (function() {
+          var si = -1;
+          if (slot === currentShift + '1') si = 0;
+          else if (slot === currentShift + '2') si = 1;
+          else si = _slotIndex(slot, currentShift);
+          return si >= 0 ? (currentShift + (si + 1)) : '?';
+        })() : null;
+
+        var badgeStyle, badgeText;
+        if (slotCode === currentShift + '1') {
+          badgeStyle = 'background:rgba(31,102,241,.15);color:var(--accent);';
+          badgeText = '1';
+        } else if (slotCode === currentShift + '2') {
+          badgeStyle = 'background:rgba(245,158,11,.15);color:var(--warn);';
+          badgeText = '2';
+        } else {
+          badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);';
+          badgeText = '?';
+        }
+
+        return '<td style="text-align:center;padding:3px 1px;' +
+          'background:' + (isToday ? 'rgba(31,102,241,.04)' : '') + ';">' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;' +
+            'width:20px;height:16px;border-radius:3px;font-size:10px;font-weight:700;' +
+            'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
+      }).join('');
+
+      return separator +
+        '<tr onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'\'">' +
+        '<td style="padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
+          'position:sticky;left:0;background:var(--bg2);z-index:5;border-right:1px solid var(--border);">' + team + '</td>' +
+        cells + '</tr>';
+    }).join('');
+
+    var isCurrent = month === now.getMonth() + 1 && year === now.getFullYear();
+    return '<div style="margin-bottom:28px;">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;' +
+        'padding:6px 12px;background:var(--bg3);border-radius:6px;' +
+        'border-left:3px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border2)') + ';' +
+        'display:flex;align-items:center;gap:10px;">' +
+        _monthNames[month-1] + ' ' + year +
+        '<span style="font-size:10px;color:var(--text3);font-weight:400;">' + teams.length + ' teams</span>' +
+        (isCurrent ? '<span style="font-size:10px;color:var(--accent);font-weight:500;margin-left:4px;">← current</span>' : '') +
+      '</div>' +
+      '<div style="overflow-x:auto;">' +
+      '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
+      '<thead><tr>' +
+        '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:4px 10px;' +
+          'font-size:10px;font-weight:700;color:var(--text2);text-align:left;border-right:1px solid var(--border);">TEAM</th>' +
+        theadCols +
+      '</tr></thead>' +
+      '<tbody>' + tbodyRows + '</tbody>' +
+      '</table></div></div>';
   }).join('');
 
-  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">' +
-    monthPicker + yearPicker +
-    '<span style="font-size:11px;color:var(--text3);">' + teams.length + ' teams · Shift ' + currentShift + '</span>' +
-    '</div>' +
-    '<div style="overflow-x:auto;">' +
-    '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
-    '<thead><tr>' +
-      '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:4px 10px;' +
-        'font-size:10px;font-weight:700;color:var(--text2);text-align:left;border-right:1px solid var(--border);">TEAM</th>' +
-      theadCols +
-    '</tr></thead>' +
-    '<tbody>' + tbodyRows + '</tbody>' +
-    '</table></div>';
+  return sections || '<div class="empty">No data.</div>';
 }
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
