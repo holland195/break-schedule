@@ -291,8 +291,8 @@ function renderDashboard() {
     _tgHTML +
     '</div>';
 
-  // This Week card — Mon-Sun, shift + break per day
-  var _wkMonSun = [1,2,3,4,5,6,0].map(function(i) { return weekDates[i]; });
+  // This Week card — Mon-Sun using activeMonday anchor
+  var _wkMonSun = getWeekRange(activeMonday);
   var _thisWeekRows = _wkMonSun.map(function(dk) {
     var _isToday = dk === todayDk;
     var _sched = _getSched(currentUser.username, dk);
@@ -864,8 +864,11 @@ function _reqSetFilter(f) {
 //  Tab 1: Arrange Breaks (bulk panel + day tabs)
 //  Tab 2: Week Overview (full grid)
 // ═══════════════════════════════════════════════
-let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'split'
+let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'month'
 let arrangeActiveDay = null;   // set on first render
+var _arrangeMonth = '';        // 'MM/YYYY' filter for week picker; '' = show all
+var _arrMonthYear  = new Date().getFullYear();
+var _arrMonthMonth = new Date().getMonth() + 1; // 1–12
 // Persisted bulk-panel state — survives re-renders and sync polls
 let _bulkGroups = new Set(); // selected group checkboxes
 let _bulkDays = new Set(); // selected day checkboxes
@@ -881,24 +884,66 @@ function renderArrange() {
   // Build week picker from available schedule dates
   var _allSDSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _allSDSet[k]=1; }); });
-  const allDates = Object.keys(_allSDSet);
-  const mondays = allDates.filter(d => getWkDay(d) === 'Mon').sort((a, b) => {
-  const [da, ma] = a.split('/'); const [db, mb] = b.split('/');
-  return new Date(2026, parseInt(ma) - 1, parseInt(da)) - new Date(2026, parseInt(mb) - 1, parseInt(db));
-});
-const weekPickerHTML = mondays.length > 0 ? `
-  <div style="display:flex;align-items:center;gap:8px;">
-    <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">WEEK:</span>
-    <select class="login-select" style="padding:4px 8px;font-size:11px;"
-      onchange="activeMonday=this.value;arrangeActiveDay=null;nav('arrange')">
-      ${mondays.map(s => {
-        const [d, m] = s.split('/');
-        const end = new Date(2026, parseInt(m)-1, parseInt(d)+6);
-        const endStr = `${end.getDate().toString().padStart(2,'0')}/${(end.getMonth()+1).toString().padStart(2,'0')}`;
-        return `<option value="${s}" ${s === activeMonday ? 'selected' : ''}>${s} – ${endStr}</option>`;
-      }).join('')}
-    </select>
-  </div>` : '';
+  var allDates = Object.keys(_allSDSet);
+
+  // Derive sorted list of all Mondays
+  var allMondays = allDates.filter(function(d) { return getWkDay(d) === 'Mon'; }).sort(function(a, b) {
+    var pa = a.split('/'), pb = b.split('/');
+    return new Date(2026, parseInt(pa[1])-1, parseInt(pa[0])) - new Date(2026, parseInt(pb[1])-1, parseInt(pb[0]));
+  });
+
+  // Derive unique months present in allMondays as 'MM/YYYY' labels
+  var _monthSet = {}, _monthOrder = [];
+  allMondays.forEach(function(mon) {
+    var parts = mon.split('/');
+    var key = parts[1] + '/' + '2026'; // MM/YYYY
+    if (!_monthSet[key]) { _monthSet[key] = true; _monthOrder.push(key); }
+  });
+
+  // Ensure _arrangeMonth is valid; default to current month if possible
+  if (_arrangeMonth && !_monthSet[_arrangeMonth]) _arrangeMonth = '';
+  if (!_arrangeMonth) {
+    var _nowMM = String(new Date().getMonth()+1).padStart(2,'0');
+    var _curKey = _nowMM + '/2026';
+    _arrangeMonth = _monthSet[_curKey] ? _curKey : (_monthOrder[0] || '');
+  }
+
+  // Filter mondays to selected month
+  var mondays = _arrangeMonth ? allMondays.filter(function(mon) {
+    var p = mon.split('/');
+    return p[1] + '/2026' === _arrangeMonth;
+  }) : allMondays;
+
+  // If activeMonday is not in the filtered list, snap to first available
+  if (mondays.length && mondays.indexOf(activeMonday) === -1) {
+    activeMonday = mondays[0];
+    arrangeActiveDay = null;
+  }
+
+  var _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var _monoLbl = 'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;';
+
+  var monthPickerHTML = _monthOrder.length > 1
+    ? '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="' + _monoLbl + '">MONTH:</span>' +
+      '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="_arrangeMonth=this.value;nav(\'arrange\')">' +
+      _monthOrder.map(function(mk) {
+        var mm = parseInt(mk.split('/')[0]);
+        return '<option value="' + mk + '"' + (mk === _arrangeMonth ? ' selected' : '') + '>' + _monthNames[mm-1] + '</option>';
+      }).join('') + '</select></div>'
+    : '';
+
+  var weekPickerHTML = mondays.length > 0
+    ? '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="' + _monoLbl + '">WEEK:</span>' +
+      '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="activeMonday=this.value;arrangeActiveDay=null;nav(\'arrange\')">' +
+      mondays.map(function(s) {
+        var p = s.split('/');
+        var end = new Date(2026, parseInt(p[1])-1, parseInt(p[0])+6);
+        var endStr = String(end.getDate()).padStart(2,'0') + '/' + String(end.getMonth()+1).padStart(2,'0');
+        return '<option value="' + s + '"' + (s === activeMonday ? ' selected' : '') + '>' + s + ' – ' + endStr + '</option>';
+      }).join('') + '</select></div>'
+    : '';
 
   var _slackCfg = (state.slackAutoPost || {})[currentShift] || {};
   var _slackOn  = !!_slackCfg.enabled;
@@ -919,6 +964,7 @@ const weekPickerHTML = mondays.length > 0 ? `
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    ${monthPickerHTML}
     ${weekPickerHTML}
     ${_slackInline}
     <button id="save-breaks-btn" class="btn btn-accent"
@@ -946,10 +992,18 @@ const weekPickerHTML = mondays.length > 0 ? `
       margin-bottom:-2px; transition:all .12s;">
     📊 Week Overview
   </button>
+  <button onclick="switchArrangeMainTab('month')"
+    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+      background:none; color:${arrangeMainTab === 'month' ? 'var(--accent)' : 'var(--text2)'};
+      border-bottom:3px solid ${arrangeMainTab === 'month' ? 'var(--accent)' : 'transparent'};
+      margin-bottom:-2px; transition:all .12s;">
+    📅 Month Overview
+  </button>
 </div>
 
 <div id="arrange-main-content">
   ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange)
+    : arrangeMainTab === 'month' ? _renderArrangeMonthOverview()
     : _renderArrangeOverviewTab(weekRange)}
 </div>`;
 }
@@ -1599,6 +1653,210 @@ function switchArrangeDay(day) {
   // The table re-renders with the new active day highlighted
   const wrap = document.querySelector('.arr-table-wrap');
   if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
+}
+
+// ── Month Overview tab — all months stacked vertically ──
+// Data cutoff: hide breaks before May 11 2026 (app go-live date)
+var _MOV_CUTOFF = { year: 2026, month: 5, day: 11 };
+
+function _movIsPast(dk, year) {
+  var parts = dk.split('/');
+  var dd = parseInt(parts[0]), mm = parseInt(parts[1]);
+  if (year !== _MOV_CUTOFF.year) return year < _MOV_CUTOFF.year;
+  if (mm !== _MOV_CUTOFF.month) return mm < _MOV_CUTOFF.month;
+  return dd < _MOV_CUTOFF.day;
+}
+
+function _renderArrangeMonthOverview() {
+  var now = new Date();
+  var todayDk = String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0');
+  var curMonth = now.getMonth() + 1; // 1-12
+
+  // Show May 2026 through current month + 2 ahead (capped at Dec 2026)
+  var endMonth = Math.min(12, now.getMonth() + 3); // +3 because getMonth() is 0-indexed
+  var months = [];
+  for (var _mi = 5; _mi <= endMonth; _mi++) { months.push(_mi); }
+
+  var _arrTierKey = {
+    'Data Analyst': 'analyst', 'Sr Data Analyst': 'analyst',
+    'Data Supervisor': 'supervisor', 'Sr Data Supervisor': 'sr_supervisor'
+  };
+  var _arrTierOrder = ['analyst', 'supervisor', 'sr_supervisor'];
+  var _arrTierLabel = { 'analyst': 'Data Analyst', 'supervisor': 'Data Supervisor', 'sr_supervisor': 'Sr Data Supervisor' };
+  var _monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var sections = months.map(function(month) {
+    var year = 2026;
+    var lastDay = new Date(year, month, 0).getDate();
+    var dates = [];
+    for (var d = 1; d <= lastDay; d++) {
+      dates.push(String(d).padStart(2,'0') + '/' + String(month).padStart(2,'0'));
+    }
+
+    // Teams on this shift this month (level < 2 only)
+    var teamSet = {};
+    state.users.forEach(function(u) {
+      var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+      var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
+      if (_ul >= 2) return;
+      var onShift = dates.some(function(dk) { return _getSched(u.username, dk) === currentShift; });
+      if (!onShift) return;
+      var resolvedRole = _resolveRole(u.role || _ur) || u.role || '';
+      if (!teamSet[u.team]) teamSet[u.team] = resolvedRole;
+    });
+
+    var teams = Object.keys(teamSet).sort(function(a, b) {
+      var ta = _arrTierOrder.indexOf(_arrTierKey[teamSet[a]] || 'analyst');
+      var tb = _arrTierOrder.indexOf(_arrTierKey[teamSet[b]] || 'analyst');
+      if (ta !== tb) return ta - tb;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+
+    if (!teams.length) return '';
+
+    // Column headers
+    var theadCols = dates.map(function(dk) {
+      var isToday = dk === todayDk;
+      var dayName = getWkDay(dk).substring(0,3);
+      var dd = dk.split('/')[0];
+      var isWeekend = dayName === 'Sat' || dayName === 'Sun';
+      var isPast = _movIsPast(dk, year);
+      return '<th style="text-align:center;min-width:32px;padding:4px 2px;font-size:10px;font-weight:700;' +
+        'background:' + (isToday ? 'var(--accent)' : isPast ? 'var(--bg4)' : 'var(--bg3)') + ';' +
+        'color:' + (isToday ? '#fff' : (isPast || isWeekend) ? 'var(--text3)' : 'var(--text2)') + ';' +
+        'opacity:' + (isPast ? '.4' : '1') + ';' +
+        'position:sticky;top:0;z-index:10;">' +
+        '<div>' + dd + '</div>' +
+        '<div style="font-size:9px;font-weight:400;opacity:.65;">' + dayName + '</div>' +
+      '</th>';
+    }).join('');
+
+    // Team rows with tier separators
+    var prevTier = null;
+    var tbodyRows = teams.map(function(team) {
+      var resolvedRole = teamSet[team];
+      var tierKey = _arrTierKey[resolvedRole] || 'analyst';
+      var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
+
+      var separator = '';
+      if (tierKey !== prevTier) {
+        prevTier = tierKey;
+        var tierColor = _roleColor(resolvedRole);
+        separator = '<tr><td colspan="' + (dates.length + 1) + '" style="padding:6px 8px 2px;font-size:10px;font-weight:700;' +
+          'color:' + tierColor + ';text-transform:uppercase;letter-spacing:.06em;' +
+          'border-top:1px solid var(--border);background:var(--bg2);">' + tierLabel + '</td></tr>';
+      }
+
+      var cells = dates.map(function(dk) {
+        var isToday = dk === todayDk;
+        var isWeekend = getWkDay(dk) === 'Sat' || getWkDay(dk) === 'Sun';
+        var isPast = _movIsPast(dk, year);
+
+        if (isPast) {
+          return '<td style="padding:3px 1px;background:var(--bg4);opacity:.25;border:none;"></td>';
+        }
+
+        var teamMembers = state.users.filter(function(u) { return u.team === team; });
+        var onShiftCount = teamMembers.filter(function(u) {
+          return _getSched(u.username, dk) === currentShift;
+        }).length;
+
+        if (onShiftCount === 0) {
+          return '<td style="text-align:center;padding:3px 1px;' +
+            'background:' + (isToday ? 'rgba(31,102,241,.04)' : isWeekend ? 'var(--bg4)' : '') + ';">' +
+            '<span style="color:var(--text3);font-size:10px;">—</span></td>';
+        }
+
+        var slot = null;
+        for (var i = 0; i < teamMembers.length; i++) {
+          var br = DB.getBreak(teamMembers[i].id, dk);
+          if (br && br.slot) { slot = br.slot; break; }
+        }
+
+        var slotCode = slot ? (function() {
+          var si = -1;
+          if (slot === currentShift + '1') si = 0;
+          else if (slot === currentShift + '2') si = 1;
+          else si = _slotIndex(slot, currentShift);
+          return si >= 0 ? (currentShift + (si + 1)) : '?';
+        })() : null;
+
+        var badgeStyle, badgeText;
+        if (slotCode === currentShift + '1') {
+          badgeStyle = 'background:rgba(31,102,241,.15);color:var(--accent);';
+          badgeText = '1';
+        } else if (slotCode === currentShift + '2') {
+          badgeStyle = 'background:rgba(245,158,11,.15);color:var(--warn);';
+          badgeText = '2';
+        } else {
+          badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);';
+          badgeText = '?';
+        }
+
+        return '<td style="text-align:center;padding:3px 1px;' +
+          'background:' + (isToday ? 'rgba(31,102,241,.04)' : '') + ';">' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;' +
+            'width:20px;height:16px;border-radius:3px;font-size:10px;font-weight:700;' +
+            'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
+      }).join('');
+
+      return separator +
+        '<tr onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'\'">' +
+        '<td style="padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
+          'position:sticky;left:0;background:var(--bg2);z-index:5;border-right:1px solid var(--border);">' + team + '</td>' +
+        cells + '</tr>';
+    }).join('');
+
+    var isCurrent = month === curMonth && year === now.getFullYear();
+    return '<div id="mov-m' + month + '-' + year + '" style="margin-bottom:28px;scroll-margin-top:52px;">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;' +
+        'padding:6px 12px;background:var(--bg3);border-radius:6px;' +
+        'border-left:3px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border2)') + ';' +
+        'display:flex;align-items:center;gap:10px;">' +
+        _monthNames[month-1] + ' ' + year +
+        '<span style="font-size:10px;color:var(--text3);font-weight:400;">' + teams.length + ' teams</span>' +
+        (isCurrent ? '<span style="font-size:10px;color:var(--accent);font-weight:500;margin-left:4px;">← current</span>' : '') +
+      '</div>' +
+      '<div style="overflow-x:auto;">' +
+      '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
+      '<thead><tr>' +
+        '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:4px 10px;' +
+          'font-size:10px;font-weight:700;color:var(--text2);text-align:left;border-right:1px solid var(--border);">TEAM</th>' +
+        theadCols +
+      '</tr></thead>' +
+      '<tbody>' + tbodyRows + '</tbody>' +
+      '</table></div></div>';
+  }).join('');
+
+  if (!sections) return '<div class="empty">No data.</div>';
+
+  // Sticky month-nav bar: quick-jump chips for each month
+  var navChips = months.map(function(m) {
+    var isCur = m === curMonth;
+    return '<a href="#mov-m' + m + '-2026" onclick="event.preventDefault();' +
+      'document.getElementById(\'mov-m' + m + '-2026\').scrollIntoView({behavior:\'smooth\',block:\'start\'});" ' +
+      'style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;' +
+        'font-size:11px;font-weight:' + (isCur ? '700' : '500') + ';text-decoration:none;' +
+        'background:' + (isCur ? 'var(--accent)' : 'var(--bg4)') + ';' +
+        'color:' + (isCur ? '#fff' : 'var(--text2)') + ';' +
+        'border:1px solid ' + (isCur ? 'var(--accent)' : 'var(--border)') + ';' +
+        'transition:opacity .15s;cursor:pointer;" ' +
+      'onmouseover="this.style.opacity=\'.75\'" onmouseout="this.style.opacity=\'1\'">' +
+      _monthNames[m-1].substring(0,3) + '</a>';
+  }).join('');
+
+  var navBar = '<div style="position:sticky;top:0;z-index:20;background:var(--bg2);' +
+    'padding:8px 0 8px;margin-bottom:16px;' +
+    'border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">' +
+    navChips + '</div>';
+
+  // Auto-scroll to current month after render
+  var autoScroll = '<script>(function(){' +
+    'var el=document.getElementById("mov-m' + curMonth + '-2026");' +
+    'if(el)el.scrollIntoView({block:"start"});' +
+    '})()</script>';
+
+  return navBar + sections + autoScroll;
 }
 
 // Full-week assign table — all days as columns, no gender col, clear slot states
@@ -2617,6 +2875,18 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
 ${_schedTbl(displayDates, _displayUsers)}`;
 }
 
+// nav('staff') preserving scroll position so fill/clear ops don't jump to top
+function _navStaff() {
+  var wrap = document.getElementById('sa-table-wrap');
+  var wrapTop = wrap ? wrap.scrollTop : 0;
+  var sc = document.getElementById('main-content');
+  var top = sc ? sc.scrollTop : window.pageYOffset;
+  nav('staff');
+  var newWrap = document.getElementById('sa-table-wrap');
+  if (newWrap) newWrap.scrollTop = wrapTop;
+  if (sc) sc.scrollTop = top; else window.scrollTo(0, top);
+}
+
 var _attNow = new Date();
 let _attImportMonth = _attNow.getDate() >= 25
   ? (_attNow.getMonth() === 11 ? 1 : _attNow.getMonth() + 2)
@@ -2632,6 +2902,24 @@ var _saFilteredUsernames = [];
 var _saCurrentDates = [];
 var _saCurrentMonthKey = '';
 var _attCopiedCode = '';
+var _staffAttUndoStack = [];
+
+function _staffAttSnapshot() {
+  var snap = [];
+  _saFilteredUsernames.forEach(function(username) {
+    var d = DB.getMonthlyAtt(username, _saCurrentMonthKey);
+    snap.push({ username: username, monthKey: _saCurrentMonthKey, data: Object.assign({}, d) });
+  });
+  return snap;
+}
+
+function undoClearAtt() {
+  if (!_staffAttUndoStack.length) return;
+  var snap = _staffAttUndoStack.pop();
+  snap.forEach(function(entry) { DB.setMonthlyAtt(entry.username, entry.monthKey, entry.data); });
+  syncWrite();
+  _navStaff();
+}
 
 function fillAttRow(username, monthKey) {
   if (!_saFillCode) return;
@@ -2650,7 +2938,7 @@ function fillAttRow(username, monthKey) {
   if (filled === 0) return;
   DB.setMonthlyAtt(username, monthKey, existing);
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 function fillAttAll() {
@@ -2672,11 +2960,12 @@ function fillAttAll() {
     DB.setMonthlyAtt(username, _saCurrentMonthKey, existing);
   });
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 function clearAttAll() {
   if (!_saCurrentMonthKey) return;
+  _staffAttUndoStack.push(_staffAttSnapshot());
   var _cNow = new Date();
   var _cToday = (_cNow.getDate().toString().padStart(2,'0')) + '/' + ((_cNow.getMonth()+1).toString().padStart(2,'0'));
   _saFilteredUsernames.forEach(function(username) {
@@ -2688,7 +2977,7 @@ function clearAttAll() {
     DB.setMonthlyAtt(username, _saCurrentMonthKey, existing);
   });
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 var _attHoveredCell = null;
@@ -2701,11 +2990,17 @@ function _installAttKbd() {
     var tag = (e.target || {}).tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (!document.getElementById('sa-kbd-marker')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if (!_staffAttUndoStack.length) return;
+      e.preventDefault();
+      undoClearAtt();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
       if (!_attHoveredCell || !_attHoveredCell.code) return;
       e.preventDefault();
       _attCopiedCode = _attHoveredCell.code;
-      nav('staff');
+      _navStaff();
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
       if (!_attHoveredCell || !_attCopiedCode) return;
@@ -2714,11 +3009,11 @@ function _installAttKbd() {
       existing[_attHoveredCell.dk] = _attCopiedCode;
       DB.setMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey, existing);
       syncWrite();
-      nav('staff');
+      _navStaff();
     }
     if (e.key === 'Escape' && _attCopiedCode) {
       _attCopiedCode = '';
-      nav('staff');
+      _navStaff();
     }
   });
 }
@@ -2731,7 +3026,7 @@ function _attCellModalHTML() {
       '<div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;">' +
         '<div style="display:flex;gap:8px;">' +
           '<button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button>' +
-          '<button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');nav(\'staff\')">Copy</button>' +
+          '<button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');_navStaff()">Copy</button>' +
         '</div>' +
         '<div style="display:flex;gap:8px;">' +
           '<button class="btn btn-sm" onclick="closeModal(\'modal-att-cell\')">Cancel</button>' +
@@ -2774,7 +3069,7 @@ function saveAttCell() {
   DB.setMonthlyAtt(t.username, t.monthKey, existing);
   syncWrite();
   closeModal('modal-att-cell');
-  nav('staff');
+  _navStaff();
 }
 
 function clearAttCell() {
@@ -2785,7 +3080,7 @@ function clearAttCell() {
   DB.setMonthlyAtt(t.username, t.monthKey, existing);
   syncWrite();
   closeModal('modal-att-cell');
-  nav('staff');
+  _navStaff();
 }
 
 function attCellClick(username, monthKey, dk) {
@@ -2797,7 +3092,7 @@ function attCellClick(username, monthKey, dk) {
   existing[dk] = _attCopiedCode;
   DB.setMonthlyAtt(username, monthKey, existing);
   syncWrite();
-  nav('staff');
+  _navStaff();
 }
 
 function _renderStaffAttendance() {
@@ -2807,20 +3102,35 @@ function _renderStaffAttendance() {
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  var allDates = _saShiftFilter !== 'All' ? getWeekDates() : _getAllDatesInMonth(year, month);
+  // Generate Mon–Sun week containing today.
+  // When today is Sunday (dow=0), treat it as day 7 → Monday is tomorrow.
+  var allDates = (function() {
+    if (_saShiftFilter === 'All') return _getAllDatesInMonth(year, month);
+    var _n = new Date();
+    var _dow = _n.getDay(); // 0=Sun
+    var _mon = new Date(_n);
+    _mon.setDate(_n.getDate() + (_dow === 0 ? -6 : 1 - _dow)); // Monday of current week
+    var _days = [];
+    for (var _i = 0; _i < 7; _i++) {
+      var _dt = new Date(_mon);
+      _dt.setDate(_mon.getDate() + _i);
+      _days.push(_dt.getDate().toString().padStart(2,'0') + '/' + (_dt.getMonth()+1).toString().padStart(2,'0'));
+    }
+    return _days;
+  })();
   const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
   const attData = state.monthlyAttendance || {};
 
   const monthPicker = `
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
-        onchange="_attImportMonth=+this.value;_saDateFilter='';nav('staff')">
+        onchange="_attImportMonth=+this.value;_saDateFilter='';_navStaff()">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
     `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
       .toLocaleString('en-US', { month: 'long' })}</option>`
   ).join('')}
       </select>
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
-        onchange="_attImportYear=+this.value;_saDateFilter='';nav('staff')">
+        onchange="_attImportYear=+this.value;_saDateFilter='';_navStaff()">
         ${[2024, 2025, 2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
@@ -2874,7 +3184,7 @@ function _renderStaffAttendance() {
       border-bottom:2px solid ${isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
       border-left:${isSun ? '2px solid var(--border)' : 'none'};
       position:sticky;top:0;z-index:2;white-space:nowrap;">
-      <div style="font-size:9px;opacity:.65;line-height:1.5;">${WDAY_SHORT[dow]}</div>
+      <div style="font-size:9px;${isWknd ? '' : 'opacity:.65;'}line-height:1.5;">${WDAY_SHORT[dow]}</div>
       <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
     </th>`;
   }).join('');
@@ -2956,6 +3266,8 @@ function _renderStaffAttendance() {
   const tbodyRows = filteredUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
     const conflicts = _preConflicts[u.username] || [];
+    var _uEffRoleForConflict = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+    var _uIsTraining = (ROLES[_uEffRoleForConflict]||{}).level === 3;
 
     const cells = dates.map(dk => {
       const rawCode = uAtt[dk];
@@ -2974,7 +3286,7 @@ function _renderStaffAttendance() {
 
       const _preCell = conflicts.find(c => c.dk === dk);
       const conflictList = _preCell ? _preCell.msgs : null;
-      const hasConflict = !!_preCell;
+      const hasConflict = !_uIsTraining && !!_preCell;
 
       let bg = '', txt = '', color = '';
       if (!parsed) {
@@ -3003,7 +3315,7 @@ function _renderStaffAttendance() {
 
       const conflictBadge = hasConflict
         ? `<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>` : '';
-      const dimWknd = isWknd && parsed?.type !== 'OFF' && !hasConflict;
+      const dimWknd = false; // weekends are full contrast
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
 
       var _conflictShift = _getSched(u.username, dk).charAt(0) || 'A';
@@ -3066,7 +3378,7 @@ function _renderStaffAttendance() {
       ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
-  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;nav(\'staff\')">' +
+  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;_navStaff()">' +
     '<option value="">All dates</option>' +
     allDates.map(function(dk) {
       return '<option value="' + dk + '"' + (_saDateFilter === dk ? ' selected' : '') + '>' + dk + '</option>';
@@ -3075,7 +3387,7 @@ function _renderStaffAttendance() {
 
   const shiftFilterPicker = `
     <select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;"
-      onchange="_saShiftFilter=this.value;_saDateFilter='';nav('staff')">
+      onchange="_saShiftFilter=this.value;_saDateFilter='';_navStaff()">
       <option value="All" ${_saShiftFilter==='All'?'selected':''}>All shifts</option>
       <option value="A" ${_saShiftFilter==='A'?'selected':''}>Shift A</option>
       <option value="D" ${_saShiftFilter==='D'?'selected':''}>Shift D</option>
@@ -3083,7 +3395,8 @@ function _renderStaffAttendance() {
     </select>`;
 
   const codePicker = `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>
-    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>`;
+    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>
+    <button class="btn btn-sm" onclick="undoClearAtt()" title="Undo last clear (Ctrl+Z)" style="font-size:11px;${!_staffAttUndoStack.length ? 'opacity:.35;cursor:not-allowed;' : ''}">↩ Undo</button>`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
@@ -3102,7 +3415,7 @@ function _renderStaffAttendance() {
       <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
     </div>
     ${legendHTML}
-    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
+    <div id="sa-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
       <table style="border-collapse:separate;border-spacing:0;${_saShiftFilter !== 'All' ? 'width:100%;table-layout:fixed;' : 'width:max-content;min-width:100%;'}">
         <thead>
           <tr>
