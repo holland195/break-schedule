@@ -51,13 +51,26 @@ function _stableId(username) {
 //  LOGIN
 // ─────────────────────────────────────────────
 function autoDetectShift() {
-  const input = document.getElementById('li-user').value.trim();
+  const input = document.getElementById('li-user') ? document.getElementById('li-user').value.trim() : '';
   const user  = state.users.find(x => x.username === input);
   if (user) {
     var _d = new Date();
     var _dk = String(_d.getDate()).padStart(2,'0') + '/' + String(_d.getMonth()+1).padStart(2,'0');
     var sch = _getSched(user.username, _dk);
-    if (sch && sch !== '0') document.getElementById('li-shift').value = sch;
+    if (sch && sch !== '0' && document.getElementById('li-shift')) document.getElementById('li-shift').value = sch;
+  }
+}
+
+// Detect a user's working shift for TODAY from the schedule.
+// Used by Google login + session restore so users never pick a shift manually.
+function _detectShiftFor(username) {
+  try {
+    var d = new Date();
+    var dk = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+    var sch = _getSched(username, dk);
+    return _guardShift(sch && sch !== '0' ? sch : 'E');
+  } catch (e) {
+    return 'E';
   }
 }
 
@@ -157,7 +170,6 @@ async function doLogin() {
 }
 
 async function doGoogleLogin() {
-  const s   = document.getElementById('li-shift').value;
   const err = document.getElementById('login-err');
   const btn = document.getElementById('google-signin-btn');
 
@@ -191,18 +203,7 @@ async function doGoogleLogin() {
       return;
     }
 
-    const isAdminUser = (ROLES[_resolveRole(user.role)]?.level || 0) >= 3;
-    if (!isAdminUser && !s) {
-      await firebaseSignOut();
-      window._loginInProgress = false;
-      if (btn) btn.disabled = false;
-      err.style.color = '';
-      err.textContent = 'Please select your current shift before signing in with Google.';
-      return;
-    }
-
     currentUser  = user;
-    currentShift = _guardShift(s || 'E');
     err.textContent = '';
 
     if (typeof syncEnabled === 'function' && syncEnabled()) {
@@ -211,6 +212,9 @@ async function doGoogleLogin() {
       await syncPull();
       err.textContent = '';
     }
+
+    // Shift is auto-detected from today's schedule — no manual selection at login
+    currentShift = _detectShiftFor(u);
 
     // Google users skip password-change prompt — mark as already changed
     localStorage.setItem('pw_changed_' + u, '1');
