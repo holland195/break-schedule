@@ -3183,15 +3183,24 @@ function _renderStaffAttendance() {
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
     const isSun = dow === 0;
-    return `<th style="min-width:40px;padding:4px 2px;text-align:center;
+    var _isFiltered = _saDateFilter === dk;
+    return `<th style="min-width:40px;padding:4px 2px 2px;text-align:center;
       font-size:10px;font-weight:600;
       color:${isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)'};
-      background:${isWknd ? 'var(--bg4)' : 'var(--bg3)'};
-      border-bottom:2px solid ${isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
+      background:${_isFiltered ? 'rgba(31,102,241,.08)' : isWknd ? 'var(--bg4)' : 'var(--bg3)'};
+      border-bottom:2px solid ${_isFiltered ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
       border-left:${isSun ? '2px solid var(--border)' : 'none'};
       position:sticky;top:30px;z-index:2;white-space:nowrap;">
       <div style="font-size:9px;${isWknd ? '' : 'opacity:.65;'}line-height:1.5;">${WDAY_SHORT[dow]}</div>
       <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
+      <div onclick="_saDateFilter=_saDateFilter==='${dk}'?'':'${dk}';_navStaff()" title="${_isFiltered ? 'Clear day filter' : 'View this day only'}"
+        style="margin-top:3px;cursor:pointer;font-size:9px;line-height:1;
+        color:${_isFiltered ? 'var(--accent)' : 'var(--text3)'};
+        opacity:${_isFiltered ? '1' : '.5'};
+        transition:opacity .15s;"
+        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${_isFiltered ? '1' : '.5'}'">
+        ${_isFiltered ? '✕' : '⊙'}
+      </div>
     </th>`;
   }).join('');
 
