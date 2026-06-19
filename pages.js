@@ -2916,6 +2916,7 @@ let _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
 let _staffAttConflictFilter = false;
 let _saShiftFilter = 'All';
 var _saDateFilter = '';
+var _saShiftFilterDate = ''; // date for per-day shift filter (separate from date zoom)
 let _saFillCode = 'XA';
 var _saFilteredUsernames = [];
 var _saCurrentDates = [];
@@ -3129,14 +3130,14 @@ function _renderStaffAttendance() {
 
   const monthPicker = `
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
-        onchange="_attImportMonth=+this.value;_saDateFilter='';_navStaff()">
+        onchange="_attImportMonth=+this.value;_saDateFilter='';_saShiftFilterDate='';_saShiftFilter='All';_navStaff()">
         ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
     `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
       .toLocaleString('en-US', { month: 'long' })}</option>`
   ).join('')}
       </select>
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
-        onchange="_attImportYear=+this.value;_saDateFilter='';_navStaff()">
+        onchange="_attImportYear=+this.value;_saDateFilter='';_saShiftFilterDate='';_saShiftFilter='All';_navStaff()">
         ${[2024, 2025, 2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
@@ -3175,7 +3176,7 @@ function _renderStaffAttendance() {
       <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
     </div>`;
 
-  // Build table header dates — each column has A/D/E shift filter buttons
+  // Build table header dates — arrow icon opens per-day A/D/E shift filter
   const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var _shiftColors = { A: '#10b981', D: '#3b82f6', E: '#a855f7' };
   const theadDates = dates.map(dk => {
@@ -3184,34 +3185,44 @@ function _renderStaffAttendance() {
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
     const isSun = dow === 0;
-    var _isDayActive = _saDateFilter === dk;
-    var _shiftBtns = ['A','D','E'].map(function(s) {
-      var _isActive = _isDayActive && _saShiftFilter === s;
-      var _col = _shiftColors[s];
-      return '<span onclick="' +
-        (_isActive
-          ? '_saDateFilter=\'\';_saShiftFilter=\'All\';_navStaff()'
-          : '_saDateFilter=\'' + dk + '\';_saShiftFilter=\'' + s + '\';_navStaff()') +
-        '" style="display:inline-flex;align-items:center;justify-content:center;' +
-        'width:14px;height:14px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;' +
-        'border:1px solid ' + (_isActive ? _col : 'var(--border)') + ';' +
-        'background:' + (_isActive ? _col : 'transparent') + ';' +
-        'color:' + (_isActive ? '#fff' : 'var(--text3)') + ';' +
-        'transition:all .1s;"' +
-        ' onmouseover="this.style.borderColor=\'' + _col + '\';this.style.color=\'' + (_isActive ? '#fff' : _col) + '\'"' +
-        ' onmouseout="this.style.borderColor=\'' + (_isActive ? _col : 'var(--border)') + '\';this.style.color=\'' + (_isActive ? '#fff' : 'var(--text3)') + '\'"' +
-        '>' + s + '</span>';
-    }).join('');
-    return '<th style="min-width:46px;padding:4px 2px 4px;text-align:center;' +
+    var _isOpen = _saShiftFilterDate === dk; // arrow clicked, picker visible
+    var _hasFilter = _isOpen && _saShiftFilter !== 'All'; // shift selected for this day
+    var _activeShiftColor = _hasFilter ? _shiftColors[_saShiftFilter] : '';
+    var _picker = '';
+    if (_isOpen) {
+      _picker = '<div style="display:flex;justify-content:center;gap:2px;margin-top:3px;">' +
+        ['A','D','E'].map(function(s) {
+          var _col = _shiftColors[s];
+          var _active = _saShiftFilter === s;
+          return '<span onclick="_saShiftFilter=\'' + s + '\';_navStaff()" ' +
+            'style="display:inline-flex;align-items:center;justify-content:center;' +
+            'width:15px;height:15px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;' +
+            'border:1px solid ' + (_active ? _col : 'var(--border)') + ';' +
+            'background:' + (_active ? _col : 'transparent') + ';' +
+            'color:' + (_active ? '#fff' : 'var(--text3)') + ';">' + s + '</span>';
+        }).join('') +
+        '</div>';
+    }
+    var _arrow = '<div onclick="' +
+      (_isOpen
+        ? '_saShiftFilterDate=\'\';_saShiftFilter=\'All\';_navStaff()'
+        : '_saShiftFilterDate=\'' + dk + '\';_saShiftFilter=\'All\';_navStaff()') +
+      '" style="margin-top:3px;cursor:pointer;font-size:8px;line-height:1;' +
+      'color:' + (_hasFilter ? _activeShiftColor : 'var(--text3)') + ';' +
+      'opacity:' + (_isOpen || _hasFilter ? '1' : '.4') + ';">' +
+      (_hasFilter ? ('● ' + _saShiftFilter) : (_isOpen ? '▲' : '▼')) +
+      '</div>';
+    return '<th style="min-width:44px;padding:4px 2px 3px;text-align:center;' +
       'font-size:10px;font-weight:600;' +
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
-      'background:' + (_isDayActive ? 'rgba(31,102,241,.06)' : isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:2px solid ' + (_isDayActive ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
+      'background:' + (_hasFilter ? 'rgba(0,0,0,.04)' : isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
+      'border-bottom:2px solid ' + (_hasFilter ? _activeShiftColor : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
       'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.4;">' + WDAY_SHORT[dow] + '</div>' +
       '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
-      '<div style="display:flex;justify-content:center;gap:2px;margin-top:4px;">' + _shiftBtns + '</div>' +
+      _arrow +
+      _picker +
       '</th>';
   }).join('');
 
@@ -3265,9 +3276,9 @@ function _renderStaffAttendance() {
   let filteredUsers = _staffAttConflictFilter
     ? rowUsers.filter(u => _preConflicts[u.username]?.length > 0)
     : rowUsers;
-  if (_saShiftFilter !== 'All') {
-    filteredUsers = filteredUsers.filter(u => {
-      return dates.some(dk => _getSched(u.username, dk) === _saShiftFilter);
+  if (_saShiftFilter !== 'All' && _saShiftFilterDate) {
+    filteredUsers = filteredUsers.filter(function(u) {
+      return _getSched(u.username, _saShiftFilterDate) === _saShiftFilter;
     });
   }
   filteredUsers = _sortStaffUsers(filteredUsers);
