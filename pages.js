@@ -1673,7 +1673,7 @@ function _renderArrangeMonthOverview() {
   var curMonth = now.getMonth() + 1; // 1-12
 
   // Show May 2026 through current month + 2 ahead (capped at Dec 2026)
-  var endMonth = Math.min(12, now.getMonth() + 3); // +3 because getMonth() is 0-indexed
+  var endMonth = Math.min(12, now.getMonth() + 3);
   var months = [];
   for (var _mi = 5; _mi <= endMonth; _mi++) { months.push(_mi); }
 
@@ -1683,6 +1683,7 @@ function _renderArrangeMonthOverview() {
   };
   var _arrTierOrder = ['analyst', 'supervisor', 'sr_supervisor'];
   var _arrTierLabel = { 'analyst': 'Data Analyst', 'supervisor': 'Data Supervisor', 'sr_supervisor': 'Sr Data Supervisor' };
+  var _tierIcon = { 'analyst': '◆', 'supervisor': '▲', 'sr_supervisor': '★' };
   var _monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   var sections = months.map(function(month) {
@@ -1714,46 +1715,57 @@ function _renderArrangeMonthOverview() {
 
     if (!teams.length) return '';
 
-    // Column headers
+    // Column headers — weekend columns get a tinted background
     var theadCols = dates.map(function(dk) {
       var isToday = dk === todayDk;
       var dayName = getWkDay(dk).substring(0,3);
       var dd = dk.split('/')[0];
       var isWeekend = dayName === 'Sat' || dayName === 'Sun';
       var isPast = _movIsPast(dk, year);
-      return '<th style="text-align:center;min-width:32px;padding:4px 2px;font-size:10px;font-weight:700;' +
-        'background:' + (isToday ? 'var(--accent)' : isPast ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-        'color:' + (isToday ? '#fff' : (isPast || isWeekend) ? 'var(--text3)' : 'var(--text2)') + ';' +
-        'opacity:' + (isPast ? '.4' : '1') + ';' +
+      var bg = isToday ? 'var(--accent)' : isPast ? 'var(--bg4)' : isWeekend ? 'rgba(0,0,0,.055)' : 'var(--bg3)';
+      var col = isToday ? '#fff' : (isPast || isWeekend) ? 'var(--text3)' : 'var(--text2)';
+      return '<th style="text-align:center;min-width:34px;padding:5px 2px;font-size:10px;font-weight:700;' +
+        'background:' + bg + ';color:' + col + ';opacity:' + (isPast ? '.35' : '1') + ';' +
         'position:sticky;top:0;z-index:10;">' +
         '<div>' + dd + '</div>' +
-        '<div style="font-size:9px;font-weight:400;opacity:.65;">' + dayName + '</div>' +
+        '<div style="font-size:9px;font-weight:400;opacity:.7;">' + dayName + '</div>' +
       '</th>';
     }).join('');
 
-    // Team rows with tier separators
+    // Team rows with banded tier separators + alternating row tints
     var prevTier = null;
+    var rowIndex = 0;
     var tbodyRows = teams.map(function(team) {
       var resolvedRole = teamSet[team];
       var tierKey = _arrTierKey[resolvedRole] || 'analyst';
       var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
 
+      // Stronger tier separator: full-band with icon + left accent border
       var separator = '';
       if (tierKey !== prevTier) {
         prevTier = tierKey;
+        rowIndex = 0;
         var tierColor = _roleColor(resolvedRole);
-        separator = '<tr><td colspan="' + (dates.length + 1) + '" style="padding:6px 8px 2px;font-size:10px;font-weight:700;' +
-          'color:' + tierColor + ';text-transform:uppercase;letter-spacing:.06em;' +
-          'border-top:1px solid var(--border);background:var(--bg2);">' + tierLabel + '</td></tr>';
+        var icon = _tierIcon[tierKey] || '◆';
+        separator = '<tr><td colspan="' + (dates.length + 1) + '" style="' +
+          'padding:10px 12px 6px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
+          'color:' + tierColor + ';background:var(--bg2);' +
+          'border-top:2px solid var(--border);border-left:3px solid ' + tierColor + ';">' +
+          icon + '  ' + tierLabel + '</td></tr>';
       }
+
+      var isEven = rowIndex % 2 === 0;
+      rowIndex++;
+      var rowBaseBg = isEven ? 'transparent' : 'rgba(0,0,0,.025)';
 
       var cells = dates.map(function(dk) {
         var isToday = dk === todayDk;
         var isWeekend = getWkDay(dk) === 'Sat' || getWkDay(dk) === 'Sun';
         var isPast = _movIsPast(dk, year);
 
+        // Past cells: blank + dimmed
         if (isPast) {
-          return '<td style="padding:3px 1px;background:var(--bg4);opacity:.25;border:none;"></td>';
+          return '<td style="padding:4px 1px;opacity:.2;background:var(--bg4);"></td>';
         }
 
         var teamMembers = state.users.filter(function(u) { return u.team === team; });
@@ -1761,10 +1773,10 @@ function _renderArrangeMonthOverview() {
           return _getSched(u.username, dk) === currentShift;
         }).length;
 
+        // Not on shift this day: blank cell (no dash — reduces visual noise)
         if (onShiftCount === 0) {
-          return '<td style="text-align:center;padding:3px 1px;' +
-            'background:' + (isToday ? 'rgba(31,102,241,.04)' : isWeekend ? 'var(--bg4)' : '') + ';">' +
-            '<span style="color:var(--text3);font-size:10px;">—</span></td>';
+          var emptyBg = isToday ? 'rgba(31,102,241,.06)' : isWeekend ? 'rgba(0,0,0,.04)' : '';
+          return '<td style="padding:4px 1px;background:' + emptyBg + ';"></td>';
         }
 
         var slot = null;
@@ -1783,45 +1795,53 @@ function _renderArrangeMonthOverview() {
 
         var badgeStyle, badgeText;
         if (slotCode === currentShift + '1') {
-          badgeStyle = 'background:rgba(31,102,241,.15);color:var(--accent);';
+          badgeStyle = 'background:rgba(31,102,241,.18);color:var(--accent);border:1px solid rgba(31,102,241,.25);';
           badgeText = '1';
         } else if (slotCode === currentShift + '2') {
-          badgeStyle = 'background:rgba(245,158,11,.15);color:var(--warn);';
+          badgeStyle = 'background:rgba(245,158,11,.18);color:var(--warn);border:1px solid rgba(245,158,11,.28);';
           badgeText = '2';
         } else {
-          badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);';
+          badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);border:1px solid rgba(156,163,175,.18);';
           badgeText = '?';
         }
 
-        return '<td style="text-align:center;padding:3px 1px;' +
-          'background:' + (isToday ? 'rgba(31,102,241,.04)' : '') + ';">' +
+        var todayColBg = isToday ? 'rgba(31,102,241,.06)' : isWeekend ? 'rgba(0,0,0,.04)' : '';
+        return '<td style="text-align:center;padding:4px 1px;background:' + todayColBg + ';">' +
           '<span style="display:inline-flex;align-items:center;justify-content:center;' +
-            'width:20px;height:16px;border-radius:3px;font-size:10px;font-weight:700;' +
+            'width:22px;height:18px;border-radius:4px;font-size:11px;font-weight:700;' +
             'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
       }).join('');
 
+      // Sticky team-name cell with right shadow to lift it from the scrolling grid
+      var stickyCell = '<td style="padding:5px 12px 5px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
+        'position:sticky;left:0;z-index:5;' +
+        'background:' + (isEven ? 'var(--bg2)' : 'var(--bg3)') + ';' +
+        'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);' +
+        'border-right:1px solid var(--border);">' + team + '</td>';
+
       return separator +
-        '<tr onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'\'">' +
-        '<td style="padding:4px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
-          'position:sticky;left:0;background:var(--bg2);z-index:5;border-right:1px solid var(--border);">' + team + '</td>' +
-        cells + '</tr>';
+        '<tr style="background:' + rowBaseBg + ';" ' +
+        'onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'' + rowBaseBg + '\'">' +
+        stickyCell + cells + '</tr>';
     }).join('');
 
     var isCurrent = month === curMonth && year === now.getFullYear();
-    return '<div id="mov-m' + month + '-' + year + '" style="margin-bottom:28px;scroll-margin-top:52px;">' +
-      '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px;' +
-        'padding:6px 12px;background:var(--bg3);border-radius:6px;' +
-        'border-left:3px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border2)') + ';' +
+    return '<div id="mov-m' + month + '-' + year + '" style="margin-bottom:32px;scroll-margin-top:52px;">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:10px;' +
+        'padding:8px 14px;background:var(--bg3);border-radius:7px;' +
+        'border-left:4px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border2)') + ';' +
         'display:flex;align-items:center;gap:10px;">' +
         _monthNames[month-1] + ' ' + year +
-        '<span style="font-size:10px;color:var(--text3);font-weight:400;">' + teams.length + ' teams</span>' +
-        (isCurrent ? '<span style="font-size:10px;color:var(--accent);font-weight:500;margin-left:4px;">← current</span>' : '') +
+        '<span style="font-size:10px;color:var(--text3);font-weight:400;">' + teams.length + ' teams \xb7 Shift ' + currentShift + '</span>' +
+        (isCurrent ? '<span style="font-size:10px;color:var(--accent);font-weight:600;margin-left:auto;' +
+          'background:rgba(31,102,241,.1);padding:2px 8px;border-radius:20px;border:1px solid rgba(31,102,241,.2);">Current</span>' : '') +
       '</div>' +
-      '<div style="overflow-x:auto;">' +
+      '<div style="overflow-x:auto;border-radius:6px;border:1px solid var(--border);box-shadow:0 1px 6px rgba(0,0,0,.07);">' +
       '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
       '<thead><tr>' +
-        '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:4px 10px;' +
-          'font-size:10px;font-weight:700;color:var(--text2);text-align:left;border-right:1px solid var(--border);">TEAM</th>' +
+        '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:5px 12px 5px 10px;' +
+          'font-size:10px;font-weight:700;color:var(--text3);text-align:left;letter-spacing:.06em;' +
+          'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);border-right:1px solid var(--border);">TEAM</th>' +
         theadCols +
       '</tr></thead>' +
       '<tbody>' + tbodyRows + '</tbody>' +
@@ -1858,7 +1878,6 @@ function _renderArrangeMonthOverview() {
 
   return navBar + sections + autoScroll;
 }
-
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
   const weekRange = getWeekRange(activeMonday); // Mon–Sun since activeMonday = Monday
