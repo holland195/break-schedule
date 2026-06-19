@@ -3427,7 +3427,6 @@ function _renderStaffAttendance() {
       <span id="sa-kbd-marker" style="display:none;"></span>
       ${datePicker}
       ${_saShiftFilter === 'All' ? monthPicker : ''}
-      ${shiftFilterPicker}
       ${codePicker}
       ${conflictFilterBtn}
       ${_attCopiedCode ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">📋 ${_attCopiedCode} <button onclick="_attCopiedCode='';nav('staff')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:12px;line-height:1;">✕</button></span>` : ''}
@@ -3444,9 +3443,19 @@ function _renderStaffAttendance() {
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
               min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
+            <th style="text-align:left;padding:5px 8px;font-size:11px;color:var(--text2);
               min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);
-              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">POSITION</div>
+              <div style="display:flex;gap:3px;">${
+                ['All','A','D','E'].map(function(s) {
+                  var _active = s === 'All' ? _saShiftFilter === 'All' : _saShiftFilter === s;
+                  var _colors = { A: ['#10b981','rgba(16,185,129,.12)'], D: ['#3b82f6','rgba(59,130,246,.12)'], E: ['#a855f7','rgba(168,85,247,.12)'] };
+                  var _c = _active ? (_colors[s] || ['var(--accent)','rgba(31,102,241,.12)']) : ['var(--text3)','transparent'];
+                  return '<button onclick="_saShiftFilter=\'' + s + '\';_saDateFilter=\'\';_navStaff()" style="padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;border:1px solid ' + (_active ? _c[0] : 'var(--border)') + ';background:' + (_active ? _c[1] : 'transparent') + ';color:' + _c[0] + ';cursor:pointer;line-height:1.6;">' + s + '</button>';
+                }).join('')
+              }</div>
+            </th>
             ${theadDates}
           </tr>
         </thead>
