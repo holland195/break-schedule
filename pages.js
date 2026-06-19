@@ -3123,20 +3123,7 @@ function _renderStaffAttendance() {
   const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
   // Generate Mon–Sun week containing today.
   // When today is Sunday (dow=0), treat it as day 7 → Monday is tomorrow.
-  var allDates = (function() {
-    if (_saShiftFilter === 'All') return _getAllDatesInMonth(year, month);
-    var _n = new Date();
-    var _dow = _n.getDay(); // 0=Sun
-    var _mon = new Date(_n);
-    _mon.setDate(_n.getDate() + (_dow === 0 ? -6 : 1 - _dow)); // Monday of current week
-    var _days = [];
-    for (var _i = 0; _i < 7; _i++) {
-      var _dt = new Date(_mon);
-      _dt.setDate(_mon.getDate() + _i);
-      _days.push(_dt.getDate().toString().padStart(2,'0') + '/' + (_dt.getMonth()+1).toString().padStart(2,'0'));
-    }
-    return _days;
-  })();
+  var allDates = _getAllDatesInMonth(year, month);
   const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
   const attData = state.monthlyAttendance || {};
 
@@ -3426,7 +3413,7 @@ function _renderStaffAttendance() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <span id="sa-kbd-marker" style="display:none;"></span>
       ${datePicker}
-      ${_saShiftFilter === 'All' ? monthPicker : ''}
+      ${monthPicker}
       ${codePicker}
       ${conflictFilterBtn}
       ${_attCopiedCode ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">📋 ${_attCopiedCode} <button onclick="_attCopiedCode='';nav('staff')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:12px;line-height:1;">✕</button></span>` : ''}
@@ -3434,7 +3421,7 @@ function _renderStaffAttendance() {
     </div>
     ${legendHTML}
     <div id="sa-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
-      <table style="border-collapse:separate;border-spacing:0;${_saShiftFilter !== 'All' ? 'width:100%;table-layout:fixed;' : 'width:max-content;min-width:100%;'}">
+      <table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">
         <thead>
           <tr>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
