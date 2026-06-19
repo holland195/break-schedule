@@ -3427,7 +3427,7 @@ function _renderStaffAttendance() {
             <th colspan="3" style="position:sticky;top:0;left:0;z-index:5;background:var(--bg3);
               padding:5px 8px;border-bottom:1px solid var(--border);min-width:402px;width:402px;">
             </th>
-            <th style="position:sticky;top:0;z-index:3;background:var(--bg3);
+            <th colspan="${dates.length}" style="position:sticky;top:0;z-index:3;background:var(--bg3);
               padding:5px 10px;border-bottom:1px solid var(--border);">
               <div style="display:flex;align-items:center;gap:4px;">
                 <span style="font-size:10px;color:var(--text3);white-space:nowrap;">Filter shift:</span>
