@@ -3175,33 +3175,44 @@ function _renderStaffAttendance() {
       <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
     </div>`;
 
-  // Build table header dates
+  // Build table header dates — each column has A/D/E shift filter buttons
   const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var _shiftColors = { A: '#10b981', D: '#3b82f6', E: '#a855f7' };
   const theadDates = dates.map(dk => {
     const [_d, _m] = dk.split('/');
     const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
     const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     const isWknd = dow === 0 || dow === 6;
     const isSun = dow === 0;
-    var _isFiltered = _saDateFilter === dk;
-    return `<th style="min-width:40px;padding:4px 2px 2px;text-align:center;
-      font-size:10px;font-weight:600;
-      color:${isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)'};
-      background:${_isFiltered ? 'rgba(31,102,241,.08)' : isWknd ? 'var(--bg4)' : 'var(--bg3)'};
-      border-bottom:2px solid ${_isFiltered ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
-      border-left:${isSun ? '2px solid var(--border)' : 'none'};
-      position:sticky;top:30px;z-index:2;white-space:nowrap;">
-      <div style="font-size:9px;${isWknd ? '' : 'opacity:.65;'}line-height:1.5;">${WDAY_SHORT[dow]}</div>
-      <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
-      <div onclick="_saDateFilter=_saDateFilter==='${dk}'?'':'${dk}';_navStaff()" title="${_isFiltered ? 'Clear day filter' : 'View this day only'}"
-        style="margin-top:3px;cursor:pointer;font-size:9px;line-height:1;
-        color:${_isFiltered ? 'var(--accent)' : 'var(--text3)'};
-        opacity:${_isFiltered ? '1' : '.5'};
-        transition:opacity .15s;"
-        onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${_isFiltered ? '1' : '.5'}'">
-        ${_isFiltered ? '✕' : '⊙'}
-      </div>
-    </th>`;
+    var _isDayActive = _saDateFilter === dk;
+    var _shiftBtns = ['A','D','E'].map(function(s) {
+      var _isActive = _isDayActive && _saShiftFilter === s;
+      var _col = _shiftColors[s];
+      return '<span onclick="' +
+        (_isActive
+          ? '_saDateFilter=\'\';_saShiftFilter=\'All\';_navStaff()'
+          : '_saDateFilter=\'' + dk + '\';_saShiftFilter=\'' + s + '\';_navStaff()') +
+        '" style="display:inline-flex;align-items:center;justify-content:center;' +
+        'width:14px;height:14px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;' +
+        'border:1px solid ' + (_isActive ? _col : 'var(--border)') + ';' +
+        'background:' + (_isActive ? _col : 'transparent') + ';' +
+        'color:' + (_isActive ? '#fff' : 'var(--text3)') + ';' +
+        'transition:all .1s;"' +
+        ' onmouseover="this.style.borderColor=\'' + _col + '\';this.style.color=\'' + (_isActive ? '#fff' : _col) + '\'"' +
+        ' onmouseout="this.style.borderColor=\'' + (_isActive ? _col : 'var(--border)') + '\';this.style.color=\'' + (_isActive ? '#fff' : 'var(--text3)') + '\'"' +
+        '>' + s + '</span>';
+    }).join('');
+    return '<th style="min-width:46px;padding:4px 2px 4px;text-align:center;' +
+      'font-size:10px;font-weight:600;' +
+      'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
+      'background:' + (_isDayActive ? 'rgba(31,102,241,.06)' : isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
+      'border-bottom:2px solid ' + (_isDayActive ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
+      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
+      'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
+      '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.4;">' + WDAY_SHORT[dow] + '</div>' +
+      '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
+      '<div style="display:flex;justify-content:center;gap:2px;margin-top:4px;">' + _shiftBtns + '</div>' +
+      '</th>';
   }).join('');
 
   // ── FIX: build rows from attData keys, not state.users ──
@@ -3433,31 +3444,14 @@ function _renderStaffAttendance() {
       <table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">
         <thead>
           <tr>
-            <th colspan="3" style="position:sticky;top:0;left:0;z-index:5;background:var(--bg3);
-              padding:5px 8px;border-bottom:1px solid var(--border);min-width:402px;width:402px;">
-            </th>
-            <th colspan="${dates.length}" style="position:sticky;top:0;z-index:3;background:var(--bg3);
-              padding:5px 10px;border-bottom:1px solid var(--border);">
-              <div style="display:flex;align-items:center;gap:4px;">
-                <span style="font-size:10px;color:var(--text3);white-space:nowrap;">Filter shift:</span>
-                ${['All','A','D','E'].map(function(s) {
-                  var _active = s === 'All' ? _saShiftFilter === 'All' : _saShiftFilter === s;
-                  var _colors = { A: ['#10b981','rgba(16,185,129,.15)'], D: ['#3b82f6','rgba(59,130,246,.15)'], E: ['#a855f7','rgba(168,85,247,.15)'] };
-                  var _c = _active ? (_colors[s] || ['var(--accent)','rgba(31,102,241,.15)']) : ['var(--text3)','transparent'];
-                  return '<button onclick="_saShiftFilter=\'' + s + '\';_saDateFilter=\'\';_navStaff()" style="padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;border:1px solid ' + (_active ? _c[0] : 'var(--border)') + ';background:' + _c[1] + ';color:' + _c[0] + ';cursor:pointer;">' + s + '</button>';
-                }).join('')}
-              </div>
-            </th>
-          </tr>
-          <tr>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
-              min-width:92px;width:92px;position:sticky;top:30px;left:0;z-index:4;background:var(--bg3);
+              min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);">EMP NO.</th>
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
-              min-width:165px;width:165px;position:sticky;top:30px;left:92px;z-index:4;background:var(--bg3);
+              min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
-              min-width:145px;width:145px;position:sticky;top:30px;left:257px;z-index:4;background:var(--bg3);
+              min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
             ${theadDates}
           </tr>
