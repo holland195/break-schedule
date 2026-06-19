@@ -3189,7 +3189,7 @@ function _renderStaffAttendance() {
       background:${isWknd ? 'var(--bg4)' : 'var(--bg3)'};
       border-bottom:2px solid ${isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)'};
       border-left:${isSun ? '2px solid var(--border)' : 'none'};
-      position:sticky;top:0;z-index:2;white-space:nowrap;">
+      position:sticky;top:30px;z-index:2;white-space:nowrap;">
       <div style="font-size:9px;${isWknd ? '' : 'opacity:.65;'}line-height:1.5;">${WDAY_SHORT[dow]}</div>
       <div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">${_d}/<span style="font-size:9px;opacity:.7;">${_m}</span></div>
     </th>`;
@@ -3424,25 +3424,32 @@ function _renderStaffAttendance() {
       <table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">
         <thead>
           <tr>
+            <th colspan="3" style="position:sticky;top:0;left:0;z-index:5;background:var(--bg3);
+              padding:5px 8px;border-bottom:1px solid var(--border);min-width:402px;width:402px;">
+            </th>
+            <th style="position:sticky;top:0;z-index:3;background:var(--bg3);
+              padding:5px 10px;border-bottom:1px solid var(--border);">
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:10px;color:var(--text3);white-space:nowrap;">Filter shift:</span>
+                ${['All','A','D','E'].map(function(s) {
+                  var _active = s === 'All' ? _saShiftFilter === 'All' : _saShiftFilter === s;
+                  var _colors = { A: ['#10b981','rgba(16,185,129,.15)'], D: ['#3b82f6','rgba(59,130,246,.15)'], E: ['#a855f7','rgba(168,85,247,.15)'] };
+                  var _c = _active ? (_colors[s] || ['var(--accent)','rgba(31,102,241,.15)']) : ['var(--text3)','transparent'];
+                  return '<button onclick="_saShiftFilter=\'' + s + '\';_saDateFilter=\'\';_navStaff()" style="padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;border:1px solid ' + (_active ? _c[0] : 'var(--border)') + ';background:' + _c[1] + ';color:' + _c[0] + ';cursor:pointer;">' + s + '</button>';
+                }).join('')}
+              </div>
+            </th>
+          </tr>
+          <tr>
             <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
-              min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);
+              min-width:92px;width:92px;position:sticky;top:30px;left:0;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);">EMP NO.</th>
             <th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);
-              min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);
+              min-width:165px;width:165px;position:sticky;top:30px;left:92px;z-index:4;background:var(--bg3);
               border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>
-            <th style="text-align:left;padding:5px 8px;font-size:11px;color:var(--text2);
-              min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);
-              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">
-              <div style="font-size:10px;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">POSITION</div>
-              <div style="display:flex;gap:3px;">${
-                ['All','A','D','E'].map(function(s) {
-                  var _active = s === 'All' ? _saShiftFilter === 'All' : _saShiftFilter === s;
-                  var _colors = { A: ['#10b981','rgba(16,185,129,.12)'], D: ['#3b82f6','rgba(59,130,246,.12)'], E: ['#a855f7','rgba(168,85,247,.12)'] };
-                  var _c = _active ? (_colors[s] || ['var(--accent)','rgba(31,102,241,.12)']) : ['var(--text3)','transparent'];
-                  return '<button onclick="_saShiftFilter=\'' + s + '\';_saDateFilter=\'\';_navStaff()" style="padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;border:1px solid ' + (_active ? _c[0] : 'var(--border)') + ';background:' + (_active ? _c[1] : 'transparent') + ';color:' + _c[0] + ';cursor:pointer;line-height:1.6;">' + s + '</button>';
-                }).join('')
-              }</div>
-            </th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);
+              min-width:145px;width:145px;position:sticky;top:30px;left:257px;z-index:4;background:var(--bg3);
+              border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>
             ${theadDates}
           </tr>
         </thead>
