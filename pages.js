@@ -2284,13 +2284,16 @@ function renderStaff() {
   ${_canSeeAll ? `<button onclick="staffSubTab='info';nav('staff')" style="${_tabStyle('info')}">👤 Staff Info</button>` : ''}
   <button onclick="staffSubTab='schedule';nav('staff')" style="${_tabStyle('schedule')}">📅 Staff Schedule</button>
   ${_canSeeAll ? `<button onclick="staffSubTab='attendance';nav('staff')" style="${_tabStyle('attendance')}">📋 Staff Attendance</button>` : ''}
+  ${_canSeeAll ? `<button onclick="staffSubTab='workingtime';nav('staff')" style="${_tabStyle('workingtime')}">⏱ Working Time</button>` : ''}
 </div>
 <div id="staff-subtab-content">
   ${staffSubTab === 'info'
       ? _renderStaffInfo()
       : staffSubTab === 'attendance'
         ? _renderStaffAttendance()
-        : _renderStaffSchedule()}
+        : staffSubTab === 'workingtime'
+          ? _renderWorkingTime()
+          : _renderStaffSchedule()}
 </div>`;
 }
 
@@ -2923,6 +2926,169 @@ var _saCurrentDates = [];
 var _saCurrentMonthKey = '';
 var _attCopiedCode = '';
 var _staffAttUndoStack = [];
+
+// ── Working Time sub-tab state ──
+var _wtNow = new Date();
+var _wtMonth = _wtNow.getMonth() + 1;
+var _wtYear  = _wtNow.getFullYear();
+
+function _renderWorkingTime() {
+  var month    = _wtMonth;
+  var year     = _wtYear;
+  var monthKey = year + '-' + String(month).padStart(2, '0');
+  var monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  // Only leaders, supervisors, and training — exclude training from table per requirements
+  var wtUsers = state.users.filter(function(u) {
+    var rr = (_resolveRole(u.role) || '').toLowerCase();
+    if (!rr) return false;
+    // Include: leader, supervisor (level 2). Training excluded from table.
+    var lvl = (ROLES[_resolveRole(u.role)] || {}).level || 0;
+    return lvl === 2;
+  }).sort(function(a, b) { return _roleSort(a, b); });
+
+  var monthPicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"' +
+    ' onchange="_wtMonth=+this.value;nav(\'staff\')">' +
+    [1,2,3,4,5,6,7,8,9,10,11,12].map(function(m) {
+      return '<option value="' + m + '"' + (m === month ? ' selected' : '') + '>' +
+        new Date(year, m - 1, 1).toLocaleString('en-US', { month: 'long' }) + '</option>';
+    }).join('') + '</select>' +
+    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"' +
+    ' onchange="_wtYear=+this.value;nav(\'staff\')">' +
+    [2024,2025,2026,2027].map(function(y) {
+      return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
+    }).join('') + '</select>';
+
+  var COLS = [
+    { key: 'late',     label: 'LATE',     color: '#f87171', bg: 'rgba(248,113,113,.14)', unit: 'min' },
+    { key: 'early',    label: 'EARLY',    color: '#fb923c', bg: 'rgba(251,146,60,.14)',  unit: 'min' },
+    { key: 'training', label: 'TRAINING', color: '#34d399', bg: 'rgba(52,211,153,.14)',  unit: 'pax' },
+    { key: 'others',   label: 'OTHERS',   color: '#a78bfa', bg: 'rgba(167,139,250,.14)', unit: 'min' },
+  ];
+
+  var stickyCell = 'position:sticky;z-index:1;background:var(--bg3);';
+
+  var theadCols = COLS.map(function(c) {
+    return '<th style="min-width:90px;padding:6px 8px;text-align:center;font-size:11px;' +
+      'font-weight:700;color:' + c.color + ';background:' + c.bg + ';' +
+      'border-bottom:2px solid ' + c.color + ';white-space:nowrap;position:sticky;top:0;z-index:2;">' +
+      c.label + '<div style="font-size:9px;opacity:.7;font-weight:400;">(' + c.unit + ')</div></th>';
+  }).join('');
+
+  var tbodyRows = wtUsers.map(function(u) {
+    var si = state.staffInfo[u.username] || {};
+    var empNo = u.empNo || si.empNo || '—';
+    var effRole = u.role || si.role || '';
+    var wtEntry = DB.getWorkingTime(u.username, monthKey);
+
+    var cells = COLS.map(function(c) {
+      var val = wtEntry[c.key];
+      var display = (val !== undefined && val !== null && val !== '') ? val : '—';
+      var hasVal = display !== '—';
+      return '<td style="text-align:center;padding:6px 4px;cursor:pointer;' +
+        (hasVal ? 'background:' + c.bg + ';' : '') + '"' +
+        ' onclick="openWtModal(\'' + u.username + '\',\'' + monthKey + '\',\'' + c.key + '\',' +
+        JSON.stringify(u.name).replace(/'/g, "\\'") + ')"' +
+        ' title="Click to edit ' + c.label.toLowerCase() + ' for ' + u.name + '">' +
+        '<span style="font-size:12px;font-family:\'IBM Plex Mono\',monospace;font-weight:' +
+        (hasVal ? '700' : '400') + ';color:' + (hasVal ? c.color : 'var(--text3)') + ';">' +
+        display + '</span></td>';
+    }).join('');
+
+    return '<tr style="border-bottom:0.5px solid var(--border);">' +
+      '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:0;min-width:92px;width:92px;' +
+        'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + empNo + '</td>' +
+      '<td style="padding:5px 10px;white-space:nowrap;' + stickyCell + 'left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">' +
+        '<div style="font-size:12px;font-weight:600;">' + u.name + '</div>' +
+      '</td>' +
+      '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);' +
+        'font-size:11px;color:' + _roleColor(effRole) + ';">' +
+        (getRoleInfo(effRole).label || _resolveRole(effRole) || '—') + '</td>' +
+      cells +
+    '</tr>';
+  }).join('');
+
+  var legend = '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">' +
+    COLS.map(function(c) {
+      return '<span style="background:' + c.bg + ';color:' + c.color + ';padding:2px 8px;border-radius:4px;font-weight:600;">' +
+        c.label + '</span> ' + (c.key === 'late' ? 'Minutes late login' : c.key === 'early' ? 'Minutes early logout' : c.key === 'training' ? 'Training session headcount' : 'Other reasons (min)');
+    }).join(' &nbsp;') + '</div>';
+
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">' +
+    monthPicker +
+    '<span style="font-size:11px;color:var(--text3);margin-left:4px;">' + wtUsers.length + ' staff · ' + monthLabel + '</span>' +
+    '</div>' +
+    legend +
+    '<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">' +
+    '<table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">' +
+    '<thead><tr>' +
+      '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
+        'min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);">EMP NO.</th>' +
+      '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);' +
+        'min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>' +
+      '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
+        'min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>' +
+      theadCols +
+    '</tr></thead>' +
+    '<tbody>' + tbodyRows + '</tbody>' +
+    '</table></div>';
+}
+
+function _ensureWtModal() {
+  if (document.getElementById('modal-wt-cell')) return;
+  document.body.insertAdjacentHTML('beforeend',
+    '<div id="modal-wt-cell" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-wt-cell\')">' +
+    '<div class="modal" style="width:340px;">' +
+      '<div class="modal-title" id="wt-modal-title">Working Time</div>' +
+      '<div style="margin:14px 0 6px;font-size:12px;color:var(--text2);" id="wt-modal-desc"></div>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin:10px 0 18px;">' +
+        '<input id="wt-modal-input" type="number" min="0" step="1" placeholder="0"' +
+          ' style="flex:1;padding:8px 12px;font-size:16px;font-family:\'IBM Plex Mono\',monospace;' +
+          'border:1.5px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);text-align:center;">' +
+        '<span id="wt-modal-unit" style="font-size:13px;color:var(--text3);min-width:32px;"></span>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="btn btn-sm" onclick="closeModal(\'modal-wt-cell\')">Cancel</button>' +
+        '<button class="btn btn-accent btn-sm" onclick="saveWtCell()">Save</button>' +
+      '</div>' +
+    '</div></div>'
+  );
+}
+
+var _wtPending = {};
+
+function openWtModal(username, monthKey, key, name) {
+  _ensureWtModal();
+  _wtPending = { username: username, monthKey: monthKey, key: key };
+  var LABELS = { late: 'Late login', early: 'Early logout', training: 'Training headcount', others: 'Other reasons' };
+  var UNITS  = { late: 'min', early: 'min', training: 'pax', others: 'min' };
+  document.getElementById('wt-modal-title').textContent = name;
+  document.getElementById('wt-modal-desc').textContent = LABELS[key] + ' — ' + monthKey;
+  document.getElementById('wt-modal-unit').textContent = UNITS[key] || '';
+  var existing = DB.getWorkingTime(username, monthKey)[key];
+  var inp = document.getElementById('wt-modal-input');
+  inp.value = (existing !== undefined && existing !== null && existing !== '') ? existing : '';
+  document.getElementById('modal-wt-cell').classList.add('show');
+  setTimeout(function() { inp.focus(); inp.select(); }, 80);
+}
+
+function saveWtCell() {
+  var inp = document.getElementById('wt-modal-input');
+  if (!inp || !_wtPending.username) return;
+  var val = inp.value.trim();
+  var num = val === '' ? null : parseFloat(val);
+  var existing = DB.getWorkingTime(_wtPending.username, _wtPending.monthKey);
+  var updated = Object.assign({}, existing);
+  if (num === null || isNaN(num)) {
+    delete updated[_wtPending.key];
+  } else {
+    updated[_wtPending.key] = num;
+  }
+  DB.setWorkingTime(_wtPending.username, _wtPending.monthKey, updated);
+  closeModal('modal-wt-cell');
+  nav('staff');
+  if (typeof syncPush === 'function') syncPush();
+}
 
 function _staffAttSnapshot() {
   var snap = [];
