@@ -250,6 +250,15 @@ function _applyRemoteData(remote) {
       });
     });
   }
+  if (remote.workingTime) {
+    if (!state.workingTime) state.workingTime = {};
+    Object.entries(remote.workingTime).forEach(([username, months]) => {
+      if (!state.workingTime[username]) state.workingTime[username] = {};
+      Object.entries(months || {}).forEach(([mk, entry]) => {
+        state.workingTime[username][mk] = entry;
+      });
+    });
+  }
 
   // Policy Compliance records
 if (remote.policyCompliance && remote.policyCompliance.length > 0) {
@@ -393,6 +402,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   breakSplits:       state.breakSplits || {},
   logbook:           state.logbook || {},
   monthlyAttendance: state.monthlyAttendance || {},
+  workingTime:       state.workingTime       || {},
   staffSchedule:     state.staffSchedule || {},
   users:             usersCompact,
   staffInfo:         staffInfoCloud,

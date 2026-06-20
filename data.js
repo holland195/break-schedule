@@ -213,7 +213,7 @@ function load() {
            staffInfo:{}, session:null, imported:false,
            _breaksUpdatedAt:0, _usersUpdatedAt:0,
            attendance:{}, monthlyAttendance:{}, breakSplits:{},
-           staffSchedule:{} };
+           staffSchedule:{}, workingTime:{} };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -304,6 +304,15 @@ const DB = {
       save();
     }
   },
+
+  // workingTime: username → monthKey → { late, early, training, others }  (all numbers, minutes)
+  getWorkingTime:  (username, monthKey)       => state.workingTime?.[username]?.[monthKey] || {},
+  setWorkingTime:  (username, monthKey, data) => {
+    if (!state.workingTime) state.workingTime = {};
+    if (!state.workingTime[username]) state.workingTime[username] = {};
+    state.workingTime[username][monthKey] = data;
+    save();
+  },
   
   // session
   saveSession:   s            => { state.session=s; save(); },
@@ -318,6 +327,7 @@ if (!state.logbook) state.logbook = {};
 if (!state.staffInfo)  state.staffInfo  = {};
 if (!state.session)    state.session    = null;
 if (!state.monthlyAttendance) state.monthlyAttendance = {};
+if (!state.workingTime)      state.workingTime      = {};
 if (!state.breakSplits) state.breakSplits = {};
 if (!state.shiftConfig) state.shiftConfig = [];
 if (!state.staffSchedule) state.staffSchedule = {};
