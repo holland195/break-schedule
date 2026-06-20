@@ -2817,8 +2817,8 @@ function _renderStaffSchedule() {
         <th style="${_stickyTh}left:260px;min-width:130px;width:130px;">USER</th>
         <th style="${_stickyTh}left:390px;min-width:140px;width:140px;${_shadowR}">POSITION</th>
         ${displayDates.map(function(d) { return '<th class="c" style="min-width:42px;padding:6px 2px;">' +
-          '<div style="color:var(--accent);font-size:11px;">' + d + '</div>' +
-          '<div style="font-size:8px;font-weight:400;opacity:.5;margin-top:2px;">' + getWkDay(d) + '</div>' +
+          '<div style="font-size:8px;font-weight:400;opacity:.65;line-height:1.5;">' + getWkDay(d) + '</div>' +
+          '<div style="color:var(--accent);font-size:11px;line-height:1.3;">' + d + '</div>' +
           '</th>'; }).join('')}
       </tr>
     </thead>
@@ -2938,11 +2938,6 @@ function _renderWorkingTime() {
   var month    = _wtMonth;
   var year     = _wtYear;
   var monthKey = year + '-' + String(month).padStart(2, '0');
-  var prevMonth = month === 1 ? 12 : month - 1;
-  var prevYear  = month === 1 ? year - 1 : year;
-  var monthLabel = new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
-    ' – ' + new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-
   var allDates = _getAllDatesInMonth(year, month);
 
   // Build user list same as _renderStaffAttendance: from staffInfo + users, exclude training/admin
@@ -3025,7 +3020,7 @@ function _renderWorkingTime() {
   });
   theadRow1 += '</tr>';
 
-  // Row 2: per-date shift badge — shows scheduled shift for first user on that day, clickable to filter
+  // Row 2: per-date shift badges A/D/E — each clickable to toggle filter
   var theadRow2 = '<tr>';
   allDates.forEach(function(dk) {
     var dkParts = dk.split('/');
@@ -3034,29 +3029,28 @@ function _renderWorkingTime() {
     var dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     var isWknd = dow === 0 || dow === 6;
     var isSun  = dow === 0;
-    // Determine dominant shift for this date from wtUsers
+    // Count staff per shift for this date
     var shiftCounts = { A: 0, D: 0, E: 0 };
-    wtUsers.forEach(function(u) {
-      var s = _getSched(u.username, dk);
-      if (s && shiftCounts[s] !== undefined) shiftCounts[s]++;
+    allWtUsers.forEach(function(u) {
+      var s = (_getSched(u.username, dk) || '').charAt(0);
+      if (shiftCounts[s] !== undefined) shiftCounts[s]++;
     });
-    var domShift = '';
-    var domCount = 0;
-    ['A','D','E'].forEach(function(s) { if (shiftCounts[s] > domCount) { domCount = shiftCounts[s]; domShift = s; } });
-    var isActive = _wtShiftFilter === domShift;
+    var badges = ['A','D','E'].map(function(s) {
+      if (!shiftCounts[s]) return '';
+      var isActive = _wtShiftFilter === s;
+      return '<span onclick="_wtShiftFilter=(_wtShiftFilter===\'' + s + '\'?\'All\':\'' + s + '\');nav(\'staff\')"' +
+        ' style="cursor:pointer;font-size:8px;font-weight:700;padding:0 3px;border-radius:2px;' +
+        'color:' + (isActive ? '#fff' : SH_COLOR[s]) + ';' +
+        'background:' + (isActive ? SH_COLOR[s] : 'transparent') + ';' +
+        'border:1px solid ' + SH_COLOR[s] + ';display:inline-block;line-height:14px;">' + s + '</span>';
+    }).join('');
     theadRow2 +=
-      '<th style="padding:2px 1px;text-align:center;' +
+      '<th style="padding:2px 1px;text-align:center;white-space:nowrap;' +
       'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
       'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
       'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:22px;z-index:2;">' +
-      (domShift
-        ? '<span onclick="_wtShiftFilter=(_wtShiftFilter===\'' + domShift + '\'?\'All\':\'' + domShift + '\');nav(\'staff\')"' +
-          ' style="cursor:pointer;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;' +
-          'color:' + (isActive ? '#fff' : SH_COLOR[domShift]) + ';' +
-          'background:' + (isActive ? SH_COLOR[domShift] : 'transparent') + ';' +
-          'border:1px solid ' + SH_COLOR[domShift] + ';display:inline-block;">' + domShift + '</span>'
-        : '<span style="font-size:9px;color:var(--text3);">·</span>') +
+      (badges || '<span style="font-size:9px;color:var(--text3);">·</span>') +
       '</th>';
   });
   theadRow2 += '</tr>';
@@ -3113,10 +3107,10 @@ function _renderWorkingTime() {
     }).join('') + '</select>';
 
   var shiftSelect =
-    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;" onchange="_wtShiftFilter=this.value;nav(\'staff\')">' +
+    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:80px;" onchange="_wtShiftFilter=this.value;nav(\'staff\')">' +
     ['All','A','D','E'].map(function(s) {
       return '<option value="' + s + '"' + (_wtShiftFilter === s ? ' selected' : '') + '>' +
-        (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>';
+        (s === 'All' ? 'All' : 'Shift ' + s) + '</option>';
     }).join('') + '</select>';
 
   var legend =
@@ -3129,7 +3123,6 @@ function _renderWorkingTime() {
 
   return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">' +
     monthPicker + shiftSelect +
-    '<span style="font-size:11px;color:var(--text3);margin-left:4px;">' + wtUsers.length + ' staff &middot; ' + monthLabel + '</span>' +
     '</div>' +
     legend +
     '<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">' +
