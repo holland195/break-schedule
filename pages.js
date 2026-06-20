@@ -2933,6 +2933,7 @@ var _wtMonth = _wtNow.getMonth() + 1;
 var _wtYear  = _wtNow.getFullYear();
 
 var _wtShiftFilter = 'All';
+var _wtFilterDk = '';
 
 function _renderWorkingTime() {
   var month    = _wtMonth;
@@ -2965,11 +2966,11 @@ function _renderWorkingTime() {
     return { username: uname, name: name, role: role, team: team, empNo: empNo, id: fu ? fu.id : null };
   }).filter(Boolean);
 
-  // Shift filter
+  // Shift filter: per-column — filter by schedule on the selected date
   var wtUsers;
-  if (_wtShiftFilter !== 'All') {
+  if (_wtFilterDk && _wtShiftFilter !== 'All') {
     wtUsers = allWtUsers.filter(function(u) {
-      return allDates.some(function(dk) { return _getSched(u.username, dk) === _wtShiftFilter; });
+      return (_getSched(u.username, _wtFilterDk) || '').charAt(0) === _wtShiftFilter;
     });
   } else {
     wtUsers = allWtUsers;
@@ -2998,6 +2999,7 @@ function _renderWorkingTime() {
       'min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);' +
       'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>';
 
+  var SH_COL = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
   allDates.forEach(function(dk) {
     var dkParts = dk.split('/');
     var _d = dkParts[0]; var _m = dkParts[1];
@@ -3005,6 +3007,28 @@ function _renderWorkingTime() {
     var dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     var isWknd = dow === 0 || dow === 6;
     var isSun  = dow === 0;
+    var isOpen = _wtFilterDk === dk;
+    // Compute which shifts exist on this date
+    var shiftSet = {};
+    allWtUsers.forEach(function(u) {
+      var s = (_getSched(u.username, dk) || '').charAt(0);
+      if (SH_COL[s]) shiftSet[s] = true;
+    });
+    // Arrow row: ↓ to open, then A/D/E badges when open
+    var arrowPart = '<div style="margin-top:2px;">';
+    if (!isOpen) {
+      arrowPart += '<span onclick="_wtFilterDk=\'' + dk + '\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">↓</span>';
+    } else {
+      arrowPart += '<span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">↑</span> ';
+      ['A','D','E'].forEach(function(s) {
+        if (!shiftSet[s]) return;
+        var isAct = _wtShiftFilter === s;
+        arrowPart += '<span onclick="_wtShiftFilter=(_wtShiftFilter===\'' + s + '\'?\'All\':\'' + s + '\');nav(\'staff\')"' +
+          ' style="cursor:pointer;font-size:8px;font-weight:700;padding:0 3px;border-radius:2px;margin:0 1px;display:inline-block;line-height:14px;' +
+          'color:' + (isAct ? '#fff' : SH_COL[s]) + ';background:' + (isAct ? SH_COL[s] : 'transparent') + ';border:1px solid ' + SH_COL[s] + ';">' + s + '</span>';
+      });
+    }
+    arrowPart += '</div>';
     theadRow1 +=
       '<th style="min-width:44px;padding:4px 2px;text-align:center;font-size:10px;font-weight:600;' +
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
@@ -3014,6 +3038,7 @@ function _renderWorkingTime() {
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
       '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
+      arrowPart +
       '</th>';
   });
   theadRow1 += '</tr>';
@@ -3060,23 +3085,19 @@ function _renderWorkingTime() {
   }).join('');
 
   var monthPicker =
-    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;" onchange="_wtMonth=+this.value;nav(\'staff\')">' +
+    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;" onchange="_wtMonth=+this.value;_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')">' +
     [1,2,3,4,5,6,7,8,9,10,11,12].map(function(m) {
       return '<option value="' + m + '"' + (m === month ? ' selected' : '') + '>' +
         new Date(year, m - 1, 1).toLocaleString('en-US', { month: 'long' }) + '</option>';
     }).join('') + '</select>' +
-    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;" onchange="_wtYear=+this.value;nav(\'staff\')">' +
+    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;" onchange="_wtYear=+this.value;_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')">' +
     [2024,2025,2026,2027].map(function(y) {
       return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
     }).join('') + '</select>';
 
-  var shiftSelect =
-    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;" onchange="_wtShiftFilter=this.value;nav(\'staff\')">' +
-    '<option value="All"' + (_wtShiftFilter === 'All' ? ' selected' : '') + '>All shifts</option>' +
-    '<option value="A"'   + (_wtShiftFilter === 'A'   ? ' selected' : '') + '>Shift A</option>' +
-    '<option value="D"'   + (_wtShiftFilter === 'D'   ? ' selected' : '') + '>Shift D</option>' +
-    '<option value="E"'   + (_wtShiftFilter === 'E'   ? ' selected' : '') + '>Shift E</option>' +
-    '</select>';
+  var shiftSelect = _wtFilterDk && _wtShiftFilter !== 'All'
+    ? '<span style="font-size:11px;color:var(--text3);">Shift <b>' + _wtShiftFilter + '</b> · ' + _wtFilterDk + '</span>'
+    : '';
 
   var legend =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">' +
