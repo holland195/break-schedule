@@ -2942,21 +2942,38 @@ function _renderWorkingTime() {
   var monthLabel = new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
     ' – ' + new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  // All staff except training — include agents + leaders/supervisors
-  var allWtUsers = (state.users || []).filter(function(u) {
-    var rr = (_resolveRole(u.role) || '').toLowerCase();
-    if (!rr) return false;
-    var lvl = (ROLES[_resolveRole(u.role)] || {}).level || 0;
-    // Exclude training (level 3) and admin (level 4)
-    return lvl <= 2;
+  var allDates = _getAllDatesInMonth(year, month);
+
+  // Build user list same as _renderStaffAttendance: from staffInfo + users, exclude training/admin
+  var _wtPcEmpNo = {};
+  (state.policyCompliance || []).forEach(function(r) {
+    if (r.username && r.empNo && !_wtPcEmpNo[r.username]) _wtPcEmpNo[r.username] = r.empNo;
   });
 
+  var allUsernames = Object.keys(state.staffInfo || {});
+  state.users.forEach(function(u) {
+    if (u.username && allUsernames.indexOf(u.username) === -1) allUsernames.push(u.username);
+  });
+
+  var allWtUsers = allUsernames.map(function(uname) {
+    var si = state.staffInfo[uname] || {};
+    var fu = state.users.find(function(u) { return u.username === uname; });
+    var role = (fu && fu.role) || si.role || '';
+    var lvl  = (ROLES[_resolveRole(role)] || {}).level;
+    if (lvl === undefined) lvl = 0;
+    // Exclude training (3), admin (4)
+    if (lvl >= 3) return null;
+    var empNo = (fu && fu.empNo) || si.empNo || _wtPcEmpNo[uname] || '';
+    var name  = (fu && fu.name)  || si.name  || uname;
+    var team  = (fu && fu.team)  || si.team  || '';
+    return { username: uname, name: name, role: role, team: team, empNo: empNo, id: fu ? fu.id : null };
+  }).filter(Boolean);
+
   // Shift filter
-  var dates = _getAllDatesInMonth(year, month);
   var wtUsers;
   if (_wtShiftFilter !== 'All') {
     wtUsers = allWtUsers.filter(function(u) {
-      return dates.some(function(dk) { return _getSched(u.username, dk) === _wtShiftFilter; });
+      return allDates.some(function(dk) { return _getSched(u.username, dk) === _wtShiftFilter; });
     });
   } else {
     wtUsers = allWtUsers;
@@ -2965,58 +2982,106 @@ function _renderWorkingTime() {
 
   var WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Category colors
-  var CAT = {
-    late:     { color: '#f87171', bg: 'rgba(248,113,113,.18)', unit: 'min' },
-    early:    { color: '#fb923c', bg: 'rgba(251,146,60,.18)',  unit: 'min' },
-    training: { color: '#34d399', bg: 'rgba(52,211,153,.18)',  unit: 'pax' },
-    others:   { color: '#a78bfa', bg: 'rgba(167,139,250,.18)', unit: 'min' },
-  };
+  // Category colors — training now min (total time)
+  var CAT_LATE     = { color: '#f87171', bg: 'rgba(248,113,113,.18)' };
+  var CAT_EARLY    = { color: '#fb923c', bg: 'rgba(251,146,60,.18)'  };
+  var CAT_TRAINING = { color: '#34d399', bg: 'rgba(52,211,153,.18)'  };
+  var CAT_OTHERS   = { color: '#a78bfa', bg: 'rgba(167,139,250,.18)' };
 
-  // Date header
-  var theadDates = dates.map(function(dk) {
-    var parts = dk.split('/');
-    var _d = parts[0]; var _m = parts[1];
+  // Shift colors for header arrow badges
+  var SH_COLOR = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
+
+  // Date header — two rows: date + shift-filter arrow row
+  var theadRow1 = '<tr>';
+  theadRow1 +=
+    '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
+      'min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);" rowspan="2">EMP NO.</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);' +
+      'min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" rowspan="2">NAME</th>' +
+    '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
+      'min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" rowspan="2">POSITION</th>';
+
+  allDates.forEach(function(dk) {
+    var dkParts = dk.split('/');
+    var _d = dkParts[0]; var _m = dkParts[1];
     var _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
     var dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
     var isWknd = dow === 0 || dow === 6;
     var isSun  = dow === 0;
-    return '<th style="min-width:40px;padding:4px 2px;text-align:center;font-size:10px;font-weight:600;' +
+    theadRow1 +=
+      '<th style="min-width:44px;padding:4px 2px;text-align:center;font-size:10px;font-weight:600;' +
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
       'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
+      'border-bottom:1px solid var(--border);' +
       'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
       '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
       '</th>';
-  }).join('');
+  });
+  theadRow1 += '</tr>';
+
+  // Row 2: per-date shift badge — shows scheduled shift for first user on that day, clickable to filter
+  var theadRow2 = '<tr>';
+  allDates.forEach(function(dk) {
+    var dkParts = dk.split('/');
+    var _d = dkParts[0]; var _m = dkParts[1];
+    var _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
+    var dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
+    var isWknd = dow === 0 || dow === 6;
+    var isSun  = dow === 0;
+    // Determine dominant shift for this date from wtUsers
+    var shiftCounts = { A: 0, D: 0, E: 0 };
+    wtUsers.forEach(function(u) {
+      var s = _getSched(u.username, dk);
+      if (s && shiftCounts[s] !== undefined) shiftCounts[s]++;
+    });
+    var domShift = '';
+    var domCount = 0;
+    ['A','D','E'].forEach(function(s) { if (shiftCounts[s] > domCount) { domCount = shiftCounts[s]; domShift = s; } });
+    var isActive = _wtShiftFilter === domShift;
+    theadRow2 +=
+      '<th style="padding:2px 1px;text-align:center;' +
+      'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
+      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
+      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
+      'position:sticky;top:22px;z-index:2;">' +
+      (domShift
+        ? '<span onclick="_wtShiftFilter=(_wtShiftFilter===\'' + domShift + '\'?\'All\':\'' + domShift + '\');nav(\'staff\')"' +
+          ' style="cursor:pointer;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;' +
+          'color:' + (isActive ? '#fff' : SH_COLOR[domShift]) + ';' +
+          'background:' + (isActive ? SH_COLOR[domShift] : 'transparent') + ';' +
+          'border:1px solid ' + SH_COLOR[domShift] + ';display:inline-block;">' + domShift + '</span>'
+        : '<span style="font-size:9px;color:var(--text3);">·</span>') +
+      '</th>';
+  });
+  theadRow2 += '</tr>';
 
   var stickyCell = 'position:sticky;z-index:1;background:var(--bg3);';
 
   var tbodyRows = wtUsers.map(function(u) {
-    var si = state.staffInfo[u.username] || {};
-    var empNo = u.empNo || si.empNo || '—';
-    var effRole = u.role || si.role || '';
-
-    var cells = dates.map(function(dk) {
+    var effRole = u.role || '';
+    var cells = allDates.map(function(dk) {
       var dkParts = dk.split('/');
       var _dd = dkParts[0]; var _mm = dkParts[1];
       var _cy2 = (parseInt(_mm) === month) ? year : (month === 1 ? year - 1 : year);
       var dow2 = new Date(_cy2, parseInt(_mm) - 1, parseInt(_dd)).getDay();
       var isWknd2 = dow2 === 0 || dow2 === 6;
-      var wtDay = (DB.getWorkingTime(u.username, monthKey) || {})[dk] || {};
+      var wtDay = ((DB.getWorkingTime(u.username, monthKey) || {}))[dk] || {};
       var hasAny = wtDay.late || wtDay.early || wtDay.training || wtDay.others;
       var wkBg = isWknd2 ? 'background:var(--bg4);' : '';
       var safeName = (u.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       return '<td style="text-align:center;padding:3px 1px;cursor:pointer;' + (hasAny ? '' : wkBg) + '"' +
         ' onclick="openWtModal(\'' + u.username + '\',\'' + monthKey + '\',\'' + dk + '\',\'' + safeName + '\')">' +
         (hasAny
-          ? '<div style="display:flex;flex-direction:column;gap:1px;padding:2px;">' +
-            (wtDay.late     ? '<span style="font-size:9px;font-weight:700;color:' + CAT.late.color     + ';background:' + CAT.late.bg     + ';border-radius:3px;padding:0 3px;">L ' + wtDay.late     + '</span>' : '') +
-            (wtDay.early    ? '<span style="font-size:9px;font-weight:700;color:' + CAT.early.color    + ';background:' + CAT.early.bg    + ';border-radius:3px;padding:0 3px;">E ' + wtDay.early    + '</span>' : '') +
-            (wtDay.training ? '<span style="font-size:9px;font-weight:700;color:' + CAT.training.color + ';background:' + CAT.training.bg + ';border-radius:3px;padding:0 3px;">T ' + wtDay.training + '</span>' : '') +
-            (wtDay.others   ? '<span style="font-size:9px;font-weight:700;color:' + CAT.others.color   + ';background:' + CAT.others.bg   + ';border-radius:3px;padding:0 3px;">O ' + wtDay.others   + '</span>' : '') +
+          ? '<div style="display:flex;flex-direction:column;gap:1px;padding:2px 1px;">' +
+            (wtDay.late     !== undefined && wtDay.late     !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_LATE.color     + ';background:' + CAT_LATE.bg     + ';border-radius:3px;padding:0 3px;white-space:nowrap;">L ' + wtDay.late     + '</span>' : '') +
+            (wtDay.early    !== undefined && wtDay.early    !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_EARLY.color    + ';background:' + CAT_EARLY.bg    + ';border-radius:3px;padding:0 3px;white-space:nowrap;">E ' + wtDay.early    + '</span>' : '') +
+            (wtDay.training !== undefined && wtDay.training !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_TRAINING.color + ';background:' + CAT_TRAINING.bg + ';border-radius:3px;padding:0 3px;white-space:nowrap;">T ' + wtDay.training + '</span>' : '') +
+            (wtDay.others   !== undefined && wtDay.others   !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_OTHERS.color   + ';background:' + CAT_OTHERS.bg   + ';border-radius:3px;padding:0 3px;white-space:nowrap;">O ' + wtDay.others   + '</span>' : '') +
             '</div>'
           : '<span style="font-size:10px;color:var(--text3);">·</span>') +
         '</td>';
@@ -3024,7 +3089,7 @@ function _renderWorkingTime() {
 
     return '<tr style="border-bottom:0.5px solid var(--border);">' +
       '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:0;min-width:92px;width:92px;' +
-        'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + empNo + '</td>' +
+        'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (u.empNo || '—') + '</td>' +
       '<td style="padding:5px 10px;white-space:nowrap;' + stickyCell + 'left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">' +
         '<div style="font-size:12px;font-weight:600;">' + u.name + '</div>' +
       '</td>' +
@@ -3046,7 +3111,7 @@ function _renderWorkingTime() {
       return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
     }).join('') + '</select>';
 
-  var shiftFilter =
+  var shiftSelect =
     '<select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;" onchange="_wtShiftFilter=this.value;nav(\'staff\')">' +
     ['All','A','D','E'].map(function(s) {
       return '<option value="' + s + '"' + (_wtShiftFilter === s ? ' selected' : '') + '>' +
@@ -3055,28 +3120,20 @@ function _renderWorkingTime() {
 
   var legend =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">' +
-    '<span style="background:' + CAT.late.bg     + ';color:' + CAT.late.color     + ';padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Late (min)' +
-    ' &nbsp;<span style="background:' + CAT.early.bg    + ';color:' + CAT.early.color    + ';padding:2px 7px;border-radius:4px;font-weight:600;">E</span> Early out (min)' +
-    ' &nbsp;<span style="background:' + CAT.training.bg + ';color:' + CAT.training.color + ';padding:2px 7px;border-radius:4px;font-weight:600;">T</span> Training (pax)' +
-    ' &nbsp;<span style="background:' + CAT.others.bg   + ';color:' + CAT.others.color   + ';padding:2px 7px;border-radius:4px;font-weight:600;">O</span> Others (min)' +
+    '<span style="background:' + CAT_LATE.bg     + ';color:' + CAT_LATE.color     + ';padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Late login (min)' +
+    ' &nbsp;<span style="background:' + CAT_EARLY.bg    + ';color:' + CAT_EARLY.color    + ';padding:2px 7px;border-radius:4px;font-weight:600;">E</span> Early logout (min)' +
+    ' &nbsp;<span style="background:' + CAT_TRAINING.bg + ';color:' + CAT_TRAINING.color + ';padding:2px 7px;border-radius:4px;font-weight:600;">T</span> Training time (min)' +
+    ' &nbsp;<span style="background:' + CAT_OTHERS.bg   + ';color:' + CAT_OTHERS.color   + ';padding:2px 7px;border-radius:4px;font-weight:600;">O</span> Others (min)' +
     '</div>';
 
   return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">' +
-    monthPicker + shiftFilter +
+    monthPicker + shiftSelect +
     '<span style="font-size:11px;color:var(--text3);margin-left:4px;">' + wtUsers.length + ' staff &middot; ' + monthLabel + '</span>' +
     '</div>' +
     legend +
     '<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">' +
     '<table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">' +
-    '<thead><tr>' +
-      '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
-        'min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);">EMP NO.</th>' +
-      '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);' +
-        'min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>' +
-      '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
-        'min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>' +
-      theadDates +
-    '</tr></thead>' +
+    '<thead>' + theadRow1 + theadRow2 + '</thead>' +
     '<tbody>' + tbodyRows + '</tbody>' +
     '</table></div>';
 }
@@ -3099,7 +3156,7 @@ function _ensureWtModal() {
       '<div style="margin:4px 0 14px;font-size:11px;color:var(--text3);" id="wt-modal-desc"></div>' +
       inputRow('wt-inp-late',     'LATE',     'min', '#f87171') +
       inputRow('wt-inp-early',    'EARLY',    'min', '#fb923c') +
-      inputRow('wt-inp-training', 'TRAINING', 'pax', '#34d399') +
+      inputRow('wt-inp-training', 'TRAINING', 'min', '#34d399') +
       inputRow('wt-inp-others',   'OTHERS',   'min', '#a78bfa') +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">' +
         '<button class="btn btn-sm" onclick="closeModal(\'modal-wt-cell\')">Cancel</button>' +
