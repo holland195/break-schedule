@@ -77,7 +77,6 @@ function _detectShiftFor(username) {
 async function doLogin() {
   const u   = document.getElementById('li-user').value.trim();
   const p   = document.getElementById('li-pass').value.trim();
-  const s   = document.getElementById('li-shift').value;
   const err = document.getElementById('login-err');
   const btn = document.getElementById('signin-btn');
 
@@ -109,17 +108,8 @@ async function doLogin() {
       return;
     }
 
-    const isAdminUser = (ROLES[user.role]?.level || 0) >= 3;
-    if (!isAdminUser && !s) {
-      window._loginInProgress = false;
-      err.style.color = '';
-      err.textContent = 'Please select your current shift.';
-      btn.disabled = false;
-      return;
-    }
-
     currentUser  = user;
-    currentShift = _guardShift(s || 'E');
+    currentShift = _detectShiftFor(u);
     err.textContent = '';
 
     // ── Pull cloud data FIRST before checking mustChangePw ──
