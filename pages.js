@@ -2933,7 +2933,6 @@ var _wtMonth = _wtNow.getMonth() + 1;
 var _wtYear  = _wtNow.getFullYear();
 
 var _wtShiftFilter = 'All';
-var _wtShowShiftRow = false;
 
 function _renderWorkingTime() {
   var month    = _wtMonth;
@@ -2985,8 +2984,6 @@ function _renderWorkingTime() {
   var CAT_TRAINING = { color: '#34d399', bg: 'rgba(52,211,153,.18)'  };
   var CAT_OTHERS   = { color: '#a78bfa', bg: 'rgba(167,139,250,.18)' };
 
-  // Shift colors for header arrow badges
-  var SH_COLOR = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
 
   // Date header — two rows: date + shift-filter arrow row
   var theadRow1 = '<tr>';
@@ -3012,7 +3009,7 @@ function _renderWorkingTime() {
       '<th style="min-width:44px;padding:4px 2px;text-align:center;font-size:10px;font-weight:600;' +
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
       'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:1px solid var(--border);' +
+      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
       'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
@@ -3021,43 +3018,6 @@ function _renderWorkingTime() {
   });
   theadRow1 += '</tr>';
 
-  // Row 2: per-date shift badges A/D/E — each clickable to toggle filter
-  var theadRow2 = '<tr>' +
-    '<th style="position:sticky;left:0;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);"></th>' +
-    '<th style="position:sticky;left:92px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);"></th>' +
-    '<th style="position:sticky;left:257px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);"></th>';
-  allDates.forEach(function(dk) {
-    var dkParts = dk.split('/');
-    var _d = dkParts[0]; var _m = dkParts[1];
-    var _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
-    var dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
-    var isWknd = dow === 0 || dow === 6;
-    var isSun  = dow === 0;
-    // Count staff per shift for this date
-    var shiftCounts = { A: 0, D: 0, E: 0 };
-    allWtUsers.forEach(function(u) {
-      var s = (_getSched(u.username, dk) || '').charAt(0);
-      if (shiftCounts[s] !== undefined) shiftCounts[s]++;
-    });
-    var badges = ['A','D','E'].map(function(s) {
-      if (!shiftCounts[s]) return '';
-      var isActive = _wtShiftFilter === s;
-      return '<span onclick="_wtShiftFilter=(_wtShiftFilter===\'' + s + '\'?\'All\':\'' + s + '\');nav(\'staff\')"' +
-        ' style="cursor:pointer;font-size:8px;font-weight:700;padding:0 3px;border-radius:2px;' +
-        'color:' + (isActive ? '#fff' : SH_COLOR[s]) + ';' +
-        'background:' + (isActive ? SH_COLOR[s] : 'transparent') + ';' +
-        'border:1px solid ' + SH_COLOR[s] + ';display:inline-block;line-height:14px;">' + s + '</span>';
-    }).join('');
-    theadRow2 +=
-      '<th style="padding:2px 1px;text-align:center;white-space:nowrap;' +
-      'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
-      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
-      'position:sticky;top:22px;z-index:2;">' +
-      (badges || '<span style="font-size:9px;color:var(--text3);">·</span>') +
-      '</th>';
-  });
-  theadRow2 += '</tr>';
 
   var stickyCell = 'position:sticky;z-index:1;background:var(--bg3);';
 
@@ -3110,11 +3070,13 @@ function _renderWorkingTime() {
       return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
     }).join('') + '</select>';
 
-  var isFiltered = _wtShiftFilter !== 'All';
   var shiftSelect =
-    '<button onclick="_wtShowShiftRow=!_wtShowShiftRow;nav(\'staff\')" class="btn btn-sm"' +
-    ' style="font-size:11px;' + (isFiltered ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : '') + '">' +
-    '⇅ Shift' + (isFiltered ? ' ' + _wtShiftFilter : '') + '</button>';
+    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:100px;" onchange="_wtShiftFilter=this.value;nav(\'staff\')">' +
+    '<option value="All"' + (_wtShiftFilter === 'All' ? ' selected' : '') + '>All shifts</option>' +
+    '<option value="A"'   + (_wtShiftFilter === 'A'   ? ' selected' : '') + '>Shift A</option>' +
+    '<option value="D"'   + (_wtShiftFilter === 'D'   ? ' selected' : '') + '>Shift D</option>' +
+    '<option value="E"'   + (_wtShiftFilter === 'E'   ? ' selected' : '') + '>Shift E</option>' +
+    '</select>';
 
   var legend =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">' +
@@ -3130,7 +3092,7 @@ function _renderWorkingTime() {
     legend +
     '<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">' +
     '<table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">' +
-    '<thead>' + theadRow1 + (_wtShowShiftRow ? theadRow2 : '') + '</thead>' +
+    '<thead>' + theadRow1 + '</thead>' +
     '<tbody>' + tbodyRows + '</tbody>' +
     '</table></div>';
 }
