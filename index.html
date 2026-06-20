@@ -216,25 +216,35 @@
           </div>
 
           <!-- Username / password fallback -->
-          <div class="mt-6 font-sans">
-            <button type="button" onclick="(function(){var p=document.getElementById('upw-panel');p.style.display=p.style.display==='none'?'block':'none';})()"
-              class="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2">
-              Sign in with username &amp; password
-            </button>
-            <div id="upw-panel" style="display:none;margin-top:12px;">
+          <div style="margin-top:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <div style="flex:1;height:1px;background:rgba(255,255,255,.08);"></div>
+              <button type="button" id="upw-toggle"
+                onclick="(function(){var p=document.getElementById('upw-panel');var t=document.getElementById('upw-toggle');var open=p.style.display!=='none';p.style.display=open?'none':'block';t.style.color=open?'rgba(255,255,255,.35)':'rgba(255,255,255,.6)';})()"
+                style="font-size:11px;color:rgba(255,255,255,.35);background:none;border:none;cursor:pointer;white-space:nowrap;letter-spacing:.03em;transition:color .2s;padding:0;">
+                or use password
+              </button>
+              <div style="flex:1;height:1px;background:rgba(255,255,255,.08);"></div>
+            </div>
+            <div id="upw-panel" style="display:none;">
               <input id="li-user" type="text" placeholder="Username" autocomplete="username"
                 oninput="autoDetectShift()"
-                class="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-pave-400 focus:outline-none focus:ring-1 focus:ring-pave-400">
+                style="display:block;width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;font-size:13px;color:#fff;outline:none;margin-bottom:8px;font-family:inherit;transition:border-color .2s;"
+                onfocus="this.style.borderColor='rgba(91,141,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'">
               <input id="li-pass" type="password" placeholder="Password" autocomplete="current-password"
                 onkeydown="if(event.key==='Enter')doLogin()"
-                class="mt-2 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-pave-400 focus:outline-none focus:ring-1 focus:ring-pave-400">
+                style="display:block;width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;font-size:13px;color:#fff;outline:none;margin-bottom:12px;font-family:inherit;transition:border-color .2s;"
+                onfocus="this.style.borderColor='rgba(91,141,255,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'">
               <input id="li-shift" type="hidden" value="E">
               <button type="button" onclick="doLogin()"
-                class="mt-3 w-full rounded-md bg-pave-600 py-2.5 text-sm font-600 text-white transition hover:bg-pave-500 active:scale-[0.99]">
+                style="display:block;width:100%;background:rgba(91,141,255,.18);border:1px solid rgba(91,141,255,.35);border-radius:8px;padding:11px 14px;font-size:13px;font-weight:600;color:#7eb3ff;cursor:pointer;font-family:inherit;letter-spacing:.02em;transition:background .2s,border-color .2s;"
+                onmouseover="this.style.background='rgba(91,141,255,.28)';this.style.borderColor='rgba(91,141,255,.55)'"
+                onmouseout="this.style.background='rgba(91,141,255,.18)';this.style.borderColor='rgba(91,141,255,.35)'">
                 Sign in
               </button>
               <button type="button" onclick="forgotPassword()"
-                class="mt-2 w-full text-center text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                style="display:block;width:100%;background:none;border:none;padding:10px 0 0;font-size:11px;color:rgba(255,255,255,.3);cursor:pointer;font-family:inherit;transition:color .2s;text-align:center;"
+                onmouseover="this.style.color='rgba(255,255,255,.6)'" onmouseout="this.style.color='rgba(255,255,255,.3)'">
                 Forgot password?
               </button>
             </div>
