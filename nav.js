@@ -63,7 +63,12 @@ function nav(page) {
   if (pages[page]) content.innerHTML = pages[page]();
   else content.innerHTML = '<div class="empty">Page not found.</div>';
   attachPageEvents(page);
+  history.replaceState(null, '', '#' + page);
 }
+
+window.addEventListener('hashchange', function() {
+  nav(location.hash.slice(1) || 'dashboard');
+});
 
   function changeSidebarShift(v) {
     currentShift = _guardShift(v);

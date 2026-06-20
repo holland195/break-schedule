@@ -427,7 +427,7 @@ function enterApp(fromSession) {
     syncPull().then(ok => { if (ok) nav(currentPage); updateSyncBadge(ok ? 'ok' : 'err'); });
     if (typeof startSyncPolling === 'function') startSyncPolling();
   }
-  nav('dashboard');
+  nav(location.hash.slice(1) || 'dashboard');
   updateBadge();
 }
 
