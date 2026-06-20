@@ -61,14 +61,20 @@ function autoDetectShift() {
   }
 }
 
-// Detect a user's working shift for TODAY from the schedule.
-// Used by Google login + session restore so users never pick a shift manually.
+// Detect a user's working shift from their schedule.
+// Checks today first, then scans forward up to 6 days — so a leader whose
+// day off falls on today (e.g. Saturday) still gets their real shift (e.g. A).
 function _detectShiftFor(username) {
   try {
-    var d = new Date();
-    var dk = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-    var sch = _getSched(username, dk);
-    return _guardShift(sch && sch !== '0' ? sch : 'E');
+    var base = new Date();
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(base);
+      d.setDate(base.getDate() + i);
+      var dk = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+      var sch = _getSched(username, dk);
+      if (sch && sch !== '0') return _guardShift(sch);
+    }
+    return 'E';
   } catch (e) {
     return 'E';
   }
@@ -77,7 +83,6 @@ function _detectShiftFor(username) {
 async function doLogin() {
   const u   = document.getElementById('li-user').value.trim();
   const p   = document.getElementById('li-pass').value.trim();
-  const s   = document.getElementById('li-shift').value;
   const err = document.getElementById('login-err');
   const btn = document.getElementById('signin-btn');
 
@@ -109,27 +114,21 @@ async function doLogin() {
       return;
     }
 
-    const isAdminUser = (ROLES[user.role]?.level || 0) >= 3;
-    if (!isAdminUser && !s) {
-      window._loginInProgress = false;
-      err.style.color = '';
-      err.textContent = 'Please select your current shift.';
-      btn.disabled = false;
-      return;
-    }
-
     currentUser  = user;
-    currentShift = _guardShift(s || 'E');
     err.textContent = '';
 
     // ── Pull cloud data FIRST before checking mustChangePw ──
     // staffInfo.mustChangePassword comes from the cloud — must sync before checking
+    // Also needed so _detectShiftFor reads up-to-date staffSchedule (not stale localStorage)
     if (typeof syncEnabled === 'function' && syncEnabled()) {
       err.style.color = 'var(--text3)';
       err.textContent = '☁ Loading…';
       await syncPull();
       err.textContent = '';
     }
+
+    // Detect shift AFTER syncPull so staffSchedule is up-to-date
+    currentShift = _detectShiftFor(u);
 
      // Re-read mustChangePw AFTER syncPull — cloud value may have updated it
     const alreadyChanged = localStorage.getItem(`pw_changed_${u}`) === '1';
@@ -204,6 +203,7 @@ async function doGoogleLogin() {
     }
 
     currentUser  = user;
+    currentUser.photoURL = credential.user.photoURL || '';
     err.textContent = '';
 
     if (typeof syncEnabled === 'function' && syncEnabled()) {
@@ -386,9 +386,10 @@ function enterApp(fromSession) {
   const avatarColors = { 'role-leader': '#f59e0b', 'role-training': '#10b981', 'role-qa': '#a78bfa', 'role-agent': '#1F66F1' };
   const avatarBg = avatarColors[ri.tag] || '#1F66F1';
 
-  if (currentUser.username === 'cuong.pham') {
+  var _photoSrc = currentUser.photoURL || (currentUser.username === 'cuong.pham' ? 'avatar_cuong.png' : '');
+  if (_photoSrc) {
     topAvatar.style.background = 'none';
-    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'C\';p.style.background=\'' + avatarBg + '\'" />';
+    topAvatar.innerHTML = '<img src="' + _photoSrc + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'' + currentUser.name.charAt(0) + '\';p.style.background=\'' + avatarBg + '\';p.style.display=\'flex\'" />';
   } else {
     topAvatar.innerHTML = '';
     topAvatar.textContent   = currentUser.name.charAt(0);

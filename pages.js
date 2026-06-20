@@ -2920,6 +2920,7 @@ let _staffAttConflictFilter = false;
 let _saShiftFilter = 'All';
 var _saFilterDk = '';
 var _saDateFilter = '';
+var _saShiftFilterDate = ''; // date for per-day shift filter (separate from date zoom)
 let _saFillCode = 'XA';
 var _saFilteredUsernames = [];
 var _saCurrentDates = [];
@@ -3445,7 +3446,7 @@ function _renderStaffAttendance() {
       <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
     </div>`;
 
-  // Build table header dates
+  // Build table header dates — arrow icon opens per-day A/D/E shift filter
   const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var _saSHCol = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
   const theadDates = dates.map(dk => {
