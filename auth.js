@@ -203,6 +203,7 @@ async function doGoogleLogin() {
     }
 
     currentUser  = user;
+    currentUser.photoURL = credential.user.photoURL || '';
     err.textContent = '';
 
     if (typeof syncEnabled === 'function' && syncEnabled()) {
@@ -385,9 +386,10 @@ function enterApp(fromSession) {
   const avatarColors = { 'role-leader': '#f59e0b', 'role-training': '#10b981', 'role-qa': '#a78bfa', 'role-agent': '#1F66F1' };
   const avatarBg = avatarColors[ri.tag] || '#1F66F1';
 
-  if (currentUser.username === 'cuong.pham') {
+  var _photoSrc = currentUser.photoURL || (currentUser.username === 'cuong.pham' ? 'avatar_cuong.png' : '');
+  if (_photoSrc) {
     topAvatar.style.background = 'none';
-    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'C\';p.style.background=\'' + avatarBg + '\'" />';
+    topAvatar.innerHTML = '<img src="' + _photoSrc + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'' + currentUser.name.charAt(0) + '\';p.style.background=\'' + avatarBg + '\';p.style.display=\'flex\'" />';
   } else {
     topAvatar.innerHTML = '';
     topAvatar.textContent   = currentUser.name.charAt(0);
