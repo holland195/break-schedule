@@ -2932,6 +2932,7 @@ var _wtMonth = _wtNow.getMonth() + 1;
 var _wtYear  = _wtNow.getFullYear();
 
 var _wtShiftFilter = 'All';
+var _wtShowShiftRow = false;
 
 function _renderWorkingTime() {
   var month    = _wtMonth;
@@ -2991,13 +2992,13 @@ function _renderWorkingTime() {
   theadRow1 +=
     '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
       'min-width:92px;width:92px;position:sticky;top:0;left:0;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);" rowspan="2">EMP NO.</th>' +
+      'border-bottom:2px solid var(--border2);">EMP NO.</th>' +
     '<th style="text-align:left;padding:6px 10px;font-size:11px;color:var(--text2);' +
       'min-width:165px;width:165px;position:sticky;top:0;left:92px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" rowspan="2">NAME</th>' +
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>' +
     '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
       'min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" rowspan="2">POSITION</th>';
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>';
 
   allDates.forEach(function(dk) {
     var dkParts = dk.split('/');
@@ -3020,7 +3021,10 @@ function _renderWorkingTime() {
   theadRow1 += '</tr>';
 
   // Row 2: per-date shift badges A/D/E — each clickable to toggle filter
-  var theadRow2 = '<tr>';
+  var theadRow2 = '<tr>' +
+    '<th style="position:sticky;left:0;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);"></th>' +
+    '<th style="position:sticky;left:92px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);"></th>' +
+    '<th style="position:sticky;left:257px;z-index:4;background:var(--bg3);border-bottom:2px solid var(--border2);border-left:1px solid var(--border);"></th>';
   allDates.forEach(function(dk) {
     var dkParts = dk.split('/');
     var _d = dkParts[0]; var _m = dkParts[1];
@@ -3105,12 +3109,11 @@ function _renderWorkingTime() {
       return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
     }).join('') + '</select>';
 
+  var isFiltered = _wtShiftFilter !== 'All';
   var shiftSelect =
-    '<select class="login-select" style="padding:5px 8px;font-size:12px;width:80px;" onchange="_wtShiftFilter=this.value;nav(\'staff\')">' +
-    ['All','A','D','E'].map(function(s) {
-      return '<option value="' + s + '"' + (_wtShiftFilter === s ? ' selected' : '') + '>' +
-        (s === 'All' ? 'All' : 'Shift ' + s) + '</option>';
-    }).join('') + '</select>';
+    '<button onclick="_wtShowShiftRow=!_wtShowShiftRow;nav(\'staff\')" class="btn btn-sm"' +
+    ' style="font-size:11px;' + (isFiltered ? 'background:var(--accent);color:#fff;border-color:var(--accent);' : '') + '">' +
+    '⇅ Shift' + (isFiltered ? ' ' + _wtShiftFilter : '') + '</button>';
 
   var legend =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">' +
@@ -3126,7 +3129,7 @@ function _renderWorkingTime() {
     legend +
     '<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">' +
     '<table style="border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;">' +
-    '<thead>' + theadRow1 + theadRow2 + '</thead>' +
+    '<thead>' + theadRow1 + (_wtShowShiftRow ? theadRow2 : '') + '</thead>' +
     '<tbody>' + tbodyRows + '</tbody>' +
     '</table></div>';
 }
