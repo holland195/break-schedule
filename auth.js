@@ -109,17 +109,20 @@ async function doLogin() {
     }
 
     currentUser  = user;
-    currentShift = _detectShiftFor(u);
     err.textContent = '';
 
     // ── Pull cloud data FIRST before checking mustChangePw ──
     // staffInfo.mustChangePassword comes from the cloud — must sync before checking
+    // Also needed so _detectShiftFor reads up-to-date staffSchedule (not stale localStorage)
     if (typeof syncEnabled === 'function' && syncEnabled()) {
       err.style.color = 'var(--text3)';
       err.textContent = '☁ Loading…';
       await syncPull();
       err.textContent = '';
     }
+
+    // Detect shift AFTER syncPull so staffSchedule is up-to-date
+    currentShift = _detectShiftFor(u);
 
      // Re-read mustChangePw AFTER syncPull — cloud value may have updated it
     const alreadyChanged = localStorage.getItem(`pw_changed_${u}`) === '1';
