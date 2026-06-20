@@ -3008,7 +3008,7 @@ function _renderWorkingTime() {
       '<th style="min-width:44px;padding:4px 2px;text-align:center;font-size:10px;font-weight:600;' +
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
       'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:1px solid var(--border);' +
+      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
       'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
