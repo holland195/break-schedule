@@ -180,3 +180,91 @@
 - GAS `syncSchedule`: `var userIdx` (not `const`) — reassigned after user creation
 - `runSyncSchedule()` is the standalone GAS wrapper; `dailySync()` is the production entry point
 - Firebase REST API returns `users` as object with numeric string keys — always normalize with loop before array methods
+
+---
+
+## New Features & Fixes (Session 5 — PRs #220–#233)
+
+### Month Overview Design (PR #220 — pages.js)
+- Removed dash separators between role-tier rows
+- Stronger tier band backgrounds (alternating rows)
+- Weekend column shading (`Sat`/`Sun` slightly dimmer)
+- Sticky header with box-shadow on scroll
+- Larger shift badges
+
+### Staff Attendance — Per-Day Shift Filter (PRs #221–#227 — pages.js)
+- Added ▼ arrow icon per date column header; click opens A/D/E picker for that day
+- Selecting a shift filters rows using `_getSched(u.username, _saShiftFilterDate) === _saShiftFilter`
+- All columns remain visible — only rows are filtered (NOT column collapse)
+- Module-level variable `_saShiftFilterDate` tracks which date's picker is open
+- `_saShiftFilter` tracks the active shift (or `'All'`)
+- Active filter shown as colored `● A` dot in the column header; clicking active button clears
+- `allDates` always = full month (no longer switches to 7-col week view on shift filter)
+- Table style stays `width:max-content;min-width:100%` in all modes
+- Month/year picker changes reset both `_saShiftFilterDate` and `_saShiftFilter`
+
+### Username/Password Login Fallback (PR #228 — index.html + auth.js)
+- Added "or use password" collapsible section below Google sign-in button
+- Hidden by default; toggle reveals username + password inputs
+- `doLogin()` uses `firebaseSignIn(_toEmail(u), p)` — same Firebase Auth, just email/password method
+- Allows testing without a Google account
+
+### Login Form Redesign (PR #229 — index.html)
+- Replaced browser-default white inputs with dark glass style
+- "or use password" divider: horizontal rules + muted toggle button
+- Inputs: `background:rgba(255,255,255,.06)`, `border:1px solid rgba(255,255,255,.12)`, blue glow on focus
+- Sign in button: `background:rgba(91,141,255,.18)` blue-tinted glass
+- Forgot password: muted `rgba(255,255,255,.3)` link
+
+### Bug — Null TypeError on Sign-in Button (PR #230 — index.html)
+- `doLogin()` calls `btn.disabled = true` where `btn = getElementById('signin-btn')`
+- Sign in button had no `id` → `btn` was null → TypeError on every login attempt
+- Fix: added `id="signin-btn"` to the button element
+
+### Show/Hide Password Toggle (PR #230 — index.html)
+- Wrapped `li-pass` input in a `position:relative` container
+- Eye icon button (SVG) positioned absolute at `right:10px`
+- Click toggles `input.type` between `password` and `text`
+- Icon switches: open eye (hidden) ↔ eye-with-slash (visible)
+- Initial eye icon color: `rgba(255,255,255,.35)` (later fixed, see below)
+
+### Bug — Eye Icon Invisible on Light Background (PR #231 — index.html)
+- Chrome autofill sets input background to white; `rgba(255,255,255,.35)` icon becomes invisible
+- Fix: changed icon color to `rgba(100,116,139,.9)` (slate-gray) — legible on both light and dark
+- Hover: `rgba(30,41,59,.95)` (near-black)
+
+### Bug — Shift Detects After syncPull (PR #231 — auth.js)
+- `_detectShiftFor(u)` was called before `syncPull()`, reading stale `state.staffSchedule` from localStorage
+- Fix: moved `currentShift = _detectShiftFor(u)` to after `await syncPull()` completes
+
+### Bug — Shift Defaults to E on Day-Off (PR #232 — auth.js)
+- `_detectShiftFor` only checked today; if today is a rest day (e.g. Saturday), `_getSched` returned `'0'` → fallback to `'E'`
+- Root cause: cuong.pham (Shift A leader) logs in on Saturday — no shift entry for Sat
+- Fix: scan forward up to 7 days from today; use first day with a non-zero shift code
+  ```js
+  for (var i = 0; i < 7; i++) {
+    d.setDate(base.getDate() + i);
+    var sch = _getSched(username, dk);
+    if (sch && sch !== '0') return _guardShift(sch);
+  }
+  return 'E';
+  ```
+
+### Feature — Google Profile Photo in Avatar (PR #233 — auth.js)
+- `doGoogleLogin()` stores `credential.user.photoURL` on `currentUser.photoURL` after sign-in
+- `enterApp()` checks `currentUser.photoURL` first; uses it as `<img src>` if set
+- Falls back to `avatar_cuong.png` (static file) for cuong.pham on username/password login
+- Falls back to role-colored initial for everyone else
+- `onerror` handler on `<img>` degrades to initial avatar if Google photo URL breaks
+
+---
+
+## Critical Invariants (additions from Session 5)
+
+- `doLogin()` button element MUST have `id="signin-btn"` — function reads it to toggle disabled state
+- Eye toggle uses slate-gray color (`rgba(100,116,139,.9)`) — NOT white — to be visible on autofill white backgrounds
+- `_detectShiftFor(username)` scans forward 7 days; never relies on just today
+- `currentShift = _detectShiftFor(u)` must come AFTER `await syncPull()` so schedule data is fresh
+- `currentUser.photoURL` is set only for Google logins; absent for username/password logins
+- `enterApp()` avatar priority: `photoURL` → `avatar_cuong.png` (cuong only) → role-colored initial
+
