@@ -61,14 +61,20 @@ function autoDetectShift() {
   }
 }
 
-// Detect a user's working shift for TODAY from the schedule.
-// Used by Google login + session restore so users never pick a shift manually.
+// Detect a user's working shift from their schedule.
+// Checks today first, then scans forward up to 6 days — so a leader whose
+// day off falls on today (e.g. Saturday) still gets their real shift (e.g. A).
 function _detectShiftFor(username) {
   try {
-    var d = new Date();
-    var dk = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
-    var sch = _getSched(username, dk);
-    return _guardShift(sch && sch !== '0' ? sch : 'E');
+    var base = new Date();
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(base);
+      d.setDate(base.getDate() + i);
+      var dk = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+      var sch = _getSched(username, dk);
+      if (sch && sch !== '0') return _guardShift(sch);
+    }
+    return 'E';
   } catch (e) {
     return 'E';
   }
