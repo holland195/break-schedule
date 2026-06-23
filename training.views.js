@@ -778,6 +778,9 @@ ${tabs}
 
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
   ${monthPicker}
+  <button onclick="exportMonthlyLogSpreadsheetCSV()" style="${selStyle}background:var(--bg2);color:var(--text);margin-left:auto;">
+    ⬇ Export CSV
+  </button>
 </div>
 
 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
