@@ -2998,22 +2998,10 @@ function _renderWorkingTime() {
       'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">NAME</th>' +
     '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
       'min-width:145px;width:145px;position:sticky;top:0;left:257px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>' +
-    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
-      'min-width:45px;width:45px;position:sticky;top:0;left:402px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:2px solid var(--border);" title="Total Late">LATE</th>' +
-    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
-      'min-width:45px;width:45px;position:sticky;top:0;left:447px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Early">EARLY</th>' +
-    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
-      'min-width:55px;width:55px;position:sticky;top:0;left:492px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Training">TRAIN</th>' +
-    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
-      'min-width:45px;width:45px;position:sticky;top:0;left:547px;z-index:4;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Others">OTHER</th>';
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);">POSITION</th>';
 
   var SH_COL = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
-  allDates.forEach(function(dk) {
+  allDates.forEach(function(dk, idx) {
     var dkParts = dk.split('/');
     var _d = dkParts[0]; var _m = dkParts[1];
     var _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
@@ -3047,13 +3035,26 @@ function _renderWorkingTime() {
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
       'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
       'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
-      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
+      'border-left:' + (idx === 0 ? '2px solid var(--border)' : isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
       '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
       arrowPart +
       '</th>';
   });
+  theadRow1 +=
+    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
+      'min-width:45px;width:45px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);border-left:2px solid var(--border);" title="Total Late">LATE</th>' +
+    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
+      'min-width:45px;width:45px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Early">EARLY</th>' +
+    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
+      'min-width:55px;width:55px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Training">TRAIN</th>' +
+    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
+      'min-width:45px;width:45px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
+      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Others">OTHER</th>';
   theadRow1 += '</tr>';
 
 
@@ -3070,7 +3071,7 @@ function _renderWorkingTime() {
       if (d.training) totalTraining += d.training;
       if (d.others) totalOthers += d.others;
     });
-    var cells = allDates.map(function(dk) {
+    var cells = allDates.map(function(dk, idx) {
       var dkParts = dk.split('/');
       var _dd = dkParts[0]; var _mm = dkParts[1];
       var _cy2 = (parseInt(_mm) === month) ? year : (month === 1 ? year - 1 : year);
@@ -3080,7 +3081,8 @@ function _renderWorkingTime() {
       var hasAny = wtDay.late || wtDay.early || wtDay.training || wtDay.others;
       var wkBg = isWknd2 ? 'background:var(--bg4);' : '';
       var safeName = (u.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      return '<td style="text-align:center;padding:3px 1px;cursor:pointer;' + (hasAny ? '' : wkBg) + '"' +
+      var cellBorder = idx === 0 ? 'border-left:2px solid var(--border);' : '';
+      return '<td style="text-align:center;padding:3px 1px;cursor:pointer;' + cellBorder + (hasAny ? '' : wkBg) + '"' +
         ' onclick="openWtModal(\'' + u.username + '\',\'' + monthKey + '\',\'' + dk + '\',\'' + safeName + '\')">' +
         (hasAny
           ? '<div style="display:flex;flex-direction:column;gap:1px;padding:2px 1px;">' +
@@ -3102,15 +3104,15 @@ function _renderWorkingTime() {
       '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);' +
         'font-size:11px;color:' + _roleColor(effRole) + ';">' +
         (getRoleInfo(effRole).label || _resolveRole(effRole) || '—') + '</td>' +
-      '<td style="padding:5px 4px;text-align:center;' + stickyCell + 'left:402px;min-width:45px;width:45px;border-left:2px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalLate > 0 ? CAT_LATE.color : 'var(--text3)') + ';">' + (totalLate || '—') + '</td>' +
-      '<td style="padding:5px 4px;text-align:center;' + stickyCell + 'left:447px;min-width:45px;width:45px;border-left:1px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalEarly > 0 ? CAT_EARLY.color : 'var(--text3)') + ';">' + (totalEarly || '—') + '</td>' +
-      '<td style="padding:5px 4px;text-align:center;' + stickyCell + 'left:492px;min-width:55px;width:55px;border-left:1px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalTraining > 0 ? CAT_TRAINING.color : 'var(--text3)') + ';">' + (totalTraining || '—') + '</td>' +
-      '<td style="padding:5px 4px;text-align:center;' + stickyCell + 'left:547px;min-width:45px;width:45px;border-left:1px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalOthers > 0 ? CAT_OTHERS.color : 'var(--text3)') + ';">' + (totalOthers || '—') + '</td>' +
       cells +
+      '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:2px solid var(--border);' +
+        'font-size:11px;font-weight:600;color:' + (totalLate > 0 ? CAT_LATE.color : 'var(--text3)') + ';">' + (totalLate || '—') + '</td>' +
+      '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:1px solid var(--border);' +
+        'font-size:11px;font-weight:600;color:' + (totalEarly > 0 ? CAT_EARLY.color : 'var(--text3)') + ';">' + (totalEarly || '—') + '</td>' +
+      '<td style="padding:5px 4px;text-align:center;min-width:55px;width:55px;border-left:1px solid var(--border);' +
+        'font-size:11px;font-weight:600;color:' + (totalTraining > 0 ? CAT_TRAINING.color : 'var(--text3)') + ';">' + (totalTraining || '—') + '</td>' +
+      '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:1px solid var(--border);' +
+        'font-size:11px;font-weight:600;color:' + (totalOthers > 0 ? CAT_OTHERS.color : 'var(--text3)') + ';">' + (totalOthers || '—') + '</td>' +
     '</tr>';
   }).join('');
 
