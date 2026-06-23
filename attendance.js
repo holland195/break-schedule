@@ -574,7 +574,7 @@ ${tabs}
       color:${attendanceConflictFilter ? 'var(--err)' : 'var(--text)'};">
     ⚠ Conflicts only${attendanceConflictFilter ? ' ✕' : ''}
   </button>
-  <button onclick="exportWeeklyLogCSV()"
+  <button onclick="attendanceLogView === 'month' ? exportMonthlyLogSpreadsheetCSV() : exportWeeklyLogCSV()"
     style="padding:4px 12px;border-radius:var(--r);font-size:12px;cursor:pointer;
       border:1px solid var(--border2);background:var(--bg2);color:var(--text);">
     ⬇ Export CSV
@@ -972,3 +972,218 @@ function exportWeeklyLogCSV() {
   _downloadCSV(filename, rows);
   toast('CSV exported', 'ok');
 }
+
+function exportMonthlyLogSpreadsheetCSV() {
+  var year, month;
+  var isTrain = typeof currentUser !== 'undefined' && isTraining(currentUser);
+
+  if (isTrain) {
+    year = window._tState.attYear || new Date().getFullYear();
+    month = window._tState.attMonth || (new Date().getMonth() + 1);
+  } else {
+    year = _attLogYear || new Date().getFullYear();
+    month = _attLogMonth || (new Date().getMonth() + 1);
+  }
+
+  var lastDay = new Date(year, month, 0).getDate();
+  var dates = [];
+  for (var _di = 1; _di <= lastDay; _di++) {
+    dates.push(String(_di).padStart(2, '0') + '/' + String(month).padStart(2, '0'));
+  }
+
+  // Same filtering as renderAttendanceTraining / renderAttendance
+  var allUsers = state.users.filter(function(u) {
+    var _r = u.role || (state.staffInfo[u.username] || {}).role || '';
+    var _rr = _resolveRole(_r) || _r;
+    return (ROLES[_rr] || {}).level < 2; // analyst-tier
+  }).map(function(u) {
+    var sc = {};
+    dates.forEach(function(dk) {
+      var s = _getSched(u.username, dk);
+      if (s && s !== '0' && SHIFT_DEFAULTS[s]) {
+        sc[s.charAt(0)] = (sc[s.charAt(0)] || 0) + 1;
+      }
+    });
+    var ps = Object.entries(sc).sort(function(a, b) { return b[1] - a[1]; })[0]?.[0] || '?';
+    return Object.assign({}, u, { _primaryShift: ps });
+  }).filter(function(u) {
+    return u._primaryShift !== '?';
+  });
+
+  var shF = isTrain ? (window._tState.shiftFilter || 'all') : currentShift;
+  var searchQ = isTrain ? (window._tState.search || '').toLowerCase() : '';
+
+  var visUsers = allUsers.filter(function(u) {
+    if (shF !== 'all' && u._primaryShift !== shF) return false;
+    if (searchQ && !(u.name || '').toLowerCase().includes(searchQ)) return false;
+    return true;
+  }).sort(function(a, b) {
+    var so = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+    return (so[a._primaryShift] !== undefined ? so[a._primaryShift] : 9) - (so[b._primaryShift] !== undefined ? so[b._primaryShift] : 9) || (a.name || '').localeCompare(b.name || '');
+  });
+
+  // Build the 4-row header
+  var row1 = ['', 'Employee Number', 'Name', 'Username', 'Position'];
+  var row2 = ['', '', '', '', ''];
+  var row3 = ['No', '', '', '', ''];
+  var row4 = ['', '', '', '', ''];
+
+  var WDAY_FULL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  dates.forEach(function(dk) {
+    var parts = dk.split('/');
+    var d = parts[0];
+    var m = parts[1];
+    var dow = new Date(year, parseInt(m) - 1, parseInt(d)).getDay();
+    
+    row1.push(parseInt(m) + '/' + parseInt(d), '', '', '');
+    row2.push(WDAY_FULL[dow], '', '', '');
+    row3.push('', '', '', '');
+    row4.push('Start', 'Late', 'End', 'Early');
+  });
+
+  row1.push('Total', '', '', '');
+  row2.push('Start', '', 'End', '');
+  row3.push('Late', 'Early', 'Early', 'Late');
+  row4.push('in', 'in', 'out', 'out');
+
+  var rows = [row1, row2, row3, row4];
+
+  function parseToSeconds(str) {
+    if (!str) return null;
+    var s = str.trim();
+    var ampm = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i);
+    if (ampm) {
+      var h = parseInt(ampm[1]);
+      var m = parseInt(ampm[2]);
+      var sec = ampm[3] ? parseInt(ampm[3]) : 0;
+      var period = ampm[4].toUpperCase();
+      if (period === 'AM' && h === 12) h = 0;
+      if (period === 'PM' && h !== 12) h += 12;
+      return h * 3600 + m * 60 + sec;
+    }
+    var h24 = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (h24) {
+      var h = parseInt(h24[1]);
+      var m = parseInt(h24[2]);
+      var sec = h24[3] ? parseInt(h24[3]) : 0;
+      return h * 3600 + m * 60 + sec;
+    }
+    return null;
+  }
+
+  function formatSeconds(totalSec) {
+    if (!totalSec || totalSec <= 0) return '';
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
+    var sec = (totalSec % 60).toString().padStart(2, '0');
+    return h + ':' + m + ':' + sec;
+  }
+
+  function formatTotalSeconds(totalSec) {
+    if (!totalSec || totalSec <= 0) return '0:00:00';
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
+    var sec = (totalSec % 60).toString().padStart(2, '0');
+    return h + ':' + m + ':' + sec;
+  }
+
+  visUsers.forEach(function(u, index) {
+    var userRow = [
+      index + 1,
+      u.empNo || '',
+      u.name,
+      u.username,
+      getRoleInfo(u.role).label || _resolveRole(u.role) || ''
+    ];
+
+    var totalLateIn = 0;
+    var totalEarlyIn = 0;
+    var totalEarlyOut = 0;
+    var totalLateOut = 0;
+
+    dates.forEach(function(dk) {
+      var shift = _getSched(u.username, dk);
+      if (!shift || shift === '0' || !SHIFT_DEFAULTS[shift]) {
+        userRow.push('', '', '', '');
+        return;
+      }
+
+      var rec = DB.getLogbook(u.id, dk) || {};
+      
+      // Calculate effective shift defaults (with half-day override)
+      var _shiftCode = String(shift).trim().toUpperCase();
+      var _def = SHIFT_DEFAULTS[_shiftCode];
+      var _parts = dk.split('/');
+      var _mk = year + '-' + _parts[1].padStart(2, '0');
+      var _hCode = (state.monthlyAttendance && state.monthlyAttendance[u.username] && state.monthlyAttendance[u.username][_mk])
+        ? state.monthlyAttendance[u.username][_mk][dk] : null;
+      var _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
+      if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
+        var _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
+        var _hdDef = SHIFT_DEFAULTS[_hdKey];
+        if (_hdDef) _def = _hdDef;
+      }
+
+      var dayLateIn = 0;
+      var dayEarlyIn = 0;
+      var dayEarlyOut = 0;
+      var dayLateOut = 0;
+
+      var actualStart = parseToSeconds(rec.start);
+      var defStart = parseToSeconds(_def.start);
+      if (actualStart !== null && defStart !== null) {
+        var diffStart = actualStart - defStart;
+        if (Math.abs(diffStart) > 43200) {
+          diffStart = diffStart > 0 ? diffStart - 86400 : diffStart + 86400;
+        }
+        if (diffStart > 60) {
+          dayLateIn = diffStart;
+          totalLateIn += diffStart;
+        } else if (diffStart < -60) {
+          dayEarlyIn = -diffStart;
+          totalEarlyIn += (-diffStart);
+        }
+      }
+
+      var actualEnd = parseToSeconds(rec.end);
+      var defEnd = parseToSeconds(_def.end);
+      if (actualEnd !== null && defEnd !== null) {
+        var diffEnd = actualEnd - defEnd;
+        if (Math.abs(diffEnd) > 43200) {
+          diffEnd = diffEnd > 0 ? diffEnd - 86400 : diffEnd + 86400;
+        }
+        if (diffEnd < -60) {
+          dayEarlyOut = -diffEnd;
+          totalEarlyOut += (-diffEnd);
+        } else if (diffEnd > 60) {
+          dayLateOut = diffEnd;
+          totalLateOut += diffEnd;
+        }
+      }
+
+      userRow.push(
+        rec.start || '',
+        dayLateIn > 0 ? formatSeconds(dayLateIn) : '',
+        rec.end || '',
+        dayEarlyOut > 0 ? formatSeconds(dayEarlyOut) : ''
+      );
+    });
+
+    userRow.push(
+      formatTotalSeconds(totalLateIn),
+      formatTotalSeconds(totalEarlyIn),
+      formatTotalSeconds(totalEarlyOut),
+      formatTotalSeconds(totalLateOut)
+    );
+
+    rows.push(userRow);
+  });
+
+  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var filename = 'Monthly_Log_' + shF + '_' + monthNames[month - 1] + '_' + year + '.csv';
+
+  _downloadCSV(filename, rows);
+  toast('CSV exported', 'ok');
+}
+
