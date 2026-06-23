@@ -3371,7 +3371,14 @@ function openAttCellModal(username, monthKey, dk) {
   var uObj = state.users.find(function(x) { return x.username === username; });
   var uName = uObj ? uObj.name : username;
   document.getElementById('att-cell-modal-title').textContent = 'Edit ' + dk + ' — ' + uName;
-  var allCodes = ['XA','XD','XE','A1','A2','D1','D2','E1','E2','A','H','0','U','S','L'];
+  var allCodes = [
+    'XA','XD','XE','0',
+    'A1','A2','UA1','UA2',
+    'D1','D2','UD1','UD2',
+    'E1','E2','UE1','UE2',
+    'A','H','U','S',
+    'L'
+  ];
   var grid = document.getElementById('att-cell-code-grid');
   grid.innerHTML = allCodes.map(function(c) {
     var isActive = c === existing;
