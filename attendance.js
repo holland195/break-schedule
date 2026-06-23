@@ -574,6 +574,11 @@ ${tabs}
       color:${attendanceConflictFilter ? 'var(--err)' : 'var(--text)'};">
     ⚠ Conflicts only${attendanceConflictFilter ? ' ✕' : ''}
   </button>
+  <button onclick="exportWeeklyLogCSV()"
+    style="padding:4px 12px;border-radius:var(--r);font-size:12px;cursor:pointer;
+      border:1px solid var(--border2);background:var(--bg2);color:var(--text);">
+    ⬇ Export CSV
+  </button>
 </div>
 
 <!-- Legend -->
@@ -873,4 +878,97 @@ function renderAttendanceWidget() {
       </div>
       ${earlyHTML}` : ''}
     ${isLeader(currentUser) ? `<div style="margin-top:8px;"><a href="#" onclick="nav('attendance');return false;" style="font-size:11px;color:var(--accent);">View full attendance →</a></div>` : ''}`;
+}
+
+function exportWeeklyLogCSV() {
+  var weekDates = _getAttendanceWeek();
+  var displayDates;
+  if (attendanceLogView === 'month') {
+    var _calDates = [];
+    var _calDays = new Date(_attLogYear, _attLogMonth, 0).getDate();
+    for (var _di = 1; _di <= _calDays; _di++) {
+      _calDates.push(String(_di).padStart(2, '0') + '/' + String(_attLogMonth).padStart(2, '0'));
+    }
+    displayDates = _calDates;
+  } else {
+    displayDates = weekDates;
+  }
+
+  // Same user filtering as renderAttendance()
+  var shiftUsers = state.users.filter(function(u) {
+    var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
+    if (!_role) return false;
+    if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
+    return displayDates.some(function(dk) {
+      var _s = _getUserShiftOnDate(u, dk);
+      return _s && _s === currentShift;
+    });
+  });
+
+  var displayUsers = attendanceConflictFilter
+    ? shiftUsers.filter(function(u) { return _getLogbookConflicts(u.id, displayDates).length > 0; })
+    : shiftUsers;
+
+  var rows = [
+    [
+      'Name',
+      'Username',
+      'Team',
+      'Role',
+      'Date',
+      'Shift',
+      'Login Time',
+      'Logout Time',
+      'Late (min)',
+      'Early Out (min)',
+      'Note',
+      'Total Late Days',
+      'Total Early Days'
+    ]
+  ];
+
+  displayUsers.forEach(function(u) {
+    var lateDays = 0;
+    var earlyDays = 0;
+    displayDates.forEach(function(dk) {
+      var _le = calcLateEarly(u.id, dk);
+      if (_le.lateMin > 0) lateDays++;
+      if (_le.earlyMin > 0) earlyDays++;
+    });
+
+    displayDates.forEach(function(dk) {
+      var shift = _getUserShiftOnDate(u, dk);
+      if (!shift || !shift.startsWith(currentShift.charAt(0))) {
+        return;
+      }
+      var rec = DB.getLogbook(u.id, dk) || {};
+      var _le2 = calcLateEarly(u.id, dk);
+      var roleInfo = getRoleInfo(u.role);
+      
+      rows.push([
+        u.name,
+        u.username,
+        u.team || '',
+        roleInfo.label || '',
+        dk,
+        shift,
+        rec.start || '',
+        rec.end || '',
+        _le2.lateMin > 0 ? _le2.lateMin : '',
+        _le2.earlyMin > 0 ? _le2.earlyMin : '',
+        rec.note || '',
+        lateDays,
+        earlyDays
+      ]);
+    });
+  });
+
+  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var viewLabel = attendanceLogView === 'month' 
+    ? monthNames[_attLogMonth - 1] + '_' + _attLogYear
+    : 'Week_' + weekDates[0].replace('/', '-');
+  var filename = 'Logbook_' + currentShift + '_' + viewLabel + '.csv';
+
+  _downloadCSV(filename, rows);
+  toast('CSV exported', 'ok');
 }
