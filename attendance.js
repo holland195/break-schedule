@@ -882,17 +882,7 @@ function renderAttendanceWidget() {
 
 function exportWeeklyLogCSV() {
   var weekDates = _getAttendanceWeek();
-  var displayDates;
-  if (attendanceLogView === 'month') {
-    var _calDates = [];
-    var _calDays = new Date(_attLogYear, _attLogMonth, 0).getDate();
-    for (var _di = 1; _di <= _calDays; _di++) {
-      _calDates.push(String(_di).padStart(2, '0') + '/' + String(_attLogMonth).padStart(2, '0'));
-    }
-    displayDates = _calDates;
-  } else {
-    displayDates = weekDates;
-  }
+  var displayDates = weekDates;
 
   // Same user filtering as renderAttendance()
   var shiftUsers = state.users.filter(function(u) {
@@ -909,65 +899,172 @@ function exportWeeklyLogCSV() {
     ? shiftUsers.filter(function(u) { return _getLogbookConflicts(u.id, displayDates).length > 0; })
     : shiftUsers;
 
-  var rows = [
-    [
-      'Name',
-      'Username',
-      'Team',
-      'Role',
-      'Date',
-      'Shift',
-      'Login Time',
-      'Logout Time',
-      'Late (min)',
-      'Early Out (min)',
-      'Note',
-      'Total Late Days',
-      'Total Early Days'
-    ]
-  ];
+  var year = new Date().getFullYear();
 
-  displayUsers.forEach(function(u) {
-    var lateDays = 0;
-    var earlyDays = 0;
-    displayDates.forEach(function(dk) {
-      var _le = calcLateEarly(u.id, dk);
-      if (_le.lateMin > 0) lateDays++;
-      if (_le.earlyMin > 0) earlyDays++;
-    });
+  // Build the 4-row header
+  var row1 = ['', 'Employee Number', 'Name', 'Username', 'Position'];
+  var row2 = ['', '', '', '', ''];
+  var row3 = ['No', '', '', '', ''];
+  var row4 = ['', '', '', '', ''];
+
+  var WDAY_FULL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  displayDates.forEach(function(dk) {
+    var parts = dk.split('/');
+    var d = parts[0];
+    var m = parts[1];
+    var dow = new Date(year, parseInt(m) - 1, parseInt(d)).getDay();
+    
+    row1.push(parseInt(m) + '/' + parseInt(d), '', '', '');
+    row2.push(WDAY_FULL[dow], '', '', '');
+    row3.push('', '', '', '');
+    row4.push('Start', 'Late', 'End', 'Early');
+  });
+
+  row1.push('Total', '', '', '');
+  row2.push('Start', '', 'End', '');
+  row3.push('Late', 'Early', 'Early', 'Late');
+  row4.push('in', 'in', 'out', 'out');
+
+  var rows = [row1, row2, row3, row4];
+
+  function parseToSeconds(str) {
+    if (!str) return null;
+    var s = str.trim();
+    var ampm = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i);
+    if (ampm) {
+      var h = parseInt(ampm[1]);
+      var m = parseInt(ampm[2]);
+      var sec = ampm[3] ? parseInt(ampm[3]) : 0;
+      var period = ampm[4].toUpperCase();
+      if (period === 'AM' && h === 12) h = 0;
+      if (period === 'PM' && h !== 12) h += 12;
+      return h * 3600 + m * 60 + sec;
+    }
+    var h24 = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (h24) {
+      var h = parseInt(h24[1]);
+      var m = parseInt(h24[2]);
+      var sec = h24[3] ? parseInt(h24[3]) : 0;
+      return h * 3600 + m * 60 + sec;
+    }
+    return null;
+  }
+
+  function formatSeconds(totalSec) {
+    if (!totalSec || totalSec <= 0) return '';
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
+    var sec = (totalSec % 60).toString().padStart(2, '0');
+    return h + ':' + m + ':' + sec;
+  }
+
+  function formatTotalSeconds(totalSec) {
+    if (!totalSec || totalSec <= 0) return '0:00:00';
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
+    var sec = (totalSec % 60).toString().padStart(2, '0');
+    return h + ':' + m + ':' + sec;
+  }
+
+  displayUsers.forEach(function(u, index) {
+    var userRow = [
+      index + 1,
+      u.empNo || '',
+      u.name,
+      u.username,
+      getRoleInfo(u.role).label || _resolveRole(u.role) || ''
+    ];
+
+    var totalLateIn = 0;
+    var totalEarlyIn = 0;
+    var totalEarlyOut = 0;
+    var totalLateOut = 0;
 
     displayDates.forEach(function(dk) {
       var shift = _getUserShiftOnDate(u, dk);
       if (!shift || !shift.startsWith(currentShift.charAt(0))) {
+        userRow.push('', '', '', '');
         return;
       }
+
       var rec = DB.getLogbook(u.id, dk) || {};
-      var _le2 = calcLateEarly(u.id, dk);
-      var roleInfo = getRoleInfo(u.role);
       
-      rows.push([
-        u.name,
-        u.username,
-        u.team || '',
-        roleInfo.label || '',
-        dk,
-        shift,
+      // Calculate effective shift defaults (with half-day override)
+      var _shiftCode = String(shift).trim().toUpperCase();
+      var _def = SHIFT_DEFAULTS[_shiftCode];
+      if (!_def) {
+        userRow.push('', '', '', '');
+        return;
+      }
+
+      var _parts = dk.split('/');
+      var _mk = year + '-' + _parts[1].padStart(2, '0');
+      var _hCode = (state.monthlyAttendance && state.monthlyAttendance[u.username] && state.monthlyAttendance[u.username][_mk])
+        ? state.monthlyAttendance[u.username][_mk][dk] : null;
+      var _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
+      if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
+        var _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
+        var _hdDef = SHIFT_DEFAULTS[_hdKey];
+        if (_hdDef) _def = _hdDef;
+      }
+
+      var dayLateIn = 0;
+      var dayEarlyIn = 0;
+      var dayEarlyOut = 0;
+      var dayLateOut = 0;
+
+      var actualStart = parseToSeconds(rec.start);
+      var defStart = parseToSeconds(_def.start);
+      if (actualStart !== null && defStart !== null) {
+        var diffStart = actualStart - defStart;
+        if (Math.abs(diffStart) > 43200) {
+          diffStart = diffStart > 0 ? diffStart - 86400 : diffStart + 86400;
+        }
+        if (diffStart > 60) {
+          dayLateIn = diffStart;
+          totalLateIn += diffStart;
+        } else if (diffStart < -60) {
+          dayEarlyIn = -diffStart;
+          totalEarlyIn += (-diffStart);
+        }
+      }
+
+      var actualEnd = parseToSeconds(rec.end);
+      var defEnd = parseToSeconds(_def.end);
+      if (actualEnd !== null && defEnd !== null) {
+        var diffEnd = actualEnd - defEnd;
+        if (Math.abs(diffEnd) > 43200) {
+          diffEnd = diffEnd > 0 ? diffEnd - 86400 : diffEnd + 86400;
+        }
+        if (diffEnd < -60) {
+          dayEarlyOut = -diffEnd;
+          totalEarlyOut += (-diffEnd);
+        } else if (diffEnd > 60) {
+          dayLateOut = diffEnd;
+          totalLateOut += diffEnd;
+        }
+      }
+
+      userRow.push(
         rec.start || '',
+        dayLateIn > 0 ? formatSeconds(dayLateIn) : '',
         rec.end || '',
-        _le2.lateMin > 0 ? _le2.lateMin : '',
-        _le2.earlyMin > 0 ? _le2.earlyMin : '',
-        rec.note || '',
-        lateDays,
-        earlyDays
-      ]);
+        dayEarlyOut > 0 ? formatSeconds(dayEarlyOut) : ''
+      );
     });
+
+    userRow.push(
+      formatTotalSeconds(totalLateIn),
+      formatTotalSeconds(totalEarlyIn),
+      formatTotalSeconds(totalEarlyOut),
+      formatTotalSeconds(totalLateOut)
+    );
+
+    rows.push(userRow);
   });
 
-  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var viewLabel = attendanceLogView === 'month' 
-    ? monthNames[_attLogMonth - 1] + '_' + _attLogYear
-    : 'Week_' + weekDates[0].replace('/', '-');
-  var filename = 'Logbook_' + currentShift + '_' + viewLabel + '.csv';
+  var filename = 'Logbook_' + currentShift + '_Week_' + weekDates[0].replace('/', '-') + '.csv';
 
   _downloadCSV(filename, rows);
   toast('CSV exported', 'ok');

@@ -443,7 +443,12 @@ function exportUserReport(uid, month, year) {
     if (!shift || shift === '0') return;
     const rec = DB.getLogbook(uid, dk) || {};
     const { lateMin, earlyMin } = calcLateEarly(uid, dk);
-    rows.push([dk, getWkDay(dk), shift, rec.start||'', rec.end||'', lateMin||0, earlyMin||0, rec.note||'']);
+    const dateObj = _dateKeyToDate(dk, year);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    const dateIso = `${yyyy}-${mm}-${dd}`;
+    rows.push([dateIso, getWkDay(dk), shift, rec.start||'', rec.end||'', lateMin||0, earlyMin||0, rec.note||'']);
   });
   _downloadCSV(`${u.username}_${month}_${year}.csv`, rows);
   toast(`Exported ${u.name}`, 'ok');
