@@ -559,12 +559,16 @@ function getWkDay(ds) {
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(2026,parseInt(m)-1,parseInt(d)).getDay()];
 }
 // AFTER — return Sun–Sat:
-function getWeekDates() {
-  const now = new Date();
-  const sun = new Date(now);
-  sun.setDate(now.getDate() - now.getDay()); // go back to Sunday
-  return WEEK_DAYS.map((_, i) => {
-    const dt = new Date(sun);
+function getWeekDates(refDateStr) {
+  var baseDate = new Date();
+  if (refDateStr) {
+    var parts = refDateStr.split('/').map(Number);
+    baseDate = new Date(2026, parts[1] - 1, parts[0]);
+  }
+  const sun = new Date(baseDate);
+  sun.setDate(baseDate.getDate() - baseDate.getDay()); // go back to Sunday
+  return WEEK_DAYS.map(function(_, i) {
+    var dt = new Date(sun);
     dt.setDate(sun.getDate() + i);
     return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}`;
   });
