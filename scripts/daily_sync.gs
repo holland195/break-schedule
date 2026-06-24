@@ -725,18 +725,29 @@ function findUsername(data, nameVal, empNo) {
 // ═══════════════════════════════════════════════
 
 function firebaseGet() {
-  const url = FIREBASE_URL + '?auth=' + FIREBASE_SECRET;
+  const isFirebase = FIREBASE_URL.indexOf('firebasedatabase.app') >= 0 || FIREBASE_URL.indexOf('firebaseio.com') >= 0;
+  
+  let url = FIREBASE_URL;
+  let headers = {};
+  
+  if (isFirebase) {
+    url = FIREBASE_URL + '?auth=' + FIREBASE_SECRET;
+  } else {
+    headers["X-API-Key"] = FIREBASE_SECRET;
+  }
+
   const res = UrlFetchApp.fetch(url, {
     method:             'GET',
+    headers:            headers,
     muteHttpExceptions: true
   });
 
   const code = res.getResponseCode();
   if (code === 401 || code === 403) {
-    throw new Error('Firebase auth failed (HTTP ' + code + '). Check FIREBASE_SECRET.');
+    throw new Error('Database auth failed (HTTP ' + code + '). Check credentials.');
   }
   if (code !== 200) {
-    throw new Error('Firebase GET failed (HTTP ' + code + '): ' + res.getContentText().substring(0, 200));
+    throw new Error('Database GET failed (HTTP ' + code + '): ' + res.getContentText().substring(0, 200));
   }
 
   const wrapper = JSON.parse(res.getContentText());
@@ -755,20 +766,32 @@ function firebasePut(jsonStr) {
   if (wrapper && wrapper.data) {
     wrapper.data = LZString.compressToUTF16(wrapper.data);
   }
-  const url = FIREBASE_URL + '?auth=' + FIREBASE_SECRET;
+
+  const isFirebase = FIREBASE_URL.indexOf('firebasedatabase.app') >= 0 || FIREBASE_URL.indexOf('firebaseio.com') >= 0;
+  
+  let url = FIREBASE_URL;
+  let headers = { 'Content-Type': 'application/json' };
+  
+  if (isFirebase) {
+    url = FIREBASE_URL + '?auth=' + FIREBASE_SECRET;
+  } else {
+    headers["X-API-Key"] = FIREBASE_SECRET;
+  }
+
   const res = UrlFetchApp.fetch(url, {
     method:             'PUT',
     contentType:        'application/json',
+    headers:            headers,
     payload:            JSON.stringify(wrapper),
     muteHttpExceptions: true
   });
 
   const code = res.getResponseCode();
   if (code === 401 || code === 403) {
-    throw new Error('Firebase auth failed on PUT (HTTP ' + code + '). Check FIREBASE_SECRET.');
+    throw new Error('Database auth failed on PUT (HTTP ' + code + '). Check credentials.');
   }
   if (code !== 200) {
-    throw new Error('Firebase PUT failed (HTTP ' + code + '): ' + res.getContentText().substring(0, 200));
+    throw new Error('Database PUT failed (HTTP ' + code + '): ' + res.getContentText().substring(0, 200));
   }
 }
 
