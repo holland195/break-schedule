@@ -245,7 +245,15 @@ function renderReport(hideHeader = false) {
   const dates = _getAllDatesInMonth(year, month);
   const monthLabel = new Date(year, month-1, 1).toLocaleString('en-US', {month:'long', year:'numeric'});
  
-  const trackable = state.users.filter(u => (ROLES[_resolveRole(u.role)]?.level || 0) <= 1);
+  const isJulyOnward = (year > 2026) || (year === 2026 && month >= 7);
+  const trackable = state.users.filter(u => {
+    if ((ROLES[_resolveRole(u.role)]?.level || 0) > 1) return false;
+    if (isJulyOnward) {
+      var emp = (u.empNo || ((state.staffInfo[u.username]||{}).empNo) || '').trim().toUpperCase();
+      if (emp.indexOf('AG') === 0) return false;
+    }
+    return true;
+  });
  
   const stats = trackable.map(u => ({
     u,

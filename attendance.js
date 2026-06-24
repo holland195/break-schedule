@@ -357,6 +357,19 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
     var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
     if (!_role) return false;
     if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
+
+    // Exclude users with old Empno starting with 'AG' from July 2026 onward
+    var emp = (u.empNo || ((state.staffInfo[u.username]||{}).empNo) || '').trim().toUpperCase();
+    if (emp.indexOf('AG') === 0) {
+      var hasJulyOnward = displayDates.some(function(dk) {
+        var m = parseInt(dk.split('/')[1], 10);
+        var y = new Date().getFullYear();
+        var yr = (attendanceLogView === 'month') ? _attLogYear : y;
+        return (yr > 2026) || (yr === 2026 && m >= 7);
+      });
+      if (hasJulyOnward) return false;
+    }
+
     return displayDates.some(function(dk) {
       var _s = _getUserShiftOnDate(u, dk);
       return _s && _s === currentShift;

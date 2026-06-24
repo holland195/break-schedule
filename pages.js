@@ -130,7 +130,9 @@ const ROLE_SORT_ORDER = {
   'Training Manager':         0,
   'Training Assistant':       1,
   'Data Analyst Leader':      2,
+  'Leader':                   2,
   'Data Analyst Supervisor':  3,
+  'Supervisor':               3,
   'Sr Data Supervisor':       4,
   'Data Supervisor':          5,
   'Sr Data Analyst':          6,
@@ -2972,6 +2974,7 @@ function _renderWorkingTime() {
     if (u.username && allUsernames.indexOf(u.username) === -1) allUsernames.push(u.username);
   });
 
+  var isJulyOnward = (year > 2026) || (year === 2026 && month >= 7);
   var allWtUsers = allUsernames.map(function(uname) {
     var si = state.staffInfo[uname] || {};
     var fu = state.users.find(function(u) { return u.username === uname; });
@@ -2981,6 +2984,7 @@ function _renderWorkingTime() {
     // Exclude training (3), admin (4)
     if (lvl >= 3) return null;
     var empNo = (fu && fu.empNo) || si.empNo || _wtPcEmpNo[uname] || '';
+    if (isJulyOnward && empNo && empNo.trim().toUpperCase().indexOf('AG') === 0) return null;
     var name  = (fu && fu.name)  || si.name  || uname;
     var team  = (fu && fu.team)  || si.team  || '';
     return { username: uname, name: name, role: role, team: team, empNo: empNo, id: fu ? fu.id : null };
@@ -3578,13 +3582,22 @@ function _renderStaffAttendance() {
     if (r === 'data analyst' || r === 'agent') return 7;
     return 8;
   };
-  const rowUsers = attUsernames.map(uname => {
-    const si = state.staffInfo?.[uname];
-    const siEmpNo = (si && si.empNo) || _pcEmpNo[uname] || '';
-    const fu = state.users.find(u => u.username === uname);
+  var isJulyOnward = (year > 2026) || (year === 2026 && month >= 7);
+  var rowUsers = attUsernames.map(function(uname) {
+    var si = state.staffInfo?.[uname];
+    var siEmpNo = (si && si.empNo) || _pcEmpNo[uname] || '';
+    var fu = state.users.find(function(u) { return u.username === uname; });
     if (fu) return Object.assign({}, fu, { empNo: fu.empNo || siEmpNo });
     return si ? { username: uname, name: si.name || uname, role: si.role || '', team: si.team || '', empNo: siEmpNo, id: null } : null;
-  }).filter(Boolean).sort((a, b) => _roleSort(a, b));
+  }).filter(Boolean);
+
+  if (isJulyOnward) {
+    rowUsers = rowUsers.filter(function(u) {
+      var emp = (u.empNo || '').trim().toUpperCase();
+      return !emp.startsWith('AG');
+    });
+  }
+  rowUsers.sort(function(a, b) { return _roleSort(a, b); });
 
   // Pre-compute conflicts per user (needed for filter + total count)
   const _preConflicts = {};
@@ -4024,7 +4037,8 @@ function renderStaffRows(users, displayDates) {
 
 var _STAFF_SORT_RANK = {
   'Training Manager':1,'Training Assistant':2,
-  'Data Analyst Leader':3,'Data Analyst Supervisor':4,
+  'Data Analyst Leader':3,'Leader':3,
+  'Data Analyst Supervisor':4,'Supervisor':4,
   'Sr Data Supervisor':5,'Data Supervisor':6,
   'Sr Data Analyst':7,'Data Analyst':8
 };
@@ -4046,6 +4060,12 @@ function _sortStaffUsers(users) {
     var _r = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return !!_resolveRole(_r);
   }).sort(function(a, b) {
+    var aRole = a.role || (state.staffInfo[a.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
+    var bRole = b.role || (state.staffInfo[b.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
+    var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
+    var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
+    if (aRnk !== bRnk) return aRnk - bRnk;
+
     var teamA = a.team || '';
     var teamB = b.team || '';
     var rA = getTeamRank(teamA);
@@ -4059,12 +4079,6 @@ function _sortStaffUsers(users) {
     if (numA !== numB) return numA - numB;
 
     if (teamA !== teamB) return teamA.localeCompare(teamB);
-
-    var aRole = a.role || (state.staffInfo[a.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
-    var bRole = b.role || (state.staffInfo[b.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
-    var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
-    var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
-    if (aRnk !== bRnk) return aRnk - bRnk;
 
     return (a.name||'').localeCompare(b.name||'');
   });
@@ -4396,6 +4410,8 @@ var _POS_MAP = {
   'training assistant':      'Agent Training Assistant',
   'data analyst leader':     'Data Analyst Leader',
   'data analyst supervisor': 'Data Analyst Supervisor',
+  'leader':                  'Data Analyst Leader',
+  'supervisor':              'Data Analyst Supervisor',
   'sr data supervisor':      'Sr Data Supervisor',
   'sr data analyst':         'Sr Data Analyst',
   'data supervisor':         'Data Supervisor',
