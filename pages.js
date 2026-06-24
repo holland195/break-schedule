@@ -423,8 +423,9 @@ function renderSchedule() {
     return _getSched(u.username, dateKey);
   }
 
-  // All users who work this shift at least once this month (exclude lead/sub/training)
+  // All users who work this shift at least once this month (exclude lead/sub/training/viewers)
   var allShiftUsers = state.users.filter(function(u) {
+    if (u.username === 'tuan.mai' || u.username === 'nhon.bui') return false;
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
     var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
     if (_ul >= 2) return false;
@@ -2788,6 +2789,7 @@ function _renderStaffSchedule() {
 
   var _currTrn = isTraining(currentUser);
   const filteredUsers = state.users.filter(u => {
+    if (u.username === 'tuan.mai' || u.username === 'nhon.bui') return false;
     var _effR    = u.role || (state.staffInfo[u.username]||{}).role || '';
     var _roleStr = (_resolveRole(_effR) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
@@ -3544,9 +3546,12 @@ function _renderStaffAttendance() {
       '</th>';
   }).join('');
 
-  // Build list of usernames from both active roster (state.users) and historical attData
-  var _activeUsernames = (state.users || []).map(function(u) { return u.username; });
+  // Build list of usernames from both active roster (state.users) and historical attData (excluding viewers)
+  var _activeUsernames = (state.users || [])
+    .filter(function(u) { return u.username !== 'tuan.mai' && u.username !== 'nhon.bui'; })
+    .map(function(u) { return u.username; });
   var _historicalUsernames = Object.keys(attData).filter(function(uname) {
+    if (uname === 'tuan.mai' || uname === 'nhon.bui') return false;
     var ud = attData[uname]?.[monthKey];
     return ud && Object.keys(ud).length > 0;
   });
