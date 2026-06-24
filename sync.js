@@ -334,10 +334,7 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
 
   // staffSchedule: remote always wins (GAS is authoritative)
   if (remote.staffSchedule && typeof remote.staffSchedule === 'object') {
-    if (!state.staffSchedule) state.staffSchedule = {};
-    Object.keys(remote.staffSchedule).forEach(function(uname) {
-      state.staffSchedule[uname] = remote.staffSchedule[uname] || {};
-    });
+    state.staffSchedule = remote.staffSchedule;
   }
   // Migration shim: copy old u.schedule from remote users into staffSchedule
   if (remote.users && Array.isArray(remote.users)) {
@@ -348,6 +345,38 @@ if (remote.policyCompliance && remote.policyCompliance.length > 0) {
         Object.keys(u.schedule).forEach(function(k) {
           if (!state.staffSchedule[u.username][k]) state.staffSchedule[u.username][k] = u.schedule[k];
         });
+      }
+    });
+  }
+
+  // Self-healing: Prune any corrupted usernames from state
+  const isCorruptedUsername = function(uname) {
+    if (!uname) return true;
+    uname = String(uname).trim();
+    if (uname.indexOf(' ') !== -1) return true;
+    if (/[A-Z]/.test(uname)) return true;
+    if (/[^\x00-\x7F]/.test(uname)) return true;
+    if (uname === 'start' || uname === 'agent' || uname === 'qa') return true;
+    if (uname.indexOf(':') !== -1) return true;
+    return false;
+  };
+
+  if (state.users && Array.isArray(state.users)) {
+    state.users = state.users.filter(function(u) {
+      return !isCorruptedUsername(u.username);
+    });
+  }
+  if (state.staffInfo) {
+    Object.keys(state.staffInfo).forEach(function(uname) {
+      if (isCorruptedUsername(uname)) {
+        delete state.staffInfo[uname];
+      }
+    });
+  }
+  if (state.staffSchedule) {
+    Object.keys(state.staffSchedule).forEach(function(uname) {
+      if (isCorruptedUsername(uname)) {
+        delete state.staffSchedule[uname];
       }
     });
   }
