@@ -62,10 +62,12 @@ async function loadSyncConfig() {
     syncSaveCfg({
       dbUrl:  dbUrl,
       apiKey: cfg.apiKey || '', // empty if not in config file
+      pusherKey: cfg.pusherKey || '',
+      pusherCluster: cfg.pusherCluster || '',
     });
     _cachedDbUrl = dbUrl;
     console.log('[sync] config loaded from sync-config.json, dbUrl:', dbUrl);
-    return { dbUrl, apiKey: cfg.apiKey };
+    return { dbUrl, apiKey: cfg.apiKey, pusherKey: cfg.pusherKey, pusherCluster: cfg.pusherCluster };
   } catch(e) {
     console.warn('[sync] sync-config.json error:', e.message);
     return null;
@@ -88,12 +90,21 @@ function _fbUrl(dbUrl, secret) {
 }
 
 async function _fbGet(dbUrl, secret) {
-  const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
-  const url   = token
-    ? `${dbUrl}${FB_PATH}?auth=${token}`
-    : `${dbUrl}${FB_PATH}${secret ? '?auth=' + encodeURIComponent(secret) : ''}`;
+  const isFirebase = dbUrl.indexOf('firebasedatabase.app') >= 0 || dbUrl.indexOf('firebaseio.com') >= 0;
+  
+  let url = dbUrl;
+  let headers = {};
+  
+  if (isFirebase) {
+    const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
+    url = token
+      ? `${dbUrl}${FB_PATH}?auth=${token}`
+      : `${dbUrl}${FB_PATH}${secret ? '?auth=' + encodeURIComponent(secret) : ''}`;
+  } else {
+    headers["X-API-Key"] = secret || "";
+  }
 
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(url, { cache: 'no-store', headers: headers });
   if (res.status === 401 || res.status === 403) throw new Error('HTTP ' + res.status);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const wrapper = await res.json();
@@ -110,13 +121,20 @@ async function _fbGet(dbUrl, secret) {
 }
 
 async function _fbPut(dbUrl, secret, data) {
-  const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
-
-  if (!token && !secret) throw new Error('No auth token or API key — cannot write');
-
-  const url = token
-    ? `${dbUrl}${FB_PATH}?auth=${token}`
-    : `${dbUrl}${FB_PATH}?auth=${encodeURIComponent(secret)}`;
+  const isFirebase = dbUrl.indexOf('firebasedatabase.app') >= 0 || dbUrl.indexOf('firebaseio.com') >= 0;
+  
+  let url = dbUrl;
+  let headers = { 'Content-Type': 'application/json' };
+  
+  if (isFirebase) {
+    const token = typeof firebaseGetIdToken === 'function' ? await firebaseGetIdToken() : null;
+    if (!token && !secret) throw new Error('No auth token or API key — cannot write');
+    url = token
+      ? `${dbUrl}${FB_PATH}?auth=${token}`
+      : `${dbUrl}${FB_PATH}?auth=${encodeURIComponent(secret)}`;
+  } else {
+    headers["X-API-Key"] = secret || "";
+  }
 
   const putBody = {
     ...data,
@@ -125,7 +143,7 @@ async function _fbPut(dbUrl, secret, data) {
 
   const res = await fetch(url, {
     method:  'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headers,
     body:    JSON.stringify(putBody),
   });
   if (!res.ok) {
@@ -536,6 +554,7 @@ async function syncTryAutoConnect() {
 //  Falls back to 60s REST poll if WebSocket unavailable
 // ═══════════════════════════════════════════════
 let _fbListener      = null; // Firebase WebSocket listener ref
+let _pusherClient    = null; // Pusher Channels client ref
 let _syncInterval    = null; // fallback REST poll interval
 let _lastRemoteTs    = 0;    // track last seen _updated timestamp
 
@@ -685,22 +704,85 @@ function _startFallbackPolling() {
   }, 60 * 1000);
 }
 
+// ── Pusher WebSocket listener for Cloudflare D1 ──
+function _startPusherListener() {
+  if (!syncCfg.pusherKey || !syncCfg.pusherCluster) {
+    console.log('[sync] Pusher key or cluster missing — cannot start real-time listener');
+    return false;
+  }
+  try {
+    if (typeof Pusher === 'undefined') {
+      console.warn('[sync] Pusher library not loaded yet');
+      return false;
+    }
+    
+    _pusherClient = new Pusher(syncCfg.pusherKey, {
+      cluster: syncCfg.pusherCluster
+    });
+    
+    const channel = _pusherClient.subscribe('pave-channel');
+    channel.bind('state-updated', async function(data) {
+      console.log('[sync] Pusher real-time event received: state-updated', data);
+      
+      const prevState = JSON.stringify(state);
+      updateSyncBadge('busy');
+      const ok = await syncPull();
+      if (ok) {
+        if (JSON.stringify(state) !== prevState) {
+          const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
+          const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
+          if (!anyModalOpen && typeof nav === 'function' && typeof currentPage !== 'undefined') {
+            nav(currentPage);
+            if (typeof updateBadge === 'function') updateBadge();
+          }
+        }
+      }
+      updateSyncBadge(ok ? 'ok' : 'err');
+    });
+    
+    console.log('[sync] Pusher real-time listener active');
+    return true;
+  } catch (err) {
+    console.error('[sync] Failed to initialize Pusher:', err.message);
+    return false;
+  }
+}
+
 // ── Main entry: try WebSocket first, fall back to REST ──
 function startSyncPolling() {
   stopSyncPolling(); // clear any existing
 
-  const wsStarted = _startFirebaseListener();
-  if (!wsStarted) {
-    // WebSocket not available — use 60s REST polling
-    _startFallbackPolling();
+  const dbUrl = syncCfg.dbUrl || '';
+  const isFirebase = dbUrl.indexOf('firebasedatabase.app') >= 0 || dbUrl.indexOf('firebaseio.com') >= 0;
+
+  if (isFirebase) {
+    const wsStarted = _startFirebaseListener();
+    if (!wsStarted) {
+      // WebSocket not available — use 60s REST polling
+      _startFallbackPolling();
+    }
+  } else {
+    // Cloudflare D1 + Pusher
+    const pusherStarted = _startPusherListener();
+    if (!pusherStarted) {
+      _startFallbackPolling();
+    }
   }
 }
 
 function stopSyncPolling() {
-  // Stop WebSocket listener
+  // Stop Firebase WebSocket listener
   if (_fbListener) {
     try { _fbListener.off(); } catch(e) {}
     _fbListener = null;
+  }
+  // Stop Pusher listener
+  if (_pusherClient) {
+    try {
+      _pusherClient.unsubscribe('pave-channel');
+      _pusherClient.disconnect();
+    } catch(e) {}
+    _pusherClient = null;
   }
   // Stop REST polling
   if (_syncInterval) {
