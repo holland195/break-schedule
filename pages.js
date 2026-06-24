@@ -707,7 +707,7 @@ function renderRequests() {
     let impactHTML = '';
     if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
       const allDays = r.swapDays || [];
-      const weekSet = new Set(getWeekDates());
+      const weekSet = new Set(getWeekDates(r.day));
       const dispDays = allDays.filter(d => weekSet.has(d));
       const todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
       let futureCnt = 0;
@@ -2851,17 +2851,34 @@ function _renderStaffSchedule() {
 ${_schedTbl(_wkDates, _wkFiltered)}`;
   }
 
-  // Snap _ssActiveMonday to selected month if it drifted
-  if (_ssActiveMonday.split('/')[1] !== _schedMonth) {
-    var _firstMon = _sortDateKeys(allDates.filter(function(d) { return getWkDay(d) === 'Mon' && d.split('/')[1] === _schedMonth; }))[0];
+  // Get all unique Mondays covering the dates of the selected month
+  var _uniqueMondays = {};
+  allDates.forEach(function(d) {
+    if (d.split('/')[1] === _schedMonth) {
+      var _parts = d.split('/').map(Number);
+      var _dt = new Date(2026, _parts[1] - 1, _parts[0]);
+      var _dayOfWeek = _dt.getDay();
+      var _diffToMon = _dayOfWeek === 0 ? -6 : 1 - _dayOfWeek;
+      var _mon = new Date(_dt);
+      _mon.setDate(_dt.getDate() + _diffToMon);
+      var _monStr = String(_mon.getDate()).padStart(2, '0') + '/' + String(_mon.getMonth() + 1).padStart(2, '0');
+      _uniqueMondays[_monStr] = true;
+    }
+  });
+  var monthMondays = _sortDateKeys(Object.keys(_uniqueMondays));
+
+  // Snap _ssActiveMonday to selected month if it drifted (i.e. has no days in the selected month)
+  var _ssActiveMonRange = getWeekRange(_ssActiveMonday);
+  var _ssActiveMonHasDaysInMonth = _ssActiveMonRange.some(function(d) { return d.split('/')[1] === _schedMonth; });
+  if (!_ssActiveMonHasDaysInMonth) {
+    var _firstMon = monthMondays[0];
     if (_firstMon) _ssActiveMonday = _firstMon;
   }
 
-  const monthMondays = _sortDateKeys(allDates.filter(function(d) { return getWkDay(d) === 'Mon' && d.split('/')[1] === _schedMonth; }));
   // Clip week range to selected month so it never leaks into adjacent months
-  const weekRange = getWeekRange(_ssActiveMonday).filter(function(d) { return d.split('/')[1] === _schedMonth; });
-  const monthDates = _sortDateKeys(allDates.filter(d => /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth));
-  const displayDates = showFullMonth ? monthDates : weekRange;
+  var weekRange = getWeekRange(_ssActiveMonday).filter(function(d) { return d.split('/')[1] === _schedMonth; });
+  var monthDates = _sortDateKeys(allDates.filter(function(d) { return /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth; }));
+  var displayDates = showFullMonth ? monthDates : weekRange;
 
   var _sfDates = showFullMonth ? monthDates : weekRange;
   var _displayUsers = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
@@ -4619,8 +4636,8 @@ function submitRequest() {
   let swapDays = [day];
   if (isWeek) {
     const partner = state.users.find(u => u.id === partnerId);
-    // Only use current week dates
-    const weekDates = getWeekDates();
+    // Only use selected week dates
+    const weekDates = getWeekDates(day);
     swapDays = weekDates.filter(dk => {
       var myShift = _getSched(currentUser.username, dk);
       var ptShift = partner ? _getSched(partner.username, dk) : '0';
