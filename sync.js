@@ -98,7 +98,15 @@ async function _fbGet(dbUrl, secret) {
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const wrapper = await res.json();
   if (!wrapper || !wrapper.data) return {};
-  return JSON.parse(wrapper.data);
+  
+  const rawData = wrapper.data;
+  let decompressed;
+  if (rawData && rawData.startsWith('{')) {
+    decompressed = rawData;
+  } else {
+    decompressed = LZString.decompressFromUTF16(rawData);
+  }
+  return JSON.parse(decompressed || '{}');
 }
 
 async function _fbPut(dbUrl, secret, data) {
@@ -110,10 +118,15 @@ async function _fbPut(dbUrl, secret, data) {
     ? `${dbUrl}${FB_PATH}?auth=${token}`
     : `${dbUrl}${FB_PATH}?auth=${encodeURIComponent(secret)}`;
 
+  const putBody = {
+    ...data,
+    data: LZString.compressToUTF16(data.data)
+  };
+
   const res = await fetch(url, {
     method:  'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(data),
+    body:    JSON.stringify(putBody),
   });
   if (!res.ok) {
     const msg = await res.text();
