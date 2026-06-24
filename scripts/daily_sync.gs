@@ -1618,7 +1618,11 @@ function _resolveRoleGas(role) {
     'Agent': 'Data Analyst', 'Sr Agent': 'Sr Data Analyst',
     'QA': 'Data Supervisor', 'Sr QA': 'Sr Data Supervisor',
     'Senior Data Analyst': 'Sr Data Analyst',
-    'Senior Data Supervisor': 'Sr Data Supervisor'
+    'Senior Data Supervisor': 'Sr Data Supervisor',
+    'Leader': 'Data Analyst Leader',
+    'Supervisor': 'Data Analyst Supervisor',
+    'Agent Leader': 'Data Analyst Leader',
+    'Agent Supervisor': 'Data Analyst Supervisor'
   };
   return aliases[role] || role || '';
 }
