@@ -3544,11 +3544,16 @@ function _renderStaffAttendance() {
       '</th>';
   }).join('');
 
-  // ── FIX: build rows from attData keys, not state.users ──
-  const attUsernames = Object.keys(attData).filter(uname => {
-    const ud = attData[uname]?.[monthKey];
+  // Build list of usernames from both active roster (state.users) and historical attData
+  var _activeUsernames = (state.users || []).map(function(u) { return u.username; });
+  var _historicalUsernames = Object.keys(attData).filter(function(uname) {
+    var ud = attData[uname]?.[monthKey];
     return ud && Object.keys(ud).length > 0;
   });
+  var _allUsernamesSet = {};
+  _activeUsernames.forEach(function(u) { _allUsernamesSet[u] = true; });
+  _historicalUsernames.forEach(function(u) { _allUsernamesSet[u] = true; });
+  const attUsernames = Object.keys(_allUsernamesSet);
 
   // Build empNo lookup from policyCompliance records (covers users missing empNo in users array)
   var _pcEmpNo = {};
