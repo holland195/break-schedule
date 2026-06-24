@@ -494,7 +494,7 @@ function renderSchedule() {
   }).join('');
 
   // Table header — compact, one column per day
-  var _WDAY_SHORT = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  var _WDAY_SHORT = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
   var theadCells = monthDates.map(function(dk) {
     var _p = dk.split('/');
     var _d = parseInt(_p[0]);
@@ -510,8 +510,8 @@ function renderSchedule() {
       'border-bottom:2px solid ' + (isToday ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
       'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
-      '<div style="font-size:9px;opacity:.65;line-height:1.5;">' + _WDAY_SHORT[dow] + '</div>' +
-      '<div style="font-size:11px;line-height:1.3;">' + String(_d).padStart(2,'0') + '</div>' +
+      '<div style="font-size:8px;font-weight:400;opacity:.65;line-height:1.5;">' + _WDAY_SHORT[dow] + '</div>' +
+      '<div style="font-size:11px;line-height:1.3;' + (isToday ? 'color:var(--accent);font-weight:700;' : '') + '">' + dk + '</div>' +
       '</th>';
   }).join('');
 
