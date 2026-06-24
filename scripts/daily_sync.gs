@@ -15,7 +15,7 @@ const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
 const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
 const ATTENDANCE_SHEET        = 'Attendance-June-2026'; // update each month
-const SCHEDULE_SHEET          = 'Schedule Jun_26';     // update each month
+const SCHEDULE_SHEET          = 'Schedule Jul_26';     // update each month
 const NOTIFY_EMAIL            = Session.getActiveUser().getEmail();
 const POLICY_SPREADSHEET_ID = '1W1cVlJmq_JomZRhROHudWiFQsX_B66-OornRVBx-3RQ';
 const POLICY_SHEET_NAME     = 'Policy compliance-2026'; // adjust if your sheet is named differently
@@ -210,11 +210,24 @@ function syncSchedule(current, log) {
   const lastCol   = sheet.getLastColumn();
   const lastRow   = sheet.getLastRow();
   const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0]; // Row 1 = dates
+  const row2      = sheet.getRange(2, 1, 1, lastCol).getValues()[0]; // Row 2 = subheaders
   const dataRows  = sheet.getRange(4, 1, Math.max(1, lastRow - 3), lastCol).getValues(); // Row 4+
 
-  // Build date columns — columns H onward (index 7+)
+  // Detect sheet layout by looking at Row 2 subheaders
+  var isJulyLayout = false;
+  if (row2 && row2.length > 3) {
+    var valB = String(row2[1] || '').trim().toUpperCase();
+    var valC = String(row2[2] || '').trim().toUpperCase();
+    var valD = String(row2[3] || '').trim().toUpperCase();
+    if (valB === 'NEW' || valC === 'OLD' || valD.indexOf('NAME') >= 0) {
+      isJulyLayout = true;
+    }
+  }
+
+  // Shifts start column: index 8 (Col I) for July layout, index 7 (Col H) for June layout
+  const shiftStartCol = isJulyLayout ? 8 : 7;
   const dateCols = [];
-  for (var c = 7; c < headerRow.length; c++) {
+  for (var c = shiftStartCol; c < headerRow.length; c++) {
     const dk = parseDateHeader(headerRow[c]);
     if (dk) dateCols.push({ colIndex: c, dateKey: dk });
   }
@@ -222,12 +235,11 @@ function syncSchedule(current, log) {
   result.dateCols = dateCols.length;
 
   if (dateCols.length === 0) {
-    log('[Schedule] ⚠ No date columns found in row 1. Cols 7–10: '
-      + headerRow.slice(7, 11).map(function(h) { return typeof h + ':' + h; }).join(' | '));
+    log('[Schedule] ⚠ No date columns found in row 1. Start index: ' + shiftStartCol);
     return result;
   }
 
-  log('[Schedule] ' + dateCols.length + ' date columns | ' + dataRows.length + ' staff rows');
+  log('[Schedule] ' + dateCols.length + ' date columns | ' + dataRows.length + ' staff rows | July layout: ' + isJulyLayout);
 
   var _usersRaw = current.users;
   log('[Schedule] users debug: typeof=' + typeof _usersRaw + ' isArray=' + Array.isArray(_usersRaw));
@@ -246,7 +258,8 @@ function syncSchedule(current, log) {
   var notFound = [];
 
   dataRows.forEach(function(row) {
-    var _rawUn = row[3]; // Col D = index 3
+    var usernameCol = isJulyLayout ? 4 : 3; // Col E (index 4) for July, Col D (index 3) for June
+    var _rawUn = row[usernameCol];
     if (_rawUn instanceof Date || typeof _rawUn === 'number') return; // date-formatted cell — skip
     var username = String(_rawUn || '').trim().toLowerCase();
     if (!username) return;
@@ -256,10 +269,14 @@ function syncSchedule(current, log) {
     });
 
     if (userIdx === -1) {
-      var newName = String(row[2] || '').trim();
+      var nameCol = isJulyLayout ? 3 : 2; // Col D (index 3) for July, Col C (index 2) for June
+      var roleCol = isJulyLayout ? 6 : 5; // Col G (index 6) for July, Col F (index 5) for June
+      var teamCol = 1; // Col B (index 1) is team in both layouts
+      
+      var newName = String(row[nameCol] || '').trim();
       if (!newName) { notFound.push(username); return; }
-      var newRole = String(row[6] || '').trim();
-      var newTeam = String(row[1] || '').trim();
+      var newRole = String(row[roleCol] || '').trim();
+      var newTeam = String(row[teamCol] || '').trim();
       var h = 0;
       for (var ci = 0; ci < username.length; ci++) {
         h = ((h << 5) - h) + username.charCodeAt(ci); h |= 0;
@@ -271,8 +288,10 @@ function syncSchedule(current, log) {
       userIdx = current.users.length - 1;
       result.created = (result.created || 0) + 1;
     } else {
-      var updTeam = String(row[1] || '').trim();
-      var updRole = String(row[6] || '').trim();
+      var teamCol = 1;
+      var roleCol = isJulyLayout ? 6 : 5;
+      var updTeam = String(row[teamCol] || '').trim();
+      var updRole = String(row[roleCol] || '').trim();
       if (updTeam) current.users[userIdx].team = updTeam;
       if (updRole) current.users[userIdx].role = updRole;
     }
