@@ -4002,17 +4002,43 @@ var _STAFF_SORT_RANK = {
   'Sr Data Analyst':7,'Data Analyst':8
 };
 function _sortStaffUsers(users) {
+  var getTeamRank = function(team) {
+    if (!team) return 99;
+    var t = String(team).toUpperCase();
+    if (t.indexOf('DAL') === 0)   return 1;
+    if (t.indexOf('DAS') === 0)   return 2;
+    if (t.indexOf('SDS') === 0)   return 3;
+    if (t.indexOf('I-SDS') === 0) return 4;
+    if (t.indexOf('DS') === 0)    return 5;
+    if (t.indexOf('SR') === 0)    return 6;
+    if (t.indexOf('DA') === 0)    return 7;
+    return 99;
+  };
+
   return users.filter(function(u) {
     var _r = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return !!_resolveRole(_r);
   }).sort(function(a, b) {
+    var teamA = a.team || '';
+    var teamB = b.team || '';
+    var rA = getTeamRank(teamA);
+    var rB = getTeamRank(teamB);
+    if (rA !== rB) return rA - rB;
+
+    var matchA = teamA.match(/\d+/);
+    var matchB = teamB.match(/\d+/);
+    var numA = matchA ? parseInt(matchA[0], 10) : 0;
+    var numB = matchB ? parseInt(matchB[0], 10) : 0;
+    if (numA !== numB) return numA - numB;
+
+    if (teamA !== teamB) return teamA.localeCompare(teamB);
+
     var aRole = a.role || (state.staffInfo[a.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
     var bRole = b.role || (state.staffInfo[b.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
     var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
     var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
     if (aRnk !== bRnk) return aRnk - bRnk;
-    var aTeam = a.team||'', bTeam = b.team||'';
-    if (aTeam !== bTeam) return aTeam < bTeam ? -1 : 1;
+
     return (a.name||'').localeCompare(b.name||'');
   });
 }
