@@ -1,4 +1,6 @@
 {
-  "dbUrl": "https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/"
-  
+  "dbUrl": "https://break-schedule-api.cuong-pham-222.workers.dev/api/state",
+  "apiKey": "@Dmin!195",
+  "pusherKey": "c690d484575f9455d51c",
+  "pusherCluster": "ap1"
 }

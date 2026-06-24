@@ -1,18 +1,15 @@
 name = "break-schedule-api"
 main = "src/index.js"
-compatibility_date = "2026-06-25"
+compatibility_date = "2026-06-24"
 
 # Environment Variables
 [vars]
-API_KEY = "pave-api-key-replace-me"
-PUSHER_APP_ID = "your-pusher-app-id"
-PUSHER_KEY = "your-pusher-key"
-PUSHER_SECRET = "your-pusher-secret"
-PUSHER_CLUSTER = "ap1"
+# (Sensitive variables are uploaded securely using wrangler secret put)
+
 
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
 database_name = "break-schedule-db"
-database_id = "your-d1-database-id-replace-me"
+database_id = "b10f1669-eabe-4e10-b876-1dae1408404e"
 # local_database_id can be same or auto-generated for offline wrangler testing
