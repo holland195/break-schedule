@@ -922,6 +922,7 @@ function renderArrange() {
   // If activeMonday is not in the filtered list, snap to first available
   if (mondays.length && mondays.indexOf(activeMonday) === -1) {
     activeMonday = mondays[0];
+    localStorage.setItem('activeMonday', activeMonday);
     arrangeActiveDay = null;
   }
 
@@ -941,7 +942,7 @@ function renderArrange() {
   var weekPickerHTML = mondays.length > 0
     ? '<div style="display:flex;align-items:center;gap:6px;">' +
       '<span style="' + _monoLbl + '">WEEK:</span>' +
-      '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="activeMonday=this.value;arrangeActiveDay=null;nav(\'arrange\')">' +
+      '<select class="login-select" style="padding:4px 8px;font-size:11px;" onchange="activeMonday=this.value;localStorage.setItem(\'activeMonday\',this.value);arrangeActiveDay=null;nav(\'arrange\')">' +
       mondays.map(function(s) {
         var p = s.split('/');
         var end = new Date(2026, parseInt(p[1])-1, parseInt(p[0])+6);
@@ -2882,7 +2883,10 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   var _ssActiveMonHasDaysInMonth = _ssActiveMonRange.some(function(d) { return d.split('/')[1] === _schedMonth; });
   if (!_ssActiveMonHasDaysInMonth) {
     var _firstMon = monthMondays[0];
-    if (_firstMon) _ssActiveMonday = _firstMon;
+    if (_firstMon) {
+      _ssActiveMonday = _firstMon;
+      localStorage.setItem('_ssActiveMonday', _ssActiveMonday);
+    }
   }
 
   // Clip week range to selected month so it never leaks into adjacent months
@@ -2911,7 +2915,7 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   <select class="login-select" style="width:130px;padding:4px;" onchange="${_monthPickerChange}">
     ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
   </select>
-  ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;nav('staff')">
+  ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;localStorage.setItem('_ssActiveMonday',this.value);nav('staff')">
     ${monthMondays.map(function(mon) {
       var end = getWeekRange(mon).filter(function(d){return d.split('/')[1]===_schedMonth;}).pop() || mon;
       return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
@@ -4253,6 +4257,7 @@ function openDayoffSwapModal(dateKey) {
       }
       if (!_found) { toast('No eligible day-offs in the next 4 weeks.', 'err'); return; }
       _ssActiveMonday = _foundWeekMon;
+      localStorage.setItem('_ssActiveMonday', _ssActiveMonday);
       _myDayoffs = _found;
     }
     _dosMyDate = '';
