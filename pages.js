@@ -951,28 +951,12 @@ function renderArrange() {
       }).join('') + '</select></div>'
     : '';
 
-  var _slackCfg = (state.slackAutoPost || {})[currentShift] || {};
-  var _slackOn  = !!_slackCfg.enabled;
-  var _slackInline = `
-    <div style="display:flex;align-items:center;gap:7px;padding:5px 10px;
-      background:var(--bg3);border:1px solid var(--border);border-radius:8px;white-space:nowrap;cursor:default;">
-      <span style="font-size:11px;font-weight:600;color:var(--text2);">🔔 Auto-Post</span>
-      <div onclick="_toggleSlackAutoPost()" style="width:34px;height:18px;border-radius:10px;
-        background:${_slackOn ? 'var(--accent)' : 'var(--bg4)'};position:relative;cursor:pointer;
-        transition:background .2s;border:1px solid var(--border);">
-        <div style="position:absolute;top:2px;${_slackOn ? 'right:2px' : 'left:2px'};width:12px;height:12px;
-          border-radius:50%;background:#fff;transition:all .2s;box-shadow:0 1px 2px rgba(0,0,0,.3);"></div>
-      </div>
-      <span style="font-size:10px;font-weight:600;color:${_slackOn ? 'var(--accent)' : 'var(--text3)'};">${_slackOn ? 'ON' : 'OFF'}</span>
-    </div>`;
-
   return `
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
     ${monthPickerHTML}
     ${weekPickerHTML}
-    ${_slackInline}
     <button id="save-breaks-btn" class="btn btn-accent"
       onclick="saveBreaksToCloud()"
       style="display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 16px;">
@@ -1042,6 +1026,10 @@ async function saveBreaksToCloud() {
       btn.style.color = '';
     }, 4000);
     toast('☁ Sync not configured. Go to Cloud Sync page → Connect.', 'warn');
+    return;
+  }
+
+  if (!confirm("Are you sure you want to save the break schedule to the cloud?")) {
     return;
   }
 
@@ -1177,6 +1165,9 @@ function onBreakSplitSlide(shift, rawVal, tier) {
 // }
 
 async function saveBreakSplits() {
+  if (!confirm("Are you sure you want to save the new break split settings and re-assign breaks?")) {
+    return;
+  }
   const changedShifts  = new Set(); // value changed — for toast label only
   const shiftsToProcess = new Set(); // all shifts with visible sliders — always reset+reassign
   VISIBLE_SHIFTS.forEach(shift => {
@@ -1233,6 +1224,9 @@ async function saveBreakSplits() {
 }
 
 async function resetBreakSplit(shift) {
+  if (!confirm("Are you sure you want to reset the break split for shift " + shift + " to the default 50/50 rotation? This will re-assign breaks.")) {
+    return;
+  }
   setBreakSplitPct(shift, null);
   // Clear the member-order list so the sliding window starts fresh
   const rot = _loadRotation ? _loadRotation() : {};
@@ -1434,29 +1428,49 @@ function _renderArrangeAssignTab(weekRange) {
 
   const combinedPanel = `
 <div class="bulk-panel" style="margin-bottom:12px;display:block;padding:12px 16px;">
-  <div style="display:flex;gap:0;flex-wrap:wrap;align-items:flex-start;">
+  <div class="bulk-panel-cols">
 
     <!-- COL 1: Manual Assign -->
-    <div style="flex:1;min-width:240px;padding-right:20px;border-right:1px solid var(--border);">
-      <span class="bulk-panel-label" style="display:block;margin-bottom:8px;">Manual Assign</span>
-      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
-        <div class="bulk-panel-section">
-          <div class="bulk-panel-label">Groups</div>
-          <div class="group-checkbox-list">
+    <div class="bulk-panel-col col-main">
+      <span class="bulk-panel-label" style="display:block;margin-bottom:4px;">Manual Assign</span>
+      
+      <!-- Groups Section -->
+      <div class="bulk-panel-section" style="width:100%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <div class="bulk-panel-label" style="margin:0;">Groups</div>
+          <div class="bulk-group-helpers">
+            <span onclick="_selectBulkGroups('all')" class="bulk-group-helper-btn">All</span>
+            <span style="color:var(--border2);font-size:9px;">|</span>
+            <span onclick="_selectBulkGroups('none')" class="bulk-group-helper-btn">None</span>
+            <span style="color:var(--border2);font-size:9px;">|</span>
+            <span onclick="_selectBulkGroups('da')" class="bulk-group-helper-btn">D.A</span>
+            <span style="color:var(--border2);font-size:9px;">|</span>
+            <span onclick="_selectBulkGroups('ds')" class="bulk-group-helper-btn">D.S</span>
+          </div>
+        </div>
+        <div class="group-scroll-container">
+          <div class="group-checkbox-grid">
             ${allShiftTeams.map(t => {
-              const posChips = (_teamRoles[t] || []).map(l => {
-                const info = _posAbbr[l];
+              var posChips = (_teamRoles[t] || []).map(l => {
+                var info = _posAbbr[l];
                 if (!info) return '';
                 return `<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;background:${info[2]};color:${info[1]};white-space:nowrap;">${info[0]}</span>`;
               }).join('');
-              return `<label class="group-check-item" style="align-items:center;">
+              var isDA = (_teamRoles[t] || []).some(r => r.includes('Data Analyst') || r.includes('Sr Data Analyst'));
+              var isDS = (_teamRoles[t] || []).some(r => r.includes('Data Supervisor') || r.includes('Sr Data Supervisor'));
+              return `<label class="group-check-item" style="align-items:center;margin:0;">
                 <input type="checkbox" name="bulk-group" value="${t}"
+                  data-da="${isDA ? '1' : '0'}" data-ds="${isDS ? '1' : '0'}"
                   ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()">
                 <span style="font-size:11px;">${t}</span>${posChips ? ' ' + posChips : ''}
               </label>`;
             }).join('')}
           </div>
         </div>
+      </div>
+
+      <!-- Days, Slot and Actions Toolbar -->
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:4px;">
         <div class="bulk-panel-section">
           <div class="bulk-panel-label">Days</div>
           <div class="day-checkbox-list">
@@ -1479,19 +1493,17 @@ function _renderArrangeAssignTab(weekRange) {
         <div class="bulk-panel-section">
           <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
         </div>
-        <div class="bulk-panel-section">
-          <button class="btn" onclick="_copyBreaksForSlack()" style="font-size:12px;padding:6px 14px;white-space:nowrap;">📋 Copy for Slack</button>
-        </div>
+
       </div>
     </div>
 
     <!-- COL 2: Split per Position -->
-    <div style="flex:1;min-width:240px;padding:0 20px;${_distPanel ? 'border-right:1px solid var(--border);' : ''}">
+    <div class="bulk-panel-col">
       ${splitRow || '<span style="color:var(--text3);font-size:11px;">—</span>'}
     </div>
 
     <!-- COL 3: Break Distribution (Shift A only) -->
-    ${_distPanel ? `<div style="flex:1;min-width:240px;padding-left:20px;">${_distPanel}</div>` : ''}
+    ${_distPanel ? `<div class="bulk-panel-col">${_distPanel}</div>` : ''}
 
   </div>
 </div>`;
@@ -2214,6 +2226,22 @@ function quickAssignByIndex(uid, day, slotIdx) {
   quickAssign(uid, day, currentShift + (slotIdx + 1));
 }
 
+function _selectBulkGroups(type) {
+  var inputs = document.querySelectorAll('input[name="bulk-group"]');
+  inputs.forEach(function(input) {
+    if (type === 'all') {
+      input.checked = true;
+    } else if (type === 'none') {
+      input.checked = false;
+    } else if (type === 'da') {
+      input.checked = input.getAttribute('data-da') === '1';
+    } else if (type === 'ds') {
+      input.checked = input.getAttribute('data-ds') === '1';
+    }
+  });
+  _saveBulkGroups();
+}
+
 function _saveBulkGroups() {
   _bulkGroups = new Set(Array.from(document.querySelectorAll('input[name="bulk-group"]:checked')).map(el => el.value));
 }
@@ -2229,6 +2257,10 @@ function bulkAssignMulti() {
 
   if (selectedGroups.length === 0) { toast('Select at least one Group.', 'err'); return; }
   if (selectedDays.length === 0) { toast('Select at least one Day.', 'err'); return; }
+
+  if (!confirm("Are you sure you want to apply this break slot to all selected groups and days?")) {
+    return;
+  }
 
   const slots2 = BREAK_SLOTS[currentShift] || [];
   if (slotIdx < 0 || slotIdx >= slots2.length) { toast('Invalid slot selected.', 'err'); return; }
