@@ -870,6 +870,8 @@ function _reqSetFilter(f) {
 let arrangeMainTab = 'assign'; // 'assign' | 'overview' | 'month'
 let arrangeActiveDay = null;   // set on first render
 var _arrangeMonth = '';        // 'MM/YYYY' filter for week picker; '' = show all
+let _arrangeMonthTab = new Date().getMonth() + 1; // 1-12
+let _collapsedTiers = new Set();
 var _arrMonthYear  = new Date().getFullYear();
 var _arrMonthMonth = new Date().getMonth() + 1; // 1–12
 // Persisted bulk-panel state — survives re-renders and sync polls
@@ -1677,8 +1679,13 @@ function _renderArrangeMonthOverview() {
 
   // Show May 2026 through current month + 2 ahead (capped at Dec 2026)
   var endMonth = Math.min(12, now.getMonth() + 3);
-  var months = [];
-  for (var _mi = 5; _mi <= endMonth; _mi++) { months.push(_mi); }
+  var allMonths = [];
+  for (var _mi = 5; _mi <= endMonth; _mi++) { allMonths.push(_mi); }
+  
+  if (!allMonths.includes(_arrangeMonthTab)) {
+    _arrangeMonthTab = curMonth;
+  }
+  var months = [_arrangeMonthTab];
 
   var _arrTierKey = {
     'Data Analyst': 'analyst', 'Sr Data Analyst': 'analyst',
@@ -1744,17 +1751,23 @@ function _renderArrangeMonthOverview() {
       var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
 
       // Stronger tier separator: full-band with icon + left accent border
-      var separator = '';
+      var out = '';
       if (tierKey !== prevTier) {
         prevTier = tierKey;
         rowIndex = 0;
         var tierColor = _roleColor(resolvedRole);
         var icon = _tierIcon[tierKey] || '◆';
-        separator = '<tr><td colspan="' + (dates.length + 1) + '" style="' +
+        var isCollapsed = _collapsedTiers.has(tierKey);
+        var chevron = isCollapsed ? '►' : '▼';
+        out += '<tr onclick="if(_collapsedTiers.has(\'' + tierKey + '\')) _collapsedTiers.delete(\'' + tierKey + '\'); else _collapsedTiers.add(\'' + tierKey + '\'); nav(\'arrange\');" style="cursor:pointer;" title="Click to collapse/expand"><td colspan="' + (dates.length + 1) + '" style="' +
           'padding:10px 12px 6px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
           'color:' + tierColor + ';background:var(--bg2);' +
           'border-top:2px solid var(--border);border-left:3px solid ' + tierColor + ';">' +
-          icon + '  ' + tierLabel + '</td></tr>';
+          '<span style="display:inline-block;width:12px;font-size:8px;vertical-align:middle;">' + chevron + '</span> ' + icon + '  ' + tierLabel + '</td></tr>';
+      }
+
+      if (_collapsedTiers.has(tierKey)) {
+        return out;
       }
 
       var isEven = rowIndex % 2 === 0;
@@ -1815,17 +1828,17 @@ function _renderArrangeMonthOverview() {
             'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
       }).join('');
 
-      // Sticky team-name cell with right shadow to lift it from the scrolling grid
       var stickyCell = '<td style="padding:5px 12px 5px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
         'position:sticky;left:0;z-index:5;' +
         'background:' + (isEven ? 'var(--bg2)' : 'var(--bg3)') + ';' +
         'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);' +
         'border-right:1px solid var(--border);">' + team + '</td>';
 
-      return separator +
-        '<tr style="background:' + rowBaseBg + ';" ' +
+      out += '<tr style="background:' + rowBaseBg + ';" ' +
         'onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'' + rowBaseBg + '\'">' +
         stickyCell + cells + '</tr>';
+        
+      return out;
     }).join('');
 
     var isCurrent = month === curMonth && year === now.getFullYear();
@@ -1853,33 +1866,26 @@ function _renderArrangeMonthOverview() {
 
   if (!sections) return '<div class="empty">No data.</div>';
 
-  // Sticky month-nav bar: quick-jump chips for each month
-  var navChips = months.map(function(m) {
-    var isCur = m === curMonth;
-    return '<a href="#mov-m' + m + '-2026" onclick="event.preventDefault();' +
-      'document.getElementById(\'mov-m' + m + '-2026\').scrollIntoView({behavior:\'smooth\',block:\'start\'});" ' +
-      'style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;' +
+  // Month-nav bar: quick-jump tabs for each month
+  var navChips = allMonths.map(function(m) {
+    var isCur = m === _arrangeMonthTab;
+    return '<button onclick="_arrangeMonthTab=' + m + ';nav(\'arrange\')" ' +
+      'style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;' +
         'font-size:11px;font-weight:' + (isCur ? '700' : '500') + ';text-decoration:none;' +
         'background:' + (isCur ? 'var(--accent)' : 'var(--bg4)') + ';' +
         'color:' + (isCur ? '#fff' : 'var(--text2)') + ';' +
         'border:1px solid ' + (isCur ? 'var(--accent)' : 'var(--border)') + ';' +
         'transition:opacity .15s;cursor:pointer;" ' +
       'onmouseover="this.style.opacity=\'.75\'" onmouseout="this.style.opacity=\'1\'">' +
-      _monthNames[m-1].substring(0,3) + '</a>';
+      _monthNames[m-1].substring(0,3) + '</button>';
   }).join('');
 
-  var navBar = '<div style="position:sticky;top:0;z-index:20;background:var(--bg2);' +
+  var navBar = '<div style="position:sticky;top:0;z-index:20;background:var(--bg1);' +
     'padding:8px 0 8px;margin-bottom:16px;' +
     'border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">' +
     navChips + '</div>';
 
-  // Auto-scroll to current month after render
-  var autoScroll = '<script>(function(){' +
-    'var el=document.getElementById("mov-m' + curMonth + '-2026");' +
-    'if(el)el.scrollIntoView({block:"start"});' +
-    '})()</script>';
-
-  return navBar + sections + autoScroll;
+  return navBar + sections;
 }
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
