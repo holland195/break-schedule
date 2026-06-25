@@ -1295,3 +1295,80 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   outline: 2.5px solid var(--err) !important;
   outline-offset: -2px;
 }
+
+/* Layout and Grid alignment for Bulk Panel */
+.bulk-panel-cols {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+}
+.bulk-panel-col {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bulk-panel-col.col-main {
+  flex: 1.5;
+  min-width: 420px;
+}
+.bulk-panel-col:not(:last-child) {
+  border-right: 1px solid var(--border);
+  padding-right: 24px;
+}
+.group-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px;
+}
+
+/* Scroll wrapper for Groups Checklist */
+.group-scroll-container {
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--bg4);
+  width: 100%;
+}
+
+/* Quick Selection Toolbar styling */
+.bulk-group-helpers {
+  font-size: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.bulk-group-helper-btn {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 9px;
+  transition: opacity 0.15s;
+}
+.bulk-group-helper-btn:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 1024px) {
+  .bulk-panel-cols {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bulk-panel-col {
+    width: 100%;
+    min-width: 0 !important;
+  }
+  .bulk-panel-col:not(:last-child) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 16px;
+  }
+}
+
