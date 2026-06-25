@@ -236,10 +236,15 @@ function _applyRemoteData(remote) {
       state.users = remote.users;
       state._usersUpdatedAt = remoteUAt;
       if (typeof activeMonday !== 'undefined') {
-        const now = new Date(); const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(now.getFullYear(), now.getMonth(), diff);
-        activeMonday = `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+        const cached = localStorage.getItem('activeMonday');
+        if (cached) {
+          activeMonday = cached;
+        } else {
+          const now = new Date(); const day = now.getDay();
+          const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+          const mon = new Date(now.getFullYear(), now.getMonth(), diff);
+          activeMonday = `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
+        }
       }
     } else if (remoteUAt > localUAt) {
       state.users = remote.users;

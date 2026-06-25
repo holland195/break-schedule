@@ -373,6 +373,8 @@ let currentPage  = 'dashboard';
 let assigningEmp = null;
 // Default to current real week's Monday (Mon–Sun weeks)
 let activeMonday = (() => {
+  const cached = localStorage.getItem('activeMonday');
+  if (cached) return cached;
   const now = new Date();
   const mon = new Date(now);
   const dow = now.getDay();
@@ -384,6 +386,8 @@ let _schedMonth   = null; // null = auto-detect from activeMonday
 let _ssShiftFilter = 'All'; // staff schedule shift filter (week mode only)
 // Monday anchor for Staff Schedule (separate from activeMonday which is Monday-based for Arrange)
 let _ssActiveMonday = (() => {
+  const cached = localStorage.getItem('_ssActiveMonday');
+  if (cached) return cached;
   const now = new Date(); const dow = now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
   return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
