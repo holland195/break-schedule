@@ -698,7 +698,7 @@ function _startFallbackPolling() {
 
     const ok = syncEnabled() ? await syncPull() : await syncPublicPull();
     if (ok === true) {
-      const noRerenderPages = new Set(['arrange', 'staff', 'attendance']);
+      const noRerenderPages = new Set(['arrange', 'staff']);
       if (typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
         const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
         const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
@@ -736,7 +736,8 @@ function _startPusherListener() {
         if (JSON.stringify(state) !== prevState) {
           const pcModalOpen  = document.getElementById('pc-modal')?.style.display === 'flex';
           const anyModalOpen = !!document.querySelector('.modal-overlay.show') || pcModalOpen;
-          if (!anyModalOpen && typeof nav === 'function' && typeof currentPage !== 'undefined') {
+          const noRerenderPages = new Set(['arrange', 'staff']);
+          if (!anyModalOpen && typeof nav === 'function' && typeof currentPage !== 'undefined' && !noRerenderPages.has(currentPage)) {
             nav(currentPage);
             if (typeof updateBadge === 'function') updateBadge();
           }
