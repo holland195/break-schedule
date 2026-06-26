@@ -1211,9 +1211,10 @@ async function saveBreakSplits() {
   });
 
   if (shiftsToProcess.size > 0) {
-    // 1. Clear break records (including manual) from this week onward
-    var _applyFrom = activeMonday;
-    _clearAutoBreaksFromWeek(_applyFrom, shiftsToProcess, true);
+    // 1. Clear break records: auto-only for this week, all for next week onward
+    var _nextWeek = _nextWeekMonday(activeMonday);
+    _clearAutoBreaksFromWeek(activeMonday, shiftsToProcess, false);
+    _clearAutoBreaksFromWeek(_nextWeek, shiftsToProcess, true);
 
     // 2. Reset rotation so knownList is rebuilt
     var rot = _loadRotation();
@@ -1227,7 +1228,7 @@ async function saveBreakSplits() {
     // 3. Re-assign with fresh rotation
     var result = autoAssignBreaks(state.users);
     await syncWrite();
-    toast('Distribution saved. Re-assigned ' + result.assigned + ' break(s) from week ' + _applyFrom + '.', 'ok');
+    toast('Distribution saved. Re-assigned ' + result.assigned + ' break(s) from week ' + activeMonday + '.', 'ok');
   } else {
     await syncWrite();
     toast('Break distribution settings saved (no changes).', 'ok');
@@ -1240,14 +1241,17 @@ async function resetBreakSplit(shift) {
     return;
   }
   setBreakSplitPct(shift, null);
-  // Clear the member-order list so the sliding window starts fresh
-  const rot = _loadRotation ? _loadRotation() : {};
-  ['agent', 'qa', 'sr_qa'].forEach(tier => { delete rot[`${shift}_${tier}`]; });
+  var rot = _loadRotation ? _loadRotation() : {};
+  ['agent', 'qa', 'sr_qa'].forEach(function(tier) { delete rot[shift + '_' + tier]; });
   if (typeof _saveRotation === 'function') _saveRotation(rot);
-  _clearAutoBreaksFromWeek(activeMonday, new Set([shift]), true);
-  const result = autoAssignBreaks(state.users);
+  
+  var _nextWeek = _nextWeekMonday(activeMonday);
+  _clearAutoBreaksFromWeek(activeMonday, new Set([shift]), false);
+  _clearAutoBreaksFromWeek(_nextWeek, new Set([shift]), true);
+  
+  var result = autoAssignBreaks(state.users);
   await syncWrite();
-  toast(`Shift ${shift} reset to 50/50 rotation. Re-assigned ${result.assigned} break(s).`, 'warn');
+  toast('Shift ' + shift + ' reset to 50/50 rotation. Re-assigned ' + result.assigned + ' break(s).', 'warn');
   nav('arrange');
 }
 
