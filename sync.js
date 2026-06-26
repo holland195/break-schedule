@@ -577,11 +577,15 @@ function _checkNotifications(prevState) {
     .filter(([k]) => k.startsWith(currentUser.id + '_'))
     .flatMap(([, arr]) => arr || [])
     .filter(e => e.status === 'approved' || e.status === 'rejected').length;
+  const newPartnerPending = (state.requests || [])
+    .filter(r => r.swapPartnerId === currentUser.id && r.status === 'pending').length;
 
   if (isLeader(currentUser) && newPendingReqs > prevState.pendingReqs)
     toast(`🔄 ${newPendingReqs - prevState.pendingReqs} new break swap request(s)`, 'warn');
   if (isLeader(currentUser) && newPendingExts > prevState.pendingExts)
     toast(`🌸 ${newPendingExts - prevState.pendingExts} new 30-min break request(s)`, 'warn');
+  if (newPartnerPending > (prevState.partnerPending || 0))
+    toast(`🔄 You have ${newPartnerPending - (prevState.partnerPending || 0)} new break swap request(s) to review`, 'warn');
   if (newMyResolved > prevState.myResolved) {
     const latest = (state.requests || [])
       .filter(r => r.userId === currentUser.id && r.status !== 'pending')
@@ -599,6 +603,7 @@ function _snapState() {
     pendingExts:    Object.values(state.extBreaks || {}).flatMap(a => a || []).filter(e => !e.status || e.status === 'pending').length,
     myResolved:     currentUser ? (state.requests || []).filter(r => r.userId === currentUser.id && r.status !== 'pending').length : 0,
     myExtApproved:  currentUser ? Object.entries(state.extBreaks || {}).filter(([k]) => k.startsWith(currentUser.id + '_')).flatMap(([, a]) => a || []).filter(e => e.status === 'approved' || e.status === 'rejected').length : 0,
+    partnerPending: currentUser ? (state.requests || []).filter(r => r.swapPartnerId === currentUser.id && r.status === 'pending').length : 0,
   };
 }
 
