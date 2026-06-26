@@ -165,7 +165,7 @@ function _roleColor(role) {
 // ═══════════════════════════════════════════════
 function renderDashboard() {
   const weekDates = getWeekDates(); // always real current week
-  const todayDk = weekDates[new Date().getDay()]; 
+  const todayDk = weekDates[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]; 
   const si = DB.getStaffInfo(currentUser.username);
   const gender = _getUserGender(currentUser);
   const mk = currentMonthKey();
@@ -631,9 +631,21 @@ function renderRequests() {
   if (!_reqFilterYM) _reqFilterYM = currentMonthKey();
   const filterYM = _reqFilterYM;
 
-  const allReqs = (isLeader(currentUser) || isTraining(currentUser))
-    ? state.requests
-    : state.requests.filter(r => r.userId === currentUser.id || r.targetId === currentUser.id);
+  const allReqs = state.requests.filter(r => {
+    // Hide self-cancelled requests from all users
+    if (r.respNote === 'Cancelled by requester.') return false;
+
+    const isOwn = r.userId === currentUser.id || r.targetId === currentUser.id || r.swapPartnerId === currentUser.id;
+
+    if (isLeader(currentUser) || isTraining(currentUser)) {
+      const requester = state.users.find(u => u.id === r.userId);
+      const reqShift = r.shift || (requester ? _getSched(requester.username, r.day || r.myDate) : null);
+      return isOwn || (reqShift === currentShift);
+    }
+
+    return isOwn;
+  });
+
   const myReqs = allReqs.filter(r => {
     const d = new Date(r.at);
     const rym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -777,7 +789,7 @@ function renderRequests() {
       + (r.reason ? '<div class="req-card-reason">"' + r.reason + '"</div>' : '')
       + impactHTML
       + resolvedHTML
-      + (r.status === 'pending' && isLeader(currentUser) && !isOwn
+      + (r.status === 'pending' && currentUser.id === r.swapPartnerId
         ? '<div class="req-actions">'
         + '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">✓ Approve</button>'
         + '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">✗ Reject</button>'
@@ -4437,7 +4449,8 @@ function submitDayoffSwap() {
     at: Date.now(),
     reason: reason,
     resolvedBy: null,
-    resolvedAt: null
+    resolvedAt: null,
+    shift: currentShift
   });
   syncWrite();
   closeModal('modal-dayoff-swap');
@@ -4609,13 +4622,38 @@ function openRequestModal() {
   const displayDays = futureDays.length > 0 ? futureDays : myShiftDays;
 
   const daySelect = document.getElementById('req-day');
-  daySelect.innerHTML = displayDays.length > 0
-    ? displayDays.map(d => {
-      const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
-      const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
-      return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
-    }).join('')
-    : `<option value="">No upcoming shift days found</option>`;
+  let optionsHTML = '';
+  if (displayDays.length > 0) {
+    const sortedDays = _sortDateKeys(displayDays);
+    const curWeekDates = getWeekDates();
+    const [curMonD, curMonM] = curWeekDates[0].split('/').map(Number);
+    const nextMonDate = new Date(2026, curMonM - 1, curMonD + 7);
+    const nextMonStr = `${nextMonDate.getDate().toString().padStart(2,'0')}/${(nextMonDate.getMonth()+1).toString().padStart(2,'0')}`;
+    const nextWeekDates = getWeekDates(nextMonStr);
+
+    const curWeekDays = sortedDays.filter(d => curWeekDates.includes(d));
+    const nextWeekDays = sortedDays.filter(d => nextWeekDates.includes(d));
+    const laterDays = sortedDays.filter(d => !curWeekDates.includes(d) && !nextWeekDates.includes(d));
+
+    const buildOptions = (days) => {
+      return days.map(d => {
+        const br = getAssigned(currentUser.id, d) || getAssigned(currentUser.id, getWkDay(d));
+        const slot = br ? ` (${getShortSlot(currentShift, br.slot)})` : ' (no break)';
+        return `<option value="${d}">${d} ${getWkDay(d)}${slot}</option>`;
+      }).join('');
+    };
+
+    if (curWeekDays.length > 0) {
+      optionsHTML += `<optgroup label="Current Week">${buildOptions(curWeekDays)}</optgroup>`;
+    }
+    if (nextWeekDays.length > 0) {
+      optionsHTML += `<optgroup label="Next Week">${buildOptions(nextWeekDays)}</optgroup>`;
+    }
+    if (laterDays.length > 0) {
+      optionsHTML += `<optgroup label="Later Weeks">${buildOptions(laterDays)}</optgroup>`;
+    }
+  }
+  daySelect.innerHTML = optionsHTML || `<option value="">No upcoming shift days found</option>`;
 
 
 
@@ -4745,6 +4783,7 @@ function submitRequest() {
     current: myBr ? myBr.slot : 'Not assigned', requested, reason,
     swapPartnerId: partnerId, partnerSlot,
     status: 'pending', at: Date.now(), respNote: '',
+    shift: currentShift
   });
   if (typeof syncWrite === 'function') syncWrite(); else save();
   closeModal('modal-request');

@@ -476,7 +476,7 @@
     <div class="modal" style="width:560px;">
       <div class="modal-title">🔄 Break Swap Request</div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
-        Choose a partner with the <b>same exact role</b> on the same shift. A leader must approve before slots are
+        Choose a partner with the <b>same exact role</b> on the same shift. Your partner must approve before slots are
         swapped.
       </p>
       <!-- Scope -->
@@ -680,6 +680,11 @@
         // Extract username from email: "cuong.pham@discoveryloft.com" → "cuong.pham"
         const username = firebaseUser.email.replace('@discoveryloft.com', '');
         const session = DB.getSession();
+
+        // Always load sync config on session restore/page reload to ensure we have the latest database config
+        if (typeof loadSyncConfig === 'function') {
+          try { await loadSyncConfig(); } catch (e) { /* offline — ok */ }
+        }
 
         // Re-detect today's shift (schedule may have changed since last login)
         currentShift = _detectShiftFor(username);

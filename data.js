@@ -4,7 +4,7 @@
 // ── Bin ID is now discovered automatically from sync-config.json ──
 // No manual edits to data.js needed. See Cloud Sync page for setup.
 const STORAGE  = 'bsched_v6';
-const WEEK_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const STAFF_INFO_DB = [
   { username:'admin',                   name:'System Admin',                      gender:'M', role:'Admin'                    },
@@ -564,18 +564,20 @@ function getWkDay(ds) {
   const [d,m]=ds.split('/');
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(2026,parseInt(m)-1,parseInt(d)).getDay()];
 }
-// AFTER — return Sun–Sat:
+// AFTER — return Mon–Sun:
 function getWeekDates(refDateStr) {
   var baseDate = new Date();
   if (refDateStr) {
     var parts = refDateStr.split('/').map(Number);
     baseDate = new Date(2026, parts[1] - 1, parts[0]);
   }
-  const sun = new Date(baseDate);
-  sun.setDate(baseDate.getDate() - baseDate.getDay()); // go back to Sunday
+  const mon = new Date(baseDate);
+  const day = baseDate.getDay();
+  const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1);
+  mon.setDate(diff);
   return WEEK_DAYS.map(function(_, i) {
-    var dt = new Date(sun);
-    dt.setDate(sun.getDate() + i);
+    var dt = new Date(mon);
+    dt.setDate(mon.getDate() + i);
     return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}`;
   });
 }
