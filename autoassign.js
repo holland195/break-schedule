@@ -275,7 +275,7 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
   var newA2Count = Math.min(brandNew.length, slot2Count);
   var remA2      = slot2Count - newA2Count;
   var N          = existing.length;
-  var wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
+  var wStart     = (N > 0 && remA2 > 0) ? (((weeksDiff * remA2) % N) + N) % N : 0;
 
   var result = {};
 
