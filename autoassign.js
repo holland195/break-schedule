@@ -214,45 +214,44 @@ function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Cou
 //
 // Fully idempotent: processing the same week N times gives the same result.
 function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count) {
-  const key = `${shift}_${tier}`;
-  // Migrate old formats (v2 had {phase,lastWeek}, v3 had {baseDate} with no members list)
+  var key = shift + '_' + tier;
   if (!rot[key] || !rot[key].baseDate) rot[key] = {};
-  const entry = rot[key];
+  var entry = rot[key];
   if (!entry.baseDate) entry.baseDate = sunday;
   if (!entry.members) entry.members  = [];
 
-  const knownList = entry.members;       // mutated in place, then saved by caller
-  const knownSet  = new Set(knownList);
+  var knownList = entry.members;
+  var knownSet  = new Set(knownList);
 
-  // Classify members
-  const brandNew  = members.filter(u => !knownSet.has(u.username || u.id));
-  const existing  = members.filter(u =>  knownSet.has(u.username || u.id));
+  var brandNew  = members.filter(function(u) { return !knownSet.has(u.username || u.id); });
+  var existing  = members.filter(function(u) { return knownSet.has(u.username || u.id); });
 
-  // Existing members sorted by their stable position in knownList
-  existing.sort((a, b) =>
-    knownList.indexOf(a.username || a.id) - knownList.indexOf(b.username || b.id)
-  );
+  existing.sort(function(a, b) {
+    return knownList.indexOf(a.username || a.id) - knownList.indexOf(b.username || b.id);
+  });
 
-  // Sliding window offset
-  const baseDate  = _mondayToDate(entry.baseDate);
-  const thisDate  = _mondayToDate(sunday);
-  const weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
+  var baseDate  = _mondayToDate(entry.baseDate);
+  var thisDate  = _mondayToDate(sunday);
+  var weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
 
-  // New members claim A2 slots first; remaining A2 slots go to the window
-  const newA2Count = Math.min(brandNew.length, slot2Count);
-  const remA2      = slot2Count - newA2Count;
-  const N          = existing.length;
-  const wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
+  var newA2Count = Math.min(brandNew.length, slot2Count);
+  var remA2      = slot2Count - newA2Count;
+  var N          = existing.length;
+  var wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
 
-  const result = {};
+  var result = {};
 
-  existing.forEach((u, i) => {
-    const ukey = u.username || u.id;
+  existing.forEach(function(u, i) {
+    var ukey = u.username || u.id;
     result[ukey] = (N > 0 && remA2 > 0 && ((i - wStart + N) % N) < remA2) ? slot2 : slot1;
   });
 
-  _interleaveByTeam(brandNew).forEach((u, i) => {
-    const ukey = u.username || u.id;
+  var sortedBrandNew = brandNew.slice().sort(function(a, b) {
+    return _naturalSort(a.username || a.id, b.username || b.id);
+  });
+
+  sortedBrandNew.forEach(function(u, i) {
+    var ukey = u.username || u.id;
     result[ukey] = i < newA2Count ? slot2 : slot1;
     if (!knownSet.has(ukey)) { knownList.push(ukey); knownSet.add(ukey); }
   });
@@ -265,37 +264,28 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
 // importedUsers: array of user objects from the import.
 // Returns { assigned, weekCount }
 function autoAssignBreaks(importedUsers) {
-  //console.log("Auto-assign started with users:", importedUsers.length);
-    if (importedUsers && importedUsers[0]) {
-    const keys = Object.keys(importedUsers[0].schedule || {}).slice(0, 5);
+  if (importedUsers && importedUsers[0]) {
+    var keys = Object.keys(importedUsers[0].schedule || {}).slice(0, 5);
     toast('Schedule keys: ' + keys.join(', '), 'warn');
   }
   if (!importedUsers || importedUsers.length === 0) {
-    
     return { assigned: 0, weekCount: 0 };
   }
 
-  // Single timestamp for the entire run — all auto-assigned breaks
-  // in this import get the same `at` value. This is important for
-  // Option B's merge logic: any manual override done AFTER this import
-  // will have a higher timestamp and always wins on pull.
-  const RUN_TIMESTAMP = Date.now();
+  var RUN_TIMESTAMP = Date.now();
 
-  // Collect all DD/MM dates from staffSchedule
-  const allDates = new Set();
+  var allDates = new Set();
   Object.values(state.staffSchedule || {}).forEach(function(sc) {
     Object.keys(sc || {}).forEach(function(d) { allDates.add(d); });
   });
-  // Fallback: also collect from user objects (backwards compat during migration)
-  importedUsers.forEach(u => {
-    Object.keys(u.schedule || {}).forEach(d => allDates.add(d));
+  importedUsers.forEach(function(u) {
+    Object.keys(u.schedule || {}).forEach(function(d) { allDates.add(d); });
   });
 
-  // Derive all Sunday anchors from any date in the schedule.
-  // If the import has no Sunday entries (e.g. Mon–Sat only), rewind each date
-  // to its containing Sunday so those weeks are still processed.
   var _sundaySet = {};
-  [...allDates].filter(function(d) { return /^\d{1,2}\/\d{1,2}$/.test(d); }).forEach(function(d) {
+  var allDatesArray = [];
+  allDates.forEach(function(d) { allDatesArray.push(d); });
+  allDatesArray.filter(function(d) { return /^\d{1,2}\/\d{1,2}$/.test(d); }).forEach(function(d) {
     var parts = d.split('/');
     var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
     dt.setDate(dt.getDate() - dt.getDay()); // rewind to Sunday
@@ -303,89 +293,74 @@ function autoAssignBreaks(importedUsers) {
     var sm = String(dt.getMonth() + 1).padStart(2, '0');
     _sundaySet[sd + '/' + sm] = true;
   });
-  const sundays = Object.keys(_sundaySet).sort((a, b) => _mondayToDate(a) - _mondayToDate(b));
+  var sundays = Object.keys(_sundaySet).sort(function(a, b) {
+    return _mondayToDate(a) - _mondayToDate(b);
+  });
 
   if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
-  // Load rotation state once — mutate in place across all weeks in this import
-  // This ensures future weeks see the correctly accumulated phase from earlier weeks
-  const rot    = _loadRotation();
-  let totalAssigned = 0;
+  var rot = _loadRotation();
+  var totalAssigned = 0;
 
-  sundays.forEach(sunday => {
-  const weekDates = getWeekRange(sunday); // now returns Sun–Sat
-    const shifts = Object.keys(getConfigForDate(sunday).breakSlots);
+  sundays.forEach(function(sunday) {
+    var weekDates = getWeekRange(sunday);
+    var shifts = Object.keys(getConfigForDate(sunday).breakSlots);
+    var isFuture = _isFutureWeek(sunday);
+    var weekLabel = isFuture ? '(future)' : '(current/past)';
+    console.log('[autoassign] Processing week ' + sunday + ' ' + weekLabel);
 
-    const isFuture  = _isFutureWeek(sunday);
-
-    const weekLabel = isFuture ? '(future)' : '(current/past)';
-    console.log(`[autoassign] Processing week ${sunday} ${weekLabel}`);
-
-    shifts.forEach(shift => {
-      const slots = getConfigForDate(sunday).breakSlots[shift];
+    shifts.forEach(function(shift) {
+      var slots = getConfigForDate(sunday).breakSlots[shift];
       if (!slots || slots.length < 2) return;
-      const [slot1, slot2] = slots;
+      var slot1 = slots[0];
+      var slot2 = slots[1];
 
-      // Users on this shift in this week.
-      // Schedule keys may be DD/MM date strings OR day-name strings ('Mon', 'Tue'…)
-      // depending on how GAS imported them — check both, matching pages.js behaviour.
-      const onShift = importedUsers.filter(u => {
-        const role = DB.getStaffInfo(u.username)?.role || u.role || '';
+      var onShift = importedUsers.filter(function(u) {
+        var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
         if (!_roleTier(role)) return false;
-        return weekDates.some((d, i) => _getSched(u.username, d) === shift);
+        return weekDates.some(function(d) {
+          return _getSched(u.username, d) === shift;
+        });
       });
       if (onShift.length === 0) return;
 
-      // Split into tiers
-      const tiers = { agent: [], qa: [], sr_qa: [] };
-      onShift.forEach(u => {
-        const role = DB.getStaffInfo(u.username)?.role || u.role || '';
-        const t    = _roleTier(role);
+      var tiers = { agent: [], qa: [], sr_qa: [] };
+      onShift.forEach(function(u) {
+        var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
+        var t = _roleTier(role);
         if (t) tiers[t].push(u);
       });
 
-      Object.entries(tiers).forEach(([tier, members]) => {
+      Object.keys(tiers).forEach(function(tier) {
+        var members = tiers[tier];
         if (members.length === 0) return;
 
-        // Group members by team and compute slot assignment at team level
-        // so all members of the same team always land on the same slot.
-        const teamGroups = {};
-        members.forEach(u => {
-          const t = u.team || '_no_team_';
-          if (!teamGroups[t]) teamGroups[t] = [];
-          teamGroups[t].push(u);
-        });
-        const teams = Object.keys(teamGroups).sort(_naturalSort);
+        var customPct = getBreakSplitPct(shift, tier);
+        var slot1Count = customPct !== null
+          ? Math.round(members.length * customPct / 100)
+          : Math.ceil(members.length / 2);
+        var slot2Count = members.length - slot1Count;
 
-        const customPct      = getBreakSplitPct(shift, tier);
-        const slot1TeamCount = customPct !== null
-          ? Math.round(teams.length * customPct / 100)
-          : Math.ceil(teams.length / 2);
-        const slot2TeamCount = teams.length - slot1TeamCount;
+        var userSlotMap = _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count);
 
-        // Compute team slot map — always runs to keep rotation state current
-        const teamSlotMap = _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2TeamCount);
-
-        // Skip writing if every member already has a correct break this week
-        const allAlreadyAssigned = members.every(u =>
-          weekDates.every((d, i) => {
+        var allAlreadyAssigned = members.every(function(u) {
+          return weekDates.every(function(d) {
             if (_getSched(u.username, d) !== shift) return true;
-            const ex = DB.getBreak(u.id, d);
+            var ex = DB.getBreak(u.id, d);
             return ex && _slotBelongsToShift(ex.slot, shift);
-          })
-        );
+          });
+        });
         if (allAlreadyAssigned) {
-          //console.log(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping`);
-          toast(`[autoassign] ${shift}/${tier}/${sunday}: all assigned, skipping`, 'warn');
+          toast('[autoassign] ' + shift + '/' + tier + '/' + sunday + ': all assigned, skipping', 'warn');
           return;
         }
 
-        members.forEach(u => {
-          const assignedSlot = teamSlotMap[u.team || '_no_team_'] || slot1;
+        members.forEach(function(u) {
+          var assignedSlot = userSlotMap[u.username || u.id] || slot1;
 
-          weekDates.forEach((d, i) => {
+          weekDates.forEach(function(d) {
             if (_getSched(u.username, d) !== shift) return;
-            const ex = DB.getBreak(u.id, d);
+            var ex = DB.getBreak(u.id, d);
             if (ex && _slotBelongsToShift(ex.slot, shift)) return;
             DB.setBreak(u.id, d, {
               slot: assignedSlot === slot2 ? shift + '2' : shift + '1',
@@ -400,11 +375,10 @@ function autoAssignBreaks(importedUsers) {
     });
   });
 
-  // ── Post-process: ensure slot 2 is present on Mon, Sat, Sun ──
-  // After the main rotation, check each week × shift × {Mon,Sat,Sun}.
-  // If no team is on slot 2 that day (because the slot-2 team is absent),
-  // pick the first present team that is currently on slot 1 and override
-  // just that day's assignments to slot 2.
+  // ── Post-process: ensure slot 2 is present on Mon, Sat, Sun per tier ──
+  // After the main rotation, check each week × shift × {Mon,Sat,Sun} for each tier.
+  // If no one in a tier is on slot 2 that day (because the slot-2 rotated members are absent),
+  // and there are >= 2 members of that tier working, pick one who is on slot 1 and override to slot 2.
   var _checkDays = new Set(['Mon', 'Sat', 'Sun']);
   sundays.forEach(function(sunday) {
     var weekDates2 = getWeekRange(sunday);
@@ -417,43 +391,38 @@ function autoAssignBreaks(importedUsers) {
       weekDates2.forEach(function(dk) {
         if (!_checkDays.has(getWkDay(dk))) return;
 
-        // Collect all users on this shift on this day
-        var dayUsers = importedUsers.filter(function(u) {
+        var tierUsers = { agent: [], qa: [], sr_qa: [] };
+        importedUsers.forEach(function(u) {
           var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
-          if (!_roleTier(role)) return false;
-          return _getSched(u.username, dk) === shift;
+          var t = _roleTier(role);
+          if (t && _getSched(u.username, dk) === shift) {
+            tierUsers[t].push(u);
+          }
         });
-        if (dayUsers.length === 0) return;
 
-        // Check if anyone already has slot 2 this day
-        var hasSlot2 = dayUsers.some(function(u) {
-          var br = DB.getBreak(u.id, dk);
-          return br && br.slot === slot2Code;
-        });
-        if (hasSlot2) return;
+        Object.keys(tierUsers).forEach(function(tier) {
+          var dayUsers = tierUsers[tier];
+          if (dayUsers.length < 2) return;
 
-        // No slot 2 — group present users by team and pick first team
-        var teamGroups2 = {};
-        dayUsers.forEach(function(u) {
-          var t = u.team || '_no_team_';
-          if (!teamGroups2[t]) teamGroups2[t] = [];
-          teamGroups2[t].push(u);
-        });
-        var sortedTeams2 = Object.keys(teamGroups2).sort(_naturalSort);
-        if (!sortedTeams2.length) return;
+          var hasSlot2 = dayUsers.some(function(u) {
+            var br = DB.getBreak(u.id, dk);
+            return br && br.slot === slot2Code;
+          });
+          if (hasSlot2) return;
 
-        // Pick first team and assign slot 2 for this specific day only
-        var pickedTeam = sortedTeams2[0];
-        teamGroups2[pickedTeam].forEach(function(u) {
-          DB.setBreak(u.id, dk, {
+          var sortedUsers = dayUsers.slice().sort(function(a, b) {
+            return _naturalSort(a.username || a.id, b.username || b.id);
+          });
+          var pickedUser = sortedUsers[0];
+          DB.setBreak(pickedUser.id, dk, {
             slot: slot2Code,
             note: 'auto',
             by:   null,
             at:   RUN_TIMESTAMP,
           });
           totalAssigned++;
+          console.log('[autoassign] weekend-fill: ' + shift + ' ' + dk + ' (' + tier + ') → slot2 assigned to ' + pickedUser.username);
         });
-        console.log('[autoassign] weekend-fill: ' + shift + ' ' + dk + ' → slot2 assigned to team ' + pickedTeam);
       });
     });
   });
