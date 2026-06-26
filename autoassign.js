@@ -221,6 +221,44 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
   if (!entry.members) entry.members  = [];
 
   var knownList = entry.members;
+  if (knownList.length === 0 && members.length > 0) {
+    var weekDates = getWeekRange(sunday);
+    var slot2Users = [];
+    var slot1Users = [];
+    var unassignedUsers = [];
+
+    members.forEach(function(u) {
+      var ukey = u.username || u.id;
+      var hasSlot2 = false;
+      var hasSlot1 = false;
+
+      weekDates.forEach(function(d) {
+        if (_getSched(u.username, d) !== shift) return;
+        var ex = DB.getBreak(u.id, d);
+        if (ex && ex.slot) {
+          var idx = _slotIndex(ex.slot, shift);
+          if (idx === 1) hasSlot2 = true;
+          else if (idx === 0) hasSlot1 = true;
+        }
+      });
+
+      if (hasSlot2) {
+        slot2Users.push(ukey);
+      } else if (hasSlot1) {
+        slot1Users.push(ukey);
+      } else {
+        unassignedUsers.push(ukey);
+      }
+    });
+
+    slot2Users.sort(_naturalSort);
+    slot1Users.sort(_naturalSort);
+    unassignedUsers.sort(_naturalSort);
+
+    entry.members = slot2Users.concat(slot1Users).concat(unassignedUsers);
+    knownList = entry.members;
+  }
+
   var knownSet  = new Set(knownList);
 
   var brandNew  = members.filter(function(u) { return !knownSet.has(u.username || u.id); });
