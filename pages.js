@@ -1180,9 +1180,9 @@ async function saveBreakSplits() {
   if (!confirm("Are you sure you want to save the new break split settings and re-assign breaks?")) {
     return;
   }
-  const changedShifts  = new Set(); // value changed — for toast label only
-  const shiftsToProcess = new Set(); // all shifts with visible sliders — always reset+reassign
-  VISIBLE_SHIFTS.forEach(shift => {
+  var changedShifts  = new Set();
+  var shiftsToProcess = new Set();
+  VISIBLE_SHIFTS.forEach(function(shift) {
     if (shift === 'A') {
       var _sA = document.getElementById('split-slider-A-agent');
       var _sQ = document.getElementById('split-slider-A-qa');
@@ -1201,33 +1201,33 @@ async function saveBreakSplits() {
       _saveBreakSplit(_sp);
       return;
     }
-    const slider = document.getElementById(`split-slider-${shift}`);
+    var slider = document.getElementById('split-slider-' + shift);
     if (!slider) return;
     shiftsToProcess.add(shift);
-    const newPct = parseInt(slider.value);
-    const oldPct = getBreakSplitPct(shift);
+    var newPct = parseInt(slider.value);
+    var oldPct = getBreakSplitPct(shift);
     if (newPct !== oldPct) changedShifts.add(shift);
     setBreakSplitPct(shift, newPct);
   });
 
   if (shiftsToProcess.size > 0) {
-    // 1. Clear break records (including manual) from next week onward
-    var _applyFrom = _nextWeekMonday(activeMonday);
+    // 1. Clear break records (including manual) from this week onward
+    var _applyFrom = activeMonday;
     _clearAutoBreaksFromWeek(_applyFrom, shiftsToProcess, true);
 
-    // 2. Reset rotation so knownList is rebuilt with interleaved group order
-    const rot = _loadRotation();
-    shiftsToProcess.forEach(shift => {
-      ['agent', 'qa', 'sr_qa'].forEach(tier => {
-        delete rot[`${shift}_${tier}`];
+    // 2. Reset rotation so knownList is rebuilt
+    var rot = _loadRotation();
+    shiftsToProcess.forEach(function(shift) {
+      ['agent', 'qa', 'sr_qa'].forEach(function(tier) {
+        delete rot[shift + '_' + tier];
       });
     });
     _saveRotation(rot);
 
     // 3. Re-assign with fresh rotation
-    const result = autoAssignBreaks(state.users);
+    var result = autoAssignBreaks(state.users);
     await syncWrite();
-    toast(`Distribution saved. Re-assigned ${result.assigned} break(s) from week ${_applyFrom}.`, 'ok');
+    toast('Distribution saved. Re-assigned ' + result.assigned + ' break(s) from week ' + _applyFrom + '.', 'ok');
   } else {
     await syncWrite();
     toast('Break distribution settings saved (no changes).', 'ok');
