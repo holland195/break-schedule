@@ -335,6 +335,12 @@ function autoAssignBreaks(importedUsers) {
     return _mondayToDate(a) - _mondayToDate(b);
   });
 
+  // Filter out weeks before the baseline week of June 29 (Sunday anchor 28/06)
+  var baselineSunday = '28/06';
+  sundays = sundays.filter(function(sunday) {
+    return _mondayToDate(sunday) >= _mondayToDate(baselineSunday);
+  });
+
   if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
 
   var rot = _loadRotation();
