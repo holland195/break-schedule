@@ -310,10 +310,10 @@ function syncSchedule(current, log) {
 
         // Update GSheet cells
         sheet.getRange(rowRequester, colMyDate).setValue(shiftRequester);
-        sheet.getRange(rowRequester, colTheirDate).setValue('OFF');
+        sheet.getRange(rowRequester, colTheirDate).setValue('0');
 
         sheet.getRange(rowTarget, colTheirDate).setValue(shiftTarget);
-        sheet.getRange(rowTarget, colMyDate).setValue('OFF');
+        sheet.getRange(rowTarget, colMyDate).setValue('0');
 
         r.syncedToSheet = true;
         log('[Schedule] ✓ Synced day-off swap to GSheet for ' + r.username + ' ↔ ' + r.targetUsername);
