@@ -405,14 +405,14 @@ function runSyncSchedule() {
 // ═══════════════════════════════════════════════
 //  WORKING TIME SYNC
 //  Reads the 'Working Time-June-26' sheet.
-//  Expected layout:
-//    Row 1: date headers from the same column start as schedule (merged per date group)
-//    Row 2: sub-headers — columns named "Username", "Late", "Early", "Training", "Others"
-//            (or similar; detected dynamically, case-insensitive)
-//    Row 3+: one row per staff member per day (wide format) OR one block per date (tall format)
-//  This implementation supports WIDE FORMAT:
-//    Col A: No | Col B: Username | Col C: Name | Col D+: groups of 4 cols per date:
-//      [Late] [Early] [Training] [Others]
+//  Expected layout (WIDE format, one value per date column):
+//    Row 1 (or 2): date headers — one column per date
+//    Row 2 (or 3): sub-headers — Username/Name/No + one column per date (day name optional)
+//    Row 3+: one row per staff; each date column contains the total working-time deviation (minutes)
+//
+//  The LATE / EARLY / TRAINING / OTHER columns are SUMMARY totals and are SKIPPED.
+//  Only columns whose header parses as a date are imported.
+//  Result stored as: current.workingTime[username][monthKey][dateKey] = { total: <minutes> }
 // ═══════════════════════════════════════════════
 function syncWorkingTime(current, log) {
   if (typeof log !== 'function') log = function(m) { Logger.log(m); };
@@ -446,80 +446,70 @@ function syncWorkingTime(current, log) {
 
   var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
 
-  // ── Detect header rows ──
-  // Row 1: date header row — the row with most parseable date cells
+  // ── Step 1: find the date header row (most parseable date cells in first 5 rows) ──
   var dateRowIdx = -1, bestCnt = 0;
   for (var ri = 0; ri < Math.min(5, allData.length); ri++) {
     var cnt = 0;
     for (var c = 0; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c])) cnt++; }
     if (cnt > bestCnt) { bestCnt = cnt; dateRowIdx = ri; }
   }
-
-  // Row 2: sub-header row immediately after dateRowIdx that contains at least one of
-  // 'late','early','training','others','username'
-  var subHdrRowIdx = -1;
-  for (var ri = (dateRowIdx >= 0 ? dateRowIdx : 0) + 1; ri < Math.min((dateRowIdx >= 0 ? dateRowIdx : 0) + 5, allData.length); ri++) {
-    var row = allData[ri];
-    var found = row.some(function(c) {
-      var v = String(c || '').trim().toLowerCase();
-      return v === 'late' || v === 'early' || v === 'training' || v === 'others' || v === 'username';
-    });
-    if (found) { subHdrRowIdx = ri; break; }
-  }
-
-  if (subHdrRowIdx < 0) {
-    log('[WorkingTime] ⚠ Could not find sub-header row with Late/Early/Training/Others columns.');
+  if (dateRowIdx < 0 || bestCnt < 1) {
+    log('[WorkingTime] ⚠ No date header row found in first 5 rows.');
     return result;
   }
 
-  var subHdr = allData[subHdrRowIdx];
-  var dataStartRowIdx = subHdrRowIdx + 1;
+  // ── Step 2: find the sub-header row (first row after dateRowIdx with a "username"/"no"/"name" cell) ──
+  var subHdrRowIdx = -1;
+  var SKIP_LABELS = ['late','early','training','other','others','total'];
+  for (var ri = dateRowIdx + 1; ri < Math.min(dateRowIdx + 5, allData.length); ri++) {
+    var row = allData[ri];
+    var hasIdentifier = row.some(function(c) {
+      var v = String(c || '').trim().toLowerCase();
+      return v === 'username' || v === 'user' || v === 'no' || v === 'name' || v === 'no.';
+    });
+    if (hasIdentifier) { subHdrRowIdx = ri; break; }
+  }
+  // If no sub-header found, data starts immediately after dateRowIdx
+  var dataStartRowIdx = subHdrRowIdx >= 0 ? subHdrRowIdx + 1 : dateRowIdx + 1;
+  var subHdr = subHdrRowIdx >= 0 ? allData[subHdrRowIdx] : [];
 
-  // Detect username column index (look for 'username' in sub-header)
+  log('[WorkingTime] dateRow=' + (dateRowIdx+1) + ' subHdrRow=' + (subHdrRowIdx >= 0 ? subHdrRowIdx+1 : 'none') + ' dataStart=' + (dataStartRowIdx+1));
+
+  // ── Step 3: find username column (look in sub-header or default to col B) ──
   var usernameColIdx = -1;
   for (var c = 0; c < subHdr.length; c++) {
     var v = String(subHdr[c] || '').trim().toLowerCase();
-    if (v === 'username' || v === 'user name' || v === 'user') { usernameColIdx = c; break; }
+    if (v === 'username' || v === 'user') { usernameColIdx = c; break; }
   }
-  if (usernameColIdx < 0) usernameColIdx = 1; // default: Col B (index 1)
+  if (usernameColIdx < 0) usernameColIdx = 1; // default Col B
 
-  log('[WorkingTime] dateRow=' + (dateRowIdx+1) + ' subHdrRow=' + (subHdrRowIdx+1) + ' usernameCol=' + (usernameColIdx+1));
-
-  // ── Build date+column map ──
-  // WIDE FORMAT: each date has a group of columns. The date header spans the group.
-  // We resolve the dateKey for each column by propagating the last seen date header.
-  var colDateKey = []; // colDateKey[colIndex] = dateKey | null
-  var lastSeenDk = null;
-  var dateRow = dateRowIdx >= 0 ? allData[dateRowIdx] : [];
+  // ── Step 4: build list of date columns — only columns that have a parseable date in dateRowIdx ──
+  //           Skip any column whose sub-header label matches LATE/EARLY/TRAINING/OTHER/TOTAL
+  var dateHdrRow = allData[dateRowIdx];
+  var dateCols = []; // { colIndex, dateKey }
   for (var c = 0; c < lastCol; c++) {
-    var dk = parseDateHeader(dateRow[c]);
-    if (dk) lastSeenDk = dk;
-    // Assign the date to this column only if the sub-header identifies it as a data column
-    var sh = String(subHdr[c] || '').trim().toLowerCase();
-    if (sh === 'late' || sh === 'early' || sh === 'training' || sh === 'others') {
-      colDateKey[c] = lastSeenDk;
-    } else {
-      colDateKey[c] = null;
-    }
+    var dk = parseDateHeader(dateHdrRow[c]);
+    if (!dk) continue;
+    // Skip if sub-header explicitly labels it as a summary column
+    var shLabel = String(subHdr[c] || '').trim().toLowerCase();
+    if (SKIP_LABELS.indexOf(shLabel) !== -1) continue;
+    dateCols.push({ colIndex: c, dateKey: dk });
   }
 
-  // Count unique date keys covered
-  var uniqueDates = {};
-  colDateKey.forEach(function(dk) { if (dk) uniqueDates[dk] = true; });
-  result.dateCols = Object.keys(uniqueDates).length;
-  log('[WorkingTime] ' + result.dateCols + ' date columns detected.');
+  result.dateCols = dateCols.length;
+  log('[WorkingTime] ' + dateCols.length + ' date columns to import (LATE/EARLY/TRAINING/OTHER skipped).');
 
-  if (result.dateCols === 0) {
-    log('[WorkingTime] ⚠ No data columns found. Check that date headers align with Late/Early/Training/Others sub-headers.');
+  if (dateCols.length === 0) {
+    log('[WorkingTime] ⚠ No importable date columns found.');
     return result;
   }
 
-  // Determine monthKey from first date key found
-  var firstDkFound = Object.keys(uniqueDates)[0];
-  var fdParts = firstDkFound.split('/');
-  var fdDay = parseInt(fdParts[0]);
-  var fdMon = parseInt(fdParts[1]);
-  var fdYear = new Date().getFullYear();
+  // ── Step 5: determine monthKey from first date ──
+  var firstDk = dateCols[0].dateKey;
+  var fdParts = firstDk.split('/');
+  var fdDay   = parseInt(fdParts[0]);
+  var fdMon   = parseInt(fdParts[1]);
+  var fdYear  = new Date().getFullYear();
   var fdMonth = fdDay >= 25 ? fdMon + 1 : fdMon;
   if (fdMonth > 12) { fdMonth = 1; fdYear++; }
   var monthKey = fdYear + '-' + String(fdMonth).padStart(2, '0');
@@ -527,8 +517,7 @@ function syncWorkingTime(current, log) {
 
   if (!current.workingTime) current.workingTime = {};
 
-  // ── Parse each data row ──
-  var notFound = [];
+  // ── Step 6: parse data rows ──
   for (var ri = dataStartRowIdx; ri < allData.length; ri++) {
     var row = allData[ri];
     var rawUname = row[usernameColIdx];
@@ -539,43 +528,22 @@ function syncWorkingTime(current, log) {
     if (!current.workingTime[username]) current.workingTime[username] = {};
     if (!current.workingTime[username][monthKey]) current.workingTime[username][monthKey] = {};
 
-    // Group columns by date key and extract values
-    var dateData = {};
-    for (var c = 0; c < lastCol; c++) {
-      var dk = colDateKey[c];
-      if (!dk) continue;
-      var sh = String(subHdr[c] || '').trim().toLowerCase();
-      var rawVal = row[c];
-      var numVal = null;
-      if (rawVal !== null && rawVal !== undefined && rawVal !== '') {
-        var parsed = parseFloat(String(rawVal).replace(',', '.'));
-        if (!isNaN(parsed) && parsed > 0) numVal = Math.round(parsed);
-      }
-      if (!dateData[dk]) dateData[dk] = {};
-      if (numVal !== null) dateData[dk][sh] = numVal;
-    }
-
-    // Write to Firebase workingTime structure
     var hasAny = false;
-    Object.keys(dateData).forEach(function(dk) {
-      var d = dateData[dk];
-      var entry = {};
-      if (d.late     > 0) entry.late     = d.late;
-      if (d.early    > 0) entry.early    = d.early;
-      if (d.training > 0) entry.training = d.training;
-      if (d.others   > 0) entry.others   = d.others;
-      if (Object.keys(entry).length > 0) {
-        current.workingTime[username][monthKey][dk] = entry;
-        hasAny = true;
-      }
+    dateCols.forEach(function(col) {
+      var rawVal = row[col.colIndex];
+      if (rawVal === null || rawVal === undefined || rawVal === '') return;
+      var num = parseFloat(String(rawVal).replace(',', '.'));
+      if (isNaN(num) || num <= 0) return;
+      // Preserve manually-entered late/early/training/others; only update 'total' from the sheet.
+      var existing = current.workingTime[username][monthKey][col.dateKey] || {};
+      existing.total = Math.round(num);
+      current.workingTime[username][monthKey][col.dateKey] = existing;
+      hasAny = true;
     });
 
     if (hasAny) result.updated++;
   }
 
-  if (notFound.length > 0) {
-    log('[WorkingTime] ⚠ ' + notFound.length + ' rows skipped (no matching username).');
-  }
   log('[WorkingTime] Done: ' + result.updated + ' users synced for ' + monthKey);
   return result;
 }
