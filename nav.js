@@ -142,6 +142,9 @@ function attachPageEvents(page) {
     const firstTab = document.querySelector('#arrange-day-tabs .tab');
     if (firstTab) firstTab.classList.add('on');
   }
+  if (page === 'requests') {
+    if (typeof _applyReqFilters === 'function') _applyReqFilters();
+  }
 }
 
 // ── Sidebar collapse toggle ──
