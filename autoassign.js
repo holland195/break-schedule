@@ -393,13 +393,79 @@ function autoAssignBreaks(importedUsers) {
           return;
         }
 
+        // 1. Custom override for the transition week of June 28 (week 29/6)
+        if (sunday === '28/06') {
+          if (shift === 'A' && tier === 'agent') {
+            members.forEach(function(u) {
+              var team = u.team || '';
+              weekDates.forEach(function(d) {
+                if (_getSched(u.username, d) !== 'A') return;
+                var slotVal = 'A1';
+                if (team === 'DA7' || team === 'DA8' || team === 'DA9') {
+                  if (d === '29/06') slotVal = 'A2';
+                } else if (team === 'DA10' || team === 'DA11' || team === 'DA12') {
+                  if (d !== '28/06' && d !== '04/07') slotVal = 'A2';
+                } else if (team.startsWith('DA29') || team.startsWith('DA30') || team.startsWith('DA31') || 
+                           team.startsWith('DA32') || team.startsWith('DA33') || team.startsWith('DA34')) {
+                  slotVal = 'A2';
+                }
+                DB.setBreak(u.id, d, {
+                  slot: slotVal,
+                  note: 'auto',
+                  by:   null,
+                  at:   RUN_TIMESTAMP,
+                });
+                totalAssigned++;
+              });
+            });
+            return;
+          }
+
+          if (shift === 'A' && tier === 'qa') {
+            members.forEach(function(u) {
+              var team = u.team || '';
+              weekDates.forEach(function(d) {
+                if (_getSched(u.username, d) !== 'A') return;
+                var slotVal = 'A1';
+                if (team === 'DS2' || team === 'DS3' || team === 'DS4' || team === 'DS5') {
+                  slotVal = 'A2';
+                } else if (team === 'DS6' || team === 'DS7' || team === 'DS8') {
+                  if (d !== '28/06' && d !== '04/07') slotVal = 'A2';
+                } else if (team === 'DS9' || team === 'DS10' || team === 'DS11') {
+                  if (d === '28/06' || d === '04/07') slotVal = 'A2';
+                } else if (team === 'DS12' || team === 'DS13' || team === 'DS14' || team === 'DS15' || team === 'DS16') {
+                  if (d === '04/07') slotVal = 'A2';
+                }
+                DB.setBreak(u.id, d, {
+                  slot: slotVal,
+                  note: 'auto',
+                  by:   null,
+                  at:   RUN_TIMESTAMP,
+                });
+                totalAssigned++;
+              });
+            });
+            return;
+          }
+        }
+
+        // 2. Normal rotation & Tue-Fri inversion logic for Shifts A and D
         members.forEach(function(u) {
-          var assignedSlot = userSlotMap[u.username || u.id] || slot1;
+          var baseSlot = userSlotMap[u.username || u.id] || slot1;
 
           weekDates.forEach(function(d) {
             if (_getSched(u.username, d) !== shift) return;
             var ex = DB.getBreak(u.id, d);
             if (ex && _slotBelongsToShift(ex.slot, shift)) return;
+
+            var assignedSlot = baseSlot;
+            if (shift === 'A' || shift === 'D') {
+              var wkday = getWkDay(d);
+              if (wkday === 'Tue' || wkday === 'Wed' || wkday === 'Thu' || wkday === 'Fri') {
+                assignedSlot = (baseSlot === slot2) ? slot1 : slot2;
+              }
+            }
+
             DB.setBreak(u.id, d, {
               slot: assignedSlot === slot2 ? shift + '2' : shift + '1',
               note: 'auto',
