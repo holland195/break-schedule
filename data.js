@@ -629,3 +629,42 @@ function parseCSVLine(line) {
 }
 function renderPage(p){nav(p);}
 buildDatalist();
+
+const ATT_CODE_MAP = (() => {
+  const map = {};
+  ['A', 'B', 'C', 'D', 'E'].forEach(sh => {
+    map[`X${sh}`] = { type: 'WD', shift: sh };
+    map[`X2${sh}`] = { type: 'WD', shift: sh };
+    map[`X3${sh}`] = { type: 'WD', shift: sh };
+    map[`X4${sh}`] = { type: 'WD', shift: sh };
+    map[`${sh}1`] = { type: 'HD1', shift: sh };
+    map[`${sh}2`] = { type: 'HD2', shift: sh };
+    map[`U${sh}1`] = { type: 'HD1', shift: sh };
+    map[`U${sh}2`] = { type: 'HD2', shift: sh };
+  });
+  map['A'] = { type: 'OFF', reason: 'Annual leave' };
+  map['H'] = { type: 'OFF', reason: 'Public holiday' };
+  map['U'] = { type: 'OFF', reason: 'Unpaid leave' };
+  map['S'] = { type: 'OFF', reason: 'Sick leave' };
+  map['L'] = { type: 'OFF', reason: 'Personal leave' };
+  map['0'] = { type: 'OFF', reason: 'Day off' };
+  map['0.0'] = { type: 'OFF', reason: 'Day off' };
+  return map;
+})();
+
+function _parseAttCode(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const s = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
+  return ATT_CODE_MAP[s] || null;
+}
+
+function _getMondayAnchor(dateStr) {
+  var parts = dateStr.split('/');
+  var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+  var day = dt.getDay();
+  var diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+  dt.setDate(diff);
+  var sd = String(dt.getDate()).padStart(2, '0');
+  var sm = String(dt.getMonth() + 1).padStart(2, '0');
+  return sd + '/' + sm;
+}

@@ -2,3 +2,8 @@ dist/
 node_modules/
 package-lock.json
 package.json
+scratch/
+.dev.vars
+.wrangler/
+worker/.wrangler/
+worker/.dev.vars

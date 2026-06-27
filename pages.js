@@ -26,34 +26,7 @@
 //
 //  SHIFT MISMATCH: XA on shift B day → conflict
 
-// ── Monthly attendance code map (Excel legend rows 123-168) ──
-const ATT_CODE_MAP = (() => {
-  const map = {};
-  ['A', 'B', 'C', 'D', 'E'].forEach(sh => {
-    map[`X${sh}`] = { type: 'WD', shift: sh };
-    map[`X2${sh}`] = { type: 'WD', shift: sh };
-    map[`X3${sh}`] = { type: 'WD', shift: sh };
-    map[`X4${sh}`] = { type: 'WD', shift: sh };
-    map[`${sh}1`] = { type: 'HD1', shift: sh };
-    map[`${sh}2`] = { type: 'HD2', shift: sh };
-    map[`U${sh}1`] = { type: 'HD1', shift: sh };
-    map[`U${sh}2`] = { type: 'HD2', shift: sh };
-  });
-  map['A'] = { type: 'OFF', reason: 'Annual leave' };
-  map['H'] = { type: 'OFF', reason: 'Public holiday' };
-  map['U'] = { type: 'OFF', reason: 'Unpaid leave' };
-  map['S'] = { type: 'OFF', reason: 'Sick leave' };
-  map['L'] = { type: 'OFF', reason: 'Personal leave' };
-  map['0'] = { type: 'OFF', reason: 'Day off' };
-  map['0.0'] = { type: 'OFF', reason: 'Day off' };
-  return map;
-})();
-
-function _parseAttCode(raw) {
-  if (raw === null || raw === undefined || raw === '') return null;
-  const s = String(typeof raw === 'number' ? Math.round(raw) : raw).trim().toUpperCase();
-  return ATT_CODE_MAP[s] || null;
-}
+// ATT_CODE_MAP and _parseAttCode are now defined globally in data.js
 
 function _excelDateToDk(h, fallbackMonth) {
   if (!h) return null;
@@ -982,8 +955,6 @@ let _pasteContent = '';
 
 function renderArrange() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
-  const weekRange = getWeekRange(activeMonday);
-  if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
   // Build week picker from available schedule dates
   var _allSDSet = {};
@@ -1024,6 +995,9 @@ function renderArrange() {
     localStorage.setItem('activeMonday', activeMonday);
     arrangeActiveDay = null;
   }
+
+  const weekRange = getWeekRange(activeMonday);
+  if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
   var _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var _monoLbl = 'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;';
@@ -1707,6 +1681,25 @@ function _renderArrangeOverviewTab(weekRange) {
       if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
       if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
 
+      var ovMk = _todayNow.getFullYear() + '-' + d.split('/')[1];
+      var ovAttCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][ovMk] || {})[d]) : '';
+      var ovAttParsed = ovAttCode ? _parseAttCode(ovAttCode) : null;
+      var ovIsOff = ovAttParsed && ovAttParsed.type === 'OFF';
+      var ovIsHalfDay = ovAttParsed && (ovAttParsed.type === 'HD1' || ovAttParsed.type === 'HD2');
+
+      if (ovIsOff || ovIsHalfDay) {
+        var _offBg = {'A':'rgba(234,179,8,.13)','H':'rgba(220,38,38,.13)','0':'rgba(22,163,74,.13)','U':'rgba(225,29,72,.12)','S':'rgba(234,88,12,.12)','L':'rgba(8,145,178,.12)'};
+        var _offFg = {'A':'#ca8a04','H':'#dc2626','0':'#16a34a','U':'#e11d48','S':'#ea580c','L':'#0891b2'};
+        var _ck = String(ovAttCode).replace(/\.0$/,'').toUpperCase();
+        var _cbg = _offBg[_ck] || 'rgba(59,130,246,.13)';
+        var _cfg = _offFg[_ck] || '#3b82f6';
+        return `<td style="text-align:center;padding:6px 4px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;
+            width:28px;height:22px;border-radius:4px;font-size:9px;font-weight:700;
+            background:${_cbg};color:${_cfg};font-family:'IBM Plex Mono',monospace;">${_ck}</span>
+        </td>`;
+      }
+
       // 2. CONVERT TIME TO LEGEND (D1, D2, etc.)
       // This uses your shift code (e.g., 'D') and the time (e.g., '19:30–21:00') 
       // to find the short legend code.
@@ -2054,13 +2047,14 @@ function getArrangeDayMemberList(_unused) {
       var arrAttCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][arrMk] || {})[d]) : '';
       var arrAttParsed = arrAttCode ? _parseAttCode(arrAttCode) : null;
       var arrIsOff = arrAttParsed && arrAttParsed.type === 'OFF';
+      var arrIsHalfDay = arrAttParsed && (arrAttParsed.type === 'HD1' || arrAttParsed.type === 'HD2');
 
-      if (arrIsOff) {
+      if (arrIsOff || arrIsHalfDay) {
         var _offBg = {'A':'rgba(234,179,8,.13)','H':'rgba(220,38,38,.13)','0':'rgba(22,163,74,.13)','U':'rgba(225,29,72,.12)','S':'rgba(234,88,12,.12)','L':'rgba(8,145,178,.12)'};
         var _offFg = {'A':'#ca8a04','H':'#dc2626','0':'#16a34a','U':'#e11d48','S':'#ea580c','L':'#0891b2'};
         var _ck = String(arrAttCode).replace(/\.0$/,'').toUpperCase();
-        var _cbg = _offBg[_ck] || 'rgba(107,114,128,.1)';
-        var _cfg = _offFg[_ck] || 'var(--text3)';
+        var _cbg = _offBg[_ck] || 'rgba(59,130,246,.13)';
+        var _cfg = _offFg[_ck] || '#3b82f6';
         return `<td class="arr-cell${isToday ? ' arr-cell-today' : ''}" style="background:${_cbg};pointer-events:none;text-align:center;vertical-align:middle;">
           <span style="font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:${_cfg};">${_ck}</span>
         </td>`;

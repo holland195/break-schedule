@@ -291,6 +291,44 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
   return result;
 }
 
+function _isOffOrHalfDay(username, dateKey) {
+  var mk = new Date().getFullYear() + '-' + dateKey.split('/')[1];
+  var attCode = (state.monthlyAttendance || {})[username] ? ((state.monthlyAttendance[username][mk] || {})[dateKey]) : '';
+  if (!attCode) return false;
+  var parsed = _parseAttCode(attCode);
+  if (!parsed) return false;
+  return parsed.type === 'OFF' || parsed.type === 'HD1' || parsed.type === 'HD2';
+}
+
+function _getPrevWeekSatMonSlotIndex(u, prevMonday, shift) {
+  var prevWeekRange = getWeekRange(prevMonday);
+  var days = [prevWeekRange[0], prevWeekRange[6], prevWeekRange[5]]; // Mon, Sun, Sat
+  for (var i = 0; i < days.length; i++) {
+    var d = days[i];
+    if (_getSched(u.username, d) !== shift) continue;
+    var br = DB.getBreak(u.id, d);
+    if (br && br.slot) {
+      var idx = _slotIndex(br.slot, shift);
+      if (idx === 0 || idx === 1) return idx;
+    }
+  }
+  return -1;
+}
+
+function _getPrevWeekTueFriSlotIndex(u, prevMonday, shift) {
+  var prevWeekRange = getWeekRange(prevMonday);
+  for (var i = 1; i <= 4; i++) { // Tue-Fri
+    var d = prevWeekRange[i];
+    if (_getSched(u.username, d) !== shift) continue;
+    var br = DB.getBreak(u.id, d);
+    if (br && br.slot) {
+      var idx = _slotIndex(br.slot, shift);
+      if (idx === 0 || idx === 1) return idx;
+    }
+  }
+  return -1;
+}
+
 // ── Main entry point ──
 // Called by confirmScheduleImport() after users are merged into state.
 // importedUsers: array of user objects from the import.
@@ -314,41 +352,36 @@ function autoAssignBreaks(importedUsers) {
     Object.keys(u.schedule || {}).forEach(function(d) { allDates.add(d); });
   });
 
-  var _sundaySet = {};
+  var _mondaySet = {};
   var allDatesArray = [];
   allDates.forEach(function(d) { allDatesArray.push(d); });
   allDatesArray.filter(function(d) { return /^\d{1,2}\/\d{1,2}$/.test(d); }).forEach(function(d) {
-    var parts = d.split('/');
-    var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
-    dt.setDate(dt.getDate() - dt.getDay()); // rewind to Sunday
-    var sd = String(dt.getDate()).padStart(2, '0');
-    var sm = String(dt.getMonth() + 1).padStart(2, '0');
-    _sundaySet[sd + '/' + sm] = true;
+    _mondaySet[_getMondayAnchor(d)] = true;
   });
-  var sundays = Object.keys(_sundaySet).sort(function(a, b) {
+  var mondays = Object.keys(_mondaySet).sort(function(a, b) {
     return _mondayToDate(a) - _mondayToDate(b);
   });
 
-  // Filter out weeks before the baseline week of June 29 (Sunday anchor 28/06)
-  var baselineSunday = '28/06';
-  sundays = sundays.filter(function(sunday) {
-    return _mondayToDate(sunday) >= _mondayToDate(baselineSunday);
+  // Filter out weeks before the baseline week of June 29 (Monday anchor '29/06')
+  var baselineMonday = '29/06';
+  mondays = mondays.filter(function(m) {
+    return _mondayToDate(m) >= _mondayToDate(baselineMonday);
   });
 
-  if (sundays.length === 0) return { assigned: 0, weekCount: 0 };
+  if (mondays.length === 0) return { assigned: 0, weekCount: 0 };
 
   var rot = _loadRotation();
   var totalAssigned = 0;
 
-  sundays.forEach(function(sunday) {
-    var weekDates = getWeekRange(sunday);
-    var shifts = Object.keys(getConfigForDate(sunday).breakSlots);
-    var isFuture = _isFutureWeek(sunday);
+  mondays.forEach(function(monday) {
+    var weekDates = getWeekRange(monday);
+    var shifts = Object.keys(getConfigForDate(monday).breakSlots);
+    var isFuture = _isFutureWeek(monday);
     var weekLabel = isFuture ? '(future)' : '(current/past)';
-    console.log('[autoassign] Processing week ' + sunday + ' ' + weekLabel);
+    console.log('[autoassign] Processing week ' + monday + ' ' + weekLabel);
 
     shifts.forEach(function(shift) {
-      var slots = getConfigForDate(sunday).breakSlots[shift];
+      var slots = getConfigForDate(monday).breakSlots[shift];
       if (!slots || slots.length < 2) return;
       var slot1 = slots[0];
       var slot2 = slots[1];
@@ -379,32 +412,34 @@ function autoAssignBreaks(importedUsers) {
           : Math.ceil(members.length / 2);
         var slot2Count = members.length - slot1Count;
 
-        var userSlotMap = _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count);
+        var userSlotMap = _getSlotMap(rot, shift, tier, monday, members, slot1, slot2, slot2Count);
 
         var allAlreadyAssigned = members.every(function(u) {
           return weekDates.every(function(d) {
             if (_getSched(u.username, d) !== shift) return true;
+            if (_isOffOrHalfDay(u.username, d)) return true;
             var ex = DB.getBreak(u.id, d);
             return ex && _slotBelongsToShift(ex.slot, shift);
           });
         });
         if (allAlreadyAssigned) {
-          toast('[autoassign] ' + shift + '/' + tier + '/' + sunday + ': all assigned, skipping', 'warn');
+          toast('[autoassign] ' + shift + '/' + tier + '/' + monday + ': all assigned, skipping', 'warn');
           return;
         }
 
-        // 1. Custom override for the transition week of June 28 (week 29/6)
-        if (sunday === '28/06') {
+        // 1. Custom override for the transition week of June 29 (week 29/6)
+        if (monday === '29/06') {
           if (shift === 'A' && tier === 'agent') {
             members.forEach(function(u) {
               var team = u.team || '';
               weekDates.forEach(function(d) {
                 if (_getSched(u.username, d) !== 'A') return;
+                if (_isOffOrHalfDay(u.username, d)) return;
                 var slotVal = 'A1';
                 if (team === 'DA7' || team === 'DA8' || team === 'DA9') {
                   if (d === '29/06') slotVal = 'A2';
                 } else if (team === 'DA10' || team === 'DA11' || team === 'DA12') {
-                  if (d !== '28/06' && d !== '04/07') slotVal = 'A2';
+                  if (d !== '04/07' && d !== '05/07') slotVal = 'A2';
                 } else if (team.startsWith('DA29') || team.startsWith('DA30') || team.startsWith('DA31') || 
                            team.startsWith('DA32') || team.startsWith('DA33') || team.startsWith('DA34')) {
                   slotVal = 'A2';
@@ -426,13 +461,14 @@ function autoAssignBreaks(importedUsers) {
               var team = u.team || '';
               weekDates.forEach(function(d) {
                 if (_getSched(u.username, d) !== 'A') return;
+                if (_isOffOrHalfDay(u.username, d)) return;
                 var slotVal = 'A1';
                 if (team === 'DS2' || team === 'DS3' || team === 'DS4' || team === 'DS5') {
                   slotVal = 'A2';
                 } else if (team === 'DS6' || team === 'DS7' || team === 'DS8') {
-                  if (d !== '28/06' && d !== '04/07') slotVal = 'A2';
+                  if (d !== '04/07' && d !== '05/07') slotVal = 'A2';
                 } else if (team === 'DS9' || team === 'DS10' || team === 'DS11') {
-                  if (d === '28/06' || d === '04/07') slotVal = 'A2';
+                  if (d === '04/07' || d === '05/07') slotVal = 'A2';
                 } else if (team === 'DS12' || team === 'DS13' || team === 'DS14' || team === 'DS15' || team === 'DS16') {
                   if (d === '04/07') slotVal = 'A2';
                 }
@@ -449,21 +485,53 @@ function autoAssignBreaks(importedUsers) {
           }
         }
 
-        // 2. Normal rotation & Tue-Fri inversion logic for Shifts A and D
+        // Calculate previous week's Monday
+        var parts = monday.split('/');
+        var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+        dt.setDate(dt.getDate() - 7);
+        var prevMonday = String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+
+        // 2. Normal rotation & Tue-Fri inversion logic
         members.forEach(function(u) {
-          var baseSlot = userSlotMap[u.username || u.id] || slot1;
+          var prevSatMonIdx = _getPrevWeekSatMonSlotIndex(u, prevMonday, shift);
+          var prevTueFriIdx = _getPrevWeekTueFriSlotIndex(u, prevMonday, shift);
+
+          var baseSatMonSlot, baseTueFriSlot;
+
+          // Resolve Sat-Mon slot
+          if (prevSatMonIdx !== -1) {
+            baseSatMonSlot = (prevSatMonIdx === 0) ? slot2 : slot1;
+          } else {
+            // Fallback to standard rotation
+            baseSatMonSlot = userSlotMap[u.username || u.id] || slot1;
+          }
+
+          // Resolve Tue-Fri slot
+          if (prevTueFriIdx !== -1) {
+            baseTueFriSlot = (prevTueFriIdx === 0) ? slot2 : slot1;
+          } else {
+            // Fallback to standard rotation opposite
+            var baseSlot = userSlotMap[u.username || u.id] || slot1;
+            baseTueFriSlot = (shift === 'A' || shift === 'D') ? ((baseSlot === slot2) ? slot1 : slot2) : baseSlot;
+          }
 
           weekDates.forEach(function(d) {
             if (_getSched(u.username, d) !== shift) return;
+            if (_isOffOrHalfDay(u.username, d)) return;
             var ex = DB.getBreak(u.id, d);
             if (ex && _slotBelongsToShift(ex.slot, shift)) return;
 
-            var assignedSlot = baseSlot;
+            var assignedSlot;
             if (shift === 'A' || shift === 'D') {
               var wkday = getWkDay(d);
               if (wkday === 'Tue' || wkday === 'Wed' || wkday === 'Thu' || wkday === 'Fri') {
-                assignedSlot = (baseSlot === slot2) ? slot1 : slot2;
+                assignedSlot = baseTueFriSlot;
+              } else {
+                assignedSlot = baseSatMonSlot;
               }
+            } else {
+              // Shift E: use baseTueFriSlot (which alternates weekly directly) for all days
+              assignedSlot = baseTueFriSlot;
             }
 
             DB.setBreak(u.id, d, {
@@ -484,11 +552,11 @@ function autoAssignBreaks(importedUsers) {
   // If no one in a tier is on slot 2 that day (because the slot-2 rotated members are absent),
   // and there are >= 2 members of that tier working, pick one who is on slot 1 and override to slot 2.
   var _checkDays = new Set(['Mon', 'Sat', 'Sun']);
-  sundays.forEach(function(sunday) {
-    var weekDates2 = getWeekRange(sunday);
-    var shifts2 = Object.keys(getConfigForDate(sunday).breakSlots);
+  mondays.forEach(function(monday) {
+    var weekDates2 = getWeekRange(monday);
+    var shifts2 = Object.keys(getConfigForDate(monday).breakSlots);
     shifts2.forEach(function(shift) {
-      var slots2 = getConfigForDate(sunday).breakSlots[shift];
+      var slots2 = getConfigForDate(monday).breakSlots[shift];
       if (!slots2 || slots2.length < 2) return;
       var slot2Code = shift + '2';
 
@@ -500,7 +568,9 @@ function autoAssignBreaks(importedUsers) {
           var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
           var t = _roleTier(role);
           if (t && _getSched(u.username, dk) === shift) {
-            tierUsers[t].push(u);
+            if (!_isOffOrHalfDay(u.username, dk)) {
+              tierUsers[t].push(u);
+            }
           }
         });
 
@@ -541,7 +611,7 @@ function autoAssignBreaks(importedUsers) {
   // Note: syncWrite() is called by confirmScheduleImport() with await
   // Do not call it here — caller handles the push after this returns
 
-  return { assigned: totalAssigned, weekCount: sundays.length };
+  return { assigned: totalAssigned, weekCount: mondays.length };
 }
 
 // ── Admin utilities ──
