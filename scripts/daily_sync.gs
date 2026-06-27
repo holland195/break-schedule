@@ -217,7 +217,7 @@ function syncSchedule(current, log) {
   const lastRow   = sheet.getLastRow();
   const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0]; // Row 1 = dates
   const row2      = sheet.getRange(2, 1, 1, lastCol).getValues()[0]; // Row 2 = subheaders
-  const dataRows  = sheet.getRange(4, 1, Math.max(1, lastRow - 3), lastCol).getValues(); // Row 4+
+  let dataRows    = sheet.getRange(4, 1, Math.max(1, lastRow - 3), lastCol).getValues(); // Row 4+
 
   // Detect sheet layout by looking at Row 2 subheaders
   var isJulyLayout = false;
@@ -259,6 +259,69 @@ function syncSchedule(current, log) {
       }
     }
     log('[Schedule] users normalized: ' + current.users.length + ' entries');
+  }
+
+  // ── Sync approved dayoff-swaps BACK to the Google Sheet ──
+  if (current.requests && Array.isArray(current.requests)) {
+    var unsynced = current.requests.filter(function(r) {
+      return r.type === 'dayoff-swap' && r.status === 'approved' && !r.syncedToSheet;
+    });
+
+    if (unsynced.length > 0) {
+      log('[Schedule] Found ' + unsynced.length + ' approved day-off swaps to sync back to GSheet.');
+      
+      var userRowMap = {}; // username -> sheet row number (1-indexed)
+      dataRows.forEach(function(row, idx) {
+        var usernameCol = isJulyLayout ? 4 : 3;
+        var username = String(row[usernameCol] || '').trim().toLowerCase();
+        if (username) userRowMap[username] = idx + 4;
+      });
+
+      var dateColMap = {}; // dateKey -> sheet column number (1-indexed)
+      dateCols.forEach(function(col) {
+        dateColMap[col.dateKey] = col.colIndex + 1;
+      });
+
+      unsynced.forEach(function(r) {
+        var rowRequester = userRowMap[r.username.toLowerCase()];
+        var rowTarget = userRowMap[r.targetUsername.toLowerCase()];
+        var colMyDate = dateColMap[r.myDate];
+        var colTheirDate = dateColMap[r.theirDate];
+
+        if (!rowRequester) { log('[Schedule] ✗ Requester row not found in sheet for: ' + r.username); return; }
+        if (!rowTarget) { log('[Schedule] ✗ Target row not found in sheet for: ' + r.targetUsername); return; }
+        if (!colMyDate) { log('[Schedule] ✗ Column not found in sheet for date: ' + r.myDate); return; }
+        if (!colTheirDate) { log('[Schedule] ✗ Column not found in sheet for date: ' + r.theirDate); return; }
+
+        // Determine shifts by checking most frequent shift value in the row
+        var getShiftFromRow = function(rowNum) {
+          var rowValues = sheet.getRange(rowNum, shiftStartCol + 1, 1, lastCol - shiftStartCol).getValues()[0];
+          var counts = {};
+          rowValues.forEach(function(val) {
+            var v = String(val || '').trim().toUpperCase();
+            if (v && v !== '0' && v !== 'OFF') counts[v] = (counts[v] || 0) + 1;
+          });
+          var best = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; })[0];
+          return best || 'A';
+        };
+
+        var shiftRequester = getShiftFromRow(rowRequester);
+        var shiftTarget = getShiftFromRow(rowTarget);
+
+        // Update GSheet cells
+        sheet.getRange(rowRequester, colMyDate).setValue(shiftRequester);
+        sheet.getRange(rowRequester, colTheirDate).setValue('0');
+
+        sheet.getRange(rowTarget, colTheirDate).setValue(shiftTarget);
+        sheet.getRange(rowTarget, colMyDate).setValue('0');
+
+        r.syncedToSheet = true;
+        log('[Schedule] ✓ Synced day-off swap to GSheet for ' + r.username + ' ↔ ' + r.targetUsername);
+      });
+      
+      // Re-read dataRows from GSheet
+      dataRows = sheet.getRange(4, 1, Math.max(1, lastRow - 3), lastCol).getValues();
+    }
   }
 
   var notFound = [];
