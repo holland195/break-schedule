@@ -959,6 +959,7 @@ ${dbUrl ? `
     { key:'syncAttendance',         label:'Import Attendance',         dir:'Sheets → Firebase',  desc:'Daily 6AM — imports attendance codes from the Attendance sheet' },
     { key:'syncSchedule',           label:'Import Schedule',           dir:'Sheets → Firebase',  desc:'Daily 6AM — imports staff shift schedule from the Schedule sheet' },
     { key:'syncLogbook',            label:'Import Logbook',            dir:'Sheets → Firebase',  desc:'Daily 6AM — imports clock-in/out times from Logbook sheets' },
+    { key:'syncWorkingTime',        label:'Import Working Time',       dir:'Sheets → Firebase',  desc:'Daily 6AM — imports Late/Early/Training/Others minutes from Working Time sheet' },
     { key:'syncPolicy',             label:'Import Policy Violations',  dir:'Sheets → Firebase',  desc:'Daily 00:00 — imports policy violation records from the Policy sheet' },
     { key:'writebackShiftA', label:'Writeback — Shift A', dir:'Firebase → Sheets', desc:'Daily 15:30 — writes Shift A staff attendance (logbook is synced monthly)' },
     { key:'writebackShiftD', label:'Writeback — Shift D', dir:'Firebase → Sheets', desc:'Daily 00:30 — writes Shift D staff attendance (logbook is synced monthly)' },
