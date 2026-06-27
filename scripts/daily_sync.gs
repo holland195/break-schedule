@@ -16,6 +16,7 @@ const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-s
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
 const ATTENDANCE_SHEET        = 'Attendance-June-2026'; // update each month
 const SCHEDULE_SHEET          = 'Schedule Jul_26';     // update each month
+const WORKING_TIME_SHEET      = 'Working Time-June-26'; // update each month (format: 'Working Time-Mon-YY')
 const NOTIFY_EMAIL            = Session.getActiveUser().getEmail();
 const POLICY_SPREADSHEET_ID = '1W1cVlJmq_JomZRhROHudWiFQsX_B66-OornRVBx-3RQ';
 const POLICY_SHEET_NAME     = 'Policy compliance-2026'; // adjust if your sheet is named differently
@@ -50,6 +51,9 @@ function dailySync() {
     // ── 4. Sync logbook (Start/End clock-in/out → attendance records) ──
     const logbookResult = syncLogbook(current, addLog);
 
+    // ── 4b. Sync working time (Late/Early/Training/Others in minutes) ──
+    const wtResult = syncWorkingTime(current, addLog);
+
     // ── 5. Push back to Firebase ──
     addLog('[Backup] Saving full daily JSON backup to Google Drive…');
     saveDriveBackup(current, addLog);
@@ -64,9 +68,10 @@ function dailySync() {
     // ── 6. Summary ──
     const duration = ((new Date() - startTime) / 1000).toFixed(1);
     addLog('=== Sync Complete in ' + duration + 's ===');
-    addLog('  Attendance: ' + attResult.imported + ' matched, ' + attResult.skipped + ' skipped, ' + attResult.dateCols + ' date cols');
-    addLog('  Schedule:   ' + schedResult.updated + ' users updated, ' + schedResult.dateCols + ' date cols');
-    addLog('  Logbook:    ' + logbookResult.imported + ' matched, ' + logbookResult.skipped + ' skipped, ' + logbookResult.dateCols + ' day cols');
+    addLog('  Attendance:    ' + attResult.imported + ' matched, ' + attResult.skipped + ' skipped, ' + attResult.dateCols + ' date cols');
+    addLog('  Schedule:      ' + schedResult.updated + ' users updated, ' + schedResult.dateCols + ' date cols');
+    addLog('  Logbook:       ' + logbookResult.imported + ' matched, ' + logbookResult.skipped + ' skipped, ' + logbookResult.dateCols + ' day cols');
+    addLog('  Working Time:  ' + wtResult.updated + ' users updated, ' + wtResult.dateCols + ' date cols');
 
   } catch (e) {
     const errMsg = '✗ PAVE Sync FAILED: ' + e.message + '\n\nStack: ' + e.stack;
@@ -395,6 +400,152 @@ function runSyncSchedule() {
   var current = firebaseGet(FIREBASE_URL, FIREBASE_SECRET) || {};
   syncSchedule(current, function(m) { console.log(m); });
   firebaseSet(FIREBASE_URL, FIREBASE_SECRET, current);
+}
+
+// ═══════════════════════════════════════════════
+//  WORKING TIME SYNC
+//  Reads the 'Working Time-June-26' sheet.
+//  Expected layout (WIDE format, one value per date column):
+//    Row 1 (or 2): date headers — one column per date
+//    Row 2 (or 3): sub-headers — Username/Name/No + one column per date (day name optional)
+//    Row 3+: one row per staff; each date column contains the total working-time deviation (minutes)
+//
+//  The LATE / EARLY / TRAINING / OTHER columns are SUMMARY totals and are SKIPPED.
+//  Only columns whose header parses as a date are imported.
+//  Result stored as: current.workingTime[username][monthKey][dateKey] = { total: <minutes> }
+// ═══════════════════════════════════════════════
+function syncWorkingTime(current, log) {
+  if (typeof log !== 'function') log = function(m) { Logger.log(m); };
+  var result = { updated: 0, dateCols: 0 };
+  if (current.gasConfig && current.gasConfig.syncWorkingTime === false) {
+    log('[WorkingTime] Skipped (disabled via GAS Function Controls in web app).');
+    return result;
+  }
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  } catch(e) {
+    log('[WorkingTime] ✗ Cannot open spreadsheet: ' + e.message);
+    return result;
+  }
+
+  var sheet = ss.getSheetByName(WORKING_TIME_SHEET);
+  if (!sheet) {
+    log('[WorkingTime] ✗ Sheet "' + WORKING_TIME_SHEET + '" not found. Available: '
+      + ss.getSheets().map(function(s){ return s.getName(); }).join(', '));
+    return result;
+  }
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 3 || lastCol < 4) {
+    log('[WorkingTime] ⚠ Sheet appears empty (lastRow=' + lastRow + ', lastCol=' + lastCol + ').');
+    return result;
+  }
+
+  var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+  // ── Step 1: find the date header row (most parseable date cells in first 5 rows) ──
+  var dateRowIdx = -1, bestCnt = 0;
+  for (var ri = 0; ri < Math.min(5, allData.length); ri++) {
+    var cnt = 0;
+    for (var c = 0; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c])) cnt++; }
+    if (cnt > bestCnt) { bestCnt = cnt; dateRowIdx = ri; }
+  }
+  if (dateRowIdx < 0 || bestCnt < 1) {
+    log('[WorkingTime] ⚠ No date header row found in first 5 rows.');
+    return result;
+  }
+
+  // ── Step 2: find the sub-header row (first row after dateRowIdx with a "username"/"no"/"name" cell) ──
+  var subHdrRowIdx = -1;
+  var SKIP_LABELS = ['late','early','training','other','others','total'];
+  for (var ri = dateRowIdx + 1; ri < Math.min(dateRowIdx + 5, allData.length); ri++) {
+    var row = allData[ri];
+    var hasIdentifier = row.some(function(c) {
+      var v = String(c || '').trim().toLowerCase();
+      return v === 'username' || v === 'user' || v === 'no' || v === 'name' || v === 'no.';
+    });
+    if (hasIdentifier) { subHdrRowIdx = ri; break; }
+  }
+  // If no sub-header found, data starts immediately after dateRowIdx
+  var dataStartRowIdx = subHdrRowIdx >= 0 ? subHdrRowIdx + 1 : dateRowIdx + 1;
+  var subHdr = subHdrRowIdx >= 0 ? allData[subHdrRowIdx] : [];
+
+  log('[WorkingTime] dateRow=' + (dateRowIdx+1) + ' subHdrRow=' + (subHdrRowIdx >= 0 ? subHdrRowIdx+1 : 'none') + ' dataStart=' + (dataStartRowIdx+1));
+
+  // ── Step 3: find username column (look in sub-header or default to col B) ──
+  var usernameColIdx = -1;
+  for (var c = 0; c < subHdr.length; c++) {
+    var v = String(subHdr[c] || '').trim().toLowerCase();
+    if (v === 'username' || v === 'user') { usernameColIdx = c; break; }
+  }
+  if (usernameColIdx < 0) usernameColIdx = 1; // default Col B
+
+  // ── Step 4: build list of date columns — only columns that have a parseable date in dateRowIdx ──
+  //           Skip any column whose sub-header label matches LATE/EARLY/TRAINING/OTHER/TOTAL
+  var dateHdrRow = allData[dateRowIdx];
+  var dateCols = []; // { colIndex, dateKey }
+  for (var c = 0; c < lastCol; c++) {
+    var dk = parseDateHeader(dateHdrRow[c]);
+    if (!dk) continue;
+    // Skip if sub-header explicitly labels it as a summary column
+    var shLabel = String(subHdr[c] || '').trim().toLowerCase();
+    if (SKIP_LABELS.indexOf(shLabel) !== -1) continue;
+    dateCols.push({ colIndex: c, dateKey: dk });
+  }
+
+  result.dateCols = dateCols.length;
+  log('[WorkingTime] ' + dateCols.length + ' date columns to import (LATE/EARLY/TRAINING/OTHER skipped).');
+
+  if (dateCols.length === 0) {
+    log('[WorkingTime] ⚠ No importable date columns found.');
+    return result;
+  }
+
+  // ── Step 5: determine monthKey from first date ──
+  var firstDk = dateCols[0].dateKey;
+  var fdParts = firstDk.split('/');
+  var fdDay   = parseInt(fdParts[0]);
+  var fdMon   = parseInt(fdParts[1]);
+  var fdYear  = new Date().getFullYear();
+  var fdMonth = fdDay >= 25 ? fdMon + 1 : fdMon;
+  if (fdMonth > 12) { fdMonth = 1; fdYear++; }
+  var monthKey = fdYear + '-' + String(fdMonth).padStart(2, '0');
+  log('[WorkingTime] Working month key: ' + monthKey);
+
+  if (!current.workingTime) current.workingTime = {};
+
+  // ── Step 6: parse data rows ──
+  for (var ri = dataStartRowIdx; ri < allData.length; ri++) {
+    var row = allData[ri];
+    var rawUname = row[usernameColIdx];
+    if (rawUname instanceof Date || typeof rawUname === 'number') continue;
+    var username = String(rawUname || '').trim().toLowerCase();
+    if (!username) continue;
+
+    if (!current.workingTime[username]) current.workingTime[username] = {};
+    if (!current.workingTime[username][monthKey]) current.workingTime[username][monthKey] = {};
+
+    var hasAny = false;
+    dateCols.forEach(function(col) {
+      var rawVal = row[col.colIndex];
+      if (rawVal === null || rawVal === undefined || rawVal === '') return;
+      var num = parseFloat(String(rawVal).replace(',', '.'));
+      if (isNaN(num) || num <= 0) return;
+      // Preserve manually-entered late/early/training/others; only update 'total' from the sheet.
+      var existing = current.workingTime[username][monthKey][col.dateKey] || {};
+      existing.total = Math.round(num);
+      current.workingTime[username][monthKey][col.dateKey] = existing;
+      hasAny = true;
+    });
+
+    if (hasAny) result.updated++;
+  }
+
+  log('[WorkingTime] Done: ' + result.updated + ' users synced for ' + monthKey);
+  return result;
 }
 
 // ═══════════════════════════════════════════════
