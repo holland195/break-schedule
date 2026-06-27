@@ -955,8 +955,6 @@ let _pasteContent = '';
 
 function renderArrange() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
-  const weekRange = getWeekRange(activeMonday);
-  if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
   // Build week picker from available schedule dates
   var _allSDSet = {};
@@ -997,6 +995,9 @@ function renderArrange() {
     localStorage.setItem('activeMonday', activeMonday);
     arrangeActiveDay = null;
   }
+
+  const weekRange = getWeekRange(activeMonday);
+  if (!arrangeActiveDay || !weekRange.includes(arrangeActiveDay)) arrangeActiveDay = weekRange[0];
 
   var _monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var _monoLbl = 'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;';

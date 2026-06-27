@@ -300,9 +300,24 @@ function _isOffOrHalfDay(username, dateKey) {
   return parsed.type === 'OFF' || parsed.type === 'HD1' || parsed.type === 'HD2';
 }
 
-function _getPrevWeekSlotIndex(u, prevMonday, shift) {
+function _getPrevWeekSatMonSlotIndex(u, prevMonday, shift) {
   var prevWeekRange = getWeekRange(prevMonday);
-  for (var i = 1; i < 5; i++) { // Tue-Fri
+  var days = [prevWeekRange[0], prevWeekRange[6], prevWeekRange[5]]; // Mon, Sun, Sat
+  for (var i = 0; i < days.length; i++) {
+    var d = days[i];
+    if (_getSched(u.username, d) !== shift) continue;
+    var br = DB.getBreak(u.id, d);
+    if (br && br.slot) {
+      var idx = _slotIndex(br.slot, shift);
+      if (idx === 0 || idx === 1) return idx;
+    }
+  }
+  return -1;
+}
+
+function _getPrevWeekTueFriSlotIndex(u, prevMonday, shift) {
+  var prevWeekRange = getWeekRange(prevMonday);
+  for (var i = 1; i <= 4; i++) { // Tue-Fri
     var d = prevWeekRange[i];
     if (_getSched(u.username, d) !== shift) continue;
     var br = DB.getBreak(u.id, d);
@@ -478,22 +493,26 @@ function autoAssignBreaks(importedUsers) {
 
         // 2. Normal rotation & Tue-Fri inversion logic
         members.forEach(function(u) {
-          // Look up previous week's assigned slot
-          var prevIdx = _getPrevWeekSlotIndex(u, prevMonday, shift);
-          var baseSlot;
-          if (prevIdx !== -1) {
-            if (shift === 'A' || shift === 'D') {
-              // Shifts A & D have Tue-Fri slot inversion, so the base slot (used for Sat-Mon)
-              // should be the same as the previous week's weekday slot (which was inverted).
-              // This naturally alternates both the weekdays and the weekends.
-              baseSlot = (prevIdx === 0) ? slot1 : slot2;
-            } else {
-              // Shift E does not have Tue-Fri inversion, so we alternate the base slot directly.
-              baseSlot = (prevIdx === 0) ? slot2 : slot1;
-            }
+          var prevSatMonIdx = _getPrevWeekSatMonSlotIndex(u, prevMonday, shift);
+          var prevTueFriIdx = _getPrevWeekTueFriSlotIndex(u, prevMonday, shift);
+
+          var baseSatMonSlot, baseTueFriSlot;
+
+          // Resolve Sat-Mon slot
+          if (prevSatMonIdx !== -1) {
+            baseSatMonSlot = (prevSatMonIdx === 0) ? slot2 : slot1;
           } else {
             // Fallback to standard rotation
-            baseSlot = userSlotMap[u.username || u.id] || slot1;
+            baseSatMonSlot = userSlotMap[u.username || u.id] || slot1;
+          }
+
+          // Resolve Tue-Fri slot
+          if (prevTueFriIdx !== -1) {
+            baseTueFriSlot = (prevTueFriIdx === 0) ? slot2 : slot1;
+          } else {
+            // Fallback to standard rotation opposite
+            var baseSlot = userSlotMap[u.username || u.id] || slot1;
+            baseTueFriSlot = (shift === 'A' || shift === 'D') ? ((baseSlot === slot2) ? slot1 : slot2) : baseSlot;
           }
 
           weekDates.forEach(function(d) {
@@ -502,13 +521,17 @@ function autoAssignBreaks(importedUsers) {
             var ex = DB.getBreak(u.id, d);
             if (ex && _slotBelongsToShift(ex.slot, shift)) return;
 
-            var assignedSlot = baseSlot;
-            // Shift A & D have Tue-Fri slot inversion
+            var assignedSlot;
             if (shift === 'A' || shift === 'D') {
               var wkday = getWkDay(d);
               if (wkday === 'Tue' || wkday === 'Wed' || wkday === 'Thu' || wkday === 'Fri') {
-                assignedSlot = (baseSlot === slot2) ? slot1 : slot2;
+                assignedSlot = baseTueFriSlot;
+              } else {
+                assignedSlot = baseSatMonSlot;
               }
+            } else {
+              // Shift E: use baseTueFriSlot (which alternates weekly directly) for all days
+              assignedSlot = baseTueFriSlot;
             }
 
             DB.setBreak(u.id, d, {
