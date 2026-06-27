@@ -372,7 +372,7 @@ function renderReport(hideHeader = false) {
       onchange="reportMonth=+this.value;attendanceTab='report';nav('attendance')">${months.join('')}</select>
     <select class="login-select" style="font-size:12px;padding:3px 6px;"
       onchange="reportYear=+this.value;attendanceTab='report';nav('attendance')">
-      ${[2024,2025,2026,2027].map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+      ${[2026,2027].map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
     </select>
     <button class="btn btn-sm" onclick="exportReportCSV()" style="font-size:11px;padding:3px 6px;">⬇ CSV</button>
   </div>

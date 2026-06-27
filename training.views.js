@@ -579,7 +579,7 @@ function renderAttendanceTraining() {
         ).join('')}
       </select>
       <select style="${selStyle}min-width:75px;" onchange="window._tState.attYear=+this.value;nav('attendance')">
-        ${[2024,2025,2026,2027].map(y=>
+        ${[2026,2027].map(y=>
           `<option value="${y}" ${y===year?'selected':''}>${y}</option>`
         ).join('')}
       </select>

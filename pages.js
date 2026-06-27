@@ -3204,7 +3204,7 @@ function _renderWorkingTime() {
         new Date(year, m - 1, 1).toLocaleString('en-US', { month: 'long' }) + '</option>';
     }).join('') + '</select>' +
     '<select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;" onchange="_wtYear=+this.value;_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')">' +
-    [2024,2025,2026,2027].map(function(y) {
+    [2026,2027].map(function(y) {
       return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
     }).join('') + '</select>';
 
@@ -3527,7 +3527,7 @@ function _renderStaffAttendance() {
       </select>
       <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
         onchange="_attImportYear=+this.value;_saDateFilter='';_saFilterDk='';_saShiftFilter='All';_navStaff()">
-        ${[2024, 2025, 2026, 2027].map(y =>
+        ${[2026, 2027].map(y =>
     `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
   ).join('')}
       </select>`;

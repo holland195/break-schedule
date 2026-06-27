@@ -1372,3 +1372,24 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   }
 }
 
+/* Explicit select color rules to prevent blank dropdown text in Windows browsers */
+.login-select {
+  color: var(--text) !important;
+}
+[data-theme="light"] .login-select {
+  color: #0D2A76 !important;
+  background-color: #edf0f8 !important;
+}
+[data-theme="light"] .login-select option {
+  color: #0D2A76 !important;
+  background-color: #ffffff !important;
+}
+[data-theme="dark"] .login-select {
+  color: #e8eeff !important;
+  background-color: #0f1c36 !important;
+}
+[data-theme="dark"] .login-select option {
+  color: #e8eeff !important;
+  background-color: #0f1c36 !important;
+}
+
