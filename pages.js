@@ -820,8 +820,8 @@ function renderRequests() {
     <div class="page-title">🔄 Break Swap</div>
     <div class="page-sub">${(isLeader(currentUser)||isTraining(currentUser)) ? `${cntPending} pending` : 'Your swap requests'}</div>
   </div>
-  ${!(isLeader(currentUser)||isTraining(currentUser)) ? `<div style="display:flex;gap:8px;">
-    <button class="btn btn-accent" onclick="openRequestModal()">+ Break swap</button>
+  ${!isAdmin(currentUser) ? `<div style="display:flex;gap:8px;">
+    ${(!isLeader(currentUser) && !isTraining(currentUser)) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ Break swap</button>` : ''}
     <button class="btn" onclick="staffSubTab='schedule';nav('staff')" title="Go to Staff Schedule to request a day-off swap">↔ Day-off swap</button>
   </div>` : ''}
 </div>
@@ -2890,7 +2890,7 @@ function _renderStaffSchedule() {
     ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
     '</select>';
 
-  var _ssCanSwap = !isLeader(currentUser) && !isTraining(currentUser);
+  var _ssCanSwap = !isAdmin(currentUser);
   var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">↔ Day-off Swap</button>' : '';
 
   if (!hasImportedDates) {
@@ -4063,7 +4063,7 @@ function clearMonthlyAttendance(year, month) {
 }
 
 function renderStaffRows(users, displayDates) {
-  var _canReqSwap = !isLeader(currentUser) && !isTraining(currentUser);
+  var _canReqSwap = !isAdmin(currentUser);
   var _nowMs = new Date().setHours(0,0,0,0);
   var _nowYr = new Date().getFullYear();
   return users.map(function(u) {
