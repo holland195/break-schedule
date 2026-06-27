@@ -30,6 +30,7 @@ function nav(page) {
       (typeof _arrangeMonth === 'undefined' || _arrangeMonth === window._prevArrangeMonth)
     )) &&
     (page !== 'schedule' || (typeof scheduleMonday === 'undefined' || scheduleMonday === window._prevScheduleMonday)) &&
+    (page !== 'staff' || (typeof staffSubTab === 'undefined' || staffSubTab === window._prevStaffSubTab)) &&
     (typeof window._tShiftFilter === 'undefined' || window._tShiftFilter === window._prevTShiftFilter) &&
     (typeof window._tSearch === 'undefined' || window._tSearch === window._prevTSearch) &&
     (typeof window._tAttDay === 'undefined' || window._tAttDay === window._prevTAttDay);
@@ -121,6 +122,7 @@ function nav(page) {
   window._prevTShiftFilter = typeof window._tShiftFilter !== 'undefined' ? window._tShiftFilter : null;
   window._prevTSearch = typeof window._tSearch !== 'undefined' ? window._tSearch : null;
   window._prevTAttDay = typeof window._tAttDay !== 'undefined' ? window._tAttDay : null;
+  window._prevStaffSubTab = typeof staffSubTab !== 'undefined' ? staffSubTab : null;
 }
 
 window.addEventListener('hashchange', function() {
