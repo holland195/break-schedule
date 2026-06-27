@@ -3835,30 +3835,9 @@ function _renderStaffAttendance() {
       const dimWknd = false; // weekends are full contrast
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
 
-      var _conflictShift = _getSched(u.username, dk).charAt(0) || 'A';
-      const conflictClick = hasConflict ? `
-        onclick="
-          const [_d,_m]='${dk}'.split('/');
-          const _cy=${year};
-          const _dt=new Date(_cy,parseInt(_m)-1,parseInt(_d));
-          const _day=_dt.getDay();
-          const _sun=new Date(_dt);_sun.setDate(_dt.getDate()-_day);
-          const _sdk=(_sun.getDate().toString().padStart(2,'0'))+'/'+((_sun.getMonth()+1).toString().padStart(2,'0'));
-          window._attHighlight={uid:${u.id || 'null'},username:'${u.username}',dateKey:'${dk}'};
-          attendanceTab='log';
-          attendanceMonday=_sdk;
-          currentShift='${_conflictShift}';
-          _updateShiftPills();
-          nav('attendance');
-          setTimeout(()=>{
-            const el=document.getElementById('att-cell-${u.username}-${dk}');
-            if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}
-          },400);"
-        style="cursor:pointer;"` : '';
 
       const hoverAttr = `onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:'${(rawCode||'').replace(/'/g,"\\'")}'}"`;
-      const cellInteract = hasConflict ? conflictClick
-        : `onclick="attCellClick('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
+      const cellInteract = `onclick="attCellClick('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
       return `<td style="text-align:center;padding:2px 2px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
         title="${title}" ${hoverAttr} ${cellInteract}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
