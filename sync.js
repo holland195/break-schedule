@@ -55,8 +55,12 @@ async function loadSyncConfig() {
     const res = await fetch('./sync-config.json?_=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) return null;
     const cfg = await res.json();
-    const dbUrl = (cfg.dbUrl || '').replace(/\/$/, '');
+    let dbUrl = (cfg.dbUrl || '').replace(/\/$/, '');
     if (!dbUrl) return null;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      dbUrl = 'http://localhost:8787/api/state';
+      console.log('[sync] Localhost detected, overriding dbUrl to:', dbUrl);
+    }
     // Only use apiKey from sync-config.json — never from localStorage cache
     // This prevents stale/revoked secrets from being used
     syncSaveCfg({
