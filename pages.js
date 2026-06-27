@@ -638,8 +638,21 @@ function renderRequests() {
     const isOwn = r.userId === currentUser.id || r.targetId === currentUser.id || r.swapPartnerId === currentUser.id;
 
     if (isLeader(currentUser) || isTraining(currentUser)) {
+      if (isTraining(currentUser)) return true;
       const requester = state.users.find(u => u.id === r.userId);
-      const reqShift = r.shift || (requester ? _getSched(requester.username, r.day || r.myDate) : null);
+      var reqShift = r.shift;
+      if (!reqShift && requester) {
+        if (r.type === 'dayoff-swap') {
+          var weekDates = _dosGetWeekDates(r.myDate);
+          for (var i = 0; i < weekDates.length; i++) {
+            var s = _getSched(requester.username, weekDates[i]);
+            if (s && s !== '0') { reqShift = s; break; }
+          }
+        } else {
+          reqShift = _getSched(requester.username, r.day);
+        }
+      }
+      if (!reqShift) reqShift = 'A';
       return isOwn || (reqShift === currentShift);
     }
 
@@ -820,8 +833,8 @@ function renderRequests() {
     <div class="page-title">🔄 Break Swap</div>
     <div class="page-sub">${(isLeader(currentUser)||isTraining(currentUser)) ? `${cntPending} pending` : 'Your swap requests'}</div>
   </div>
-  ${!isAdmin(currentUser) ? `<div style="display:flex;gap:8px;">
-    ${(!isLeader(currentUser) && !isTraining(currentUser)) ? `<button class="btn btn-accent" onclick="openRequestModal()">+ Break swap</button>` : ''}
+  ${!(isLeader(currentUser)||isTraining(currentUser)) ? `<div style="display:flex;gap:8px;">
+    <button class="btn btn-accent" onclick="openRequestModal()">+ Break swap</button>
     <button class="btn" onclick="staffSubTab='schedule';nav('staff')" title="Go to Staff Schedule to request a day-off swap">↔ Day-off swap</button>
   </div>` : ''}
 </div>
@@ -2890,7 +2903,7 @@ function _renderStaffSchedule() {
     ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
     '</select>';
 
-  var _ssCanSwap = !isAdmin(currentUser);
+  var _ssCanSwap = !isLeader(currentUser) && !isTraining(currentUser);
   var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">↔ Day-off Swap</button>' : '';
 
   if (!hasImportedDates) {
@@ -4063,7 +4076,7 @@ function clearMonthlyAttendance(year, month) {
 }
 
 function renderStaffRows(users, displayDates) {
-  var _canReqSwap = !isAdmin(currentUser);
+  var _canReqSwap = !isLeader(currentUser) && !isTraining(currentUser);
   var _nowMs = new Date().setHours(0,0,0,0);
   var _nowYr = new Date().getFullYear();
   return users.map(function(u) {
