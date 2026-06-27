@@ -261,10 +261,17 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
 
   var knownSet  = new Set(knownList);
 
-  var brandNew  = members.filter(function(u) { return !knownSet.has(u.username || u.id); });
-  var existing  = members.filter(function(u) { return knownSet.has(u.username || u.id); });
+  // Add any new members to knownList/knownSet immediately so they participate in rotation
+  members.forEach(function(u) {
+    var ukey = u.username || u.id;
+    if (!knownSet.has(ukey)) {
+      knownList.push(ukey);
+      knownSet.add(ukey);
+    }
+  });
 
-  existing.sort(function(a, b) {
+  // Sort active members by their position in knownList
+  var activeMembers = members.slice().sort(function(a, b) {
     return knownList.indexOf(a.username || a.id) - knownList.indexOf(b.username || b.id);
   });
 
@@ -272,26 +279,13 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
   var thisDate  = _mondayToDate(sunday);
   var weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
 
-  var newA2Count = Math.min(brandNew.length, slot2Count);
-  var remA2      = slot2Count - newA2Count;
-  var N          = existing.length;
-  var wStart     = (N > 0 && remA2 > 0) ? (((weeksDiff * remA2) % N) + N) % N : 0;
+  var N          = activeMembers.length;
+  var wStart     = (N > 0 && slot2Count > 0) ? (((weeksDiff * slot2Count) % N) + N) % N : 0;
 
   var result = {};
-
-  existing.forEach(function(u, i) {
+  activeMembers.forEach(function(u, i) {
     var ukey = u.username || u.id;
-    result[ukey] = (N > 0 && remA2 > 0 && ((i - wStart + N) % N) < remA2) ? slot2 : slot1;
-  });
-
-  var sortedBrandNew = brandNew.slice().sort(function(a, b) {
-    return _naturalSort(a.username || a.id, b.username || b.id);
-  });
-
-  sortedBrandNew.forEach(function(u, i) {
-    var ukey = u.username || u.id;
-    result[ukey] = i < newA2Count ? slot2 : slot1;
-    if (!knownSet.has(ukey)) { knownList.push(ukey); knownSet.add(ukey); }
+    result[ukey] = (N > 0 && slot2Count > 0 && ((i - wStart + N) % N) < slot2Count) ? slot2 : slot1;
   });
 
   return result;
