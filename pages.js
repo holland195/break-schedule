@@ -591,6 +591,8 @@ ${shiftUsers.length > 0 ? `
 
 // ── Month filter helpers (shared by requests + ext break pages) ──
 let _reqFilterYM      = null; // null = current month
+let _reqStatusFilter  = 'all';
+let _reqScopeFilter   = 'all';
 let _extBreakFilterYM = null; // null = current month
 let _ebTargetUser = null;    // training manager registering on behalf of
 
@@ -676,7 +678,7 @@ function renderRequests() {
       var _dosIsOwn = r.userId === currentUser.id;
       var _dosCanApprove = (isLeader(currentUser) || isTraining(currentUser)) && !_dosIsOwn;
       var _dosApprover = r.resolvedBy ? state.users.find(u => u.id === r.resolvedBy) : null;
-      return '<div class="req-card ' + r.status + '">' +
+      return '<div class="req-card ' + r.status + '" data-status="' + r.status + '" data-scope="day-off">' +
         '<div class="req-card-top">' +
           '<div>' +
             '<div class="req-card-name">' + (_dosEmp ? _dosEmp.name : 'Unknown') +
@@ -779,7 +781,7 @@ function renderRequests() {
       + '</div>'
       : '';
 
-    return '<div class="req-card ' + r.status + '" data-status="' + r.status + '">'
+    return '<div class="req-card ' + r.status + '" data-status="' + r.status + '" data-scope="' + (isWeek ? 'week' : 'day') + '">'
       + '<div class="req-card-top">'
       + '<div>'
       + '<div class="req-card-name">'
@@ -820,11 +822,42 @@ function renderRequests() {
   const cntApproved = myReqs.filter(r => r.status === 'approved').length;
   const cntRejected = myReqs.filter(r => r.status === 'rejected').length;
 
-  const filterBar = '<div class="req-filter-bar">'
-    + '<button class="req-filter-btn f-all" onclick="_reqSetFilter(\'all\')">All <span class="req-filter-cnt">' + cntAll + '</span></button>'
-    + '<button class="req-filter-btn" onclick="_reqSetFilter(\'pending\')">Pending <span class="req-filter-cnt">' + cntPending + '</span></button>'
-    + '<button class="req-filter-btn" onclick="_reqSetFilter(\'approved\')">Approved <span class="req-filter-cnt">' + cntApproved + '</span></button>'
-    + '<button class="req-filter-btn" onclick="_reqSetFilter(\'rejected\')">Rejected <span class="req-filter-cnt">' + cntRejected + '</span></button>'
+  const cntScopeAll = myReqs.length;
+  const cntScopeDay = myReqs.filter(r => r.type !== 'dayoff-swap' && r.swapWeek !== true).length;
+  const cntScopeWeek = myReqs.filter(r => r.type !== 'dayoff-swap' && r.swapWeek === true).length;
+  const cntScopeDayoff = myReqs.filter(r => r.type === 'dayoff-swap').length;
+
+  const statusActive = (s) => {
+    if (_reqStatusFilter === s) {
+      if (s === 'all') return ' f-all';
+      if (s === 'pending') return ' f-pending';
+      if (s === 'approved') return ' f-approved';
+      if (s === 'rejected') return ' f-rejected';
+    }
+    return '';
+  };
+
+  const scopeActiveStyle = (s) => {
+    if (_reqScopeFilter === s) {
+      if (s === 'all') return 'class="req-filter-btn f-all"';
+      if (s === 'day') return 'class="req-filter-btn" style="border-color:var(--text3);color:var(--text);background:var(--bg2);"';
+      if (s === 'week') return 'class="req-filter-btn" style="border-color:var(--B-color);color:var(--B-color);background:var(--B-bg);"';
+      if (s === 'day-off') return 'class="req-filter-btn" style="border-color:#6366f1;color:#6366f1;background:rgba(99,102,241,.13);"';
+    }
+    return 'class="req-filter-btn"';
+  };
+
+  const filterBar = '<div class="req-filter-bar status-filter-bar" style="margin-bottom: 8px;">'
+    + '<button class="req-filter-btn' + statusActive('all') + '" onclick="_reqSetFilter(\'all\')">All <span class="req-filter-cnt">' + cntAll + '</span></button>'
+    + '<button class="req-filter-btn' + statusActive('pending') + '" onclick="_reqSetFilter(\'pending\')">Pending <span class="req-filter-cnt">' + cntPending + '</span></button>'
+    + '<button class="req-filter-btn' + statusActive('approved') + '" onclick="_reqSetFilter(\'approved\')">Approved <span class="req-filter-cnt">' + cntApproved + '</span></button>'
+    + '<button class="req-filter-btn' + statusActive('rejected') + '" onclick="_reqSetFilter(\'rejected\')">Rejected <span class="req-filter-cnt">' + cntRejected + '</span></button>'
+    + '</div>'
+    + '<div class="req-filter-bar scope-filter-bar" style="margin-bottom: 18px;">'
+    + '<button ' + scopeActiveStyle('all') + ' onclick="_reqSetScopeFilter(\'all\')">All Types <span class="req-filter-cnt">' + cntScopeAll + '</span></button>'
+    + '<button ' + scopeActiveStyle('day') + ' onclick="_reqSetScopeFilter(\'day\')">Single Day <span class="req-filter-cnt">' + cntScopeDay + '</span></button>'
+    + '<button ' + scopeActiveStyle('week') + ' onclick="_reqSetScopeFilter(\'week\')">Whole Week <span class="req-filter-cnt">' + cntScopeWeek + '</span></button>'
+    + '<button ' + scopeActiveStyle('day-off') + ' onclick="_reqSetScopeFilter(\'day-off\')">Day-Off <span class="req-filter-cnt">' + cntScopeDayoff + '</span></button>'
     + '</div>';
 
   return `
@@ -861,7 +894,8 @@ function cancelOwnRequest(idx) {
 }
 
 function _reqSetFilter(f) {
-  document.querySelectorAll('.req-filter-btn').forEach(b => {
+  _reqStatusFilter = f;
+  document.querySelectorAll('.status-filter-bar .req-filter-btn').forEach(b => {
     b.className = 'req-filter-btn';
     const t = b.textContent.trim().toLowerCase();
     if (f === 'all' && t.startsWith('al')) b.classList.add('f-all');
@@ -869,22 +903,62 @@ function _reqSetFilter(f) {
     if (f === 'approved' && t.startsWith('ap')) b.classList.add('f-approved');
     if (f === 'rejected' && t.startsWith('re')) b.classList.add('f-rejected');
   });
+  _applyReqFilters();
+}
+
+function _reqSetScopeFilter(f) {
+  _reqScopeFilter = f;
+  document.querySelectorAll('.scope-filter-bar .req-filter-btn').forEach(b => {
+    b.className = 'req-filter-btn';
+    b.style.borderColor = '';
+    b.style.color = '';
+    b.style.background = '';
+    const t = b.textContent.trim().toLowerCase();
+    if (f === 'all' && t.startsWith('all')) {
+      b.classList.add('f-all');
+    }
+    if (f === 'day' && t.startsWith('single')) {
+      b.style.borderColor = 'var(--text3)';
+      b.style.color = 'var(--text)';
+      b.style.background = 'var(--bg2)';
+    }
+    if (f === 'week' && t.startsWith('whole')) {
+      b.style.borderColor = 'var(--B-color)';
+      b.style.color = 'var(--B-color)';
+      b.style.background = 'var(--B-bg)';
+    }
+    if (f === 'day-off' && t.startsWith('day-off')) {
+      b.style.borderColor = '#6366f1';
+      b.style.color = '#6366f1';
+      b.style.background = 'rgba(99,102,241,.13)';
+    }
+  });
+  _applyReqFilters();
+}
+
+function _applyReqFilters() {
   let visible = 0;
   document.querySelectorAll('#req-cards-list .req-card').forEach(c => {
-    const show = f === 'all' || c.dataset.status === f;
+    const matchStatus = _reqStatusFilter === 'all' || c.dataset.status === _reqStatusFilter;
+    const matchScope = _reqScopeFilter === 'all' || c.dataset.scope === _reqScopeFilter;
+    const show = matchStatus && matchScope;
     c.style.display = show ? '' : 'none';
     if (show) visible++;
   });
+
   let emp = document.getElementById('req-filter-empty');
   if (!visible) {
     if (!emp) {
       emp = document.createElement('div');
       emp.id = 'req-filter-empty';
       emp.className = 'empty';
-      emp.innerHTML = '<div class="empty-ico">🔍</div>No ' + f + ' requests.';
+      emp.style.gridColumn = '1/-1';
+      emp.innerHTML = '<div class="empty-ico">🔍</div>No matching requests.';
       document.getElementById('req-cards-list').appendChild(emp);
     }
-  } else if (emp) emp.remove();
+  } else if (emp) {
+    emp.remove();
+  }
 }
 
 // ═══════════════════════════════════════════════
