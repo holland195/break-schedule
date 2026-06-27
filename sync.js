@@ -960,9 +960,9 @@ ${dbUrl ? `
     { key:'syncSchedule',           label:'Import Schedule',           dir:'Sheets → Firebase',  desc:'Daily 6AM — imports staff shift schedule from the Schedule sheet' },
     { key:'syncLogbook',            label:'Import Logbook',            dir:'Sheets → Firebase',  desc:'Daily 6AM — imports clock-in/out times from Logbook sheets' },
     { key:'syncPolicy',             label:'Import Policy Violations',  dir:'Sheets → Firebase',  desc:'Daily 00:00 — imports policy violation records from the Policy sheet' },
-    { key:'writebackShiftA', label:'Writeback — Shift A', dir:'Firebase → Sheets', desc:'Daily 15:30 — writes Shift A logbook edits + monthly attendance back to Sheets' },
-    { key:'writebackShiftD', label:'Writeback — Shift D', dir:'Firebase → Sheets', desc:'Daily 00:30 — writes Shift D logbook edits + monthly attendance back to Sheets' },
-    { key:'writebackShiftE', label:'Writeback — Shift E', dir:'Firebase → Sheets', desc:'Daily 06:30 — writes Shift E logbook edits + monthly attendance back to Sheets' },
+    { key:'writebackShiftA', label:'Writeback — Shift A', dir:'Firebase → Sheets', desc:'Daily 15:30 — writes Shift A staff attendance (logbook is synced monthly)' },
+    { key:'writebackShiftD', label:'Writeback — Shift D', dir:'Firebase → Sheets', desc:'Daily 00:30 — writes Shift D staff attendance (logbook is synced monthly)' },
+    { key:'writebackShiftE', label:'Writeback — Shift E', dir:'Firebase → Sheets', desc:'Daily 06:30 — writes Shift E staff attendance (logbook is synced monthly)' },
   ].map(function(f) {
     var enabled = state.gasConfig[f.key] !== false;
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">' +

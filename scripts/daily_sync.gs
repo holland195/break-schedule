@@ -2025,34 +2025,44 @@ function syncMonthlyAttWriteback() {
 function syncAttendanceWriteback_1530() {
   var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
   if (cfg.writebackShiftA === false) { Logger.log('[Writeback] Shift A skipped (disabled).'); return; }
-  syncAttendanceWriteback(); syncMonthlyAttWriteback();
+  syncMonthlyAttWriteback();
 }
 function syncAttendanceWriteback_0030() {
   var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
   if (cfg.writebackShiftD === false) { Logger.log('[Writeback] Shift D skipped (disabled).'); return; }
-  syncAttendanceWriteback(); syncMonthlyAttWriteback();
+  syncMonthlyAttWriteback();
 }
 function syncAttendanceWriteback_0630() {
   var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
   if (cfg.writebackShiftE === false) { Logger.log('[Writeback] Shift E skipped (disabled).'); return; }
-  syncAttendanceWriteback(); syncMonthlyAttWriteback();
+  syncMonthlyAttWriteback();
 }
 
-// Run once from the GAS editor to install the 3 daily writeback triggers.
+// Logbook wrapper that runs monthly
+function syncLogbookMonthly() {
+  syncAttendanceWriteback();
+}
+
+// Run once from the GAS editor to install the 3 daily writeback triggers + 1 monthly trigger.
 function createWritebackTriggers() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
     var fn = t.getHandlerFunction();
     if (fn === 'syncAttendanceWriteback_1530' ||
         fn === 'syncAttendanceWriteback_0030' ||
-        fn === 'syncAttendanceWriteback_0630') {
+        fn === 'syncAttendanceWriteback_0630' ||
+        fn === 'syncLogbookMonthly') {
       ScriptApp.deleteTrigger(t);
     }
   });
-  // Shift A: 15:30 | Shift D: 00:30 | Shift E: 06:30
+  // Staff attendance: Shift A: 15:30 | Shift D: 00:30 | Shift E: 06:30 (daily)
   ScriptApp.newTrigger('syncAttendanceWriteback_1530').timeBased().atHour(15).nearMinute(30).everyDays(1).create();
   ScriptApp.newTrigger('syncAttendanceWriteback_0030').timeBased().atHour(0) .nearMinute(30).everyDays(1).create();
   ScriptApp.newTrigger('syncAttendanceWriteback_0630').timeBased().atHour(6) .nearMinute(30).everyDays(1).create();
-  Logger.log('✓ Writeback triggers created: ShiftA@15:30, ShiftD@00:30, ShiftE@06:30 (daily)');
+  
+  // Logbook: 1st of every month at 1:00 AM
+  ScriptApp.newTrigger('syncLogbookMonthly').timeBased().onMonthDay(1).atHour(1).create();
+  
+  Logger.log('✓ Triggers created: Daily Staff Attendance (A@15:30, D@00:30, E@06:30), Monthly Logbook (1st of month @ 1:00 AM)');
 }
 
 // ═══════════════════════════════════════════════
