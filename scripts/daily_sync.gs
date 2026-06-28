@@ -445,6 +445,14 @@ function parseWorkingTimeValue(val) {
 // ═══════════════════════════════════════════════
 function syncWorkingTime(current, log) {
   if (typeof log !== 'function') log = function(m) { Logger.log(m); };
+  var _selfFetched = false;
+  if (!current || (!current.users && !current.staffInfo)) {
+    log('[WorkingTime] current.users missing — fetching from Firebase…');
+    var _raw = firebaseGet();
+    current = _raw ? JSON.parse(_raw) : (current || {});
+    log('[WorkingTime] Firebase keys after fetch: ' + Object.keys(current).join(', '));
+    _selfFetched = true;
+  }
   var result = { updated: 0, dateCols: 0 };
   if (current.gasConfig && current.gasConfig.syncWorkingTime === false) {
     log('[WorkingTime] Skipped (disabled via GAS Function Controls in web app).');
@@ -601,6 +609,10 @@ function syncWorkingTime(current, log) {
   }
 
   log('[WorkingTime] Done: ' + result.updated + ' users synced for ' + monthKey);
+  if (_selfFetched) {
+    log('[WorkingTime] Saving updated state back to Firebase…');
+    firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+  }
   return result;
 }
 
