@@ -20,6 +20,18 @@
 const ROTATION_STORAGE_KEY = 'bsched_rotation';
 const BREAK_SPLIT_KEY      = 'bsched_break_split';
 
+// ── Bulk break-assignment enable/disable per shift ──
+function getBulkBreakEnabled(shift) {
+  if (!state.bulkBreakEnabled) return true; // default ON
+  var v = state.bulkBreakEnabled[shift];
+  return v === undefined ? true : !!v;
+}
+function _setBulkBreakEnabled(shift, enabled) {
+  if (!state.bulkBreakEnabled) state.bulkBreakEnabled = { A: true, D: true, E: true };
+  state.bulkBreakEnabled[shift] = enabled;
+  save();
+}
+
 // ── Break split storage ──
 // Persists per-shift custom split percentages (slot1 %).
 // null entry → use default 50/50 rotation for that shift.
@@ -381,6 +393,8 @@ function autoAssignBreaks(importedUsers) {
     console.log('[autoassign] Processing week ' + monday + ' ' + weekLabel);
 
     shifts.forEach(function(shift) {
+      // Skip this shift entirely if bulk break assignment is OFF
+      if (!getBulkBreakEnabled(shift)) return;
       var slots = getConfigForDate(monday).breakSlots[shift];
       if (!slots || slots.length < 2) return;
       var slot1 = slots[0];
@@ -612,6 +626,81 @@ function autoAssignBreaks(importedUsers) {
   // Do not call it here — caller handles the push after this returns
 
   return { assigned: totalAssigned, weekCount: mondays.length };
+}
+
+// ── Bulk Break Toggle ──
+
+// Returns the Monday anchor (DD/MM) of the current week.
+function _currentWeekMonday() {
+  var now = new Date();
+  // Week starts Monday; getDay() returns 0=Sun…6=Sat
+  var dayOfWeek = now.getDay(); // 0=Sun
+  var daysToMon = (dayOfWeek === 0) ? -6 : 1 - dayOfWeek;
+  var mon = new Date(now);
+  mon.setDate(now.getDate() + daysToMon);
+  mon.setHours(0, 0, 0, 0);
+  return String(mon.getDate()).padStart(2, '0') + '/' + String(mon.getMonth() + 1).padStart(2, '0');
+}
+
+// Clear all auto-assigned (and optionally manual) breaks from fromMonday onward for the given shift.
+function _clearBreaksFromMondayForShift(fromMonday, shift, force) {
+  var parts = fromMonday.split('/');
+  var fromDate = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+  fromDate.setHours(0, 0, 0, 0);
+  Object.keys(state.breaks || {}).forEach(function(key) {
+    var dayPart = key.split('_').pop();
+    if (!/^\d{1,2}\/\d{1,2}$/.test(dayPart)) return;
+    var dp = dayPart.split('/');
+    var d = new Date(2026, parseInt(dp[1]) - 1, parseInt(dp[0]));
+    d.setHours(0, 0, 0, 0);
+    if (d < fromDate) return;
+    var br = state.breaks[key];
+    if (!br) return;
+    if (!force && br.note !== 'auto') return;
+    if (_slotBelongsToShift(br.slot, shift)) delete state.breaks[key];
+  });
+}
+
+/**
+ * Toggle bulk break assignment ON/OFF for a specific shift.
+ * Called from the Arrange page toggle button.
+ * @param {string} shift  'A', 'D' or 'E'
+ */
+async function toggleBulkBreak(shift) {
+  var currentlyOn = getBulkBreakEnabled(shift);
+  var thisMonday = _currentWeekMonday();
+
+  if (currentlyOn) {
+    // ── Turning OFF ──
+    var msg = 'Turn OFF auto break assignment for Shift ' + shift + '?\n\n'
+      + '• All auto-assigned breaks on current and future weeks for Shift ' + shift + ' will be cleared.\n'
+      + '• Past weeks are not affected.\n'
+      + '• Manual overrides on current/future weeks will also be removed.\n\n'
+      + 'Continue?';
+    if (!confirm(msg)) return;
+
+    // Clear current + future weeks for this shift (force = true to also remove manual)
+    _clearBreaksFromMondayForShift(thisMonday, shift, true);
+    _setBulkBreakEnabled(shift, false);
+    await syncWrite();
+    toast('Shift ' + shift + ' auto-break assignment turned OFF. Breaks cleared from ' + thisMonday + ' onward.', 'warn');
+
+  } else {
+    // ── Turning ON ──
+    var msg = 'Turn ON auto break assignment for Shift ' + shift + '?\n\n'
+      + '• Auto-break assignment will resume for Shift ' + shift + '.\n'
+      + '• Current and future weeks will be filled based on the existing rotation.\n\n'
+      + 'Continue?';
+    if (!confirm(msg)) return;
+
+    _setBulkBreakEnabled(shift, true);
+    // Re-run auto-assign — the existing rotation state is preserved so it continues from last known pattern
+    var result = autoAssignBreaks(state.users);
+    await syncWrite();
+    toast('Shift ' + shift + ' auto-break assignment turned ON. Re-assigned ' + result.assigned + ' break(s).', 'ok');
+  }
+
+  nav('arrange');
 }
 
 // ── Admin utilities ──

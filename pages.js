@@ -1586,6 +1586,42 @@ function _renderArrangeAssignTab(weekRange) {
 </div>`;
 
   var _ctrlCollapsed = localStorage.getItem('arrange-controls-collapsed') === '1';
+
+  // ── Bulk Break Assignment toggle strip (Leaders + Training only) ──
+  var _bulkToggleStrip = '';
+  var _canToggleBulk = typeof currentUser !== 'undefined' && currentUser &&
+    (typeof isLeader === 'function' && isLeader(currentUser) ||
+     typeof isTraining === 'function' && isTraining(currentUser));
+
+  if (_canToggleBulk) {
+    var _shiftColors = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
+    var _bulkToggles = VISIBLE_SHIFTS.map(function(sh) {
+      var on = typeof getBulkBreakEnabled === 'function' ? getBulkBreakEnabled(sh) : true;
+      var sc = _shiftColors[sh] || 'var(--accent)';
+      var toggleBg  = on ? sc : 'var(--bg4)';
+      var toggleDot = on
+        ? 'transform:translateX(16px);background:#fff;'
+        : 'transform:translateX(2px);background:var(--text3);';
+      var badge = on
+        ? '<span style="font-size:10px;color:' + sc + ';font-weight:700;">ON</span>'
+        : '<span style="font-size:10px;color:var(--text3);">OFF</span>';
+      return '<div style="display:flex;align-items:center;gap:7px;cursor:pointer;" onclick="toggleBulkBreak(\'' + sh + '\')" title="Toggle bulk break assignment for Shift ' + sh + '">' +
+        '<span style="font-size:11px;font-weight:700;color:' + (on ? sc : 'var(--text3)') + ';min-width:12px;">Shift ' + sh + '</span>' +
+        '<div style="width:34px;height:18px;border-radius:9px;background:' + toggleBg + ';position:relative;transition:background .2s;border:1px solid ' + (on ? sc : 'var(--border2)') + ';">' +
+          '<div style="position:absolute;top:2px;width:12px;height:12px;border-radius:50%;transition:transform .2s;' + toggleDot + '"></div>' +
+        '</div>' +
+        badge +
+        '</div>';
+    }).join('<span style="color:var(--border2);font-size:12px;margin:0 2px;">|</span>');
+
+    _bulkToggleStrip = '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;' +
+      'padding:8px 16px;background:var(--bg4);border-bottom:1px solid var(--border);' +
+      'border-radius:8px 8px 0 0;">' +
+      '<span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">⚙ Auto-assign</span>' +
+      _bulkToggles +
+      '</div>';
+  }
+
   var collapsePanel = `
 <div class="arrange-controls-wrap">
   <div class="arrange-controls-header" onclick="_toggleArrangeControls()">
@@ -1597,11 +1633,25 @@ function _renderArrangeAssignTab(weekRange) {
   </div>
 </div>`;
 
+  // Prepend toggle strip outside the collapsible body so it's always visible
+  var collapseWithToggle = _bulkToggleStrip
+    ? '<div class="arrange-controls-wrap" style="padding:0;">' +
+        _bulkToggleStrip +
+        '<div class="arrange-controls-header" onclick="_toggleArrangeControls()">' +
+          '<span class="arrange-controls-chevron' + (_ctrlCollapsed ? ' collapsed' : '') + '" id="arrange-chevron">▼</span>' +
+          '<span>Controls</span>' +
+        '</div>' +
+        '<div class="arrange-controls-body' + (_ctrlCollapsed ? ' collapsed' : '') + '" id="arrange-controls-body">' +
+          combinedPanel +
+        '</div>' +
+      '</div>'
+    : collapsePanel;
+
   const weekTable = getArrangeDayMemberList(null);
   // Disconnect previous observer so it doesn't fire on stale elements
   if (_arrResizeObs) { _arrResizeObs.disconnect(); _arrResizeObs = null; }
   requestAnimationFrame(function() { _initArrResize(); });
-  return collapsePanel + weekTable;
+  return (_canToggleBulk ? collapseWithToggle : collapsePanel) + weekTable;
 }
 
 function _resizeArrTable() {
