@@ -1031,8 +1031,8 @@ function renderArrange() {
   var autoAssignToggleHTML = '';
   if (_canToggleBulk && VISIBLE_SHIFTS.includes(currentShift)) {
     var on = typeof getBulkBreakEnabled === 'function' ? getBulkBreakEnabled(currentShift) : true;
-    var _rgbMap = { A: '14,165,233', D: '245,158,11', E: '167,139,250' };
-    var _shiftColors = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
+    var _rgbMap = { A: '225,29,122', D: '14,165,233', E: '124,58,237' };
+    var _shiftColors = { A: '#e11d7a', D: '#0ea5e9', E: '#7c3aed' };
     var sc = _shiftColors[currentShift] || 'var(--accent)';
     var rgb = _rgbMap[currentShift] || '31,102,241';
     
