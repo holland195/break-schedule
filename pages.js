@@ -1040,12 +1040,11 @@ function renderArrange() {
       '<span style="' + _monoLbl + '">AUTO ASSIGN:</span>' +
       '<button onclick="toggleBulkBreak(\'' + currentShift + '\')"' +
         ' title="Toggle auto break assignment for Shift ' + currentShift + '"' +
-        ' style="display:inline-flex;align-items:center;gap:5px;padding:3.5px 8px;border-radius:6px;cursor:pointer;' +
+        ' style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;' +
           'border:1.5px solid ' + (on ? sc : 'var(--border2)') + ';' +
-          'background:' + (on ? 'rgba(' + rgb + ',.1)' : 'var(--bg3)') + ';transition:all .15s;">' +
-        '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;' +
-          (on ? 'background:' + sc + ';color:#fff;' : 'background:var(--bg4);color:var(--text3);') +
-        '">' + (on ? 'ON' : 'OFF') + '</span>' +
+          'background:' + (on ? sc : 'var(--bg3)') + ';' +
+          'color:' + (on ? '#fff' : 'var(--text3)') + ';transition:all .15s;">' +
+        (on ? 'ON' : 'OFF') +
       '</button>' +
       '</div>';
   }
