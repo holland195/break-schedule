@@ -1595,29 +1595,27 @@ function _renderArrangeAssignTab(weekRange) {
 
   if (_canToggleBulk) {
     var _shiftColors = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
+    var _rgbMap      = { A: '14,165,233', D: '245,158,11', E: '167,139,250' };
     var _bulkToggles = VISIBLE_SHIFTS.map(function(sh) {
-      var on = typeof getBulkBreakEnabled === 'function' ? getBulkBreakEnabled(sh) : true;
-      var sc = _shiftColors[sh] || 'var(--accent)';
-      var toggleBg  = on ? sc : 'var(--bg4)';
-      var toggleDot = on
-        ? 'transform:translateX(16px);background:#fff;'
-        : 'transform:translateX(2px);background:var(--text3);';
-      var badge = on
-        ? '<span style="font-size:10px;color:' + sc + ';font-weight:700;">ON</span>'
-        : '<span style="font-size:10px;color:var(--text3);">OFF</span>';
-      return '<div style="display:flex;align-items:center;gap:7px;cursor:pointer;" onclick="toggleBulkBreak(\'' + sh + '\')" title="Toggle bulk break assignment for Shift ' + sh + '">' +
-        '<span style="font-size:11px;font-weight:700;color:' + (on ? sc : 'var(--text3)') + ';min-width:12px;">Shift ' + sh + '</span>' +
-        '<div style="width:34px;height:18px;border-radius:9px;background:' + toggleBg + ';position:relative;transition:background .2s;border:1px solid ' + (on ? sc : 'var(--border2)') + ';">' +
-          '<div style="position:absolute;top:2px;width:12px;height:12px;border-radius:50%;transition:transform .2s;' + toggleDot + '"></div>' +
-        '</div>' +
-        badge +
-        '</div>';
-    }).join('<span style="color:var(--border2);font-size:12px;margin:0 2px;">|</span>');
+      var on  = typeof getBulkBreakEnabled === 'function' ? getBulkBreakEnabled(sh) : true;
+      var sc  = _shiftColors[sh] || 'var(--accent)';
+      var rgb = _rgbMap[sh] || '31,102,241';
+      return '<button onclick="toggleBulkBreak(\'' + sh + '\')"' +
+        ' title="Toggle auto break assignment for Shift ' + sh + '"' +
+        ' style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;cursor:pointer;' +
+          'border:1.5px solid ' + (on ? sc : 'var(--border2)') + ';' +
+          'background:' + (on ? 'rgba(' + rgb + ',.1)' : 'var(--bg3)') + ';transition:all .15s;">' +
+        '<span style="font-size:11px;font-weight:700;color:' + (on ? sc : 'var(--text3)') + ';">Shift ' + sh + '</span>' +
+        '<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;' +
+          (on ? 'background:' + sc + ';color:#fff;' : 'background:var(--bg4);color:var(--text3);') +
+        '">' + (on ? 'ON' : 'OFF') + '</span>' +
+        '</button>';
+    }).join('');
 
-    _bulkToggleStrip = '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;' +
-      'padding:8px 16px;background:var(--bg4);border-bottom:1px solid var(--border);' +
-      'border-radius:8px 8px 0 0;">' +
-      '<span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">⚙ Auto-assign</span>' +
+    _bulkToggleStrip = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;' +
+      'padding:8px 16px;background:var(--bg4);border-bottom:1px solid var(--border);border-radius:8px 8px 0 0;">' +
+      '<span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;' +
+        'letter-spacing:.06em;white-space:nowrap;margin-right:4px;">Auto Assign</span>' +
       _bulkToggles +
       '</div>';
   }

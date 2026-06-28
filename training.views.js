@@ -163,10 +163,28 @@ if (idx===0) s1++; else if (idx===1) s2++;
   const prevMonday = _weekOffset(selWeekMonday, -1);
   const nextMonday = _weekOffset(selWeekMonday, +1);
   const weekStatusLabel = isCurWeek ? 'Current week' : selWeekMonday > curWeekMonday ? 'Future week' : 'Past week';
+
+  const _shiftColors = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
+  const _autoAssignStatuses = ['A', 'D', 'E'].map(function(sh) {
+    const on = typeof getBulkBreakEnabled === 'function' ? getBulkBreakEnabled(sh) : true;
+    const sc = _shiftColors[sh] || 'var(--accent)';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;
+      border:1.5px solid ${on ? sc : 'var(--border2)'};background:${on ? 'rgba(0,0,0,0)' : 'var(--bg3)'};">
+      <span style="color:${on ? sc : 'var(--text3)'};">Shift ${sh}</span>
+      <span style="color:${on ? 'var(--ok)' : 'var(--text3)'};">${on ? 'ON' : 'OFF'}</span>
+    </span>`;
+  }).join(' ');
+
   const titleRow = `
-    <div style="margin-bottom:10px;">
-      <div class="page-title">Break Schedule</div>
-      <div class="page-sub">${weekStatusLabel} · Read-only · ${totalStaff} staff</div>
+    <div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+      <div>
+        <div class="page-title">Break Schedule</div>
+        <div class="page-sub">${weekStatusLabel} · Read-only · ${totalStaff} staff</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;background:var(--bg2);padding:6px 12px;border:1px solid var(--border);border-radius:8px;">
+        <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;">Auto Assign</span>
+        ${_autoAssignStatuses}
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
       <button class="btn btn-sm" style="padding:4px 10px;font-size:15px;line-height:1;"
