@@ -414,21 +414,27 @@ function runSyncSchedule() {
 //  Only columns whose header parses as a date are imported.
 //  Result stored as: current.workingTime[username][monthKey][dateKey] = { total: <minutes> }
 // ═══════════════════════════════════════════════
-// ═══════════════════════════════════════════════
 //  WORKING TIME HELPER
-//  Parses cell values like "L050", "E060", "T120", "50" into minutes (integer 50, 60, 120).
+//  Parses cell values like "L050", "E060", "T120", "O030", "50" into { type, mins }.
+//  type is one of: 'late', 'early', 'training', 'others', or null (plain number → total).
+//  Returns null if not parseable or zero.
 // ═══════════════════════════════════════════════
 function parseWorkingTimeValue(val) {
   if (val === null || val === undefined) return null;
   var str = String(val).trim().toUpperCase();
   if (str === '') return null;
-  
-  // Strip any non-digit character and parse the rest as integer
+
+  var typeMap = { 'L': 'late', 'E': 'early', 'T': 'training', 'O': 'others' };
+  var letter = str.charAt(0);
+  var type = typeMap[letter] || null;
+
   var numStr = str.replace(/[^0-9]/g, '');
   if (numStr === '') return null;
-  
+
   var parsed = parseInt(numStr, 10);
-  return isNaN(parsed) ? null : parsed;
+  if (isNaN(parsed) || parsed <= 0) return null;
+
+  return { type: type, mins: parsed };
 }
 
 // ═══════════════════════════════════════════════
@@ -596,11 +602,17 @@ function syncWorkingTime(current, log) {
     var hasAny = false;
     dateCols.forEach(function(col) {
       var rawVal = row[col.colIndex];
-      var mins = parseWorkingTimeValue(rawVal);
-      if (mins === null || mins <= 0) return;
-      
+      var parsed = parseWorkingTimeValue(rawVal);
+      if (!parsed) return;
+
       var existing = current.workingTime[username][monthKey][col.dateKey] || {};
-      existing.total = mins;
+      if (parsed.type) {
+        // Letter-prefixed code: store in the matching category field
+        existing[parsed.type] = parsed.mins;
+      } else {
+        // Plain number with no prefix: store as total
+        existing.total = parsed.mins;
+      }
       current.workingTime[username][monthKey][col.dateKey] = existing;
       hasAny = true;
     });
