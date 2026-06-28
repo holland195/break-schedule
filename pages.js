@@ -3232,12 +3232,9 @@ function _renderWorkingTime() {
       '</th>';
   });
   theadRow1 +=
-    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:#94a3b8;' +
-      'min-width:52px;width:52px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:2px solid var(--border);" title="Total time from sheet (min)">∑ TOT</th>' +
-    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
+    '<th style="text-align:center;padding:6px 4px;font-size:10px;color:' + CAT_LATE.color + ';' +
       'min-width:45px;width:45px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
-      'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Late">LATE</th>' +
+      'border-bottom:2px solid var(--border2);border-left:2px solid var(--border);" title="Total Late">LATE</th>' +
     '<th style="text-align:center;padding:6px 4px;font-size:10px;color:var(--text2);' +
       'min-width:45px;width:45px;position:sticky;top:0;z-index:2;background:var(--bg3);' +
       'border-bottom:2px solid var(--border2);border-left:1px solid var(--border);" title="Total Early">EARLY</th>' +
@@ -3254,7 +3251,7 @@ function _renderWorkingTime() {
 
   var tbodyRows = wtUsers.map(function(u) {
     var effRole = u.role || '';
-    var totalLate = 0, totalEarly = 0, totalTraining = 0, totalOthers = 0, totalSum = 0;
+    var totalLate = 0, totalEarly = 0, totalTraining = 0, totalOthers = 0;
     var monthData = DB.getWorkingTime(u.username, monthKey) || {};
     Object.keys(monthData).forEach(function(dk) {
       var d = monthData[dk];
@@ -3262,7 +3259,7 @@ function _renderWorkingTime() {
       if (d.early) totalEarly += d.early;
       if (d.training) totalTraining += d.training;
       if (d.others) totalOthers += d.others;
-      if (d.total) totalSum += d.total;
+
     });
     var cells = allDates.map(function(dk, idx) {
       var dkParts = dk.split('/');
@@ -3279,7 +3276,7 @@ function _renderWorkingTime() {
         ' onclick="openWtModal(\'' + u.username + '\',\'' + monthKey + '\',\'' + dk + '\',\'' + safeName + '\')">' +
         (hasAny
           ? '<div style="display:flex;flex-direction:column;gap:1px;padding:2px 1px;">' +
-            (wtDay.total    !== undefined && wtDay.total    !== null ? '<span style="font-size:9px;font-weight:700;color:#94a3b8;background:rgba(148,163,184,.14);border-radius:3px;padding:0 3px;white-space:nowrap;">∑ ' + wtDay.total    + '</span>' : '') +
+
             (wtDay.late     !== undefined && wtDay.late     !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_LATE.color     + ';background:' + CAT_LATE.bg     + ';border-radius:3px;padding:0 3px;white-space:nowrap;">L ' + wtDay.late     + '</span>' : '') +
             (wtDay.early    !== undefined && wtDay.early    !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_EARLY.color    + ';background:' + CAT_EARLY.bg    + ';border-radius:3px;padding:0 3px;white-space:nowrap;">E ' + wtDay.early    + '</span>' : '') +
             (wtDay.training !== undefined && wtDay.training !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_TRAINING.color + ';background:' + CAT_TRAINING.bg + ';border-radius:3px;padding:0 3px;white-space:nowrap;">T ' + wtDay.training + '</span>' : '') +
@@ -3299,9 +3296,8 @@ function _renderWorkingTime() {
         'font-size:11px;color:' + _roleColor(effRole) + ';">' +
         (getRoleInfo(effRole).label || _resolveRole(effRole) || '—') + '</td>' +
       cells +
-      '<td style="padding:5px 4px;text-align:center;min-width:52px;width:52px;border-left:2px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalSum > 0 ? '#94a3b8' : 'var(--text3)') + ';" title="Total imported from sheet">' + (totalSum || '—') + '</td>' +
-      '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:1px solid var(--border);' +
+
+      '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:2px solid var(--border);' +
         'font-size:11px;font-weight:600;color:' + (totalLate > 0 ? CAT_LATE.color : 'var(--text3)') + ';">' + (totalLate || '—') + '</td>' +
       '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:1px solid var(--border);' +
         'font-size:11px;font-weight:600;color:' + (totalEarly > 0 ? CAT_EARLY.color : 'var(--text3)') + ';">' + (totalEarly || '—') + '</td>' +
