@@ -1024,12 +1024,38 @@ function renderArrange() {
       }).join('') + '</select></div>'
     : '';
 
+  var _canToggleBulk = typeof currentUser !== 'undefined' && currentUser &&
+    (typeof isLeader === 'function' && isLeader(currentUser) ||
+     typeof isTraining === 'function' && isTraining(currentUser));
+
+  var autoAssignToggleHTML = '';
+  if (_canToggleBulk && VISIBLE_SHIFTS.includes(currentShift)) {
+    var on = typeof getBulkBreakEnabled === 'function' ? getBulkBreakEnabled(currentShift) : true;
+    var _rgbMap = { A: '225,29,122', D: '14,165,233', E: '124,58,237' };
+    var _shiftColors = { A: '#e11d7a', D: '#0ea5e9', E: '#7c3aed' };
+    var sc = _shiftColors[currentShift] || 'var(--accent)';
+    var rgb = _rgbMap[currentShift] || '31,102,241';
+    
+    autoAssignToggleHTML = '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="' + _monoLbl + '">AUTO ASSIGN:</span>' +
+      '<button onclick="toggleBulkBreak(\'' + currentShift + '\')"' +
+        ' title="Toggle auto break assignment for Shift ' + currentShift + '"' +
+        ' style="display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;' +
+          'border:1.5px solid ' + (on ? sc : 'var(--border2)') + ';' +
+          'background:' + (on ? sc : 'var(--bg3)') + ';' +
+          'color:' + (on ? '#fff' : 'var(--text3)') + ';transition:all .15s;">' +
+        (on ? 'ON' : 'OFF') +
+      '</button>' +
+      '</div>';
+  }
+
   return `
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
     ${monthPickerHTML}
     ${weekPickerHTML}
+    ${autoAssignToggleHTML}
     <button id="save-breaks-btn" class="btn btn-accent"
       onclick="saveBreaksToCloud()"
       style="display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 16px;">
@@ -1586,6 +1612,7 @@ function _renderArrangeAssignTab(weekRange) {
 </div>`;
 
   var _ctrlCollapsed = localStorage.getItem('arrange-controls-collapsed') === '1';
+
   var collapsePanel = `
 <div class="arrange-controls-wrap">
   <div class="arrange-controls-header" onclick="_toggleArrangeControls()">
