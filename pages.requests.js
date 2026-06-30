@@ -61,8 +61,8 @@ function renderRequests() {
         '<div class="req-card-row"><span class="req-card-lbl">Their day off</span>' +
           '<span class="req-card-val" style="font-weight:600;">' + r.myDate + ' (' + getWkDay(r.myDate) + ')</span>' +
         '</div>' +
-        '<div class="req-card-row"><span class="req-card-lbl">â†” Swap with</span>' +
-          '<span class="req-card-val">' + (_dosTgt ? _dosTgt.name + ' <span style="color:var(--text3)">(' + (_dosTgt.team||'?') + ')</span>' : 'â€”') + '</span>' +
+        '<div class="req-card-row"><span class="req-card-lbl">↔ Swap with</span>' +
+          '<span class="req-card-val">' + (_dosTgt ? _dosTgt.name + ' <span style="color:var(--text3)">(' + (_dosTgt.team||'?') + ')</span>' : '—') + '</span>' +
         '</div>' +
         '<div class="req-card-row"><span class="req-card-lbl">Their day off</span>' +
           '<span class="req-card-val" style="font-weight:600;">' + r.theirDate + ' (' + getWkDay(r.theirDate) + ')</span>' +
@@ -70,17 +70,17 @@ function renderRequests() {
         (r.reason ? '<div class="req-card-reason">"' + r.reason + '"</div>' : '') +
         (_dosApprover && r.status !== 'pending'
           ? '<div class="req-resolved ' + r.status + '">' +
-              (r.status === 'approved' ? 'âœ“ Approved' : 'âœ— Rejected') +
-              ' by <b>' + _dosApprover.name + '</b> Â· ' + timeSince(r.resolvedAt) +
+              (r.status === 'approved' ? '✓ Approved' : '✗ Rejected') +
+              ' by <b>' + _dosApprover.name + '</b> · ' + timeSince(r.resolvedAt) +
             '</div>'
           : '') +
         (_dosCanApprove && r.status === 'pending'
           ? '<div class="req-actions">' +
-              '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + _dosIdx + ',\'approved\')">âœ“ Approve</button>' +
-              '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + _dosIdx + ',\'rejected\')">âœ— Reject</button>' +
+              '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + _dosIdx + ',\'approved\')">✓ Approve</button>' +
+              '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + _dosIdx + ',\'rejected\')">✗ Reject</button>' +
             '</div>'
           : (_dosIsOwn && r.status === 'pending'
-            ? '<div class="req-actions"><button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + _dosIdx + ')">âœ— Cancel</button></div>'
+            ? '<div class="req-actions"><button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + _dosIdx + ')">✗ Cancel</button></div>'
             : '')) +
       '</div>';
     }
@@ -104,8 +104,8 @@ function renderRequests() {
     const _todayNumReq = _toNumReq(_todayDkReq);
     const _futureDays = (r.swapDays || []).filter(dk => _toNumReq(dk) > _todayNumReq);
     const dateLabel = isWeek
-      ? (_futureDays.length > 0 ? _futureDays[0] + 'â€“' + _futureDays[_futureDays.length - 1] : 'Week')
-      : (r.day || 'â€”');
+      ? (_futureDays.length > 0 ? _futureDays[0] + '–' + _futureDays[_futureDays.length - 1] : 'Week')
+      : (r.day || '—');
 
     // Impact table (week swaps, leader pending view)
     let impactHTML = '';
@@ -121,27 +121,27 @@ function renderRequests() {
         if (!isPast) futureCnt++;
         const myBr = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
         const ptBr = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
-        const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : 'â€”';
-        const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : 'â€”';
+        const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : '—';
+        const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : '—';
         const dim = isPast ? 'opacity:.35;' : '';
         return '<div class="req-impact-row" style="' + dim + '">'
           + '<span class="req-impact-day">' + d + (isPast ? ' <span style="font-size:8px">past</span>' : '') + '</span>'
           + '<span class="req-impact-who">Req.</span>'
           + '<span class="req-pill">' + myCode + '</span>'
-          + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">â†’</span>'
+          + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">→</span>'
           + '<span class="req-pill new">' + ptCode + '</span>'
           + '</div>'
           + '<div class="req-impact-row" style="' + dim + '">'
           + '<span class="req-impact-day"></span>'
           + '<span class="req-impact-who" style="opacity:.6">Part.</span>'
           + '<span class="req-pill">' + ptCode + '</span>'
-          + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">â†’</span>'
+          + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">→</span>'
           + '<span class="req-pill new">' + myCode + '</span>'
           + '</div>';
       }).join('');
       if (impRows) {
         impactHTML = '<div class="req-impact">'
-          + '<div class="req-impact-title">Impact Â· ' + futureCnt + ' upcoming day' + (futureCnt !== 1 ? 's' : '') + '</div>'
+          + '<div class="req-impact-title">Impact · ' + futureCnt + ' upcoming day' + (futureCnt !== 1 ? 's' : '') + '</div>'
           + impRows + '</div>';
       }
     }
@@ -149,8 +149,8 @@ function renderRequests() {
     // Resolved box
     const resolvedHTML = (approver && r.status !== 'pending')
       ? '<div class="req-resolved ' + r.status + '">'
-      + (r.status === 'approved' ? 'âœ“ ' : 'âœ— ')
-      + (r.status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + approver.name + '</b> Â· ' + timeSince(r.resolvedAt)
+      + (r.status === 'approved' ? '✓ ' : '✗ ')
+      + (r.status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + approver.name + '</b> · ' + timeSince(r.resolvedAt)
       + (r.respNote ? '<br><span style="opacity:.8">' + r.respNote + '</span>' : '')
       + '</div>'
       : '';
@@ -162,30 +162,30 @@ function renderRequests() {
       + (emp ? emp.name : 'Unknown')
       + ' <span class="req-scope ' + (isWeek ? 'week' : 'day') + '">' + (isWeek ? 'WEEK' : 'DAY') + '</span>'
       + '</div>'
-      + '<div class="req-card-meta">' + (emp ? emp.team : 'â€”') + ' Â· ' + dateLabel + ' Â· ' + timeSince(r.at) + '</div>'
+      + '<div class="req-card-meta">' + (emp ? emp.team : '—') + ' · ' + dateLabel + ' · ' + timeSince(r.at) + '</div>'
       + '</div>'
       + '<span class="req-status ' + r.status + '">' + r.status.toUpperCase() + '</span>'
       + '</div>'
       + '<hr class="req-card-divider">'
       + '<div class="req-card-row"><span class="req-card-lbl">Slot</span>'
-      + '<span class="req-pill">' + (r.current || 'â€”') + '</span>'
-      + '<span style="color:var(--text3);font-size:10px;margin:0 2px;">â†’</span>'
-      + '<span class="req-pill new">' + (r.requested || 'â€”') + '</span>'
+      + '<span class="req-pill">' + (r.current || '—') + '</span>'
+      + '<span style="color:var(--text3);font-size:10px;margin:0 2px;">→</span>'
+      + '<span class="req-pill new">' + (r.requested || '—') + '</span>'
       + '</div>'
       + '<div class="req-card-row"><span class="req-card-lbl">Partner</span>'
-      + '<span class="req-card-val">' + (partner ? partner.name + ' <span style="color:var(--text3)">(' + (partner.team || '?') + ')</span>' : 'â€”') + '</span>'
+      + '<span class="req-card-val">' + (partner ? partner.name + ' <span style="color:var(--text3)">(' + (partner.team || '?') + ')</span>' : '—') + '</span>'
       + '</div>'
       + (r.reason ? '<div class="req-card-reason">"' + r.reason + '"</div>' : '')
       + impactHTML
       + resolvedHTML
       + (r.status === 'pending' && currentUser.id === r.swapPartnerId
         ? '<div class="req-actions">'
-        + '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">âœ“ Approve</button>'
-        + '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">âœ— Reject</button>'
+        + '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">✓ Approve</button>'
+        + '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">✗ Reject</button>'
         + '</div>'
         : r.status === 'pending' && isOwn
           ? '<div class="req-actions">'
-          + '<button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + idx + ')">âœ— Cancel request</button>'
+          + '<button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + idx + ')">✗ Cancel request</button>'
           + '</div>'
           : '')
       + '</div>';
@@ -237,18 +237,18 @@ function renderRequests() {
   return `
 <div class="page-header">
   <div>
-    <div class="page-title">ðŸ”„ Break Swap</div>
+    <div class="page-title">🔄 Break Swap</div>
     <div class="page-sub">${(isLeader(currentUser)||isTraining(currentUser)) ? `${cntPending} pending` : 'Your swap requests'}</div>
   </div>
   ${!(isLeader(currentUser)||isTraining(currentUser)) ? `<div style="display:flex;gap:8px;">
     <button class="btn btn-accent" onclick="openRequestModal()">+ Break swap</button>
-    <button class="btn" onclick="staffSubTab='schedule';nav('staff')" title="Go to Staff Schedule to request a day-off swap">â†” Day-off swap</button>
+    <button class="btn" onclick="staffSubTab='schedule';nav('staff')" title="Go to Staff Schedule to request a day-off swap">↔ Day-off swap</button>
   </div>` : ''}
 </div>
 ${_monthPickerHTML(filterYM, '_setReqFilterYM', 'requests')}
 ${filterBar}
 <div class="req-cards-grid" id="req-cards-list">
-  ${myReqs.length > 0 ? myReqs.map(r => card(r)).join('') : '<div class="empty"><div class="empty-ico">âœ…</div>No requests for this month.</div>'}
+  ${myReqs.length > 0 ? myReqs.map(r => card(r)).join('') : '<div class="empty"><div class="empty-ico">✅</div>No requests for this month.</div>'}
 </div>
 `;
 }
@@ -327,7 +327,7 @@ function _applyReqFilters() {
       emp.id = 'req-filter-empty';
       emp.className = 'empty';
       emp.style.gridColumn = '1/-1';
-      emp.innerHTML = '<div class="empty-ico">ðŸ”</div>No matching requests.';
+      emp.innerHTML = '<div class="empty-ico">🔍</div>No matching requests.';
       document.getElementById('req-cards-list').appendChild(emp);
     }
   } else if (emp) {
@@ -335,15 +335,15 @@ function _applyReqFilters() {
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  RENDER: ARRANGE (leader only)
 //  Tab 1: Arrange Breaks (bulk panel + day tabs)
 //  Tab 2: Week Overview (full grid)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 
 var _dosMyDate = '';
 
-// Return the 7 Monâ€“Sun dates for the week containing dk (DD/MM)
+// Return the 7 Mon–Sun dates for the week containing dk (DD/MM)
 function _dosGetWeekDates(dk) {
   var p = dk.split('/');
   var yr = new Date().getFullYear();
@@ -355,7 +355,7 @@ function _dosGetWeekDates(dk) {
   return getWeekRange(monDk);
 }
 
-// Returns {ok, reason} â€” checks that neither party ends up with 8+ consecutive working days
+// Returns {ok, reason} — checks that neither party ends up with 8+ consecutive working days
 function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
   var _yr = new Date().getFullYear();
   var _dk2dt = function(dk) {
@@ -396,9 +396,9 @@ function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
     }
     return maxRun;
   };
-  // myUsername: myDate (currently off) â†’ working; theirDate â†’ day-off
+  // myUsername: myDate (currently off) → working; theirDate → day-off
   var myRun = _checkUser(myUsername, myDate, theirDate);
-  // theirUsername: theirDate (currently off) â†’ working; myDate â†’ day-off
+  // theirUsername: theirDate (currently off) → working; myDate → day-off
   var theirRun = _checkUser(theirUsername, theirDate, myDate);
   var myName = (state.users.find(function(u){return u.username===myUsername;})||{name:myUsername}).name;
   var theirName = (state.users.find(function(u){return u.username===theirUsername;})||{name:theirUsername}).name;
@@ -410,7 +410,7 @@ function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
 function _dayoffSwapModalHTML() {
   return '<div id="modal-dayoff-swap" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-dayoff-swap\')">' +
     '<div class="modal" style="width:420px;">' +
-      '<div class="modal-title">â†” Request Day-Off Swap</div>' +
+      '<div class="modal-title">↔ Request Day-Off Swap</div>' +
       '<div style="margin-bottom:12px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Your day off</div>' +
         '<div id="dos-my-date-wrap"></div>' +
@@ -418,14 +418,14 @@ function _dayoffSwapModalHTML() {
       '<div style="margin-bottom:12px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with (same position, different day-off)</div>' +
         '<select id="dos-target-user" class="login-select" style="width:100%;font-size:13px;" onchange="_dosUpdateDates()">' +
-          '<option value="">â€” Select person â€”</option>' +
+          '<option value="">— Select person —</option>' +
         '</select>' +
       '</div>' +
       '<div style="margin-bottom:12px;" id="dos-target-date-wrap"></div>' +
       '<div id="dos-validation-msg" style="display:none;margin-bottom:10px;padding:8px 10px;background:rgba(239,68,68,.1);border-left:3px solid var(--err);border-radius:4px;font-size:12px;color:var(--err);"></div>' +
       '<div style="margin-bottom:16px;">' +
         '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Reason (optional)</div>' +
-        '<input id="dos-reason" class="login-input" style="width:100%;box-sizing:border-box;font-size:13px;" placeholder="e.g. family eventâ€¦" />' +
+        '<input id="dos-reason" class="login-input" style="width:100%;box-sizing:border-box;font-size:13px;" placeholder="e.g. family event…" />' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
         '<button class="btn" onclick="closeModal(\'modal-dayoff-swap\')">Cancel</button>' +
@@ -442,7 +442,7 @@ function openDayoffSwapModal(dateKey) {
   document.getElementById('dos-reason').value = '';
   document.getElementById('dos-target-date-wrap').innerHTML = '';
   document.getElementById('dos-validation-msg').style.display = 'none';
-  document.getElementById('dos-target-user').innerHTML = '<option value="">â€” Select person â€”</option>';
+  document.getElementById('dos-target-user').innerHTML = '<option value="">— Select person —</option>';
 
   // Must be at least 2 calendar days before the day-off date
   var _dosIsAdvance = function(dk) {
@@ -481,7 +481,7 @@ function openDayoffSwapModal(dateKey) {
     _dosMyDate = '';
     document.getElementById('dos-my-date-wrap').innerHTML =
       '<select id="dos-my-date-sel" class="login-select" style="width:100%;font-size:13px;" onchange="_dosMyDate=this.value;_dosUpdateUsers()">' +
-      '<option value="">â€” Select your day-off â€”</option>' +
+      '<option value="">— Select your day-off —</option>' +
       _myDayoffs.map(function(d) { return '<option value="'+d+'">'+d+' ('+getWkDay(d)+')</option>'; }).join('') +
       '</select>';
   } else {
@@ -497,7 +497,7 @@ function openDayoffSwapModal(dateKey) {
 // Standard day-off days in the BPO rotation schedule
 var _DOS_STD_DAYS = ['Mon', 'Sat', 'Sun'];
 
-// Returns the adjacent standard off-days (Â±1 calendar day, Mon/Sat/Sun only) for a given date key
+// Returns the adjacent standard off-days (±1 calendar day, Mon/Sat/Sun only) for a given date key
 function _dosAdjacentDates(dk) {
   var _p = dk.split('/');
   var _yr = new Date().getFullYear();
@@ -517,11 +517,11 @@ function _dosUpdateUsers() {
   var _sel = document.getElementById('dos-target-user');
   document.getElementById('dos-target-date-wrap').innerHTML = '';
   document.getElementById('dos-validation-msg').style.display = 'none';
-  if (!_dosMyDate) { _sel.innerHTML = '<option value="">â€” Select person â€”</option>'; return; }
+  if (!_dosMyDate) { _sel.innerHTML = '<option value="">— Select person —</option>'; return; }
   var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
   // Use the displayed week for shift detection (working days excluding day-off)
   var _weekDates = getWeekRange(_ssActiveMonday);
-  // Adjacent dates are the valid swap targets (Â±1 day, restricted to Mon/Sat/Sun)
+  // Adjacent dates are the valid swap targets (±1 day, restricted to Mon/Sat/Sun)
   var _adjDates = _dosAdjacentDates(_dosMyDate);
   // Determine requester's working shift from their schedule in the displayed week
   var _myShift = '';
@@ -550,7 +550,7 @@ function _dosUpdateUsers() {
     });
     return _hasOff;
   });
-  _sel.innerHTML = '<option value="">â€” Select person â€”</option>' +
+  _sel.innerHTML = '<option value="">— Select person —</option>' +
     _candidates.map(function(u) {
       return '<option value="'+u.username+'">'+u.name+' ('+( u.team || '?')+')</option>';
     }).join('');
@@ -572,7 +572,7 @@ function _dosUpdateDates() {
   }
   wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their adjacent day off</div>' +
     '<select id="dos-target-date" class="login-select" style="width:100%;font-size:13px;" onchange="_dosValidate()">' +
-    '<option value="">â€” Select date â€”</option>' +
+    '<option value="">— Select date —</option>' +
     _dayoffs.map(function(d) { return '<option value="'+d+'">'+d+' ('+getWkDay(d)+')</option>'; }).join('') +
     '</select>';
 }
@@ -591,7 +591,7 @@ function _dosValidate() {
   }
   var result = _checkDayoffSwapValid(currentUser.username, _dosMyDate, targetUsername, targetDate);
   if (!result.ok) {
-    msgEl.textContent = 'âš  ' + result.reason;
+    msgEl.textContent = '⚠ ' + result.reason;
     msgEl.style.display = 'block';
     if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.5'; }
   } else {
@@ -632,9 +632,9 @@ function submitDayoffSwap() {
   nav('requests');
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-//  EXCEL IMPORT â€” Staff Info (SheetJS)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
+//  EXCEL IMPORT — Staff Info (SheetJS)
+// ═══════════════════════════════════════════════
 
 function openRequestModal() {
   var _rmSet = {};
@@ -649,7 +649,7 @@ function openRequestModal() {
     weekDates.forEach((dk, i) => { if (_getSched(currentUser.username, dk) === currentShift) myShiftDays.push(dk); });
   }
 
-  // Filter out past dates â€” only show today and future scheduled days
+  // Filter out past dates — only show today and future scheduled days
   const todayObj = new Date();
   todayObj.setHours(0, 0, 0, 0);
   const todayYear = todayObj.getFullYear();
@@ -742,14 +742,14 @@ function _updateReqPartners() {
 
   const partnerSelect = document.getElementById('req-partner');
   if (partners.length === 0) {
-    partnerSelect.innerHTML = `<option value="">â€” No eligible partners â€”</option>`;
-    document.getElementById('req-new').innerHTML = `<option value="">â€” pick partner first â€”</option>`;
+    partnerSelect.innerHTML = `<option value="">— No eligible partners —</option>`;
+    document.getElementById('req-new').innerHTML = `<option value="">— pick partner first —</option>`;
   } else {
-    partnerSelect.innerHTML = `<option value="">â€” Choose swap partner â€”</option>` +
+    partnerSelect.innerHTML = `<option value="">— Choose swap partner —</option>` +
       partners.map(u => {
         const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
         return `<option value="${u.id}" data-slot="${theirBr.slot}">
-          ${u.name} (${u.team}) â€” ${getShortSlot(currentShift, theirBr.slot)} [${theirBr.slot}]
+          ${u.name} (${u.team}) — ${getShortSlot(currentShift, theirBr.slot)} [${theirBr.slot}]
         </option>`;
       }).join('');
   }
@@ -763,7 +763,7 @@ function _updateReqSlot() {
   const reqNew = document.getElementById('req-new');
   reqNew.innerHTML = theirSlot
     ? `<option value="${theirSlot}" selected>${theirSlot}</option>`
-    : `<option value="">â€” pick partner first â€”</option>`;
+    : `<option value="">— pick partner first —</option>`;
 }
 
 function submitRequest() {
@@ -779,7 +779,7 @@ function submitRequest() {
   if (!partnerId) { toast('Select a swap partner.', 'err'); return; }
   if (!requested) { toast('No swap slot available.', 'err'); return; }
 
-  // â”€â”€ Conflict detection: check if partner already has a PENDING request for the same day(s) â”€â”€
+  // ── Conflict detection: check if partner already has a PENDING request for the same day(s) ──
   let swapDays = [day];
   if (isWeek) {
     const partner = state.users.find(u => u.id === partnerId);
@@ -806,7 +806,7 @@ function submitRequest() {
     (isWeek ? (r.swapDays || [r.day]).some(d => swapDays.includes(d)) : swapDays.includes(r.day))
   );
   if (conflicts.length > 0) {
-    toast('âš  A pending request already involves this partner on those days. Yours will be auto-denied.', 'warn');
+    toast('⚠ A pending request already involves this partner on those days. Yours will be auto-denied.', 'warn');
     // Auto-create the request but mark it denied immediately
     const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
     state.requests.unshift({
@@ -872,7 +872,7 @@ function resolveRequest(idx, status) {
       // Give partner the requester's original slot on that day
       if (r.swapPartnerId && r.current && r.current !== 'Not assigned') {
         const mySlotOnDay = getAssigned(r.userId, d)?.slot || r.current;
-        assign(r.swapPartnerId, d, r.current, 'swap approved â€” ' + currentUser.name);
+        assign(r.swapPartnerId, d, r.current, 'swap approved — ' + currentUser.name);
       }
     });
 
@@ -895,13 +895,13 @@ function resolveRequest(idx, status) {
   }
 
   if (typeof syncWrite === 'function') syncWrite(); else save();
-  toast(status === 'approved' ? 'Swap approved âœ“' : 'Request rejected', 'ok');
+  toast(status === 'approved' ? 'Swap approved ✓' : 'Request rejected', 'ok');
   updateBadge();
   nav('requests');
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  RENDER: 30-MIN EXTRA BREAK (females only)
 //  All female staff can register; 3 times/month max
 //  Leaders see everyone's registrations for current shift
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
