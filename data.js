@@ -269,7 +269,10 @@ const DB = {
     });
     return n;
   },
-  countExtBreaks:(uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]).length,
+  countExtBreaks:(uid,mk)     => (state.extBreaks[`${uid}_${mk}`]||[]).reduce((total, e) => {
+    const days = (e && Array.isArray(e.days) && e.days.length > 0) ? e.days : (e && e.day ? [e.day] : []);
+    return total + Math.max(1, days.length);
+  }, 0),
   // logbook: key = `${uid}_${dateKey}` → { start, end, note, by, at }
   getLogbook: (uid,day)   => {
     const r = state.logbook[`${uid}_${day}`];

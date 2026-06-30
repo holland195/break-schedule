@@ -1,3 +1,10 @@
+function _countExtBreakDays(entries) {
+  return (entries || []).reduce(function(total, e) {
+    var days = (e && Array.isArray(e.days) && e.days.length > 0) ? e.days : (e && e.day ? [e.day] : []);
+    return total + Math.max(1, days.length);
+  }, 0);
+}
+
 function renderExtBreak() {
   const isFemale = _getUserGender(currentUser) === 'F';
   if (isTraining(currentUser)) {
@@ -24,7 +31,7 @@ function renderExtBreak() {
 
   // My registrations this month
   const myEntries = DB.getExtBreaks(currentUser.id, mk);
-  const myUsed = myEntries.length;
+  const myUsed = DB.countExtBreaks ? DB.countExtBreaks(currentUser.id, mk) : _countExtBreakDays(myEntries);
   const myRemaining = Math.max(0, 3 - myUsed);
 
   // Build registration list for current user (female) or full view (leader)
@@ -32,7 +39,7 @@ function renderExtBreak() {
 
   const userCards = viewUsers.map(u => {
     const entries = DB.getExtBreaks(u.id, mk) || [];
-    const used = entries.length;
+    const used = DB.countExtBreaks ? DB.countExtBreaks(u.id, mk) : _countExtBreakDays(entries);
     const myRemaining = Math.max(0, 3 - used);
 
     const entryCards = entries.length === 0
@@ -212,7 +219,7 @@ function openExtBreakModal() {
   if (!isOnBehalf && _getUserGender(currentUser) !== 'F') { toast('Only female staff can register.', 'err'); return; }
   const mk = currentMonthKey();
   const used = DB.countExtBreaks(target.id, mk);
-  const remaining = 3 - used;
+  const remaining = Math.max(0, 3 - used);
   if (remaining <= 0) { toast(`${isOnBehalf ? target.name + ' has' : 'You have'} used all 3 registrations this month.`, 'err'); return; }
 
   var _ebSDSet = {};
@@ -360,7 +367,8 @@ function submitExtBreak() {
   const mk = currentMonthKey();
   const used = DB.countExtBreaks(target.id, mk);
   if (used + checked.length > 3) {
-    toast(`Only ${3 - used} registration${3 - used !== 1 ? 's' : ''} remaining.`, 'err'); return;
+    const remaining = Math.max(0, 3 - used);
+    toast(`Only ${remaining} registration${remaining !== 1 ? 's' : ''} remaining.`, 'err'); return;
   }
 
   function addMins(t, m) {
