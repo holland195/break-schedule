@@ -54,6 +54,43 @@ const PC_EVENTS = {
   '4d':'Noise outside permitted hours',
 };
 
+const PC_EVENTS_VI = {
+  '1a':'Vắng mặt không thông báo',
+  '1b':'Thông báo nghỉ phép không đúng hạn',
+  '1c':'Vượt giới hạn nghỉ phép hằng tháng',
+  '1d':'Đi trễ / về sớm',
+  '2a':'Không đủ giờ PAVE tối thiểu',
+  '2b':'Đăng nhập PAVE trễ',
+  '2c':'Đăng xuất PAVE sớm',
+  '2d':'Làm thêm giờ khi chưa được phê duyệt',
+  '2e':'Break sai khung giờ',
+  '2f':'Break quá thời lượng quy định',
+  '3a':'Sai quy trình đăng nhập/đăng xuất PAVE',
+  '3b':'Rời vị trí làm việc khi chưa được phép',
+  '3c':'Không cập nhật Performance',
+  '3d':'Slack offline trong ca',
+  '3e':'Bỏ lỡ thông báo Slack',
+  '3f':'Phản hồi quản lý chậm',
+  '3g':'WFH không bật camera/meeting',
+  '3h':'Không báo cáo sự cố',
+  '3i':'Không tuân thủ yêu cầu',
+  '4a':'Sử dụng sai tài sản công ty',
+  '4b':'Vi phạm vệ sinh nơi làm việc',
+  '4c':'Hút thuốc sai khu vực',
+  '4d':'Gây ồn ngoài khung giờ cho phép',
+};
+
+function _pcEventLabelVi(k) {
+  return PC_EVENTS_VI[k] || PC_EVENTS[k] || k;
+}
+
+function _pcCanDeleteOwnRecord(r) {
+  if (!r || r.status !== 'Processing' || !currentUser || !isLeader(currentUser)) return false;
+  var mine = currentUser.username || '';
+  var myName = currentUser.name || '';
+  return r.createdBy === mine || r.leader === mine || (!!myName && r.leader === myName);
+}
+
 const PC_RULES = [
   { group:'1', title:'Nhóm 1 — Thông báo & Vắng mặt', penalty:'Nhắc nhở qua mail: tổng vi phạm ≥2 lần/tháng · Khiển trách bằng văn bản: vi phạm trong 30 ngày từ khi nhận mail · Xử lý theo nội quy lao động: vi phạm trong 3 tháng từ khi nhận khiển trách', rules:[
     {id:'1a',criteria:'Thông báo khi vắng mặt các buổi làm việc, họp, đào tạo.',violation:'Tự ý hoặc vắng mặt các buổi làm việc, họp, đào tạo mà chưa có sự đồng ý của cấp trên.'},
@@ -462,11 +499,29 @@ function _pcRenderRecords() {
   var start = (_pcPage-1)*_PC_PER;
   var slice = _pcFiltered.slice(start, start+_PC_PER);
   var totalPages = Math.max(1, Math.ceil(_pcFiltered.length/_PC_PER));
+  var showActions = isTraining(currentUser) || slice.some(function(r) { return _pcCanDeleteOwnRecord(r); });
 
   var rows = slice.length===0
-    ? '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3);">No matching records.</td></tr>'
+    ? '<tr><td colspan="'+(showActions?11:10)+'" style="text-align:center;padding:32px;color:var(--text3);">No matching records.</td></tr>'
     : slice.map(function(r,i) {
-        
+        var canDelete = _pcCanDeleteOwnRecord(r);
+        var actionHTML = '';
+        if (isTraining(currentUser)) {
+          actionHTML = '<td style="padding:5px 8px;white-space:nowrap;">'
+            + ((r.status==='Need Review'||r.status==='Need Resolve')
+              ? '<button class="btn btn-sm btn-ok" style="font-size:11px;padding:3px 10px;margin-right:4px;" onclick="event.stopPropagation();_pcTrainingAction('+r.no+',\'Resolved\')">Resolve</button>'
+                + '<button class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:var(--bg4);color:var(--text2);" onclick="event.stopPropagation();_pcTrainingAction('+r.no+',\'Cancelled\')">Cancel</button>'
+              : '<span style="font-size:11px;color:var(--text3);">—</span>')
+            + (canDelete ? '<button class="btn btn-sm btn-err" style="font-size:11px;padding:3px 10px;margin-left:4px;" onclick="event.stopPropagation();_pcDeleteOwnRecord('+r.no+')">Delete</button>' : '')
+            + '</td>';
+        } else if (showActions) {
+          actionHTML = '<td style="padding:5px 8px;white-space:nowrap;">'
+            + (canDelete
+              ? '<button class="btn btn-sm btn-err" style="font-size:11px;padding:3px 10px;" onclick="event.stopPropagation();_pcDeleteOwnRecord('+r.no+')">Delete</button>'
+              : '<span style="font-size:11px;color:var(--text3);">—</span>')
+            + '</td>';
+        }
+
         return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="_pcOpenEditModalByNo('+r.no+')">'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.no+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;">'+r.date+'</td>'
@@ -478,14 +533,8 @@ function _pcRenderRecords() {
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
           + '<td style="padding:7px 10px;">'+_pcStatusBadge(r.status)+'</td>'
           + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'')+'</td>'
-          + (isTraining(currentUser)
-            ? '<td style="padding:5px 8px;white-space:nowrap;">'
-              + ((r.status==='Need Review'||r.status==='Need Resolve')
-                ? '<button class="btn btn-sm btn-ok" style="font-size:11px;padding:3px 10px;margin-right:4px;" onclick="event.stopPropagation();_pcTrainingAction('+r.no+',\'Resolved\')">✓ Resolve</button>'
-                  + '<button class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:var(--bg4);color:var(--text2);" onclick="event.stopPropagation();_pcTrainingAction('+r.no+',\'Cancelled\')">✕ Cancel</button>'
-                : '<span style="font-size:11px;color:var(--text3);">—</span>')
-              + '</td>'
-            : '')
+          + actionHTML
+
           + '</tr>';
       }).join('');
 
@@ -500,7 +549,7 @@ function _pcRenderRecords() {
     + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
     + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px;table-layout:fixed;">'
     + '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB', isTraining(currentUser)?'ACTIONS':''].filter(Boolean).map(function(h){
+    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB', showActions?'ACTIONS':''].filter(Boolean).map(function(h){
         return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:'+(colWidths[h]||'auto')+';">'+h+'</th>';
       }).join('')
     + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
@@ -844,6 +893,7 @@ function _pcOpenEditModal(idx) {
   var r   = _pcData()[idx];
   var ldr = isLeader(currentUser);
   var agentView = !ldr && r.username === currentUser.username;
+  var canDelete = _pcCanDeleteOwnRecord(r);
 
   document.getElementById('pc-modal-title').textContent = 'Record #'+r.no+' — '+r.name;
   document.getElementById('pc-modal-body').innerHTML = ''
@@ -884,6 +934,7 @@ function _pcOpenEditModal(idx) {
       + '<div class="fg" style="margin-bottom:12px;"><label>Leader confirm note</label><textarea id="pce-confirm" style="min-height:50px;">'+(r.leaderConfirm||'')+'</textarea></div>'
       + '<div style="display:flex;gap:8px;">'
       + '<button class="btn btn-accent" onclick="_pcSaveEdit('+r.no+')">Save</button>'
+      + (canDelete ? '<button class="btn btn-err" onclick="_pcDeleteOwnRecord('+r.no+')">Delete</button>' : '')
       + '<button class="btn" onclick="_pcCloseModal()">Cancel</button>'
       + '</div><div id="pce-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>'
       + '</div>' : '')
@@ -948,7 +999,7 @@ function _pcOpenAddModal() {
     // Event
     + '<div class="fg"><label>Event *</label>'
     + '<select id="pca-event"><option value="">Select event</option>'
-    + Object.keys(PC_EVENTS).map(function(k){return '<option value="'+k+'">'+k+' — '+PC_EVENTS[k]+'</option>';}).join('')
+    + Object.keys(PC_EVENTS).map(function(k){return '<option value="'+k+'">'+k+' - '+_pcEventLabelVi(k)+'</option>';}).join('')
     + '</select></div>'
 
     // Duration + Image
@@ -966,7 +1017,7 @@ function _pcOpenAddModal() {
     + '<div><span style="color:var(--text3);font-size:11px;">Name</span><br><b id="pca-name" style="font-size:12px;">—</b></div>'
     + '<div><span style="color:var(--text3);font-size:11px;">Emp No.</span><br><span id="pca-empno" style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;">—</span></div>'
     + '<div><span style="color:var(--text3);font-size:11px;">Role</span><br><span id="pca-role" style="font-size:11px;">—</span></div>'
-    + '<div><span style="color:var(--text3);font-size:11px;">Leader</span><br><span id="pca-leader" style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;">—</span></div>'
+    + '<div><span style="color:var(--text3);font-size:11px;">Lead/Sub</span><br><span id="pca-leader" style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;">-</span></div>'
     + '</div></div>'
 
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
@@ -978,7 +1029,7 @@ function _pcOpenAddModal() {
 // ADD THIS after innerHTML is set:
 setTimeout(function() {
   var leaderEl = document.getElementById('pca-leader');
-  if (leaderEl) leaderEl.textContent = currentUser.name;
+  if (leaderEl) leaderEl.textContent = currentUser.username || currentUser.name;
 }, 10);
   window._pcaShift = null;
   document.getElementById('pc-modal').style.display = 'flex';
@@ -1082,7 +1133,8 @@ function _pcaSaveRecord() {
   d.push({
     no: no,
     date:    document.getElementById('pca-date').value,
-    leader: currentUser.name,
+    leader: currentUser.username || currentUser.name,
+    createdBy: currentUser.username || '',
     empNo:   empnoEl  ? empnoEl.textContent.replace('—','')  : '',
     name:    nameEl   ? nameEl.textContent.replace('—','')   : user,
     role:    roleEl   ? roleEl.textContent.replace('—','')   : '',
@@ -1100,6 +1152,26 @@ function _pcaSaveRecord() {
   if (typeof syncWrite === 'function') syncWrite();
   if (msg) msg.innerHTML = '<span style="color:var(--ok);">&#x2714; Record #'+no+' saved.</span>';
   setTimeout(function(){ _pcCloseModal(); _pcApplyFilters(); _pcRerender(); }, 700);
+}
+
+function _pcDeleteOwnRecord(no) {
+  var idx = state.policyCompliance.findIndex(function(r) { return r.no === no; });
+  if (idx === -1) { toast('Record not found.', 'err'); return; }
+  var r = state.policyCompliance[idx];
+  if (!_pcCanDeleteOwnRecord(r)) {
+    toast('Only the creator can delete a Processing record.', 'err');
+    return;
+  }
+  if (!confirm('Delete record #' + no + '?')) return;
+  state.policyCompliance.splice(idx, 1);
+  save();
+  if (typeof syncWrite === 'function') syncWrite();
+  if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
+  if (typeof updateFeedbackBadge === 'function') updateFeedbackBadge();
+  toast('Record deleted.', 'warn');
+  _pcCloseModal();
+  _pcApplyFilters();
+  _pcRerender();
 }
 
 // Training: resolve or cancel a record directly from All Records
