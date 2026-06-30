@@ -98,40 +98,30 @@ function renderRequests() {
     const isOwn = r.userId === currentUser.id;
     const idx = state.requests.indexOf(r);
     const isWeek = r.swapWeek === true;
-    const _tNowReq = new Date();
-    const _todayDkReq = String(_tNowReq.getDate()).padStart(2,'0') + '/' + String(_tNowReq.getMonth()+1).padStart(2,'0');
-    const _toNumReq = dk => { const p = dk.split('/'); return parseInt(p[1])*100 + parseInt(p[0]); };
-    const _todayNumReq = _toNumReq(_todayDkReq);
-    const _futureDays = (r.swapDays || []).filter(dk => _toNumReq(dk) > _todayNumReq);
+    const _swapDays = r.swapDays || [r.day];
     const dateLabel = isWeek
-      ? (_futureDays.length > 0 ? _futureDays[0] + '–' + _futureDays[_futureDays.length - 1] : 'Week')
+      ? (_swapDays.length > 0 ? _swapDays[0] + '–' + _swapDays[_swapDays.length - 1] : 'Week')
       : (r.day || '—');
 
     // Impact table (week swaps, leader pending view)
     let impactHTML = '';
     if (r.status === 'pending' && isLeader(currentUser) && !isOwn && isWeek && partner) {
-      const allDays = r.swapDays || [];
+      const allDays = _swapDays;
       const weekSet = new Set(getWeekDates(r.day));
       const dispDays = allDays.filter(d => weekSet.has(d));
-      const todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
-      let futureCnt = 0;
       const impRows = dispDays.map(d => {
-        const [dd, mm] = d.split('/').map(Number);
-        const isPast = (mm - 1) * 100 + dd < todayMMDD;
-        if (!isPast) futureCnt++;
         const myBr = getAssigned(r.userId, d) || getAssigned(r.userId, getWkDay(d));
         const ptBr = getAssigned(r.swapPartnerId, d) || getAssigned(r.swapPartnerId, getWkDay(d));
         const myCode = myBr ? getShortSlot(currentShift, myBr.slot) : '—';
         const ptCode = ptBr ? getShortSlot(currentShift, ptBr.slot) : '—';
-        const dim = isPast ? 'opacity:.35;' : '';
-        return '<div class="req-impact-row" style="' + dim + '">'
-          + '<span class="req-impact-day">' + d + (isPast ? ' <span style="font-size:8px">past</span>' : '') + '</span>'
+        return '<div class="req-impact-row">'
+          + '<span class="req-impact-day">' + d + '</span>'
           + '<span class="req-impact-who">Req.</span>'
           + '<span class="req-pill">' + myCode + '</span>'
           + '<span style="color:var(--text3);font-size:9px;margin:0 2px;">→</span>'
           + '<span class="req-pill new">' + ptCode + '</span>'
           + '</div>'
-          + '<div class="req-impact-row" style="' + dim + '">'
+          + '<div class="req-impact-row">'
           + '<span class="req-impact-day"></span>'
           + '<span class="req-impact-who" style="opacity:.6">Part.</span>'
           + '<span class="req-pill">' + ptCode + '</span>'
@@ -141,7 +131,7 @@ function renderRequests() {
       }).join('');
       if (impRows) {
         impactHTML = '<div class="req-impact">'
-          + '<div class="req-impact-title">Impact · ' + futureCnt + ' upcoming day' + (futureCnt !== 1 ? 's' : '') + '</div>'
+          + '<div class="req-impact-title">Impact · ' + dispDays.length + ' day' + (dispDays.length !== 1 ? 's' : '') + ' from the reference day</div>'
           + impRows + '</div>';
       }
     }
@@ -766,6 +756,12 @@ function _updateReqSlot() {
     : `<option value="">— pick partner first —</option>`;
 }
 
+function _getWeekSwapDays(referenceDay) {
+  const weekDates = getWeekDates(referenceDay);
+  const startIdx = weekDates.indexOf(referenceDay);
+  return startIdx >= 0 ? weekDates.slice(startIdx) : [referenceDay];
+}
+
 function submitRequest() {
   const day = document.getElementById('req-day').value;
   const requested = document.getElementById('req-new').value;
@@ -783,20 +779,14 @@ function submitRequest() {
   let swapDays = [day];
   if (isWeek) {
     const partner = state.users.find(u => u.id === partnerId);
-    // Only use selected week dates
-    const weekDates = getWeekDates(day);
-    // Build today's dd/MM key to exclude past days from the swap range
-    const _now = new Date();
-    const _todayKey = String(_now.getDate()).padStart(2,'0') + '/' + String(_now.getMonth()+1).padStart(2,'0');
-    const _toNum = dk => { const p = dk.split('/'); return parseInt(p[1])*100 + parseInt(p[0]); };
-    const _todayNum = _toNum(_todayKey);
+    // Use the selected reference day through the end of that week.
+    const weekDates = _getWeekSwapDays(day);
     swapDays = weekDates.filter(dk => {
-      if (_toNum(dk) <= _todayNum) return false; // skip past days (including today)
       var myShift = _getSched(currentUser.username, dk);
       var ptShift = partner ? _getSched(partner.username, dk) : '0';
       return myShift === currentShift && ptShift === currentShift;
     });
-    if (swapDays.length === 0) { toast('No matching shift days found for week swap.', 'err'); return; }
+    if (swapDays.length === 0) { toast('No matching shift days found from the selected reference day.', 'err'); return; }
   }
 
   // Check for conflicting pending requests involving this partner
