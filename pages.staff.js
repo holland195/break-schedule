@@ -12,10 +12,10 @@ function renderStaff() {
   <div><div class="page-title">Staff</div></div>
 </div>
 <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
-  ${_canSeeAll ? `<button onclick="staffSubTab='info';nav('staff')" style="${_tabStyle('info')}">ðŸ‘¤ Staff Info</button>` : ''}
-  <button onclick="staffSubTab='schedule';nav('staff')" style="${_tabStyle('schedule')}">ðŸ“… Staff Schedule</button>
-  ${_canSeeAll ? `<button onclick="staffSubTab='attendance';nav('staff')" style="${_tabStyle('attendance')}">ðŸ“‹ Staff Attendance</button>` : ''}
-  ${_canSeeAll ? `<button onclick="staffSubTab='workingtime';nav('staff')" style="${_tabStyle('workingtime')}">â± Working Time</button>` : ''}
+  ${_canSeeAll ? `<button onclick="staffSubTab='info';nav('staff')" style="${_tabStyle('info')}">👤 Staff Info</button>` : ''}
+  <button onclick="staffSubTab='schedule';nav('staff')" style="${_tabStyle('schedule')}">📅 Staff Schedule</button>
+  ${_canSeeAll ? `<button onclick="staffSubTab='attendance';nav('staff')" style="${_tabStyle('attendance')}">📋 Staff Attendance</button>` : ''}
+  ${_canSeeAll ? `<button onclick="staffSubTab='workingtime';nav('staff')" style="${_tabStyle('workingtime')}">⏱ Working Time</button>` : ''}
 </div>
 <div id="staff-subtab-content">
   ${staffSubTab === 'info'
@@ -28,7 +28,7 @@ function renderStaff() {
 </div>`;
 }
 
-// â”€â”€ Sub-tab 1: Staff Info â”€â”€
+// ── Sub-tab 1: Staff Info ──
 function _renderStaffInfo() {
   const all = Object.entries(state.staffInfo || {})
     .map(([username, d]) => ({ username, ...d }))
@@ -51,7 +51,7 @@ function _renderStaffInfo() {
   }
   return `
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
-  <input class="filter-input" style="width:260px;" placeholder="Search name, username, emp#, roleâ€¦"
+  <input class="filter-input" style="width:260px;" placeholder="Search name, username, emp#, role…"
     value="${infoFilter}"
     oninput="staffFilters._info=this.value;document.getElementById('staff-info-tbody').innerHTML=_renderStaffInfoRows(this.value)">
   <span style="font-size:11px;color:var(--text3);">${filtered.length} records</span>
@@ -93,37 +93,37 @@ function _renderStaffInfoRows(filter) {
   ).map(u => {
     // Gender: icon only
     var g = u.gender === 'F'
-      ? `<span style="color:var(--A-color);font-size:15px;" title="Female">â™€</span>`
+      ? `<span style="color:var(--A-color);font-size:15px;" title="Female">♀</span>`
       : u.gender === 'M'
-        ? `<span style="color:var(--B-color);font-size:15px;" title="Male">â™‚</span>`
-        : `<span style="color:var(--text3);font-size:11px;">â€”</span>`;
+        ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
+        : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
     var roleColor = _roleColor(u.role);
 
-    var empNo = u.empNo || 'â€”';
-    var dob   = u.dob   || 'â€”';
-    var phone = u.phone || 'â€”';
+    var empNo = u.empNo || '—';
+    var dob   = u.dob   || '—';
+    var phone = u.phone || '—';
     var isActive = u.active !== false;
     var activeBadge = isTraining(currentUser)
       ? `<button onclick="toggleStaffActive('${u.username}')"
            title="${isActive ? 'Click to deactivate' : 'Click to activate'}"
            style="background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:6px;
                   color:${isActive ? 'var(--ok)' : 'var(--err)'};font-size:15px;transition:opacity .1s;"
-           onmouseover="this.style.opacity='.6'" onmouseout="this.style.opacity='1'">â—</button>`
-      : `<span style="color:${isActive ? 'var(--ok)' : 'var(--err)'};font-size:14px;" title="${isActive ? 'Active' : 'Inactive'}">â—</span>`;
+           onmouseover="this.style.opacity='.6'" onmouseout="this.style.opacity='1'">●</button>`
+      : `<span style="color:${isActive ? 'var(--ok)' : 'var(--err)'};font-size:14px;" title="${isActive ? 'Active' : 'Inactive'}">●</span>`;
 
     var actionBtns = isTraining(currentUser)
-      ? '<button onclick="openStaffInfoModal(\'' + u.username + '\')" title="Edit" style="background:none;border:none;cursor:pointer;padding:2px 5px;font-size:13px;color:var(--accent);border-radius:4px;" onmouseover="this.style.background=\'rgba(31,102,241,.1)\'" onmouseout="this.style.background=\'none\'">âœŽ</button>' +
-        '<button onclick="deleteStaffInfo(\'' + u.username + '\')" title="Delete" style="background:none;border:none;cursor:pointer;padding:2px 5px;font-size:13px;color:var(--err);border-radius:4px;" onmouseover="this.style.background=\'rgba(220,38,38,.1)\'" onmouseout="this.style.background=\'none\'">âœ•</button>'
+      ? '<button onclick="openStaffInfoModal(\'' + u.username + '\')" title="Edit" style="background:none;border:none;cursor:pointer;padding:2px 5px;font-size:13px;color:var(--accent);border-radius:4px;" onmouseover="this.style.background=\'rgba(31,102,241,.1)\'" onmouseout="this.style.background=\'none\'">✎</button>' +
+        '<button onclick="deleteStaffInfo(\'' + u.username + '\')" title="Delete" style="background:none;border:none;cursor:pointer;padding:2px 5px;font-size:13px;color:var(--err);border-radius:4px;" onmouseover="this.style.background=\'rgba(220,38,38,.1)\'" onmouseout="this.style.background=\'none\'">✕</button>'
       : '';
     return '<tr style="' + (isActive ? '' : 'opacity:0.45;') + '">' +
       '<td style="text-align:center;vertical-align:middle;">' + activeBadge + '</td>' +
       '<td class="mono" style="font-size:11px;color:var(--text3);">' + empNo + '</td>' +
-      '<td style="font-weight:600;">' + (u.name || 'â€”') + '</td>' +
+      '<td style="font-weight:600;">' + (u.name || '—') + '</td>' +
       '<td class="mono" style="color:var(--accent);font-size:11px;">' + u.username + '</td>' +
       '<td style="text-align:center;vertical-align:middle;">' + g + '</td>' +
       '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text2);">' + dob + '</td>' +
-      '<td style="font-size:11px;color:' + roleColor + ';font-weight:500;">' + (getRoleInfo(u.role).label || _resolveRole(u.role) || 'â€”') + '</td>' +
+      '<td style="font-size:11px;color:' + roleColor + ';font-weight:500;">' + (getRoleInfo(u.role).label || _resolveRole(u.role) || '—') + '</td>' +
       '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text2);">' + phone + '</td>' +
       (isTraining(currentUser) ? '<td style="text-align:center;white-space:nowrap;">' + actionBtns + '</td>' : '') +
       '</tr>';
@@ -138,7 +138,7 @@ function toggleStaffActive(username) {
   if (tbody) tbody.innerHTML = _renderStaffInfoRows(staffFilters._info || '');
 }
 
-// â”€â”€ Staff Info CRUD â”€â”€
+// ── Staff Info CRUD ──
 function _staffInfoModalHTML() {
   var roleOpts = Object.keys(ROLES).map(function(r) {
     return '<option value="' + r + '">' + (ROLES[r].label || r) + '</option>';
@@ -158,7 +158,7 @@ function _staffInfoModalHTML() {
         '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Position *</label>' +
           '<select id="sif-role" class="login-select" style="width:100%;">' + roleOpts + '</select></div>' +
         '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Gender</label>' +
-          '<select id="sif-gender" class="login-select" style="width:100%;"><option value="">â€”</option><option value="M">Male</option><option value="F">Female</option></select></div>' +
+          '<select id="sif-gender" class="login-select" style="width:100%;"><option value="">—</option><option value="M">Male</option><option value="F">Female</option></select></div>' +
         '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Date of Birth</label>' +
           '<input id="sif-dob" class="filter-input" style="width:100%;" placeholder="DD/MM/YYYY"></div>' +
         '<div><label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">Phone</label>' +
@@ -306,8 +306,8 @@ function _buildImportSplitHTML(shiftsInData) {
     Break Distribution
   </div>
   <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
-    Drag a slider to change the group size ratio for a shift. Rotation still applies â€” groups swap slots each week. Changes are saved for future imports.
-    Full settings: <b>Arrange Breaks â†’ ðŸ“ Break Split</b>.
+    Drag a slider to change the group size ratio for a shift. Rotation still applies — groups swap slots each week. Changes are saved for future imports.
+    Full settings: <b>Arrange Breaks → 📐 Break Split</b>.
   </div>
   ${rows}
 </div>`;
@@ -332,7 +332,7 @@ function importFromPaste() {
   const previewCount = document.getElementById('sched-preview-count');
 
   if (!pasteArea || !pasteArea.value.trim()) {
-    statusEl.innerHTML = '<span style="color:var(--err);">âš  Paste data from Sheets first.</span>';
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Paste data from Sheets first.</span>';
     return;
   }
 
@@ -361,10 +361,10 @@ const _stableId = (uname) => {
 };
 const user = {
   id: _stableId(username),
-  team: cols[1]?.trim() || 'â€”',
-  name: cols[2]?.trim() || 'â€”',
+  team: cols[1]?.trim() || '—',
+  name: cols[2]?.trim() || '—',
   username,
-  role: cols[4]?.trim() || 'â€”',
+  role: cols[4]?.trim() || '—',
   schedule: {}
 };
 
@@ -428,7 +428,7 @@ const user = {
   const splitPanel = document.getElementById('import-split-panel');
   if (splitPanel) splitPanel.innerHTML = _buildImportSplitHTML(shiftsInData);
 
-  statusEl.innerHTML = '<span style="color:var(--ok);">âœ“ Data parsed successfully.</span>';
+  statusEl.innerHTML = '<span style="color:var(--ok);">✓ Data parsed successfully.</span>';
   previewSection.style.display = 'block';
 }
 
@@ -468,7 +468,7 @@ async function confirmScheduleImport() {
   document.getElementById('sched-preview-section').style.display = 'none';
   nav('staff');
 }
-// â”€â”€ Sub-tab 2: Staff Schedule â”€â”€
+// ── Sub-tab 2: Staff Schedule ──
 function _renderStaffSchedule() {
   // DA/DS/Sr DA/Sr DS: default to their working shift; force week view (no full-month for non-leaders)
   var _isNonLeader = !isLeader(currentUser) && !isTraining(currentUser);
@@ -481,7 +481,7 @@ function _renderStaffSchedule() {
   if (!hasUsers) {
     return `
 <div class="empty" style="padding:48px 0;">
-  <div class="empty-ico">ðŸ“‹</div>
+  <div class="empty-ico">📋</div>
   <div>No schedule data available.</div>
   <div style="font-size:12px;color:var(--text3);margin-top:6px;">Schedule is synced automatically from Google Sheets each morning.</div>
 </div>`;
@@ -536,7 +536,7 @@ function _renderStaffSchedule() {
   var _stickyTh = 'background:var(--bg3);position:sticky;z-index:20;top:0;';
   var _shadowR   = 'box-shadow:3px 0 6px rgba(0,0,0,.12);';
 
-  var _searchBar = '<input class="filter-input" style="width:200px;" placeholder="Search group, name, user, roleâ€¦" value="' + (staffFilters.search || '') + '" oninput="staffFilters.search=this.value;_liveFilter()">';
+  var _searchBar = '<input class="filter-input" style="width:200px;" placeholder="Search group, name, user, role…" value="' + (staffFilters.search || '') + '" oninput="staffFilters.search=this.value;_liveFilter()">';
 
   const _schedTbl = function(displayDates, shiftFilteredUsers) {
     var _tblUsers = _sortStaffUsers(shiftFilteredUsers || filteredUsers);
@@ -564,7 +564,7 @@ function _renderStaffSchedule() {
     '</select>';
 
   var _ssCanSwap = !isLeader(currentUser) && !isTraining(currentUser);
-  var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">â†” Day-off Swap</button>' : '';
+  var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">↔ Day-off Swap</button>' : '';
 
   if (!hasImportedDates) {
     var _wkDates = getWeekRange(_ssActiveMonday);
@@ -631,7 +631,7 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   ${_searchBar}
   <div style="width:1px;height:20px;background:var(--border);"></div>
   ${!_isNonLeader ? `<button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
-    ${showFullMonth ? 'ðŸ—“ Week view' : 'ðŸ—“ Full month'}
+    ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
   </button>` : ''}
   <select class="login-select" style="width:130px;padding:4px;" onchange="${_monthPickerChange}">
     ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
@@ -639,7 +639,7 @@ ${_schedTbl(_wkDates, _wkFiltered)}`;
   ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;localStorage.setItem('_ssActiveMonday',this.value);nav('staff')">
     ${monthMondays.map(function(mon) {
       var end = getWeekRange(mon).filter(function(d){return d.split('/')[1]===_schedMonth;}).pop() || mon;
-      return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' â€“ ' + end + '</option>';
+      return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
     }).join('')}
   </select>` : ''}
   ${_shiftPicker}
@@ -680,7 +680,7 @@ var _saCurrentMonthKey = '';
 var _attCopiedCode = '';
 var _staffAttUndoStack = [];
 
-// â”€â”€ Working Time sub-tab state â”€â”€
+// ── Working Time sub-tab state ──
 var _wtNow = new Date();
 var _wtMonth = _wtNow.getMonth() + 1;
 var _wtYear  = _wtNow.getFullYear();
@@ -721,7 +721,7 @@ function _renderWorkingTime() {
     return { username: uname, name: name, role: role, team: team, empNo: empNo, id: fu ? fu.id : null };
   }).filter(Boolean);
 
-  // Shift filter: per-column â€” filter by schedule on the selected date
+  // Shift filter: per-column — filter by schedule on the selected date
   var wtUsers;
   if (_wtFilterDk && _wtShiftFilter !== 'All') {
     wtUsers = allWtUsers.filter(function(u) {
@@ -734,14 +734,14 @@ function _renderWorkingTime() {
 
   var WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Category colors â€” training now min (total time)
+  // Category colors — training now min (total time)
   var CAT_LATE     = { color: '#f87171', bg: 'rgba(248,113,113,.18)' };
   var CAT_EARLY    = { color: '#fb923c', bg: 'rgba(251,146,60,.18)'  };
   var CAT_TRAINING = { color: '#34d399', bg: 'rgba(52,211,153,.18)'  };
   var CAT_OTHERS   = { color: '#a78bfa', bg: 'rgba(167,139,250,.18)' };
 
 
-  // Date header â€” two rows: date + shift-filter arrow row
+  // Date header — two rows: date + shift-filter arrow row
   var theadRow1 = '<tr>';
   theadRow1 +=
     '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--text2);' +
@@ -769,12 +769,12 @@ function _renderWorkingTime() {
       var s = (_getSched(u.username, dk) || '').charAt(0);
       if (SH_COL[s]) shiftSet[s] = true;
     });
-    // Arrow row: â†“ to open, then A/D/E badges when open
+    // Arrow row: ↓ to open, then A/D/E badges when open
     var arrowPart = '<div style="margin-top:2px;">';
     if (!isOpen) {
-      arrowPart += '<span onclick="_wtFilterDk=\'' + dk + '\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">â†“</span>';
+      arrowPart += '<span onclick="_wtFilterDk=\'' + dk + '\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">↓</span>';
     } else {
-      arrowPart += '<span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">â†‘</span>';
+      arrowPart += '<span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">↑</span>';
       ['A','D','E'].forEach(function(s) {
         if (!shiftSet[s]) return;
         var isAct = _wtShiftFilter === s;
@@ -847,29 +847,29 @@ function _renderWorkingTime() {
             (wtDay.training !== undefined && wtDay.training !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_TRAINING.color + ';background:' + CAT_TRAINING.bg + ';border-radius:3px;padding:0 3px;white-space:nowrap;">T ' + wtDay.training + '</span>' : '') +
             (wtDay.others   !== undefined && wtDay.others   !== null ? '<span style="font-size:9px;font-weight:700;color:' + CAT_OTHERS.color   + ';background:' + CAT_OTHERS.bg   + ';border-radius:3px;padding:0 3px;white-space:nowrap;">O ' + wtDay.others   + '</span>' : '') +
             '</div>'
-          : '<span style="font-size:10px;color:var(--text3);">Â·</span>') +
+          : '<span style="font-size:10px;color:var(--text3);">·</span>') +
         '</td>';
     }).join('');
 
     return '<tr style="border-bottom:0.5px solid var(--border);">' +
       '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:0;min-width:92px;width:92px;' +
-        'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (u.empNo || 'â€”') + '</td>' +
+        'font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + (u.empNo || '—') + '</td>' +
       '<td style="padding:5px 10px;white-space:nowrap;' + stickyCell + 'left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">' +
         '<div style="font-size:12px;font-weight:600;">' + u.name + '</div>' +
       '</td>' +
       '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);' +
         'font-size:11px;color:' + _roleColor(effRole) + ';">' +
-        (getRoleInfo(effRole).label || _resolveRole(effRole) || 'â€”') + '</td>' +
+        (getRoleInfo(effRole).label || _resolveRole(effRole) || '—') + '</td>' +
       cells +
 
       '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:2px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalLate > 0 ? CAT_LATE.color : 'var(--text3)') + ';">' + (totalLate || 'â€”') + '</td>' +
+        'font-size:11px;font-weight:600;color:' + (totalLate > 0 ? CAT_LATE.color : 'var(--text3)') + ';">' + (totalLate || '—') + '</td>' +
       '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:1px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalEarly > 0 ? CAT_EARLY.color : 'var(--text3)') + ';">' + (totalEarly || 'â€”') + '</td>' +
+        'font-size:11px;font-weight:600;color:' + (totalEarly > 0 ? CAT_EARLY.color : 'var(--text3)') + ';">' + (totalEarly || '—') + '</td>' +
       '<td style="padding:5px 4px;text-align:center;min-width:55px;width:55px;border-left:1px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalTraining > 0 ? CAT_TRAINING.color : 'var(--text3)') + ';">' + (totalTraining || 'â€”') + '</td>' +
+        'font-size:11px;font-weight:600;color:' + (totalTraining > 0 ? CAT_TRAINING.color : 'var(--text3)') + ';">' + (totalTraining || '—') + '</td>' +
       '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:1px solid var(--border);' +
-        'font-size:11px;font-weight:600;color:' + (totalOthers > 0 ? CAT_OTHERS.color : 'var(--text3)') + ';">' + (totalOthers || 'â€”') + '</td>' +
+        'font-size:11px;font-weight:600;color:' + (totalOthers > 0 ? CAT_OTHERS.color : 'var(--text3)') + ';">' + (totalOthers || '—') + '</td>' +
     '</tr>';
   }).join('');
 
@@ -885,8 +885,8 @@ function _renderWorkingTime() {
     }).join('') + '</select>';
 
   var shiftSelect = (_wtFilterDk && _wtShiftFilter !== 'All')
-    ? '<span style="font-size:11px;color:var(--text3);">Shift <b>' + _wtShiftFilter + '</b> Â· ' + _wtFilterDk +
-      ' <span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;color:var(--err);margin-left:2px;">âœ•</span></span>'
+    ? '<span style="font-size:11px;color:var(--text3);">Shift <b>' + _wtShiftFilter + '</b> · ' + _wtFilterDk +
+      ' <span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;color:var(--err);margin-left:2px;">✕</span></span>'
     : '';
 
   var legend =
@@ -913,7 +913,7 @@ function _ensureWtModal() {
   var inputRow = function(id, label, unit, color) {
     return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
       '<label style="font-size:11px;font-weight:700;color:' + color + ';min-width:72px;">' + label + '</label>' +
-      '<input id="' + id + '" type="number" min="0" step="1" placeholder="â€”"' +
+      '<input id="' + id + '" type="number" min="0" step="1" placeholder="—"' +
         ' style="flex:1;padding:6px 10px;font-size:14px;font-family:\'IBM Plex Mono\',monospace;' +
         'border:1.5px solid var(--border2);border-radius:8px;background:var(--bg3);color:var(--text);text-align:right;">' +
       '<span style="font-size:11px;color:var(--text3);min-width:28px;">' + unit + '</span>' +
@@ -942,7 +942,7 @@ function openWtModal(username, monthKey, dk, name) {
   _ensureWtModal();
   _wtPending = { username: username, monthKey: monthKey, dk: dk };
   document.getElementById('wt-modal-title').textContent = name;
-  document.getElementById('wt-modal-desc').textContent = dk + ' Â· ' + monthKey;
+  document.getElementById('wt-modal-desc').textContent = dk + ' · ' + monthKey;
   var existing = (DB.getWorkingTime(username, monthKey) || {})[dk] || {};
   var setInp = function(id, key) {
     var el = document.getElementById(id);
@@ -1129,7 +1129,7 @@ function openAttCellModal(username, monthKey, dk) {
   _attCellSelected = existing;
   var uObj = state.users.find(function(x) { return x.username === username; });
   var uName = uObj ? uObj.name : username;
-  document.getElementById('att-cell-modal-title').textContent = 'Edit ' + dk + ' â€” ' + uName;
+  document.getElementById('att-cell-modal-title').textContent = 'Edit ' + dk + ' — ' + uName;
   var allCodes = [
     'XA','XD','XE','0',
     'A1','A2','UA1','UA2',
@@ -1188,7 +1188,7 @@ function _renderStaffAttendance() {
   const monthKey = `${year}-${String(month).padStart(2, '0')}`;
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
-  const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} â€“ ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
   var allDates = _getAllDatesInMonth(year, month);
   const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
   const attData = state.monthlyAttendance || {};
@@ -1208,7 +1208,7 @@ function _renderStaffAttendance() {
   ).join('')}
       </select>`;
 
-  // â”€â”€ FIX: check monthlyAttendance directly, not through state.users â”€â”€
+  // ── FIX: check monthlyAttendance directly, not through state.users ──
   const hasData = Object.values(attData).some(userMonths => {
     const ud = userMonths?.[monthKey];
     return ud && Object.keys(ud).length > 0;
@@ -1220,7 +1220,7 @@ function _renderStaffAttendance() {
         ${monthPicker}
       </div>
       <div class="empty" style="padding:48px;">
-        <div class="empty-ico">ðŸ“‹</div>
+        <div class="empty-ico">📋</div>
         No attendance data for ${monthLabel}.
       </div>`;
   }
@@ -1228,20 +1228,20 @@ function _renderStaffAttendance() {
   // Legend
   const legendHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">
-      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XAâ€“XE</span> Working
+      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working
       <span style="background:rgba(167,139,250,.14);color:#a78bfa;padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
-      <span style="color:var(--text3);font-size:10px;margin:0 2px;">â”‚</span>
+      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
       <span style="background:rgba(234,179,8,.13);color:#ca8a04;padding:2px 7px;border-radius:4px;font-weight:600;">A</span> Annual
       <span style="background:rgba(220,38,38,.13);color:#dc2626;padding:2px 7px;border-radius:4px;font-weight:600;">H</span> Holiday
       <span style="background:rgba(22,163,74,.13);color:#16a34a;padding:2px 7px;border-radius:4px;font-weight:600;">0</span> Day off
       <span style="background:rgba(225,29,72,.12);color:#e11d48;padding:2px 7px;border-radius:4px;font-weight:600;">U</span> Unpaid
       <span style="background:rgba(234,88,12,.12);color:#ea580c;padding:2px 7px;border-radius:4px;font-weight:600;">S</span> Sick
       <span style="background:rgba(99,102,241,.13);color:#6366f1;padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Personal
-      <span style="color:var(--text3);font-size:10px;margin:0 2px;">â”‚</span>
-      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">âš </span> Conflict
+      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
+      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
     </div>`;
 
-  // Build table header dates â€” arrow icon opens per-day A/D/E shift filter
+  // Build table header dates — arrow icon opens per-day A/D/E shift filter
   const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var _saSHCol = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
   const theadDates = dates.map(dk => {
@@ -1259,9 +1259,9 @@ function _renderStaffAttendance() {
     });
     var arrowPart = '<div style="margin-top:2px;">';
     if (!isOpen) {
-      arrowPart += '<span onclick="_saFilterDk=\'' + dk + '\';_navStaff()" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">â†“</span>';
+      arrowPart += '<span onclick="_saFilterDk=\'' + dk + '\';_navStaff()" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">↓</span>';
     } else {
-      arrowPart += '<span onclick="_saFilterDk=\'\';_saShiftFilter=\'All\';_navStaff()" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">â†‘</span>';
+      arrowPart += '<span onclick="_saFilterDk=\'\';_saShiftFilter=\'All\';_navStaff()" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">↑</span>';
       ['A','D','E'].forEach(function(s) {
         if (!_saShiftSet[s]) return;
         var isAct = _saShiftFilter === s;
@@ -1393,7 +1393,7 @@ function _renderStaffAttendance() {
         return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};cursor:pointer;"
           onclick="attCellClick('${u.username}','${monthKey}','${dk}')"
           onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:''}">
-          <span style="font-size:10px;color:var(--text3);">Â·</span></td>`;
+          <span style="font-size:10px;color:var(--text3);">·</span></td>`;
       }
 
       const _preCell = conflicts.find(c => c.dk === dk);
@@ -1418,7 +1418,7 @@ function _renderStaffAttendance() {
         const sc = _shColors[sh];
         bg = sc ? `background:${sc[0]};` : 'background:rgba(74,222,128,.06);';
         color = sc ? `color:${sc[1]};font-weight:600;` : 'color:var(--ok);font-weight:500;';
-        txt = parsed.shift || 'âœ“';
+        txt = parsed.shift || '✓';
       }
       if (hasConflict) {
         bg = 'background:rgba(248,113,113,.12);';
@@ -1426,7 +1426,7 @@ function _renderStaffAttendance() {
       }
 
       const conflictBadge = hasConflict
-        ? `<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">âš </sup>` : '';
+        ? `<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>` : '';
       const dimWknd = false; // weekends are full contrast
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
 
@@ -1444,11 +1444,11 @@ function _renderStaffAttendance() {
     const stickyCell = 'position:sticky;z-index:1;background:var(--bg3);';
     var _saEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || 'â€”'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
       <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:${_roleColor(_saEffRole)};">${getRoleInfo(_saEffRole).label || _resolveRole(_saEffRole) || 'â€”'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:${_roleColor(_saEffRole)};">${getRoleInfo(_saEffRole).label || _resolveRole(_saEffRole) || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -1456,17 +1456,17 @@ function _renderStaffAttendance() {
   const conflictBanner = totalConflicts > 0
     ? `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
         border-radius:8px;font-size:12px;color:var(--err);margin-bottom:12px;font-weight:500;">
-        âš  ${totalConflicts} staff with conflicts between monthly schedule and attendance log
+        ⚠ ${totalConflicts} staff with conflicts between monthly schedule and attendance log
       </div>`
     : `<div style="padding:8px 14px;background:var(--C-bg);border-radius:8px;
         font-size:12px;color:var(--ok);margin-bottom:12px;">
-        âœ“ No conflicts detected for ${monthLabel}
+        ✓ No conflicts detected for ${monthLabel}
       </div>`;
 
   const conflictFilterBtn = `
     <button class="btn btn-sm" onclick="_staffAttConflictFilter=!_staffAttConflictFilter;nav('staff')"
       style="${_staffAttConflictFilter ? 'background:var(--err);color:#fff;border-color:var(--err);' : 'border-color:var(--err);color:var(--err);'}font-size:11px;">
-      âš  Conflicts only${_staffAttConflictFilter ? ' âœ•' : ''}
+      ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
   const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;_navStaff()">' +
@@ -1477,12 +1477,12 @@ function _renderStaffAttendance() {
     '</select>';
 
   const shiftFilterPicker = (_saFilterDk && _saShiftFilter !== 'All')
-    ? `<span style="font-size:11px;color:var(--text3);">Shift <b>${_saShiftFilter}</b> Â· ${_saFilterDk} <span onclick="_saFilterDk='';_saShiftFilter='All';_navStaff()" style="cursor:pointer;color:var(--err);margin-left:2px;">âœ•</span></span>`
+    ? `<span style="font-size:11px;color:var(--text3);">Shift <b>${_saShiftFilter}</b> · ${_saFilterDk} <span onclick="_saFilterDk='';_saShiftFilter='All';_navStaff()" style="cursor:pointer;color:var(--err);margin-left:2px;">✕</span></span>`
     : '';
 
-  const codePicker = `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All â†“</button>
-    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear âœ•</button>
-    <button class="btn btn-sm" onclick="undoClearAtt()" title="Undo last clear (Ctrl+Z)" style="font-size:11px;${!_staffAttUndoStack.length ? 'opacity:.35;cursor:not-allowed;' : ''}">â†© Undo</button>`;
+  const codePicker = `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>
+    <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>
+    <button class="btn btn-sm" onclick="undoClearAtt()" title="Undo last clear (Ctrl+Z)" style="font-size:11px;${!_staffAttUndoStack.length ? 'opacity:.35;cursor:not-allowed;' : ''}">↩ Undo</button>`;
 
   _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
@@ -1497,7 +1497,7 @@ function _renderStaffAttendance() {
       ${shiftFilterPicker}
       ${codePicker}
       ${conflictFilterBtn}
-      ${_attCopiedCode ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">ðŸ“‹ ${_attCopiedCode} <button onclick="_attCopiedCode='';nav('staff')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:12px;line-height:1;">âœ•</button></span>` : ''}
+      ${_attCopiedCode ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">📋 ${_attCopiedCode} <button onclick="_attCopiedCode='';nav('staff')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:12px;line-height:1;">✕</button></span>` : ''}
       <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
     </div>
     ${legendHTML}
@@ -1529,7 +1529,7 @@ function importMonthlyAttendance() {
     statusEl.innerHTML = '<span style="color:var(--err);">Select a file first.</span>';
     return;
   }
-  statusEl.innerHTML = '<span style="color:var(--text2);">Readingâ€¦</span>';
+  statusEl.innerHTML = '<span style="color:var(--text2);">Reading…</span>';
 
   const year = _attImportYear;
   const month = _attImportMonth;
@@ -1538,7 +1538,7 @@ function importMonthlyAttendance() {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      // Read WITHOUT cellDates â€” keep dates as raw serial numbers
+      // Read WITHOUT cellDates — keep dates as raw serial numbers
       // This avoids all timezone issues with Date object local/UTC ambiguity
       const wb = XLSX.read(e.target.result, { type: 'array', cellDates: false });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -1563,7 +1563,7 @@ function importMonthlyAttendance() {
         return `${d}/${m}`;
       }
 
-      // Parse date from header cell â€” handles serial numbers and strings
+      // Parse date from header cell — handles serial numbers and strings
       function parseDateHeader(h) {
         if (h === null || h === undefined) return null;
 
@@ -1593,7 +1593,7 @@ function importMonthlyAttendance() {
       }
 
       // Row 0 = date headers
-      // Row 1 = CHOOSE/WEEKDAY formula row â†’ skip
+      // Row 1 = CHOOSE/WEEKDAY formula row → skip
       // Row 2+ = staff data
       const headerRow = rows[0];
       const dateCols = [];
@@ -1650,7 +1650,7 @@ function importMonthlyAttendance() {
           if (raw === null || raw === undefined) return;
           let rawStr;
           if (typeof raw === 'number') {
-            rawStr = String(Math.round(raw)); // 0.0 â†’ "0"
+            rawStr = String(Math.round(raw)); // 0.0 → "0"
           } else {
             rawStr = String(raw).trim().toUpperCase();
           }
@@ -1662,7 +1662,7 @@ function importMonthlyAttendance() {
 
       save();
       if (typeof syncWrite === 'function') syncWrite();
-      statusEl.innerHTML = `<span style="color:var(--ok);">âœ“ ${imported} staff Â· ${dateCols.length} dates Â· ${skipped} not matched</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ ${imported} staff · ${dateCols.length} dates · ${skipped} not matched</span>`;
       // After import: scan for attendance records that now conflict with OFF/HD codes
       const conflicts = [];
       Object.keys(state.logbook || {}).forEach(key => {
@@ -1683,15 +1683,15 @@ function importMonthlyAttendance() {
       });
 
       if (conflicts.length > 0) {
-        const lines = conflicts.map(c => `â€¢ ${c.name} on ${c.dk} â†’ ${c.code} (${c.reason})`).join('\n');
+        const lines = conflicts.map(c => `• ${c.name} on ${c.dk} → ${c.code} (${c.reason})`).join('\n');
         statusEl.innerHTML += `<div style="margin-top:10px;padding:8px 12px;background:var(--D-bg);
     border:1px solid var(--err);border-radius:6px;font-size:11px;color:var(--err);line-height:1.8;">
-    âš  <b>${conflicts.length} retroactive conflict${conflicts.length > 1 ? 's' : ''} found</b> â€”
+    ⚠ <b>${conflicts.length} retroactive conflict${conflicts.length > 1 ? 's' : ''} found</b> —
     time was already logged on these OFF/half-day dates:<br>
-    ${conflicts.map(c => `<b>${c.name}</b> ${c.dk} (${c.code}: ${c.reason})`).join(' Â· ')}
+    ${conflicts.map(c => `<b>${c.name}</b> ${c.dk} (${c.code}: ${c.reason})`).join(' · ')}
     <br><span style="color:var(--text3);">Go to Logbook to review and clear these entries.</span>
   </div>`;
-        // Don't auto-nav â€” let the leader see the warning first
+        // Don't auto-nav — let the leader see the warning first
       } else {
         nav('staff');
       }
@@ -1725,10 +1725,10 @@ function renderStaffRows(users, displayDates) {
     var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
     var _isMyRow = u.username === currentUser.username && _canReqSwap;
     return '<tr>' +
-    '<td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">' + (u.team || 'â€”') + '</td>' +
+    '<td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">' + (u.team || '—') + '</td>' +
     '<td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg3);min-width:200px;width:200px;">' + u.name + '</td>' +
     '<td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg3);min-width:130px;width:130px;">' + (u.username || '') + '</td>' +
-    '<td style="font-size:11px;color:' + _roleColor(_srEffRole) + ';position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">' + (getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || 'â€”') + '</td>' +
+    '<td style="font-size:11px;color:' + _roleColor(_srEffRole) + ';position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">' + (getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—') + '</td>' +
     displayDates.map(function(d) {
       var s = _getSched(u.username, d);
       if (_isMyRow && s === '0') {
@@ -1737,12 +1737,12 @@ function renderStaffRows(users, displayDates) {
         var _eligible = Math.floor((_ddt - _nowMs) / 86400000) >= 2;
         if (_eligible) {
           return '<td class="c" style="cursor:pointer;" onclick="openDayoffSwapModal(\'' + d + '\')" title="Request day-off swap">' +
-            '<span class="sh sh-0">â€”</span>' +
-            '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">â†”</div>' +
+            '<span class="sh sh-0">—</span>' +
+            '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">↔</div>' +
             '</td>';
         }
       }
-      return '<td class="c"><span class="sh sh-' + s + '">' + (s === '0' ? 'â€”' : s) + '</span></td>';
+      return '<td class="c"><span class="sh sh-' + s + '">' + (s === '0' ? '—' : s) + '</span></td>';
     }).join('') +
     '</tr>';
   }).join('');
@@ -1823,9 +1823,9 @@ function _liveFilter() {
   if (sub) sub.textContent = `${filtered.length} staff`;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  DAY-OFF SWAP REQUEST
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 
 var _POS_MAP = {
   'training manager':        'Agent Training Manager',
@@ -1844,11 +1844,11 @@ function importExcelStaffInfo() {
   const fileInput = document.getElementById('excel-file-input');
   const statusEl = document.getElementById('excel-import-status');
   if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-    statusEl.innerHTML = '<span style="color:var(--err);">âš  Please choose a file first.</span>';
+    statusEl.innerHTML = '<span style="color:var(--err);">⚠ Please choose a file first.</span>';
     return;
   }
   const file = fileInput.files[0];
-  statusEl.innerHTML = '<span style="color:var(--text2);">Reading fileâ€¦</span>';
+  statusEl.innerHTML = '<span style="color:var(--text2);">Reading file…</span>';
 
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -1862,7 +1862,7 @@ function importExcelStaffInfo() {
       const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
       if (!rows.length) {
-        statusEl.innerHTML = '<span style="color:var(--err);">âš  No rows found in sheet.</span>';
+        statusEl.innerHTML = '<span style="color:var(--err);">⚠ No rows found in sheet.</span>';
         return;
       }
 
@@ -1885,7 +1885,7 @@ function importExcelStaffInfo() {
       const phoneCol = col('phone');
 
       if (!nameCol || !userCol) {
-        statusEl.innerHTML = `<span style="color:var(--err);">âš  Could not find Name/Username columns. Found: ${keys.slice(0, 6).join(', ')}</span>`;
+        statusEl.innerHTML = `<span style="color:var(--err);">⚠ Could not find Name/Username columns. Found: ${keys.slice(0, 6).join(', ')}</span>`;
         return;
       }
 
@@ -1925,7 +1925,7 @@ function importExcelStaffInfo() {
       state._usersUpdatedAt = Date.now();
       if (typeof syncWrite === 'function') syncWrite(); else save();
       buildDatalist();
-      statusEl.innerHTML = `<span style="color:var(--ok);">âœ“ Imported ${count} records. Syncing to cloudâ€¦</span>`;
+      statusEl.innerHTML = `<span style="color:var(--ok);">✓ Imported ${count} records. Syncing to cloud…</span>`;
       // Refresh table
       const tbody = document.getElementById('staff-info-tbody');
       if (tbody) tbody.innerHTML = _renderStaffInfoRows('');
@@ -1936,6 +1936,6 @@ function importExcelStaffInfo() {
   reader.readAsArrayBuffer(file);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  MODALS: ASSIGN & REQUEST
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════

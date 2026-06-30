@@ -1,30 +1,30 @@
 //  WORKING DAYS (store shift char):
-//  XA â†’ shift A working day
-//  XB â†’ shift B working day
-//  XC â†’ shift C working day
-//  XD â†’ shift D working day
-//  XE â†’ shift E working day
-//  X2Aâ€“X2E â†’ working Ã— 2 multiplier (still working)
-//  X3Aâ€“X3E â†’ working Ã— 3 multiplier (still working)
-//  X4Aâ€“X4E â†’ working Ã— 4 multiplier (still working)
+//  XA → shift A working day
+//  XB → shift B working day
+//  XC → shift C working day
+//  XD → shift D working day
+//  XE → shift E working day
+//  X2A–X2E → working × 2 multiplier (still working)
+//  X3A–X3E → working × 3 multiplier (still working)
+//  X4A–X4E → working × 4 multiplier (still working)
 //
 //  HALF-DAY (paid leave, first/second half):
-//  A1,B1,C1,D1,E1 â†’ work first half, leave second half
-//  A2,B2,C2,D2,E2 â†’ work second half, leave first half
+//  A1,B1,C1,D1,E1 → work first half, leave second half
+//  A2,B2,C2,D2,E2 → work second half, leave first half
 //
 //  HALF-DAY (unpaid):
-//  UA1,UB1,UC1,UD1,UE1 â†’ same but unpaid
-//  UA2,UB2,UC2,UD2,UE2 â†’ same but unpaid
+//  UA1,UB1,UC1,UD1,UE1 → same but unpaid
+//  UA2,UB2,UC2,UD2,UE2 → same but unpaid
 //
 //  FULL OFF (all should flag conflict if attendance log exists):
-//  A  â†’ annual leave (phÃ©p nÄƒm)
-//  H  â†’ public holiday (nghá»‰ lá»…)
-//  0  â†’ weekly day off (nghá»‰ tuáº§n)
-//  U  â†’ unpaid leave
-//  S  â†’ sick leave (BHXH)
-//  L  â†’ personal leave (káº¿t hÃ´n, tang)
+//  A  → annual leave (phép nÄƒm)
+//  H  → public holiday (nghá»‰ lá»…)
+//  0  → weekly day off (nghá»‰ tuáº§n)
+//  U  → unpaid leave
+//  S  → sick leave (BHXH)
+//  L  → personal leave (káº¿t hôn, tang)
 //
-//  SHIFT MISMATCH: XA on shift B day â†’ conflict
+//  SHIFT MISMATCH: XA on shift B day → conflict
 
 // ATT_CODE_MAP and _parseAttCode are now defined globally in data.js
 
@@ -42,7 +42,7 @@ function _excelDateToDk(h, fallbackMonth) {
       const dt = new Date(h);
       if (!isNaN(dt)) return String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
     }
-    const c = h.replace(/[-â€“]/g, '/').trim();
+    const c = h.replace(/[-–]/g, '/').trim();
     if (/^\d{1,2}\/\d{1,2}$/.test(c)) {
       const [d, m] = c.split('/');
       return d.padStart(2, '0') + '/' + m.padStart(2, '0');
@@ -56,7 +56,7 @@ function _excelDateToDk(h, fallbackMonth) {
 
 function _getMondayOfWeek(dk) {
   // Given a DD/MM dateKey, return the Monday of that week as DD/MM
-  // Week is Sunâ€“Sat in the attendance view, but we need the Sunday
+  // Week is Sun–Sat in the attendance view, but we need the Sunday
   const [d, m] = dk.split('/');
   const dt = new Date(new Date().getFullYear(), parseInt(m) - 1, parseInt(d));
   // Go back to Sunday (start of attendance week)
@@ -68,14 +68,14 @@ function _getMondayOfWeek(dk) {
 function _checkAttConflict(u, dk, parsedCode) {
   if (!parsedCode) return null;
   const weekRec = DB.getLogbook(u.id, dk);
-  // Auto-synced records (note='auto') haven't been reviewed by a leader â€” skip
+  // Auto-synced records (note='auto') haven't been reviewed by a leader — skip
   if (weekRec?.note === 'auto') return null;
   var schedShift = _getSched(u.username, dk).charAt(0);
   const conflicts = [];
   // Only flag if start or end is a non-empty, non-dash string
   const hasRealRecord = weekRec &&
-    ((weekRec.start && weekRec.start.trim() !== '' && weekRec.start !== 'â€”') ||
-      (weekRec.end && weekRec.end.trim() !== '' && weekRec.end !== 'â€”'));
+    ((weekRec.start && weekRec.start.trim() !== '' && weekRec.start !== '—') ||
+      (weekRec.end && weekRec.end.trim() !== '' && weekRec.end !== '—'));
 
   if (parsedCode.type === 'OFF') {
     if (hasRealRecord) {
@@ -95,9 +95,9 @@ function _getUserGender(u) {
   return DB.getStaffInfo(u.username)?.gender || u.gender || '';
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  Role sort order for Staff Info tab
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 const ROLE_SORT_ORDER = {
   'Training Manager':         0,
@@ -135,9 +135,9 @@ function _roleColor(role) {
 }
 
 //  RENDER: DASHBOARD
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 
-// â”€â”€ Month filter helpers (shared by requests + ext break pages) â”€â”€
+// ── Month filter helpers (shared by requests + ext break pages) ──
 let _reqFilterYM      = null; // null = current month
 let _reqStatusFilter  = 'all';
 let _reqScopeFilter   = 'all';
@@ -171,12 +171,12 @@ function _monthPickerHTML(ym, setterFn, page) {
 function _setReqFilterYM(ym)      { _reqFilterYM      = ym; }
 function _setExtBreakFilterYM(ym) { _extBreakFilterYM = ym; }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 //  RENDER: REQUESTS
 //  Agent/QA/Sr roles: pick day OR whole-week swap
 //  Conflict detection: 2nd request for same partner
 //  Visual impact preview before approval
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════
 
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
