@@ -1,7 +1,9 @@
 #!/bin/bash
 mkdir -p dist
 files=(
-  "data" "sync" "auth" "pages" "autoassign"
+  "data" "sync" "auth" "pages.shared" "pages.dashboard"
+  "pages.schedule" "pages.requests" "pages.arrange"
+  "pages.staff" "pages.extbreak" "pages.shiftconfig" "autoassign"
   "attendance" "nav" "policy-compliance"
   "policy-feedback" "training.views" "report"
   "firebase-auth"
@@ -23,4 +25,3 @@ cp pave-login.css dist/pave-login.css 2>/dev/null || true
 cp sync-config.json dist/sync-config.json 2>/dev/null || true
 cp -r assets dist/assets 2>/dev/null || true
 echo "Build complete."
-
