@@ -388,14 +388,35 @@ function renderSchedule() {
     .sort(function(a, b) { return parseInt(a) - parseInt(b); });
 
   // Map date key → day name (for schedule day-name fallback lookup)
-  var dateToDayName = {};
+  var _scheduleDateMeta = {};
   monthDates.forEach(function(dk) {
     var _p = dk.split('/');
-    dateToDayName[dk] = WEEK_DAYS[new Date(_selYYYY, parseInt(_p[1])-1, parseInt(_p[0])).getDay()];
+    var _d = parseInt(_p[0]);
+    var _m = parseInt(_p[1]);
+    var dow = new Date(_selYYYY, _m - 1, _d).getDay();
+    _scheduleDateMeta[dk] = {
+      d: _d,
+      m: _m,
+      dow: dow,
+      dayName: WEEK_DAYS[dow],
+      isToday: dk === todayDk,
+      isWknd: dow === 0 || dow === 6,
+      isSun: dow === 0
+    };
   });
 
+  var _schedLookupCache = {};
   function getUserShift(u, dateKey) {
-    return _getSched(u.username, dateKey);
+    var cacheKey = u.username + '|' + dateKey;
+    if (_schedLookupCache.hasOwnProperty(cacheKey)) return _schedLookupCache[cacheKey];
+    var sc = state.staffSchedule[u.username] || {};
+    var v = sc[dateKey];
+    if (!v && dateKey && dateKey.indexOf('/') !== -1) {
+      var meta = _scheduleDateMeta[dateKey];
+      v = sc[meta ? meta.dayName : getWkDay(dateKey)];
+    }
+    _schedLookupCache[cacheKey] = v || '0';
+    return _schedLookupCache[cacheKey];
   }
 
   // All users who work this shift at least once this month (exclude lead/sub/training/viewers)
@@ -428,6 +449,17 @@ function renderSchedule() {
              (u.username || '').toLowerCase().includes(_sq);
     });
   }
+
+  var _selectedExtMonthKey = _selYYYY + '-' + String(_selMM).padStart(2, '0');
+  var _extDaysByUser = {};
+  shiftUsers.forEach(function(u) {
+    var dayMap = {};
+    (DB.getExtBreaks(u.id, _selectedExtMonthKey) || []).forEach(function(e) {
+      var days = (e.days && e.days.length > 0) ? e.days : (e.day ? [e.day] : []);
+      days.forEach(function(day) { dayMap[day] = true; });
+    });
+    _extDaysByUser[u.id] = dayMap;
+  });
 
   // Slot totals strip + search bar
   var slotTotalsHTML = shiftSlots.length > 0 ? `
@@ -472,13 +504,11 @@ function renderSchedule() {
   // Table header — compact, one column per day
   var _WDAY_SHORT = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
   var theadCells = monthDates.map(function(dk) {
-    var _p = dk.split('/');
-    var _d = parseInt(_p[0]);
-    var _m = parseInt(_p[1]);
-    var dow = new Date(_selYYYY, _m-1, _d).getDay();
-    var isToday = dk === todayDk;
-    var isWknd = dow === 0 || dow === 6;
-    var isSun = dow === 0;
+    var meta = _scheduleDateMeta[dk];
+    var dow = meta.dow;
+    var isToday = meta.isToday;
+    var isWknd = meta.isWknd;
+    var isSun = meta.isSun;
     return '<th style="min-width:44px;width:44px;padding:4px 2px;text-align:center;' +
       'font-size:10px;font-weight:600;' +
       'color:' + (isToday ? 'var(--accent)' : isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
@@ -495,21 +525,16 @@ function renderSchedule() {
   var tbodyRows = shiftUsers.map(function(u) {
     var cells = monthDates.map(function(dk) {
       var userShift = getUserShift(u, dk);
-      var _p = dk.split('/');
-      var dow2 = new Date(_selYYYY, parseInt(_p[1])-1, parseInt(_p[0])).getDay();
-      var isWknd2 = dow2 === 0 || dow2 === 6;
-      var isToday2 = dk === todayDk;
+      var meta = _scheduleDateMeta[dk];
+      var isWknd2 = meta.isWknd;
+      var isToday2 = meta.isToday;
       var tdBg = isToday2 ? 'background:rgba(31,102,241,.06);' : isWknd2 ? 'background:var(--bg4);' : '';
       if (userShift !== shiftToShow) {
         return '<td style="text-align:center;padding:3px 1px;' + tdBg + '">' +
           '<span style="font-size:9px;color:var(--text3);">' + (userShift !== '0' ? userShift : '·') + '</span></td>';
       }
       var br = DB.getBreak(u.id, dk);
-      var _extEntries = DB.getExtBreaks(u.id, currentMonthKey()) || [];
-      var hasExt = _extEntries.some(function(e) {
-        var _days = (e.days && e.days.length > 0) ? e.days : (e.day ? [e.day] : []);
-        return _days.includes(dk);
-      });
+      var hasExt = !!(_extDaysByUser[u.id] && _extDaysByUser[u.id][dk]);
       var slotIdx = br ? getShortSlot(shiftToShow, br.slot) : '';
       var slotNum = slotIdx.length === 2 ? parseInt(slotIdx[1]) : 0;
       var slotCls = slotNum > 0 ? 'slot-' + slotNum : '';
@@ -702,8 +727,13 @@ function renderRequests() {
     const isOwn = r.userId === currentUser.id;
     const idx = state.requests.indexOf(r);
     const isWeek = r.swapWeek === true;
+    const _tNowReq = new Date();
+    const _todayDkReq = String(_tNowReq.getDate()).padStart(2,'0') + '/' + String(_tNowReq.getMonth()+1).padStart(2,'0');
+    const _toNumReq = dk => { const p = dk.split('/'); return parseInt(p[1])*100 + parseInt(p[0]); };
+    const _todayNumReq = _toNumReq(_todayDkReq);
+    const _futureDays = (r.swapDays || []).filter(dk => _toNumReq(dk) > _todayNumReq);
     const dateLabel = isWeek
-      ? ((r.swapDays || []).length > 0 ? r.swapDays[0] + '–' + r.swapDays[r.swapDays.length - 1] : 'Week')
+      ? (_futureDays.length > 0 ? _futureDays[0] + '–' + _futureDays[_futureDays.length - 1] : 'Week')
       : (r.day || '—');
 
     // Impact table (week swaps, leader pending view)
@@ -4839,7 +4869,13 @@ function submitRequest() {
     const partner = state.users.find(u => u.id === partnerId);
     // Only use selected week dates
     const weekDates = getWeekDates(day);
+    // Build today's dd/MM key to exclude past days from the swap range
+    const _now = new Date();
+    const _todayKey = String(_now.getDate()).padStart(2,'0') + '/' + String(_now.getMonth()+1).padStart(2,'0');
+    const _toNum = dk => { const p = dk.split('/'); return parseInt(p[1])*100 + parseInt(p[0]); };
+    const _todayNum = _toNum(_todayKey);
     swapDays = weekDates.filter(dk => {
+      if (_toNum(dk) <= _todayNum) return false; // skip past days (including today)
       var myShift = _getSched(currentUser.username, dk);
       var ptShift = partner ? _getSched(partner.username, dk) : '0';
       return myShift === currentShift && ptShift === currentShift;
