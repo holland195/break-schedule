@@ -71,7 +71,7 @@ function renderRequests() {
       var tgtName = _dosTgt ? _dosTgt.name : '—';
       return '<div class="req-card ' + r.status + '" data-status="' + r.status + '" data-scope="day-off">' +
         '<div class="req-card-top">' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<div style="display:flex;align-items:flex-start;gap:10px;">' +
             _getAvatarHTML(empName) +
             '<div>' +
               '<div class="req-card-name">' + empName +
@@ -185,7 +185,7 @@ function renderRequests() {
 
     return '<div class="req-card ' + r.status + '" data-status="' + r.status + '" data-scope="' + (isWeek ? 'week' : 'day') + '">'
       + '<div class="req-card-top">'
-      + '<div style="display:flex;align-items:center;gap:10px;">'
+      + '<div style="display:flex;align-items:flex-start;gap:10px;">'
       + _getAvatarHTML(empName)
       + '<div>'
       + '<div class="req-card-name">'

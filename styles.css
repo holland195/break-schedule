@@ -734,7 +734,7 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
 .req-card.pending  { border-left-color: var(--warn); }
 .req-card.approved { border-left-color: var(--ok); }
 .req-card.rejected { border-left-color: var(--err); }
-.req-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.req-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .req-card-name { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .req-card-meta { font-size: 10px; color: var(--text3); margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
 .req-card-divider { border: none; border-top: 0.5px solid var(--border); margin: 10px 0; }
