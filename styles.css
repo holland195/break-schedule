@@ -8,39 +8,43 @@
 
 :root,
 [data-theme="dark"] {
-  /* Pave dark: deep navy-black backgrounds */
-  --bg:      #060d1f;
-  --bg2:     #0a1428;
-  --bg3:     #0f1c36;
-  --bg4:     #162244;
-  --bg5:     #1d2a52;
-  --border:  #1e2f58;
-  --border2: #2a3f70;
+  /* Premium Slate Dark Theme */
+  --bg:      #0b0f19;       /* Deep obsidian-slate base */
+  --bg2:     #111827;      /* Primary surface (sidebar, main panels) */
+  --bg3:     #1f2937;      /* Secondary surface (cards, hover states) */
+  --bg4:     #374151;      /* Interactive elements, active states */
+  --bg5:     #4b5563;      /* Highlighted headers */
+  --border:  rgba(255, 255, 255, 0.06); /* Ultra-subtle transparent border */
+  --border2: rgba(255, 255, 255, 0.12); /* Softer structural border */
+  
   /* Text */
-  --text:    #e8eeff;
-  --text2:   #8fa4cc;
-  --text3:   #4a607a;
-  /* Pave brand accent = Blue Pave */
-  --accent:  #1F66F1;
-  --accent2: #0D2A76;
+  --text:    #f3f4f6;      /* Off-white primary text */
+  --text2:   #9ca3af;      /* Muted gray secondary */
+  --text3:   #6b7280;      /* Darker gray tertiary */
+  
+  /* Brand Accent = Premium Indigo */
+  --accent:  #6366f1;
+  --accent2: #4f46e5;
+  
   /* Status */
-  --ok:      #4ade80;
-  --err:     #f87171;
-  --warn:    #fbbf24;
-  --r: 6px;
-  /* Shift colors — kept vivid for dark bg */
-  --A-color: #ff7eb3;
-  --A-bg:    #2d1020;
-  --B-color: #7dd3fc;
-  --B-bg:    #071624;
-  --C-color: #86efac;
-  --C-bg:    #071c10;
-  --D-color: #fca5a5;
-  --D-bg:    #1e0808;
-  --E-color: #c4b5fd;
-  --E-bg:    #120b28;
+  --ok:      #10b981;      /* Emerald success */
+  --err:     #f87171;      /* Soft red error */
+  --warn:    #fbbf24;      /* Soft warning */
+  --r: 8px;                /* Softer rounded corners */
+  
+  /* Shift colors — modernized pastels with transparent overlays */
+  --A-color: #f472b6;
+  --A-bg:    rgba(244, 114, 182, 0.08);
+  --B-color: #38bdf8;
+  --B-bg:    rgba(56, 189, 248, 0.08);
+  --C-color: #34d399;
+  --C-bg:    rgba(52, 211, 153, 0.08);
+  --D-color: #f87171;
+  --D-bg:    rgba(248, 113, 113, 0.08);
+  --E-color: #a78bfa;
+  --E-bg:    rgba(167, 139, 250, 0.08);
   --shadow:  0 4px 24px rgba(0,0,0,.6);
-  --login-grid: rgba(31,102,241,.08);
+  --login-grid: rgba(99,102,241,.08);
 }
 
 [data-theme="light"] {
@@ -113,8 +117,8 @@ body.login-active #screen-app { display: none !important; }
 
 /* ── TOPBAR ── */
 .topbar {
-  background: #0D2A76;
-  border-bottom: 1px solid #0a2060;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
   padding: 0 20px;
   height: 52px;
   display: flex;
@@ -310,11 +314,11 @@ body.login-active #screen-app { display: none !important; }
 }
 .nav-item:active { transform: translateX(0) scale(.98); }
 .nav-item.active {
-  background: rgba(31,102,241,.12); color: #1F66F1;
+  background: rgba(99, 102, 241, 0.12); color: var(--accent);
 }
 .nav-item.active::before {
   content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
-  width: 2.5px; background: #1F66F1; border-radius: 0 2px 2px 0;
+  width: 2.5px; background: var(--accent); border-radius: 0 2px 2px 0;
 }
 
 .nav-items {
@@ -340,7 +344,7 @@ body.login-active #screen-app { display: none !important; }
   transition: transform .15s;
 }
 .nav-item:hover .nav-ico { transform: scale(1.1); }
-.nav-item.active .nav-ico { color: #1F66F1; }
+.nav-item.active .nav-ico { color: var(--accent); }
 
 /* Label — fades/slides on collapse */
 .nav-label {
@@ -609,11 +613,11 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   width: 22px; height: 22px; border-radius: 4px;
   font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700
 }
-.sh-A { background: var(--A-bg); color: var(--A-color); border: 1px solid var(--A-color) }
-.sh-B { background: var(--B-bg); color: var(--B-color); border: 1px solid var(--B-color) }
-.sh-C { background: var(--C-bg); color: var(--C-color); border: 1px solid var(--C-color) }
-.sh-D { background: var(--D-bg); color: var(--D-color); border: 1px solid var(--D-color) }
-.sh-E { background: var(--E-bg); color: var(--E-color); border: 1px solid var(--E-color) }
+.sh-A { background: var(--A-bg); color: var(--A-color); border: 1px solid rgba(244, 114, 182, 0.25) }
+.sh-B { background: var(--B-bg); color: var(--B-color); border: 1px solid rgba(56, 189, 248, 0.25) }
+.sh-C { background: var(--C-bg); color: var(--C-color); border: 1px solid rgba(52, 211, 153, 0.25) }
+.sh-D { background: var(--D-bg); color: var(--D-color); border: 1px solid rgba(248, 113, 113, 0.25) }
+.sh-E { background: var(--E-bg); color: var(--E-color); border: 1px solid rgba(167, 139, 250, 0.25) }
 .sh-0 { background: var(--bg4); color: var(--text3); border: 1px solid var(--border) }
 
 /* ── BREAK SCHEDULE BOARD ── */
@@ -659,13 +663,13 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   background: var(--bg3); color: var(--text2); cursor: pointer; transition: all .12s;
 }
 .break-slot:hover { border-color: var(--accent); color: var(--accent) }
-.break-slot.assigned { background: #1a2a0a; color: #86efac; border-color: #4ade80 }
-.break-slot.mine { background: #1a1f0a; color: var(--accent); border-color: var(--accent); font-weight: 600 }
+.break-slot.assigned { background: rgba(16, 185, 129, 0.12); color: #34d399; border-color: rgba(16, 185, 129, 0.25) }
+.break-slot.mine { background: rgba(99, 102, 241, 0.12); color: var(--accent); border-color: var(--accent); font-weight: 600 }
 /* Per-shift break slot colors */
-.break-slot.slot-1 { background: #0d2236; color: #7dd3fc; border-color: #38bdf8 }  /* slot 1 — blue */
-.break-slot.slot-2 { background: #1a1a0d; color: #fbbf24; border-color: #f59e0b }  /* slot 2 — amber */
-.break-slot.slot-1.assigned { background: #0d2236; color: #7dd3fc; border-color: #38bdf8 }
-.break-slot.slot-2.assigned { background: #271a0a; color: #fb923c; border-color: #f97316 }
+.break-slot.slot-1 { background: rgba(56, 189, 248, 0.08); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2) }  /* slot 1 — blue */
+.break-slot.slot-2 { background: rgba(245, 158, 11, 0.08); color: #fbbf24; border-color: rgba(245, 158, 11, 0.2) }  /* slot 2 — amber */
+.break-slot.slot-1.assigned { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: rgba(56, 189, 248, 0.35) }
+.break-slot.slot-2.assigned { background: rgba(249, 115, 22, 0.15); color: #f97316; border-color: rgba(249, 115, 22, 0.35) }
 /* tfoot sticky — both axes */
 .arr-table tfoot { position: sticky; bottom: 0; z-index: 5; }
 .arr-table tfoot td { background: var(--bg4); }
@@ -713,8 +717,8 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   background: var(--bg3); color: var(--text); cursor: pointer;
   appearance: none; -webkit-appearance: none; text-align: center; width: 52px;
 }
-.slot-select.v-D1 { background: #0c1f0a; color: #4ade80; border-color: #4ade80 }
-.slot-select.v-D2 { background: #0a1d2d; color: #7dd3fc; border-color: #7dd3fc }
+.slot-select.v-D1 { background: rgba(52, 211, 153, 0.1); color: #34d399; border-color: rgba(52, 211, 153, 0.3) }
+.slot-select.v-D2 { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3) }
 .slot-select.v-OFF { background: var(--bg4); color: var(--text3); border-color: var(--border2) }
 
 /* ── REQUEST CARDS ── */
@@ -1233,25 +1237,25 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   background: var(--bg4);
 }
 
-/* ACTIVE slot 1 — Blue (Pave brand) */
+/* ACTIVE slot 1 — Soft Indigo/Blue */
 .arr-slot-1.arr-slot-on {
-  background: rgba(31,102,241,.15);
-  border-color: #1F66F1;
-  color: #1F66F1;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
   border-style: solid;
-  box-shadow: 0 0 0 1px rgba(31,102,241,.2);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
 }
-.arr-slot-1.arr-slot-off:hover { border-color: #1F66F1; color: #1F66F1; }
+.arr-slot-1.arr-slot-off:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ACTIVE slot 2 — Amber/orange */
+/* ACTIVE slot 2 — Soft Amber/orange */
 .arr-slot-2.arr-slot-on {
-  background: rgba(245,158,11,.15);
-  border-color: #f59e0b;
-  color: #d97706;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--warn);
+  color: var(--warn);
   border-style: solid;
-  box-shadow: 0 0 0 1px rgba(245,158,11,.2);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
 }
-.arr-slot-2.arr-slot-off:hover { border-color: #f59e0b; color: #d97706; }
+.arr-slot-2.arr-slot-off:hover { border-color: var(--warn); color: var(--warn); }
 
 /* Light theme slot states */
 [data-theme="light"] .arr-slot-off { color: var(--text3); border-color: var(--border2); background: transparent; }
