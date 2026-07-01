@@ -596,6 +596,23 @@
     </div>
   </div>
 
+  <!-- ─── MODAL: COPY DAY BREAKS ───────────────────────────── -->
+  <div class="modal-overlay" id="modal-copy-day" onclick="closeModal('modal-copy-day')">
+    <div class="modal" style="width:420px;" onclick="event.stopPropagation()">
+      <div class="modal-title" id="copy-day-title">Copy Day Breaks</div>
+      <div class="fg" style="margin-bottom:16px;">
+        <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600;color:var(--text2);">Select target days to apply breaks to:</label>
+        <div id="copy-day-target-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;padding-right:4px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-copy-day')">Cancel</button>
+        <button class="btn btn-accent" onclick="confirmCopyDay()">Apply Breaks</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── TOAST ─────────────────────────────────────────────── -->
   <div class="msg-bar" id="toast"></div>
 
