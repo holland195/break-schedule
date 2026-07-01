@@ -39,6 +39,26 @@ function renderRequests() {
   const pending = myReqs.filter(r => r.status === 'pending');
   const rest = myReqs.filter(r => r.status !== 'pending');
 
+  const _getInitials = (name) => {
+    if (!name) return '?';
+    var parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    var l1 = parts[parts.length - 2].substring(0, 1);
+    var l2 = parts[parts.length - 1].substring(0, 1);
+    return (l1 + l2).toUpperCase();
+  };
+
+  const _getAvatarHTML = (name) => {
+    var initials = _getInitials(name);
+    var hash = 0;
+    for (var i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    var hue = Math.abs(hash % 360);
+    var bg = 'linear-gradient(135deg, hsl(' + hue + ', 65%, 60%), hsl(' + ((hue + 40) % 360) + ', 60%, 50%))';
+    return '<div style="width:28px;height:28px;border-radius:50%;background:' + bg + ';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:system-ui,-apple-system,sans-serif;flex-shrink:0;box-shadow:0 1.5px 3px rgba(0,0,0,0.1);user-select:none;">' + initials + '</div>';
+  };
+
   const card = (r) => {
     if (r.type === 'dayoff-swap') {
       var _dosEmp = state.users.find(u => u.id === r.userId);
@@ -47,27 +67,42 @@ function renderRequests() {
       var _dosIsOwn = r.userId === currentUser.id;
       var _dosCanApprove = (isLeader(currentUser) || isTraining(currentUser)) && !_dosIsOwn;
       var _dosApprover = r.resolvedBy ? state.users.find(u => u.id === r.resolvedBy) : null;
+      var empName = _dosEmp ? _dosEmp.name : 'Unknown';
+      var tgtName = _dosTgt ? _dosTgt.name : '—';
       return '<div class="req-card ' + r.status + '" data-status="' + r.status + '" data-scope="day-off">' +
         '<div class="req-card-top">' +
-          '<div>' +
-            '<div class="req-card-name">' + (_dosEmp ? _dosEmp.name : 'Unknown') +
-              ' <span class="req-scope day" style="background:rgba(99,102,241,.13);color:#6366f1;">DAY-OFF</span>' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            _getAvatarHTML(empName) +
+            '<div>' +
+              '<div class="req-card-name">' + empName +
+                ' <span class="req-scope day" style="background:rgba(99,102,241,.13);color:#6366f1;border-color:rgba(99,102,241,.25)">DAY-OFF</span>' +
+              '</div>' +
+              '<div class="req-card-meta">' + timeSince(r.at) + '</div>' +
             '</div>' +
-            '<div class="req-card-meta">' + timeSince(r.at) + '</div>' +
           '</div>' +
           '<span class="req-status ' + r.status + '">' + r.status.toUpperCase() + '</span>' +
         '</div>' +
         '<hr class="req-card-divider">' +
-        '<div class="req-card-row"><span class="req-card-lbl">Their day off</span>' +
-          '<span class="req-card-val" style="font-weight:600;">' + r.myDate + ' (' + getWkDay(r.myDate) + ')</span>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin:12px 0 10px;background:var(--bg3);padding:8px 12px;border-radius:8px;border:0.5px solid var(--border);">' +
+          '<div style="text-align:center;flex:1;">' +
+            '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.04em;">My Day Off</div>' +
+            '<div style="font-size:11px;font-weight:700;color:var(--text);margin-top:2px;">' + r.myDate + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + getWkDay(r.myDate) + '</div>' +
+          '</div>' +
+          '<div style="font-size:16px;color:var(--text3);padding:0 8px;user-select:none;">↔</div>' +
+          '<div style="text-align:center;flex:1;">' +
+            '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.04em;">Their Day Off</div>' +
+            '<div style="font-size:11px;font-weight:700;color:var(--text);margin-top:2px;">' + r.theirDate + '</div>' +
+            '<div style="font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">' + getWkDay(r.theirDate) + '</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="req-card-row"><span class="req-card-lbl">↔ Swap with</span>' +
-          '<span class="req-card-val">' + (_dosTgt ? _dosTgt.name + ' <span style="color:var(--text3)">(' + (_dosTgt.team||'?') + ')</span>' : '—') + '</span>' +
+        '<div class="req-card-row" style="margin-top:8px;"><span class="req-card-lbl">↔ Swap with</span>' +
+          '<span class="req-card-val" style="font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+            (_dosTgt ? _getAvatarHTML(tgtName) : '') +
+            tgtName + ' <span style="color:var(--text3);font-weight:400;">(' + (_dosTgt ? (_dosTgt.team||'?') : '?') + ')</span>' +
+          '</span>' +
         '</div>' +
-        '<div class="req-card-row"><span class="req-card-lbl">Their day off</span>' +
-          '<span class="req-card-val" style="font-weight:600;">' + r.theirDate + ' (' + getWkDay(r.theirDate) + ')</span>' +
-        '</div>' +
-        (r.reason ? '<div class="req-card-reason">"' + r.reason + '"</div>' : '') +
+        (r.reason ? '<div class="req-card-reason">' + r.reason + '</div>' : '') +
         (_dosApprover && r.status !== 'pending'
           ? '<div class="req-resolved ' + r.status + '">' +
               (r.status === 'approved' ? '✓ Approved' : '✗ Rejected') +
@@ -76,11 +111,11 @@ function renderRequests() {
           : '') +
         (_dosCanApprove && r.status === 'pending'
           ? '<div class="req-actions">' +
-              '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + _dosIdx + ',\'approved\')">✓ Approve</button>' +
-              '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + _dosIdx + ',\'rejected\')">✗ Reject</button>' +
+              '<button class="btn btn-ok" onclick="resolveRequest(' + _dosIdx + ',\'approved\')">✓ Approve</button>' +
+              '<button class="btn btn-err" onclick="resolveRequest(' + _dosIdx + ',\'rejected\')">✗ Reject</button>' +
             '</div>'
           : (_dosIsOwn && r.status === 'pending'
-            ? '<div class="req-actions"><button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + _dosIdx + ')">✗ Cancel</button></div>'
+            ? '<div class="req-actions"><button class="btn btn-err" onclick="cancelOwnRequest(' + _dosIdx + ')">✗ Cancel</button></div>'
             : '')) +
       '</div>';
     }
@@ -145,37 +180,52 @@ function renderRequests() {
       + '</div>'
       : '';
 
+    var empName = emp ? emp.name : 'Unknown';
+    var partnerName = partner ? partner.name : '—';
+
     return '<div class="req-card ' + r.status + '" data-status="' + r.status + '" data-scope="' + (isWeek ? 'week' : 'day') + '">'
       + '<div class="req-card-top">'
+      + '<div style="display:flex;align-items:center;gap:10px;">'
+      + _getAvatarHTML(empName)
       + '<div>'
       + '<div class="req-card-name">'
-      + (emp ? emp.name : 'Unknown')
+      + empName
       + ' <span class="req-scope ' + (isWeek ? 'week' : 'day') + '">' + (isWeek ? 'WEEK' : 'DAY') + '</span>'
       + '</div>'
       + '<div class="req-card-meta">' + (emp ? emp.team : '—') + ' · ' + dateLabel + ' · ' + timeSince(r.at) + '</div>'
       + '</div>'
+      + '</div>'
       + '<span class="req-status ' + r.status + '">' + r.status.toUpperCase() + '</span>'
       + '</div>'
       + '<hr class="req-card-divider">'
-      + '<div class="req-card-row"><span class="req-card-lbl">Slot</span>'
-      + '<span class="req-pill">' + (r.current || '—') + '</span>'
-      + '<span style="color:var(--text3);font-size:10px;margin:0 2px;">→</span>'
-      + '<span class="req-pill new">' + (r.requested || '—') + '</span>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin:12px 0 10px;background:var(--bg3);padding:8px 12px;border-radius:8px;border:0.5px solid var(--border);">'
+      + '<div style="text-align:center;flex:1;">'
+      + '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.04em;">Current</div>'
+      + '<span class="req-pill" style="margin-top:4px;display:inline-block;">' + (r.current || '—') + '</span>'
       + '</div>'
-      + '<div class="req-card-row"><span class="req-card-lbl">Partner</span>'
-      + '<span class="req-card-val">' + (partner ? partner.name + ' <span style="color:var(--text3)">(' + (partner.team || '?') + ')</span>' : '—') + '</span>'
+      + '<div style="font-size:16px;color:var(--text3);padding:0 8px;font-weight:700;user-select:none;">➔</div>'
+      + '<div style="text-align:center;flex:1;">'
+      + '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.04em;">Requested</div>'
+      + '<span class="req-pill new" style="margin-top:4px;display:inline-block;box-shadow: 0 0 6px rgba(245,158,11,0.15);">' + (r.requested || '—') + '</span>'
       + '</div>'
-      + (r.reason ? '<div class="req-card-reason">"' + r.reason + '"</div>' : '')
+      + '</div>'
+      + '<div class="req-card-row" style="margin-top:8px;"><span class="req-card-lbl">Partner</span>'
+      + '<span class="req-card-val" style="font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
+      + (partner ? _getAvatarHTML(partnerName) : '')
+      + partnerName + ' <span style="color:var(--text3);font-weight:400;">(' + (partner ? (partner.team || '?') : '?') + ')</span>'
+      + '</span>'
+      + '</div>'
+      + (r.reason ? '<div class="req-card-reason">' + r.reason + '</div>' : '')
       + impactHTML
       + resolvedHTML
       + (r.status === 'pending' && currentUser.id === r.swapPartnerId
         ? '<div class="req-actions">'
-        + '<button class="btn btn-sm btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">✓ Approve</button>'
-        + '<button class="btn btn-sm btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">✗ Reject</button>'
+        + '<button class="btn btn-ok" onclick="resolveRequest(' + idx + ',\'approved\')">✓ Approve</button>'
+        + '<button class="btn btn-err" onclick="resolveRequest(' + idx + ',\'rejected\')">✗ Reject</button>'
         + '</div>'
         : r.status === 'pending' && isOwn
           ? '<div class="req-actions">'
-          + '<button class="btn btn-sm btn-err" onclick="cancelOwnRequest(' + idx + ')">✗ Cancel request</button>'
+          + '<button class="btn btn-err" onclick="cancelOwnRequest(' + idx + ')">✗ Cancel request</button>'
           + '</div>'
           : '')
       + '</div>';
