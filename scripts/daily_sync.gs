@@ -1518,6 +1518,9 @@ function runSyncLogbookMonth(monthIndex) {
 // Convenience wrapper — run from GAS editor to sync May logbook
 function runSyncLogbookMay() { runSyncLogbookMonth(4); }
 
+// Convenience wrapper — run from GAS editor to sync June logbook
+function runSyncLogbookJune() { runSyncLogbookMonth(5); }
+
 function testLogbookDetection() {
   const MONTH_NAMES = ['January','February','March','April','May','June',
                        'July','August','September','October','November','December'];
