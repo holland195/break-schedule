@@ -682,7 +682,7 @@ function syncLogbook(current, log, monthOverride) {
   var dateRow = -1, bestCnt = 0;
   for (var ri = 0; ri < Math.min(10, allData.length); ri++) {
     var cnt = 0;
-    for (var c = 4; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c])) cnt++; }
+    for (var c = 4; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c], _month + 1)) cnt++; }
     if (cnt > bestCnt) { bestCnt = cnt; dateRow = ri; }
   }
   if (dateRow < 0 || bestCnt < 2) {
@@ -720,7 +720,7 @@ function syncLogbook(current, log, monthOverride) {
     // value lives in the "Early" column (c-1) rather than the "Start" column (c).
     var dk = null;
     for (var back = 0; back <= 3 && !dk; back++) {
-      if (c - back > shiftColIdx) dk = parseDateHeader(row1[c - back]);
+      if (c - back > shiftColIdx) dk = parseDateHeader(row1[c - back], _month + 1);
     }
     if (!dk) continue;
     // Detect End column: scan forward up to 5 cols for 'end' in sub-header row
@@ -929,11 +929,14 @@ function _fmtTimeCell(val, shiftCode, role) {
 //  SHARED HELPERS
 // ═══════════════════════════════════════════════
 
-function parseDateHeader(h) {
+function parseDateHeader(h, fallbackMonth) {
   if (h === null || h === undefined || h === '') return null;
 
   // Excel serial number (most common when sheet uses date cells)
   if (typeof h === 'number') {
+    if (h >= 1 && h <= 31 && fallbackMonth) {
+      return String(h).padStart(2, '0') + '/' + String(fallbackMonth).padStart(2, '0');
+    }
     if (h < 40000 || h > 60000) return null;
     const ms = new Date(Date.UTC(1899, 11, 30)).getTime() + Math.round(h) * 86400000;
     const dt = new Date(ms);
@@ -951,6 +954,14 @@ function parseDateHeader(h) {
   // String formats
   if (typeof h === 'string') {
     const s = h.trim();
+
+    // Plain number day (e.g. "1", "02") with a fallback month
+    if (/^\d{1,2}$/.test(s) && fallbackMonth) {
+      const d = parseInt(s, 10);
+      if (d >= 1 && d <= 31) {
+        return String(d).padStart(2, '0') + '/' + String(fallbackMonth).padStart(2, '0');
+      }
+    }
 
     // DD/MM
     if (/^\d{1,2}\/\d{1,2}$/.test(s)) {
@@ -2301,19 +2312,43 @@ function createWritebackTriggers() {
 // ═══════════════════════════════════════════════
 function getOrCreateMonthlyLogbookSheet(ss, sheetName, logFn) {
   var log = typeof logFn === 'function' ? logFn : Logger.log;
+  
+  // 1. Try exact match
   var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    var template = ss.getSheetByName('Template') || ss.getSheets()[0];
-    if (template) {
-      sheet = template.copyTo(ss).setName(sheetName);
-      log('[Logbook] Auto-created monthly sheet "' + sheetName + '" by duplicating "' + template.getName() + '"');
-      
-      // Move to first position for visibility
-      ss.setActiveSheet(sheet);
-      ss.moveActiveSheet(1);
-    } else {
-      log('[Logbook] ✗ No sheet available in spreadsheet to use as a template.');
+  if (sheet) return sheet;
+  
+  // 2. Try flexible name match if sheetName is a month
+  var MONTH_NAMES = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'];
+  var SHORT_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  
+  var mIdx = MONTH_NAMES.indexOf(sheetName);
+  if (mIdx !== -1) {
+    var longName = MONTH_NAMES[mIdx].toLowerCase();
+    var shortName = SHORT_NAMES[mIdx].toLowerCase();
+    var sheets = ss.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      var sName = sheets[i].getName().trim().toLowerCase();
+      // Match if sheet name contains full month or short month name
+      // e.g. "July 2026", "July-26", "July 26", "Jul-26", "Jul 26"
+      if (sName.indexOf(longName) !== -1 || sName.indexOf(shortName) !== -1) {
+        log('[Logbook] Detected monthly sheet under alternative name: "' + sheets[i].getName() + '"');
+        return sheets[i];
+      }
     }
+  }
+  
+  // 3. Fallback: Create sheet if still not found
+  var template = ss.getSheetByName('Template') || ss.getSheets()[0];
+  if (template) {
+    sheet = template.copyTo(ss).setName(sheetName);
+    log('[Logbook] Auto-created monthly sheet "' + sheetName + '" by duplicating "' + template.getName() + '"');
+    
+    // Move to first position for visibility
+    ss.setActiveSheet(sheet);
+    ss.moveActiveSheet(1);
+  } else {
+    log('[Logbook] ✗ No sheet available in spreadsheet to use as a template.');
   }
   return sheet;
 }
