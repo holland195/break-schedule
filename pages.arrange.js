@@ -237,40 +237,51 @@ function switchArrangeMainTab(tab) {
 // ── Break Split Settings tab ──
 
 function _renderBreakSplitTab() {
+  var _tierDefs = [
+    ['agent', 'D.A',    '#f97316', 'rgba(249,115,22,.15)', 67],
+    ['qa',    'D.S',    '#0ea5e9', 'rgba(14,165,233,.15)', 67],
+    ['sr_qa', 'Sr D.S', '#a855f7', 'rgba(168,85,247,.15)', 50],
+  ];
+
   const rows = VISIBLE_SHIFTS.map(shift => {
     const slots  = BREAK_SLOTS[shift] || [];
     const slot1  = slots[0] || '';
     const slot2  = slots[1] || '';
-    const saved  = getBreakSplitPct(shift);   // null = default rotation
-    const pct1   = saved !== null ? saved : 50;
-    const pct2   = 100 - pct1;
-    const isCustom = saved !== null;
+
+    const tierRows = _tierDefs.map(([tier, label, color, bg, def]) => {
+      const saved = getBreakSplitPct(shift, tier);
+      const p1 = saved !== null ? saved : def;
+      const p2 = 100 - p1;
+      return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;background:${bg};color:${color};min-width:50px;text-align:center;">${label}</span>
+        ${saved !== null
+          ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;white-space:nowrap;">${p1}%/${p2}%</span>`
+          : `<span style="font-size:10px;background:var(--bg3);color:var(--text3);padding:2px 8px;border-radius:10px;white-space:nowrap;">default</span>`}
+        <span style="font-size:11px;color:var(--text2);margin-left:4px;">${shift}1</span>
+        <input type="number" id="split-slider-${shift}-${tier}" min="0" max="100" value="${p1}"
+          style="width:54px;padding:3px 6px;font-size:11px;font-weight:600;border:1px solid var(--border2);border-radius:4px;background:var(--bg3);color:var(--text);text-align:center;"
+          oninput="onBreakSplitSlide('${shift}',this.value,'${tier}')">
+        <span id="split-lbl-${shift}-${tier}-1" style="display:none;">${p1}%</span>
+        <span style="font-size:11px;color:var(--text2);">%</span>
+        <span style="font-size:11px;color:var(--text2);margin-left:8px;">${shift}2</span>
+        <span id="split-lbl-${shift}-${tier}-2" style="font-size:12px;font-weight:700;color:${color};min-width:26px;">${p2}%</span>
+      </div>`;
+    }).join('');
 
     return `
 <div class="card" style="padding:18px 20px;margin-bottom:14px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+  <div style="display:flex;justify-content:open;align-items:center;margin-bottom:14px;gap:8px;">
     <span style="font-size:14px;font-weight:700;">Shift ${shift}</span>
-    ${isCustom
-      ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:3px 10px;border-radius:10px;">Custom: ${pct1}% / ${pct2}%</span>`
-      : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:3px 10px;border-radius:10px;">Default (50/50 rotation)</span>`}
   </div>
-
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-    <span style="font-size:11px;color:var(--text2);min-width:110px;white-space:nowrap;">${shift}1 — ${slot1}</span>
-    <input type="range" id="split-slider-${shift}" min="0" max="100" step="1" value="${pct1}"
-      style="flex:1;accent-color:var(--accent);"
-      oninput="onBreakSplitSlide('${shift}', this.value)">
-    <span style="font-size:11px;color:var(--text2);min-width:110px;text-align:right;white-space:nowrap;">${shift}2 — ${slot2}</span>
+  <div style="margin-bottom:12px;">
+    ${tierRows}
   </div>
-
   <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span id="split-lbl-${shift}-1" style="font-size:13px;font-weight:700;color:var(--accent);">${pct1}%</span>
     <button onclick="resetBreakSplit('${shift}')"
       style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;"
-      title="Clear custom % and go back to 50/50 weekly rotation">
+      title="Clear custom % and go back to default rotation">
       ↩ Reset to rotation
     </button>
-    <span id="split-lbl-${shift}-2" style="font-size:13px;font-weight:700;color:var(--accent);">${pct2}%</span>
   </div>
 </div>`;
   }).join('');
@@ -278,7 +289,7 @@ function _renderBreakSplitTab() {
   return `
 <div style="max-width:560px;">
   <div style="font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.7;">
-    Set how the team is split across break slots for each shift. The <b>larger group</b> takes the slot on the left side of the slider.
+    Set how the team is split across break slots for each shift and position tier.
     Rotation still applies — each week the groups swap which slot they get, keeping the set percentage.
   </div>
   ${rows}
@@ -289,7 +300,9 @@ function _renderBreakSplitTab() {
 }
 
 function onBreakSplitSlide(shift, rawVal, tier) {
-  var pct1 = parseInt(rawVal);
+  var pct1 = parseInt(rawVal, 10);
+  if (isNaN(pct1)) pct1 = 0;
+  pct1 = Math.max(0, Math.min(100, pct1));
   var pct2 = 100 - pct1;
   var id1 = tier ? ('split-lbl-' + shift + '-' + tier + '-1') : ('split-lbl-' + shift + '-1');
   var id2 = tier ? ('split-lbl-' + shift + '-' + tier + '-2') : ('split-lbl-' + shift + '-2');
@@ -329,31 +342,21 @@ async function saveBreakSplits() {
   var changedShifts  = new Set();
   var shiftsToProcess = new Set();
   VISIBLE_SHIFTS.forEach(function(shift) {
-    if (shift === 'A') {
-      var _sA = document.getElementById('split-slider-A-agent');
-      var _sQ = document.getElementById('split-slider-A-qa');
-      var _sS = document.getElementById('split-slider-A-sr_qa');
-      if (!_sA && !_sQ && !_sS) return;
-      shiftsToProcess.add('A');
-      var _nA = _sA ? parseInt(_sA.value) : (getBreakSplitPct('A','agent') ?? 67);
-      var _nQ = _sQ ? parseInt(_sQ.value) : (getBreakSplitPct('A','qa') ?? 67);
-      var _nS = _sS ? parseInt(_sS.value) : (getBreakSplitPct('A','sr_qa') ?? 50);
-      var _oA = getBreakSplitPct('A','agent');
-      var _oQ = getBreakSplitPct('A','qa');
-      var _oS = getBreakSplitPct('A','sr_qa');
-      if (_nA !== _oA || _nQ !== _oQ || _nS !== _oS) changedShifts.add('A');
-      var _sp = _loadBreakSplit();
-      _sp['A'] = { agent: _nA, qa: _nQ, sr_qa: _nS };
-      _saveBreakSplit(_sp);
-      return;
-    }
-    var slider = document.getElementById('split-slider-' + shift);
-    if (!slider) return;
+    var _sA = document.getElementById('split-slider-' + shift + '-agent');
+    var _sQ = document.getElementById('split-slider-' + shift + '-qa');
+    var _sS = document.getElementById('split-slider-' + shift + '-sr_qa');
+    if (!_sA && !_sQ && !_sS) return;
     shiftsToProcess.add(shift);
-    var newPct = parseInt(slider.value);
-    var oldPct = getBreakSplitPct(shift);
-    if (newPct !== oldPct) changedShifts.add(shift);
-    setBreakSplitPct(shift, newPct);
+    var _nA = _sA ? parseInt(_sA.value) : (getBreakSplitPct(shift,'agent') ?? 67);
+    var _nQ = _sQ ? parseInt(_sQ.value) : (getBreakSplitPct(shift,'qa') ?? 67);
+    var _nS = _sS ? parseInt(_sS.value) : (getBreakSplitPct(shift,'sr_qa') ?? 50);
+    var _oA = getBreakSplitPct(shift,'agent');
+    var _oQ = getBreakSplitPct(shift,'qa');
+    var _oS = getBreakSplitPct(shift,'sr_qa');
+    if (_nA !== _oA || _nQ !== _oQ || _nS !== _oS) changedShifts.add(shift);
+    var _sp = _loadBreakSplit();
+    _sp[shift] = { agent: _nA, qa: _nQ, sr_qa: _nS };
+    _saveBreakSplit(_sp);
   });
 
   if (shiftsToProcess.size > 0) {
@@ -483,11 +486,11 @@ function _renderArrangeAssignTab(weekRange) {
   const _splitPct2   = 100 - _splitPct1;
   const _splitCustom = _splitSaved !== null;
 
-  const splitRow = slots.length >= 2 ? (currentShift === 'A' ? `
+  const splitRow = slots.length >= 2 ? `
   <div style="padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;">
     <span class="bulk-panel-label" style="display:block;margin-bottom:8px;">Split per Position</span>
     ${_tierDefs.map(([tier, label, color, bg, def]) => {
-      const saved = getBreakSplitPct('A', tier);
+      const saved = getBreakSplitPct(currentShift, tier);
       const p1 = saved !== null ? saved : def;
       const p2 = 100 - p1;
       return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
@@ -495,43 +498,25 @@ function _renderArrangeAssignTab(weekRange) {
         ${saved !== null
           ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:1px 7px;border-radius:10px;white-space:nowrap;">${p1}%/${p2}%</span>`
           : `<span style="font-size:10px;background:var(--bg3);color:var(--text3);padding:1px 7px;border-radius:10px;white-space:nowrap;">default</span>`}
-        <span style="font-size:10px;color:var(--text2);">A1</span>
-        <span id="split-lbl-A-${tier}-1" style="font-size:12px;font-weight:700;color:${color};min-width:26px;text-align:right;">${p1}%</span>
-        <input type="range" id="split-slider-A-${tier}" min="0" max="100" step="1" value="${p1}"
-          style="width:130px;accent-color:${color};"
-          oninput="onBreakSplitSlide('A',this.value,'${tier}')">
-        <span id="split-lbl-A-${tier}-2" style="font-size:12px;font-weight:700;color:${color};min-width:26px;">${p2}%</span>
-        <span style="font-size:10px;color:var(--text2);">A2</span>
+        <span style="font-size:10px;color:var(--text2);">${currentShift}1</span>
+        <input type="number" id="split-slider-${currentShift}-${tier}" min="0" max="100" value="${p1}"
+          style="width:54px;padding:3px 6px;font-size:11px;font-weight:600;border:1px solid var(--border2);border-radius:4px;background:var(--bg3);color:var(--text);text-align:center;"
+          oninput="onBreakSplitSlide('${currentShift}',this.value,'${tier}')">
+        <span id="split-lbl-${currentShift}-${tier}-1" style="display:none;">${p1}%</span>
+        <span style="font-size:10px;color:var(--text2);">%</span>
+        <span style="font-size:10px;color:var(--text2);margin-left:8px;">${currentShift}2</span>
+        <span id="split-lbl-${currentShift}-${tier}-2" style="font-size:12px;font-weight:700;color:${color};min-width:26px;">${p2}%</span>
       </div>`;
     }).join('')}
     <div style="display:flex;gap:8px;margin-top:4px;">
       <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:3px 12px;white-space:nowrap;">Save</button>
-      <button onclick="resetBreakSplit('A')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;white-space:nowrap;">↩ Reset all</button>
+      <button onclick="resetBreakSplit('${currentShift}')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;white-space:nowrap;">&#8617; Reset all</button>
     </div>
-  </div>` : `
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-    padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;">
-    <span class="bulk-panel-label" style="margin-bottom:0;">Split</span>
-    ${_splitCustom
-      ? `<span style="font-size:10px;font-weight:700;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;white-space:nowrap;">${_splitPct1}%/${_splitPct2}%</span>`
-      : `<span style="font-size:10px;font-weight:600;background:var(--bg3);color:var(--text3);padding:2px 8px;border-radius:10px;white-space:nowrap;">50/50</span>`}
-    <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}1 — ${slots[0]}</span>
-    <span id="split-lbl-${currentShift}-1" style="font-size:12px;font-weight:700;color:var(--accent);min-width:26px;text-align:right;">${_splitPct1}%</span>
-    <input type="range" id="split-slider-${currentShift}" min="0" max="100" step="1" value="${_splitPct1}"
-      style="width:160px;accent-color:var(--accent);"
-      oninput="onBreakSplitSlide('${currentShift}', this.value)">
-    <span id="split-lbl-${currentShift}-2" style="font-size:12px;font-weight:700;color:var(--accent);min-width:26px;">${_splitPct2}%</span>
-    <span style="font-size:11px;color:var(--text2);white-space:nowrap;">${currentShift}2 — ${slots[1]}</span>
-    <button onclick="saveBreakSplits()" class="btn btn-accent" style="font-size:11px;padding:3px 12px;white-space:nowrap;">Save</button>
-    <button onclick="resetBreakSplit('${currentShift}')"
-      style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;white-space:nowrap;">
-      ↩ Reset
-    </button>
-  </div>`) : '';
+  </div>` : '';
 
-  // ── Shift A: break distribution display ──
+  // ── Break distribution display ──
   var _distPanel = '';
-  if (currentShift === 'A' && slots.length >= 2) {
+  if (slots.length >= 2) {
     var _distTiers = { agent: [], qa: [], sr_qa: [] };
     var _tierRoleKey = {
       'data analyst': 'agent', 'sr data analyst': 'agent', 'agent': 'agent', 'sr agent': 'agent',
@@ -550,7 +535,7 @@ function _renderArrangeAssignTab(weekRange) {
       var tier = td[0]; var label = td[1]; var color = td[2]; var bg = td[3];
       var teams = _distTiers[tier];
       if (!teams || teams.length === 0) return '';
-      // Read actual break assignments for this week — don't infer from percentage
+      // Read actual break assignments for this week - don't infer from percentage
       var t1 = [], t2 = [];
       teams.forEach(function(team) {
         var s1 = 0, s2 = 0;
@@ -574,9 +559,9 @@ function _renderArrangeAssignTab(weekRange) {
       var chip = '<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;background:' + bg + ';color:' + color + ';min-width:40px;display:inline-block;text-align:center;">' + label + '</span>';
       return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px;">' +
         chip +
-        '<span style="font-size:11px;"><b>' + n1 + '</b> group' + (n1 !== 1 ? 's' : '') + ' → <span class="break-slot assigned slot-1" style="font-size:9px;padding:1px 5px;">A1</span>' +
+        '<span style="font-size:11px;"><b>' + n1 + '</b> group' + (n1 !== 1 ? 's' : '') + ' → <span class="break-slot assigned slot-1" style="font-size:9px;padding:1px 5px;">' + currentShift + '1</span>' +
         (t1.length ? '<span style="font-size:10px;color:var(--text3);margin-left:4px;">(' + t1.join(', ') + ')</span>' : '') + '</span>' +
-        '<span style="font-size:11px;"><b>' + n2 + '</b> group' + (n2 !== 1 ? 's' : '') + ' → <span class="break-slot assigned slot-2" style="font-size:9px;padding:1px 5px;">A2</span>' +
+        '<span style="font-size:11px;"><b>' + n2 + '</b> group' + (n2 !== 1 ? 's' : '') + ' → <span class="break-slot assigned slot-2" style="font-size:9px;padding:1px 5px;">' + currentShift + '2</span>' +
         (t2.length ? '<span style="font-size:10px;color:var(--text3);margin-left:4px;">(' + t2.join(', ') + ')</span>' : '') + '</span>' +
         '</div>';
     }).filter(function(r) { return r; }).join('');
@@ -592,79 +577,12 @@ function _renderArrangeAssignTab(weekRange) {
 <div class="bulk-panel" style="margin-bottom:12px;display:block;padding:12px 16px;">
   <div class="bulk-panel-cols">
 
-    <!-- COL 1: Manual Assign -->
-    <div class="bulk-panel-col col-main">
-      <span class="bulk-panel-label" style="display:block;margin-bottom:4px;">Manual Assign</span>
-      
-      <!-- Groups Section -->
-      <div class="bulk-panel-section" style="width:100%;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <div class="bulk-panel-label" style="margin:0;">Groups</div>
-          <div class="bulk-group-helpers">
-            <span onclick="_selectBulkGroups('all')" class="bulk-group-helper-btn">All</span>
-            <span style="color:var(--border2);font-size:9px;">|</span>
-            <span onclick="_selectBulkGroups('none')" class="bulk-group-helper-btn">None</span>
-            <span style="color:var(--border2);font-size:9px;">|</span>
-            <span onclick="_selectBulkGroups('da')" class="bulk-group-helper-btn">D.A</span>
-            <span style="color:var(--border2);font-size:9px;">|</span>
-            <span onclick="_selectBulkGroups('ds')" class="bulk-group-helper-btn">D.S</span>
-          </div>
-        </div>
-        <div class="group-scroll-container">
-          <div class="group-checkbox-grid">
-            ${allShiftTeams.map(t => {
-              var posChips = (_teamRoles[t] || []).map(l => {
-                var info = _posAbbr[l];
-                if (!info) return '';
-                return `<span style="font-size:9px;font-weight:600;padding:1px 4px;border-radius:4px;background:${info[2]};color:${info[1]};white-space:nowrap;">${info[0]}</span>`;
-              }).join('');
-              var isDA = (_teamRoles[t] || []).some(r => r.includes('Data Analyst') || r.includes('Sr Data Analyst'));
-              var isDS = (_teamRoles[t] || []).some(r => r.includes('Data Supervisor') || r.includes('Sr Data Supervisor'));
-              return `<label class="group-check-item" style="align-items:center;margin:0;">
-                <input type="checkbox" name="bulk-group" value="${t}"
-                  data-da="${isDA ? '1' : '0'}" data-ds="${isDS ? '1' : '0'}"
-                  ${_bulkGroups.has(t) ? 'checked' : ''} onchange="_saveBulkGroups()">
-                <span style="font-size:11px;">${t}</span>${posChips ? ' ' + posChips : ''}
-              </label>`;
-            }).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- Days, Slot and Actions Toolbar -->
-      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:4px;">
-        <div class="bulk-panel-section">
-          <div class="bulk-panel-label">Days</div>
-          <div class="day-checkbox-list">
-            ${weekRange.map(d => `
-              <label class="day-check-item">
-                <span style="font-weight:700;font-size:9px">${getWkDay(d)}</span>
-                <span style="font-size:9px;color:var(--text3)">${d}</span>
-                <input type="checkbox" name="bulk-day" value="${d}"
-                  ${_bulkDays.has(d) ? 'checked' : ''} onchange="_saveBulkDays()">
-              </label>`).join('')}
-          </div>
-        </div>
-        <div class="bulk-panel-section">
-          <div class="bulk-panel-label">Slot</div>
-          <select id="bulk-slot-multi" class="login-select" style="padding:6px 10px;"
-            onchange="_bulkSlotIdx=parseInt(this.value)">
-            ${slots.map((s, i) => `<option value="${i}" ${i === _bulkSlotIdx ? 'selected' : ''}>${currentShift}${i + 1} — ${s}</option>`).join('')}
-          </select>
-        </div>
-        <div class="bulk-panel-section">
-          <button class="btn btn-accent" onclick="bulkAssignMulti()">Apply to Selection</button>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- COL 2: Split per Position -->
+    <!-- COL 1: Split per Position -->
     <div class="bulk-panel-col">
       ${splitRow || '<span style="color:var(--text3);font-size:11px;">—</span>'}
     </div>
 
-    <!-- COL 3: Break Distribution (Shift A only) -->
+    <!-- COL 2: Break Distribution (Shift A only) -->
     ${_distPanel ? `<div class="bulk-panel-col">${_distPanel}</div>` : ''}
 
   </div>
@@ -891,6 +809,17 @@ function _renderArrangeMonthOverview() {
   var _tierIcon = { 'analyst': '◆', 'supervisor': '▲', 'sr_supervisor': '★' };
   var _monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+  function getFullTeamName(team) {
+    if (!team) return '';
+    if (team.startsWith('SDS')) return 'Sr Data Supervisor ' + team.substring(3);
+    if (team.startsWith('DS')) return 'Data Supervisor ' + team.substring(2);
+    if (team.startsWith('DA')) return 'Data Analyst ' + team.substring(2);
+    if (team.startsWith('Sr QA')) return 'Sr Data Supervisor ' + team.substring(5);
+    if (team.startsWith('QA')) return 'Data Supervisor ' + team.substring(2);
+    if (team.startsWith('Agent')) return 'Data Analyst ' + team.substring(5);
+    return team;
+  }
+
   var sections = months.map(function(month) {
     var year = 2026;
     var lastDay = new Date(year, month, 0).getDate();
@@ -945,6 +874,9 @@ function _renderArrangeMonthOverview() {
       var tierKey = _arrTierKey[resolvedRole] || 'analyst';
       var tierLabel = _arrTierLabel[tierKey] || resolvedRole;
 
+      var teamMembers = state.users.filter(function(u) { return u.team === team; });
+      var memberNames = teamMembers.map(function(u) { return u.name; }).join(', ');
+
       // Stronger tier separator: full-band with icon + left accent border
       var out = '';
       if (tierKey !== prevTier) {
@@ -958,7 +890,7 @@ function _renderArrangeMonthOverview() {
           'padding:10px 12px 6px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
           'color:' + tierColor + ';background:var(--bg2);' +
           'border-top:2px solid var(--border);border-left:3px solid ' + tierColor + ';">' +
-          '<span style="display:inline-block;width:12px;font-size:8px;vertical-align:middle;">' + chevron + '</span> ' + icon + '  ' + tierLabel + '</td></tr>';
+          '<span style="display:inline-block;width:12px;font-size:8px;vertical-align:middle;">' + chevron + '</span> ' + tierLabel + '</td></tr>';
       }
 
       if (_collapsedTiers.has(tierKey)) {
@@ -979,7 +911,6 @@ function _renderArrangeMonthOverview() {
           return '<td style="padding:4px 1px;opacity:.2;background:var(--bg4);"></td>';
         }
 
-        var teamMembers = state.users.filter(function(u) { return u.team === team; });
         var onShiftCount = teamMembers.filter(function(u) {
           return _getSched(u.username, dk) === currentShift;
         }).length;
@@ -1027,7 +958,7 @@ function _renderArrangeMonthOverview() {
         'position:sticky;left:0;z-index:5;' +
         'background:' + (isEven ? 'var(--bg2)' : 'var(--bg3)') + ';' +
         'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);' +
-        'border-right:1px solid var(--border);">' + team + '</td>';
+        'border-right:1px solid var(--border);">' + team + (memberNames ? ' - ' + memberNames : '') + '</td>';
 
       out += '<tr style="background:' + rowBaseBg + ';" ' +
         'onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'' + rowBaseBg + '\'">' +
@@ -1108,9 +1039,12 @@ function getArrangeDayMemberList(_unused) {
   const thDays = weekRange.map(d => {
     const isToday = d === todayDk;
     const dayLabel = getWkDay(d);
-    return `<th class="arr-th-day${isToday ? ' arr-th-today' : ''}" style="min-width:90px;text-align:center;">
+    return `<th class="arr-th-day${isToday ? ' arr-th-today' : ''}" style="min-width:98px;text-align:center;padding:8px 4px;vertical-align:middle;">
       <div style="font-size:11px;font-weight:700;">${dayLabel}</div>
-      <div style="font-size:9px;opacity:0.6;font-weight:400;">${d}</div>
+      <div style="font-size:9px;opacity:0.6;font-weight:400;margin-bottom:4px;">${d}</div>
+      <button class="btn" onclick="openCopyDayModal('${d}')" title="Copy assignments for this day" style="padding:2px 6px;font-size:9px;line-height:1;border-radius:4px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);cursor:pointer;display:inline-flex;align-items:center;gap:3px;margin:0 auto;">
+        <span>📋</span><span>Copy</span>
+      </button>
     </th>`;
   }).join('');
 
@@ -1484,6 +1418,77 @@ function autofillWeek() {
     mates.forEach((u, i) => { assign(u.id, day, currentShift + (i % slots.length + 1), 'auto'); count++; });
   });
   toast(`Auto-filled ${count} breaks across the week`, 'ok');
+  nav('arrange');
+}
+
+let _copySourceDay = null;
+
+function openCopyDayModal(sourceDay) {
+  _copySourceDay = sourceDay;
+  const weekRange = getWeekRange(activeMonday);
+  const dayLabel = getWkDay(sourceDay);
+  
+  // Set modal title
+  document.getElementById('copy-day-title').innerHTML = `📋 Copy Breaks from ${dayLabel} (${sourceDay})`;
+  
+  // Generate checkable target days list (excluding source day)
+  const targetList = document.getElementById('copy-day-target-list');
+  if (targetList) {
+    targetList.innerHTML = weekRange
+      .filter(d => d !== sourceDay)
+      .map(d => {
+        const dl = getWkDay(d);
+        return `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;margin:0;">
+          <input type="checkbox" name="copy-target-day" value="${d}" style="margin:0;cursor:pointer;width:16px;height:16px;">
+          <div style="display:flex;flex-direction:column;gap:1px;cursor:pointer;">
+            <span style="font-size:12px;font-weight:600;color:var(--text);">${dl}</span>
+            <span style="font-size:10px;color:var(--text3);">${d}</span>
+          </div>
+        </label>`;
+      }).join('');
+  }
+  
+  document.getElementById('modal-copy-day').classList.add('show');
+}
+
+function confirmCopyDay() {
+  if (!_copySourceDay) return;
+  
+  // Get selected target days
+  const checkedEls = document.querySelectorAll('input[name="copy-target-day"]:checked');
+  if (checkedEls.length === 0) {
+    toast('Please select at least one target day.', 'err');
+    return;
+  }
+  
+  const targetDays = Array.from(checkedEls).map(el => el.value);
+  
+  // Get all visible mates (analysts/supervisors level 0-1)
+  const allMates = state.users.filter(u => {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    return _ul != null && _ul < 2;
+  });
+  
+  let copiedCount = 0;
+  
+  targetDays.forEach(td => {
+    allMates.forEach(u => {
+      // Get source day break assignment
+      const srcBrk = getAssigned(u.id, _copySourceDay);
+      if (srcBrk && srcBrk.slot) {
+        // Only assign if the user is scheduled on target day for the current shift
+        const onShift = _getSched(u.username, td) === currentShift;
+        if (onShift) {
+          assign(u.id, td, srcBrk.slot, `Copied from ${_copySourceDay} by ${currentUser.name}`);
+          copiedCount++;
+        }
+      }
+    });
+  });
+  
+  closeModal('modal-copy-day');
+  toast(`Successfully applied break assignments to ${targetDays.length} day(s).`, 'ok');
   nav('arrange');
 }
 
