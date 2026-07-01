@@ -5,6 +5,7 @@ let _arrangeMonthTab = new Date().getMonth() + 1; // 1-12
 let _collapsedTiers = new Set();
 var _arrMonthYear  = new Date().getFullYear();
 var _arrMonthMonth = new Date().getMonth() + 1; // 1–12
+let arrangeViewMode = localStorage.getItem('arrange_view_mode') || 'edit'; // 'edit' | 'overview'
 // Persisted bulk-panel state — survives re-renders and sync polls
 let _bulkGroups = new Set(); // selected group checkboxes
 let _bulkDays = new Set(); // selected day checkboxes
@@ -112,47 +113,60 @@ function renderArrange() {
 <div class="page-header">
   <div class="page-title">Arrange Breaks — Shift ${currentShift}</div>
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-    ${monthPickerHTML}
-    ${weekPickerHTML}
-    ${autoAssignToggleHTML}
+    ${arrangeMainTab !== 'month' ? monthPickerHTML : ''}
+    ${arrangeMainTab !== 'month' ? weekPickerHTML : ''}
+    ${arrangeMainTab !== 'month' ? autoAssignToggleHTML : ''}
+    ${arrangeMainTab !== 'month' ? `
     <button id="save-breaks-btn" class="btn btn-accent"
       onclick="saveBreaksToCloud()"
       style="display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 16px;">
       <span id="save-breaks-ico">☁</span>
       <span id="save-breaks-lbl">Save Breaks</span>
     </button>
+    ` : ''}
   </div>
 </div>
 
-<!-- Top-level 2 tabs -->
-<div style="display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px;">
-  <button onclick="switchArrangeMainTab('assign')"
-    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
-      background:none; color:${arrangeMainTab === 'assign' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${arrangeMainTab === 'assign' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px; transition:all .12s;">
-    ✏️ Arrange Breaks
-  </button>
-  <button onclick="switchArrangeMainTab('overview')"
-    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
-      background:none; color:${arrangeMainTab === 'overview' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${arrangeMainTab === 'overview' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px; transition:all .12s;">
-    📊 Week Overview
-  </button>
-  <button onclick="switchArrangeMainTab('month')"
-    style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
-      background:none; color:${arrangeMainTab === 'month' ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:3px solid ${arrangeMainTab === 'month' ? 'var(--accent)' : 'transparent'};
-      margin-bottom:-2px; transition:all .12s;">
-    📅 Month Overview
-  </button>
+<!-- Top-level tabs -->
+<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+  <div style="display:flex; gap:0;">
+    <button onclick="switchArrangeMainTab('assign')"
+      style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+        background:none; color:${arrangeMainTab === 'assign' ? 'var(--accent)' : 'var(--text2)'};
+        border-bottom:3px solid ${arrangeMainTab === 'assign' ? 'var(--accent)' : 'transparent'};
+        margin-bottom:-2px; transition:all .12s;">
+      ✏️ Arrange Breaks
+    </button>
+    <button onclick="switchArrangeMainTab('month')"
+      style="padding:9px 24px; font-size:13px; font-weight:600; cursor:pointer; border:none;
+        background:none; color:${arrangeMainTab === 'month' ? 'var(--accent)' : 'var(--text2)'};
+        border-bottom:3px solid ${arrangeMainTab === 'month' ? 'var(--accent)' : 'transparent'};
+        margin-bottom:-2px; transition:all .12s;">
+      📅 Month Overview
+    </button>
+  </div>
+
+  ${arrangeMainTab === 'assign' ? `
+  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:var(--bg3); padding:3px; border-radius:8px; border:1px solid var(--border);">
+    <button onclick="switchArrangeViewMode('edit')"
+      style="padding:5px 12px; font-size:11px; font-weight:600; cursor:pointer; border:none; border-radius:6px;
+        background:${arrangeViewMode === 'edit' ? 'var(--accent)' : 'transparent'};
+        color:${arrangeViewMode === 'edit' ? '#fff' : 'var(--text2)'}; transition:all .15s;">
+      ✏️ Edit Mode
+    </button>
+    <button onclick="switchArrangeViewMode('overview')"
+      style="padding:5px 12px; font-size:11px; font-weight:600; cursor:pointer; border:none; border-radius:6px;
+        background:${arrangeViewMode === 'overview' ? 'var(--accent)' : 'transparent'};
+        color:${arrangeViewMode === 'overview' ? '#fff' : 'var(--text2)'}; transition:all .15s;">
+      👁️ Overview Mode
+    </button>
+  </div>
+  ` : ''}
 </div>
 
 <div id="arrange-main-content">
   ${arrangeMainTab === 'assign' ? _renderArrangeAssignTab(weekRange)
-    : arrangeMainTab === 'month' ? _renderArrangeMonthOverview()
-    : _renderArrangeOverviewTab(weekRange)}
+    : _renderArrangeMonthOverview()}
 </div>`;
 }
 
@@ -231,6 +245,12 @@ async function saveBreaksToCloud() {
 
 function switchArrangeMainTab(tab) {
   arrangeMainTab = tab;
+  nav('arrange');
+}
+
+function switchArrangeViewMode(mode) {
+  arrangeViewMode = mode;
+  localStorage.setItem('arrange_view_mode', mode);
   nav('arrange');
 }
 
@@ -434,6 +454,23 @@ function _clearAutoBreaksFromWeek(fromSunday, shifts, force = false) {
   });
 }
 
+function _getArrangeSummaryBarHTML(allMates, weekRange) {
+  const assignedCount = allMates.reduce((acc, u) =>
+    acc + weekRange.filter(d => getAssigned(u.id, d) || getAssigned(u.id, getWkDay(d))).length, 0);
+  const totalSlots = allMates.reduce((acc, u) =>
+    acc + weekRange.filter(d => _getSched(u.username, d) === currentShift).length, 0);
+
+  return `
+    <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-weight:600;">
+      📊 WEEK STATUS: ${allMates.length} members · ${assignedCount}/${totalSlots} assigned (${Math.round((assignedCount/totalSlots)*100 || 0)}%)
+    </span>
+    ${arrangeViewMode === 'overview' ? `
+    <span style="color:var(--ok);font-size:10px;font-weight:600;margin-left:8px;">■ Assigned</span>
+    <span style="color:var(--warn);font-size:10px;font-weight:600;margin-left:8px;">■ Pending</span>
+    <span style="color:var(--accent);font-size:10px;opacity:0.85;font-weight:600;margin-left:8px;">💡 Click cell to cycle: Slot 1 ➔ Slot 2 ➔ Unassigned</span>
+    ` : ''}`;
+}
+
 function _renderArrangeAssignTab(weekRange) {
   // Only include analyst-tier roles (level 0–1) in teams for manual assign
   const allShiftTeams = [...new Set(state.users.filter(u => {
@@ -601,11 +638,22 @@ function _renderArrangeAssignTab(weekRange) {
   </div>
 </div>`;
 
+  const allMates = state.users.filter(u => {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    if (_ul == null || _ul >= 2) return false;
+    return weekRange.some(d => _getSched(u.username, d) === currentShift);
+  });
+
+  const summaryBar = `<div id="arrange-summary-bar" style="display:flex;align-items:center;gap:16px;margin-bottom:8px;margin-top:4px;flex-wrap:wrap;">
+    ${_getArrangeSummaryBarHTML(allMates, weekRange)}
+  </div>`;
+
   const weekTable = getArrangeDayMemberList(null);
   // Disconnect previous observer so it doesn't fire on stale elements
   if (_arrResizeObs) { _arrResizeObs.disconnect(); _arrResizeObs = null; }
   requestAnimationFrame(function() { _initArrResize(); });
-  return collapsePanel + weekTable;
+  return collapsePanel + summaryBar + weekTable;
 }
 
 function _resizeArrTable() {
@@ -646,123 +694,7 @@ function _toggleArrangeControls() {
   setTimeout(_resizeArrTable, 420);
 }
 
-function _renderArrangeOverviewTab(weekRange) {
-  // All users on this shift in the week
-  const shiftUsers = state.users.filter(function(u) {
-    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
-    if (_ul >= 2) return false;
-    return weekRange.some(function(d) { return _getSched(u.username, d) === currentShift; });
-  });
 
-  if (!shiftUsers.length) return `<div class="empty"><div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
-
-  var _todayNow = new Date();
-  const todayDkOv = String(_todayNow.getDate()).padStart(2,'0') + '/' + String(_todayNow.getMonth()+1).padStart(2,'0');
-  const summaryHeaders = weekRange.map((d, i) => {
-    const isToday = d === todayDkOv;
-    const isActive = d === arrangeActiveDay;
-    return `<th style="text-align:center;padding:7px 4px;font-size:10px;min-width:54px;
-      font-weight:700;
-      position:sticky;top:0;z-index:10;
-      background:${isToday ? 'var(--accent)' : isActive ? 'var(--bg4)' : 'var(--bg3)'};
-      color:${isToday ? '#fff' : isActive ? 'var(--accent)' : 'var(--text2)'};
-      border-bottom:2px solid ${isToday ? 'var(--accent2)' : 'var(--border)'};
-      ">
-      ${getWkDay(d)}<br>
-      <span style="font-weight:400;font-size:9px;opacity:0.7;">${d}</span>
-    </th>`;
-  }).join('');
-
-  const summaryRows = shiftUsers.map(u => {
-    const dayCells = weekRange.map((d, i) => {
-      const dn = getWkDay(d);
-      var shiftVal = _getSched(u.username, d);
-      const onShift = shiftVal === currentShift;
-      const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
-
-      // 1. Handle empty cells (Off days or Different shifts)
-      if (shiftVal === '0') return `<td style="text-align:center;padding:6px 4px;"><span style="color:var(--text3);font-size:10px;">—</span></td>`;
-      if (!onShift) return `<td style="text-align:center;padding:6px 4px;"><span class="sh sh-${shiftVal}" style="width:20px;height:20px;font-size:10px;">${shiftVal}</span></td>`;
-
-      var ovMk = _todayNow.getFullYear() + '-' + d.split('/')[1];
-      var ovAttCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][ovMk] || {})[d]) : '';
-      var ovAttParsed = ovAttCode ? _parseAttCode(ovAttCode) : null;
-      var ovIsOff = ovAttParsed && ovAttParsed.type === 'OFF';
-      var ovIsHalfDay = ovAttParsed && (ovAttParsed.type === 'HD1' || ovAttParsed.type === 'HD2');
-
-      if (ovIsOff || ovIsHalfDay) {
-        var _offBg = {'A':'rgba(234,179,8,.13)','H':'rgba(220,38,38,.13)','0':'rgba(22,163,74,.13)','U':'rgba(225,29,72,.12)','S':'rgba(234,88,12,.12)','L':'rgba(8,145,178,.12)'};
-        var _offFg = {'A':'#ca8a04','H':'#dc2626','0':'#16a34a','U':'#e11d48','S':'#ea580c','L':'#0891b2'};
-        var _ck = String(ovAttCode).replace(/\.0$/,'').toUpperCase();
-        var _cbg = _offBg[_ck] || 'rgba(59,130,246,.13)';
-        var _cfg = _offFg[_ck] || '#3b82f6';
-        return `<td style="text-align:center;padding:6px 4px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;
-            width:28px;height:22px;border-radius:4px;font-size:9px;font-weight:700;
-            background:${_cbg};color:${_cfg};font-family:'IBM Plex Mono',monospace;">${_ck}</span>
-        </td>`;
-      }
-
-      // 2. CONVERT TIME TO LEGEND (D1, D2, etc.)
-      // This uses your shift code (e.g., 'D') and the time (e.g., '19:30–21:00') 
-      // to find the short legend code.
-      const code = br ? getShortSlot(currentShift, br.slot) : '?';
-const ov_si = (code.length === 2 && code[0] === currentShift) ? parseInt(code[1]) - 1 : -1;
-const isActive = d === arrangeActiveDay;
-const ov_class = br
-  ? `break-slot slot-${ov_si === 0 ? 1 : 2} assigned overview-cell-assigned${isActive ? ' overview-cell-active' : ''}`
-  : `break-slot overview-cell-pending${isActive ? ' overview-cell-active' : ''}`;
-
-      return `<td style="text-align:center;padding:6px 4px;background:${isActive ? 'rgba(200,212,0,0.06)' : ''};">
-    <span onclick="switchArrangeMainTab('assign'); arrangeActiveDay='${d}'; nav('arrange');"
-      class="${ov_class}"
-      style="display:inline-flex;align-items:center;justify-content:center;
-        width:28px;height:22px;border-radius:4px;font-size:10px;font-weight:700;
-        font-family:'IBM Plex Mono',monospace;cursor:pointer;
-        ${isActive ? 'outline:2px solid var(--accent);outline-offset:2px;' : ''}"
-      title="${br ? getSlotTime(br.slot, d) : 'Not assigned — click to assign'}">
-      ${code} </span>
-  </td>`;
-    }).join('');
-
-    return `<tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:7px 12px;white-space:nowrap;border-right:1px solid var(--border);min-width:200px;">
-        <div style="font-weight:600;font-size:12px;margin-bottom:2px;">${u.name}</div>
-        <div style="display:flex;align-items:center;gap:5px;">
-          <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team}</span>
-          <span class="role-tag ${getRoleInfo(u.role).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role).label}</span>
-        </div>
-      </td>
-      ${dayCells}
-    </tr>`;
-  }).join('');
-
-  const assignedCount = shiftUsers.reduce((acc, u) =>
-    acc + weekRange.filter(d => getAssigned(u.id, d) || getAssigned(u.id, WEEK_DAYS[weekRange.indexOf(d)])).length, 0);
-  const totalSlots = shiftUsers.length * weekRange.filter(d => shiftUsers.some(u => _getSched(u.username, d) === currentShift)).length;
-
-  return `
-<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
-  <span style="font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">
-    ${shiftUsers.length} members · ${assignedCount} assigned
-  </span>
-  <span style="color:var(--ok);font-size:11px;">■ Assigned</span>
-  <span style="color:var(--warn);font-size:11px;">■ Pending</span>
-  <span style="color:var(--accent);font-size:10px;opacity:0.7;">Click a cell to assign</span>
-</div>
-<div class="staff-tbl-wrap">
-  <table style="border-collapse:collapse;width:100%;">
-    <thead>
-      <tr style="background:var(--bg3);">
-        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text2);min-width:200px;border-right:1px solid var(--border);position:sticky;top:0;z-index:10;background:var(--bg3);">MEMBER</th>
-        ${summaryHeaders}
-      </tr>
-    </thead>
-    <tbody>${summaryRows}</tbody>
-  </table>
-</div>`;
-}
 
 
 function switchArrangeDay(day) {
@@ -858,8 +790,10 @@ function _renderArrangeMonthOverview() {
       var isPast = _movIsPast(dk, year);
       var bg = isToday ? 'var(--accent)' : isPast ? 'var(--bg4)' : isWeekend ? 'rgba(0,0,0,.055)' : 'var(--bg3)';
       var col = isToday ? '#fff' : (isPast || isWeekend) ? 'var(--text3)' : 'var(--text2)';
+      var borderLeft = dayName === 'Mon' ? 'border-left: 2px solid var(--border2);' : '';
       return '<th style="text-align:center;min-width:34px;padding:5px 2px;font-size:10px;font-weight:700;' +
         'background:' + bg + ';color:' + col + ';opacity:' + (isPast ? '.35' : '1') + ';' +
+        borderLeft +
         'position:sticky;top:0;z-index:10;">' +
         '<div>' + dd + '</div>' +
         '<div style="font-size:9px;font-weight:400;opacity:.7;">' + dayName + '</div>' +
@@ -901,24 +835,28 @@ function _renderArrangeMonthOverview() {
       rowIndex++;
       var rowBaseBg = isEven ? 'transparent' : 'rgba(0,0,0,.025)';
 
+      var count1 = 0, count2 = 0;
+
       var cells = dates.map(function(dk) {
         var isToday = dk === todayDk;
+        var isMon = getWkDay(dk) === 'Mon';
         var isWeekend = getWkDay(dk) === 'Sat' || getWkDay(dk) === 'Sun';
         var isPast = _movIsPast(dk, year);
+        var borderLeft = isMon ? 'border-left: 2px solid var(--border2);' : '';
 
         // Past cells: blank + dimmed
         if (isPast) {
-          return '<td style="padding:4px 1px;opacity:.2;background:var(--bg4);"></td>';
+          return '<td style="padding:4px 1px;opacity:.2;background:var(--bg4);' + borderLeft + '"></td>';
         }
 
         var onShiftCount = teamMembers.filter(function(u) {
           return _getSched(u.username, dk) === currentShift;
         }).length;
 
-        // Not on shift this day: blank cell (no dash — reduces visual noise)
+        // Not on shift this day: blank cell
         if (onShiftCount === 0) {
           var emptyBg = isToday ? 'rgba(31,102,241,.06)' : isWeekend ? 'rgba(0,0,0,.04)' : '';
-          return '<td style="padding:4px 1px;background:' + emptyBg + ';"></td>';
+          return '<td style="padding:4px 1px;background:' + emptyBg + ';' + borderLeft + '"></td>';
         }
 
         var slot = null;
@@ -937,28 +875,45 @@ function _renderArrangeMonthOverview() {
 
         var badgeStyle, badgeText;
         if (slotCode === currentShift + '1') {
-          badgeStyle = 'background:rgba(31,102,241,.18);color:var(--accent);border:1px solid rgba(31,102,241,.25);';
+          count1++;
+          badgeStyle = 'background:rgba(31,102,241,.18);color:#1F66F1;border:1.5px solid #1F66F1;box-shadow:0 0 6px rgba(31,102,241,.25);width:20px;height:20px;border-radius:50%;';
           badgeText = '1';
         } else if (slotCode === currentShift + '2') {
-          badgeStyle = 'background:rgba(245,158,11,.18);color:var(--warn);border:1px solid rgba(245,158,11,.28);';
+          count2++;
+          badgeStyle = 'background:rgba(245,158,11,.18);color:#f59e0b;border:1.5px solid #f59e0b;box-shadow:0 0 6px rgba(245,158,11,.25);width:20px;height:20px;border-radius:50%;';
           badgeText = '2';
         } else {
-          badgeStyle = 'background:rgba(156,163,175,.12);color:var(--text3);border:1px solid rgba(156,163,175,.18);';
+          badgeStyle = 'background:transparent;color:var(--text3);border:1.5px dashed var(--border2);width:20px;height:20px;border-radius:50%;opacity:0.55;';
           badgeText = '?';
         }
 
         var todayColBg = isToday ? 'rgba(31,102,241,.06)' : isWeekend ? 'rgba(0,0,0,.04)' : '';
-        return '<td style="text-align:center;padding:4px 1px;background:' + todayColBg + ';">' +
+        return '<td style="text-align:center;padding:4px 1px;background:' + todayColBg + ';' + borderLeft + '">' +
           '<span style="display:inline-flex;align-items:center;justify-content:center;' +
-            'width:22px;height:18px;border-radius:4px;font-size:11px;font-weight:700;' +
+            'font-size:10px;font-weight:700;' +
             'font-family:monospace;' + badgeStyle + '">' + badgeText + '</span></td>';
       }).join('');
 
-      var stickyCell = '<td style="padding:5px 12px 5px 10px;font-size:12px;font-weight:600;white-space:nowrap;' +
+      var balanceBarHTML = '';
+      if (count1 + count2 > 0) {
+        var pct1 = Math.round((count1 / (count1 + count2)) * 100);
+        balanceBarHTML = '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;" title="Rotation Balance: Slot 1 (' + count1 + ' days) vs Slot 2 (' + count2 + ' days)">' +
+          '<span style="font-size:9px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;white-space:nowrap;">1:<b>' + count1 + 'd</b> vs 2:<b>' + count2 + 'd</b></span>' +
+          '<div style="width:40px;height:4px;background:rgba(245,158,11,.2);border-radius:2px;overflow:hidden;display:flex;border:0.5px solid var(--border2);">' +
+            '<div style="width:' + pct1 + '%;background:#1f66f1;height:100%;"></div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      var stickyCell = '<td style="padding:6px 12px;white-space:nowrap;' +
         'position:sticky;left:0;z-index:5;' +
         'background:' + (isEven ? 'var(--bg2)' : 'var(--bg3)') + ';' +
         'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);' +
-        'border-right:1px solid var(--border);">' + team + (memberNames ? ' - ' + memberNames : '') + '</td>';
+        'border-right:1px solid var(--border);">' +
+          '<div style="font-weight:600;font-size:12px;">' + team + '</div>' +
+          (memberNames ? '<div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:1px;max-width:240px;overflow:hidden;text-overflow:ellipsis;" title="' + memberNames + '">' + memberNames + '</div>' : '') +
+          balanceBarHTML +
+        '</td>';
 
       out += '<tr style="background:' + rowBaseBg + ';" ' +
         'onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="this.style.background=\'' + rowBaseBg + '\'">' +
@@ -967,23 +922,13 @@ function _renderArrangeMonthOverview() {
       return out;
     }).join('');
 
-    var isCurrent = month === curMonth && year === now.getFullYear();
     return '<div id="mov-m' + month + '-' + year + '" style="margin-bottom:32px;scroll-margin-top:52px;">' +
-      '<div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:10px;' +
-        'padding:8px 14px;background:var(--bg3);border-radius:7px;' +
-        'border-left:4px solid ' + (isCurrent ? 'var(--accent)' : 'var(--border2)') + ';' +
-        'display:flex;align-items:center;gap:10px;">' +
-        _monthNames[month-1] + ' ' + year +
-        '<span style="font-size:10px;color:var(--text3);font-weight:400;">' + teams.length + ' teams \xb7 Shift ' + currentShift + '</span>' +
-        (isCurrent ? '<span style="font-size:10px;color:var(--accent);font-weight:600;margin-left:auto;' +
-          'background:rgba(31,102,241,.1);padding:2px 8px;border-radius:20px;border:1px solid rgba(31,102,241,.2);">Current</span>' : '') +
-      '</div>' +
       '<div style="overflow-x:auto;border-radius:6px;border:1px solid var(--border);box-shadow:0 1px 6px rgba(0,0,0,.07);">' +
       '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
       '<thead><tr>' +
         '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:5px 12px 5px 10px;' +
           'font-size:10px;font-weight:700;color:var(--text3);text-align:left;letter-spacing:.06em;' +
-          'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);border-right:1px solid var(--border);">TEAM</th>' +
+          'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);border-right:1px solid var(--border);">TEAM (' + teams.length + ')</th>' +
         theadCols +
       '</tr></thead>' +
       '<tbody>' + tbodyRows + '</tbody>' +
@@ -1084,6 +1029,35 @@ function getArrangeDayMemberList(_unused) {
       const br_idx = br ? _slotIndex(br.slot, currentShift) : -1;
 
       function _nd(s) { return (s || '').replace(/[\u2012\u2013\u2014\u002D]/g, '-').replace(/\s/g, ''); }
+
+      if (arrangeViewMode === 'overview') {
+        let badgeStyle, badgeText, badgeClass;
+        if (br_idx === 0) {
+          badgeClass = 'arr-slot arr-slot-1 arr-slot-on';
+          badgeStyle = 'min-width:32px;height:20px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;';
+          badgeText = `${currentShift}1`;
+        } else if (br_idx === 1) {
+          badgeClass = 'arr-slot arr-slot-2 arr-slot-on';
+          badgeStyle = 'min-width:32px;height:20px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;';
+          badgeText = `${currentShift}2`;
+        } else if (br_idx >= 2) {
+          badgeClass = `arr-slot arr-slot-${br_idx + 1} arr-slot-on`;
+          badgeStyle = 'min-width:32px;height:20px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;';
+          badgeText = `${currentShift}${br_idx + 1}`;
+        } else {
+          badgeClass = 'arr-slot arr-slot-off';
+          badgeStyle = 'min-width:32px;height:20px;font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;opacity:0.55;';
+          badgeText = '?';
+        }
+
+        return `<td class="arr-cell${isToday ? ' arr-cell-today' : ''}">
+          <div style="display:flex;justify-content:center;align-items:center;">
+            <span class="${badgeClass}" style="${badgeStyle}" onclick="cycleAssignSlot(${u.id},'${d}')" title="${br ? br.slot : 'Not assigned — click to cycle'}">
+              ${badgeText}
+            </span>
+          </div>
+        </td>`;
+      }
 
       const slotBtns = slots.map((s, idx) => {
         // Normalize both sides for comparison to handle any dash variant in stored data
@@ -1332,6 +1306,20 @@ function quickAssign(uid, day, slot) {
   else { const c = document.getElementById('arrange-day-content'); if (c) c.innerHTML = getArrangeDayMemberList(null); }
   var newWrap = document.querySelector('.arr-table-wrap');
   if (newWrap) { newWrap.scrollTop = _sT; newWrap.scrollLeft = _sL; }
+  
+  // Dynamic summary bar update
+  const weekRange = getWeekRange(activeMonday);
+  const allMates = state.users.filter(u => {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    if (_ul == null || _ul >= 2) return false;
+    return weekRange.some(d => _getSched(u.username, d) === currentShift);
+  });
+  const summaryEl = document.getElementById('arrange-summary-bar');
+  if (summaryEl) {
+    summaryEl.innerHTML = _getArrangeSummaryBarHTML(allMates, weekRange);
+  }
+
   updateBadge();
 }
 
@@ -1341,6 +1329,50 @@ function quickAssignByIndex(uid, day, slotIdx) {
   const slots = BREAK_SLOTS[currentShift] || [];
   if (slotIdx < 0 || slotIdx >= slots.length) { toast('Invalid slot.', 'err'); return; }
   quickAssign(uid, day, currentShift + (slotIdx + 1));
+}
+
+function cycleAssignSlot(uid, day) {
+  if (!isLeader(currentUser)) { toast('Only leaders can assign breaks.', 'err'); return; }
+  const slots = BREAK_SLOTS[currentShift] || [];
+  const br = getAssigned(uid, day);
+  const curIdx = br ? _slotIndex(br.slot, currentShift) : -1;
+  
+  let nextIdx = curIdx + 1;
+  if (nextIdx >= slots.length) {
+    // Unassign break
+    delete state.breaks[`${uid}_${day}`];
+    save();
+    if (syncEnabled()) syncPush();
+    toast('Break removed');
+  } else {
+    // Assign next slot
+    const slot = currentShift + (nextIdx + 1);
+    assign(uid, day, slot, '');
+    toast(`Break assigned: ${getShortSlot(currentShift, slot) || slot}`);
+  }
+  
+  var wrap = document.querySelector('.arr-table-wrap');
+  var _sT = wrap ? wrap.scrollTop : 0;
+  var _sL = wrap ? wrap.scrollLeft : 0;
+  if (wrap) { wrap.outerHTML = getArrangeDayMemberList(null); }
+  else { const c = document.getElementById('arrange-day-content'); if (c) c.innerHTML = getArrangeDayMemberList(null); }
+  var newWrap = document.querySelector('.arr-table-wrap');
+  if (newWrap) { newWrap.scrollTop = _sT; newWrap.scrollLeft = _sL; }
+  
+  // Dynamic summary bar update
+  const weekRange = getWeekRange(activeMonday);
+  const allMates = state.users.filter(u => {
+    var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
+    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    if (_ul == null || _ul >= 2) return false;
+    return weekRange.some(d => _getSched(u.username, d) === currentShift);
+  });
+  const summaryEl = document.getElementById('arrange-summary-bar');
+  if (summaryEl) {
+    summaryEl.innerHTML = _getArrangeSummaryBarHTML(allMates, weekRange);
+  }
+
+  updateBadge();
 }
 
 function _selectBulkGroups(type) {
