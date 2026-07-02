@@ -1345,6 +1345,9 @@ function syncPolicy(current, log) {
   log('[Policy] Done: ' + result.written + ' new records written, '
     + result.skipped + ' skipped (duplicate/invalid), '
     + result.total + ' rows processed');
+  if (result.written > 0) {
+    current._policyComplianceUpdatedAt = Date.now();
+  }
   return result;
 }
 

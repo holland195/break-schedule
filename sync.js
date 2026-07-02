@@ -301,31 +301,14 @@ function _applyRemoteData(remote) {
   }
 
   // Policy Compliance records
-if (remote.policyCompliance && remote.policyCompliance.length > 0) {
-  // Only overwrite local if remote has more records or local is empty
-  if (!state.policyCompliance || state.policyCompliance.length === 0
-      || remote.policyCompliance.length >= state.policyCompliance.length) {
-    // Preserve local agent feedback / status edits that are newer
-    var pcMap = {};
-    (state.policyCompliance || []).forEach(function(r) {
-      if (r.no) pcMap[r.no] = r;
-    });
-    state.policyCompliance = remote.policyCompliance.map(function(r) {
-      var local = pcMap[r.no];
-      if (local) {
-        // Keep whichever feedback/status was set more recently
-        return Object.assign({}, r, {
-          agentFeedback:        local.agentFeedback || r.agentFeedback,
-          feedbackReadByLeader: local.feedbackReadByLeader || r.feedbackReadByLeader,
-          leaderConfirm:        local.leaderConfirm || r.leaderConfirm,
-          status:               local.status || r.status,
-          mailCheck:            local.mailCheck || r.mailCheck,
-        });
-      }
-      return Object.assign({}, r);
-    });
+  if (remote.policyCompliance) {
+    const localPCAt  = state._policyComplianceUpdatedAt  || 0;
+    const remotePCAt = remote._policyComplianceUpdatedAt || 0;
+    if (remotePCAt >= localPCAt || !state.policyCompliance || state.policyCompliance.length === 0) {
+      state.policyCompliance = remote.policyCompliance;
+      state._policyComplianceUpdatedAt = remotePCAt;
+    }
   }
-}
   if (remote.staffInfo) {
    Object.entries(remote.staffInfo).forEach(([uname, si]) => {
      if (!state.staffInfo[uname]) state.staffInfo[uname] = {};
@@ -484,6 +467,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   _breakSplitsUpdatedAt:  state._breakSplitsUpdatedAt  || 0,
   _shiftConfigUpdatedAt:  state._shiftConfigUpdatedAt  || 0,
   _usersUpdatedAt:        state._usersUpdatedAt         || 0,
+  _policyComplianceUpdatedAt: state._policyComplianceUpdatedAt || 0,
 };
     const kb = (JSON.stringify(payload).length / 1024).toFixed(1);
     console.log(`[sync] push payload: ${kb}kb`);
