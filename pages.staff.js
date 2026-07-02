@@ -1672,9 +1672,7 @@ function importMonthlyAttendance() {
         const uid = parseInt(uidStr);
         const u = state.users.find(x => x.id === uid);
         if (!u) return;
-        const [_d, _m] = dk.split('/');
-        const mk = `${new Date().getFullYear()}-${String(_m).padStart(2, '0')}`;
-        const code = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+        const code = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : '';
         if (!code) return;
         const parsed = _parseAttCode(code);
         if (parsed?.type === 'OFF' || parsed?.type === 'HD1' || parsed?.type === 'HD2') {

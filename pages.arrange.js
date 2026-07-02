@@ -1008,8 +1008,7 @@ function getArrangeDayMemberList(_unused) {
         </td>`;
       }
 
-      var arrMk = _now.getFullYear() + '-' + d.split('/')[1];
-      var arrAttCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][arrMk] || {})[d]) : '';
+      var arrAttCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, d) : '';
       var arrAttParsed = arrAttCode ? _parseAttCode(arrAttCode) : null;
       var arrIsOff = arrAttParsed && arrAttParsed.type === 'OFF';
       var arrIsHalfDay = arrAttParsed && (arrAttParsed.type === 'HD1' || arrAttParsed.type === 'HD2');
@@ -1110,8 +1109,7 @@ function getArrangeDayMemberList(_unused) {
       tierUsers.forEach(u => {
         var onShift = _getSched(u.username, d) === currentShift;
         if (!onShift) return;
-        var _ftMk = _now.getFullYear() + '-' + d.split('/')[1];
-        var _ftCode = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][_ftMk] || {})[d]) : '';
+        var _ftCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, d) : '';
         var _ftParsed = _ftCode ? _parseAttCode(_ftCode) : null;
         if (_ftParsed && _ftParsed.type === 'OFF') return;
         const br = getAssigned(u.id, d) || getAssigned(u.id, dn);
@@ -1226,7 +1224,7 @@ function _copyBreaksForSlack() {
 
   var tableRows = '';
   shiftUsers.forEach(function(u) {
-    var attCode2 = (state.monthlyAttendance || {})[u.username] ? ((state.monthlyAttendance[u.username][mk2] || {})[dk]) : '';
+    var attCode2 = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : '';
     var attParsed2 = attCode2 ? _parseAttCode(attCode2) : null;
     var isOff2 = attParsed2 && attParsed2.type === 'OFF';
     var br2 = DB.getBreak(u.id, dk);

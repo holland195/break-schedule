@@ -662,6 +662,39 @@ function _parseAttCode(raw) {
   return ATT_CODE_MAP[s] || null;
 }
 
+function _getMonthlyAttendanceCode(username, dateKey) {
+  if (!username || !dateKey) return '';
+  if (!state || !state.monthlyAttendance || !state.monthlyAttendance[username]) return '';
+
+  const parts = dateKey.split('/');
+  if (parts.length < 2) return '';
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = typeof TS !== 'undefined' && TS.attYear ? TS.attYear : new Date().getFullYear();
+
+  // 1. Try calendar month key (e.g., "2026-06" for "25/06")
+  const calMk = year + '-' + String(month).padStart(2, '0');
+  let code = state.monthlyAttendance[username][calMk]?.[dateKey];
+  if (code !== undefined && code !== null && code !== '') return code;
+
+  // 2. Try working month key (e.g., "2026-07" for "25/06" if day >= 25)
+  let workMon = day >= 25 ? month + 1 : month;
+  let workYr = year;
+  if (workMon > 12) { workMon = 1; workYr++; }
+  const workMk = workYr + '-' + String(workMon).padStart(2, '0');
+  code = state.monthlyAttendance[username][workMk]?.[dateKey];
+  if (code !== undefined && code !== null && code !== '') return code;
+
+  // 3. Fallback: Search all month keys for this user
+  const userMonths = state.monthlyAttendance[username];
+  for (const mk in userMonths) {
+    if (userMonths[mk] && userMonths[mk][dateKey] !== undefined && userMonths[mk][dateKey] !== null && userMonths[mk][dateKey] !== '') {
+      return userMonths[mk][dateKey];
+    }
+  }
+  return '';
+}
+
 function _getMondayAnchor(dateStr) {
   var parts = dateStr.split('/');
   var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
