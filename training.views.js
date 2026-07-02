@@ -690,7 +690,15 @@ function renderAttendanceTraining() {
       if(isLate)  { uLate++; totalLate++; }
       if(isEarly) { uEarly++; totalEarly++; }
 
-      const _def = SHIFT_DEFAULTS[shift]||{};
+      const _shiftCode = String(shift || '').trim().toUpperCase();
+      let _def = SHIFT_DEFAULTS[_shiftCode] || {};
+      const _hCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : '';
+      const _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
+      if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
+        const _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
+        const _hdDef = SHIFT_DEFAULTS[_hdKey];
+        if (_hdDef) _def = _hdDef;
+      }
       const lateTxt  = typeof _fmtDiffFull==='function' ? _fmtDiffFull(lateMin, rec?.start, _def.start) : '00:00';
       const earlyTxt = typeof _fmtDiffFull==='function' ? _fmtDiffFull(earlyMin, _def.end, rec?.end) : '00:00';
       const bg = isLate ? 'background:var(--D-bg);' : isEarly ? 'background:rgba(245,158,11,.08);' : hasRec ? 'background:rgba(74,222,128,.06);' : '';

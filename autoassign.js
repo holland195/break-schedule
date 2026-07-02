@@ -304,8 +304,7 @@ function _getSlotMap(rot, shift, tier, sunday, members, slot1, slot2, slot2Count
 }
 
 function _isOffOrHalfDay(username, dateKey) {
-  var mk = new Date().getFullYear() + '-' + dateKey.split('/')[1];
-  var attCode = (state.monthlyAttendance || {})[username] ? ((state.monthlyAttendance[username][mk] || {})[dateKey]) : '';
+  var attCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(username, dateKey) : '';
   if (!attCode) return false;
   var parsed = _parseAttCode(attCode);
   if (!parsed) return false;

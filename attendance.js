@@ -132,9 +132,7 @@ function calcLateEarly(uid, dateKey) {
   // If monthly attendance says HD1/HD2, use the half-day shift defaults so
   // late/early deltas are relative to the correct half-shift times (e.g. A1
   // ends at 19:00, not midnight) rather than the full-shift boundaries.
-  const [, _attM] = dateKey.split('/');
-  const _attMk = `2026-${_attM.padStart(2, '0')}`;
-  const _attCode = state.monthlyAttendance?.[u.username]?.[_attMk]?.[dateKey];
+  const _attCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dateKey) : '';
   const _parsedAtt = _attCode && typeof _parseAttCode === 'function' ? _parseAttCode(_attCode) : null;
   if (_parsedAtt?.type === 'HD1' || _parsedAtt?.type === 'HD2') {
     const _hdKey = (_parsedAtt.shift || shiftCodeNorm.charAt(0)) + (_parsedAtt.type === 'HD1' ? '1' : '2');
@@ -185,9 +183,7 @@ function _getHalfDayCellSet(u, weekDates) {
   if (!u) return s;
   const y = new Date().getFullYear();
   weekDates.forEach(dk => {
-    const [, _m] = dk.split('/');
-    const mk = `${y}-${String(_m).padStart(2, '0')}`;
-    const code = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+    const code = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : '';
     if (!code) return;
     const p = typeof _parseAttCode === 'function' ? _parseAttCode(code) : null;
     if (p?.type === 'HD1' || p?.type === 'HD2') s.add(dk);
@@ -276,10 +272,7 @@ function _getLogbookConflicts(userId, weekDates) {
     const hasRealRecord = (rec.start && rec.start.trim() && rec.start !== '—') ||
       (rec.end && rec.end.trim() && rec.end !== '—');
     if (!hasRealRecord) return;
-    const [_d, _m] = dk.split('/');
-    const y = new Date().getFullYear();
-    const mk = `${y}-${_m.padStart ? _m : String(_m).padStart(2, '0')}`;
-    const uAttCode = state.monthlyAttendance?.[u.username]?.[mk]?.[dk];
+    const uAttCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : '';
     if (!uAttCode) return;
     const parsed = typeof _parseAttCode === 'function' ? _parseAttCode(uAttCode) : null;
     if (!parsed) return;
@@ -455,16 +448,12 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
       const _shiftCodeRaw = _getUserShiftOnDate(u, dk);
       const _shiftCode = String(_shiftCodeRaw || '').trim().toUpperCase();
       let _def = SHIFT_DEFAULTS[_shiftCode] || {};
-      if (halfDayCells.has(dk)) {
-        const [, _hm] = dk.split('/');
-        const _hmk = `${new Date().getFullYear()}-${String(_hm).padStart(2, '0')}`;
-        const _hCode = state.monthlyAttendance?.[u.username]?.[_hmk]?.[dk];
-        const _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
-        if (_hParsed?.type === 'HD1' || _hParsed?.type === 'HD2') {
-          const _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
-          const _hdDef = SHIFT_DEFAULTS[_hdKey];
-          if (_hdDef) _def = _hdDef;
-        }
+      const _hCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : '';
+      const _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
+      if (_hParsed?.type === 'HD1' || _hParsed?.type === 'HD2') {
+        const _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
+        const _hdDef = SHIFT_DEFAULTS[_hdKey];
+        if (_hdDef) _def = _hdDef;
       }
 
       // Row 1: login time only — color shows status
@@ -773,10 +762,7 @@ function _updateAttCell(uid, dateKey) {
   // Shift defaults (with half-day override)
   var _shiftCode = String(_getUserShiftOnDate(u, dateKey) || '').trim().toUpperCase();
   var _def = SHIFT_DEFAULTS[_shiftCode] || {};
-  var _parts = dateKey.split('/');
-  var _mk = new Date().getFullYear() + '-' + _parts[1];
-  var _hCode = (state.monthlyAttendance && state.monthlyAttendance[u.username])
-    ? ((state.monthlyAttendance[u.username][_mk] || {})[dateKey]) : '';
+  var _hCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dateKey) : '';
   var _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
   if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
     var _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
@@ -1011,10 +997,7 @@ function exportWeeklyLogCSV() {
         return;
       }
 
-      var _parts = dk.split('/');
-      var _mk = year + '-' + _parts[1].padStart(2, '0');
-      var _hCode = (state.monthlyAttendance && state.monthlyAttendance[u.username] && state.monthlyAttendance[u.username][_mk])
-        ? state.monthlyAttendance[u.username][_mk][dk] : null;
+      var _hCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : null;
       var _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
       if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
         var _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
@@ -1224,10 +1207,7 @@ function exportMonthlyLogSpreadsheetCSV() {
       // Calculate effective shift defaults (with half-day override)
       var _shiftCode = String(shift).trim().toUpperCase();
       var _def = SHIFT_DEFAULTS[_shiftCode];
-      var _parts = dk.split('/');
-      var _mk = year + '-' + _parts[1].padStart(2, '0');
-      var _hCode = (state.monthlyAttendance && state.monthlyAttendance[u.username] && state.monthlyAttendance[u.username][_mk])
-        ? state.monthlyAttendance[u.username][_mk][dk] : null;
+      var _hCode = typeof _getMonthlyAttendanceCode === 'function' ? _getMonthlyAttendanceCode(u.username, dk) : null;
       var _hParsed = _hCode && typeof _parseAttCode === 'function' ? _parseAttCode(_hCode) : null;
       if (_hParsed && (_hParsed.type === 'HD1' || _hParsed.type === 'HD2')) {
         var _hdKey = (_hParsed.shift || _shiftCode.charAt(0)) + (_hParsed.type === 'HD1' ? '1' : '2');
