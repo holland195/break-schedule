@@ -212,6 +212,7 @@ function load() {
   return { users:[], breaks:{}, requests:[], extBreaks:{},
            staffInfo:{}, session:null, imported:false,
            _breaksUpdatedAt:0, _usersUpdatedAt:0,
+           _policyComplianceUpdatedAt:0,
            attendance:{}, monthlyAttendance:{}, breakSplits:{},
            staffSchedule:{}, workingTime:{} };
 }
@@ -336,6 +337,7 @@ if (!state.shiftConfig) state.shiftConfig = [];
 if (!state.staffSchedule) state.staffSchedule = {};
 if (!state.gasConfig) state.gasConfig = {};
 if (!state.bulkBreakEnabled) state.bulkBreakEnabled = { A: true, D: true, E: true };
+if (state._policyComplianceUpdatedAt === undefined) state._policyComplianceUpdatedAt = 0;
 // No more SEED_USERS — users come only from schedule import
 
 // Always ensure system admin exists — password '1234', never forced to change

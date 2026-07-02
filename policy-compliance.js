@@ -1148,6 +1148,7 @@ function _pcaSaveRecord() {
     status: 'Processing',
     leaderConfirm:'', mailCheck:false, warningMailDate:'',
   });
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (msg) msg.innerHTML = '<span style="color:var(--ok);">&#x2714; Record #'+no+' saved.</span>';
@@ -1164,6 +1165,7 @@ function _pcDeleteOwnRecord(no) {
   }
   if (!confirm('Delete record #' + no + '?')) return;
   state.policyCompliance.splice(idx, 1);
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
@@ -1188,6 +1190,7 @@ function _pcTrainingAction(no, newStatus) {
     state.policyCompliance[idx].cancelledAt = Date.now();
   }
   state.policyCompliance[idx].feedbackReadByLeader = true;
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();

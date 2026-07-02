@@ -180,6 +180,7 @@ function _fbMarkDone(realIdx) {
   state.policyCompliance[realIdx].agentDoneAt      = Date.now();
   state.policyCompliance[realIdx].feedbackReadByLeader = false;
   state.policyCompliance[realIdx].status           = 'Need Resolve';
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
@@ -402,6 +403,7 @@ function _fbResolveRecord(realIdx) {
   state.policyCompliance[realIdx].resolvedBy          = currentUser.username;
   state.policyCompliance[realIdx].resolvedAt          = Date.now();
   state.policyCompliance[realIdx].feedbackReadByLeader = true;
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
@@ -422,6 +424,7 @@ function _fbSubmitFeedback(realIdx) {
   state.policyCompliance[realIdx].agentFeedbackAt      = Date.now();
   state.policyCompliance[realIdx].feedbackReadByLeader = false;
   state.policyCompliance[realIdx].status               = 'Need Review';
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   if (typeof _pcUpdateBadge === 'function') _pcUpdateBadge();
@@ -439,6 +442,7 @@ function _fbOpenFeedback(realIdx) {
   state.policyCompliance[realIdx].agentFeedback   = txt;
   state.policyCompliance[realIdx].agentFeedbackAt = Date.now();
   state.policyCompliance[realIdx].feedbackReadByLeader = false;
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   updateFeedbackBadge();
@@ -447,6 +451,7 @@ function _fbOpenFeedback(realIdx) {
 
 function _fbMarkRead(realIdx) {
   state.policyCompliance[realIdx].feedbackReadByLeader = true;
+  state._policyComplianceUpdatedAt = Date.now();
   save();
   if (typeof syncWrite === 'function') syncWrite();
   updateFeedbackBadge();
