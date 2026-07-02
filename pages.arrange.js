@@ -935,8 +935,6 @@ function _renderArrangeMonthOverview() {
       '</table></div></div>';
   }).join('');
 
-  if (!sections) return '<div class="empty">No data.</div>';
-
   // Month-nav bar: quick-jump tabs for each month
   var navChips = allMonths.map(function(m) {
     var isCur = m === _arrangeMonthTab;
@@ -956,7 +954,9 @@ function _renderArrangeMonthOverview() {
     'border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">' +
     navChips + '</div>';
 
-  return navBar + sections;
+  var content = sections || '<div class="empty" style="padding:40px; text-align:center; color:var(--text3);">No staff scheduled for this month.</div>';
+
+  return navBar + content;
 }
 // Full-week assign table — all days as columns, no gender col, clear slot states
 function getArrangeDayMemberList(_unused) {
