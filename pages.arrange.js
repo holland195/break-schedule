@@ -590,8 +590,6 @@ function _renderArrangeAssignTab(weekRange) {
         });
         (s2 > s1 ? t2 : t1).push(team);
       });
-      if (t2.length === 0 && t1.length >= 2) t2.push(t1.pop());
-      if (t1.length === 0 && t2.length >= 2) t1.push(t2.pop());
       var n1 = t1.length, n2 = t2.length;
       var chip = '<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;background:' + bg + ';color:' + color + ';min-width:40px;display:inline-block;text-align:center;">' + label + '</span>';
       return '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px;">' +
