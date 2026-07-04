@@ -1,62 +1,133 @@
-# HƯỚNG DẪN SỬ DỤNG ỨNG DỤNG (DÀNH CHO LEAD / SUB / TRAINING)
+# Hướng dẫn nhanh cho Lead / Sub / Training
 
-Tài liệu này hướng dẫn cách sử dụng ứng dụng quản lý giờ nghỉ giải lao dành cho các cấp quản lý và điều hành bao gồm: **Data Analyst Leader (Lead)**, **Data Analyst Supervisor (Sub)**, **Training Manager / Assistant (Ban Đào tạo)** và **Admin**.
+Tài liệu này chỉ liệt kê menu, thao tác chính và cách phản ứng ngắn gọn. Không mô tả trách nhiệm công việc.
 
----
+## Đăng nhập
 
-## 1. Hướng Dẫn Đăng Nhập
-
-Để truy cập vào hệ thống, vui lòng thực hiện các bước sau:
-
-1. Truy cập vào địa chỉ ứng dụng.
-2. Tại màn hình đăng nhập, nhấp vào nút **Sign in with Google** (hoặc **Đăng nhập bằng Google**).
-3. Chọn hoặc đăng nhập bằng tài khoản Google công ty có đuôi email là `@discoveryloft.com` (ví dụ: `cuong.pham@discoveryloft.com`).
-4. Sau khi xác thực thành công, hệ thống sẽ tự động chuyển hướng bạn đến giao diện làm việc chính tương ứng với quyền hạn của bạn.
+- Dùng tài khoản Google công ty `@discoveryloft.com`.
+- Không dùng username hoặc mật khẩu nhập tay.
+- Nếu lỗi đăng nhập, chụp màn hình và chuyển cho người phụ trách.
 
 ![Màn hình đăng nhập](../assets/guidelines/login_page.png)
 
-> [!IMPORTANT]
-> Không sử dụng ô nhập tên đăng nhập và mật khẩu thủ công. Luôn sử dụng hình thức **Đăng nhập bằng Google** bằng email công ty để đảm bảo tính bảo mật và đồng bộ hóa tài khoản.
+## 1. Arrange Breaks
 
----
+Mục đích: sắp xếp break theo tháng, tuần và ca.
 
-## 2. Tính Năng Dành Cho Lead và Sub (Quản Lý Ca/Nhóm)
+![Arrange Breaks](../assets/guidelines/arrange_breaks.png)
 
-Các tài khoản thuộc vai trò **Data Analyst Leader** và **Data Analyst Supervisor** có toàn quyền quản lý và phân bổ lịch nghỉ giải lao cho nhân viên.
+Khi vào menu:
 
-### A. Sắp Xếp Giờ Nghỉ (Arrange Breaks)
-Đây là khu vực chính để thiết lập giờ nghỉ cho nhân viên trong ca làm việc (Shift A, D, E).
+- Chọn đúng `Month`, `Week` và `Shift`.
+- Dùng `Control` khi cần chỉnh nhóm, slot hoặc phân bổ.
+- Kiểm tra bảng chính sau mỗi lần chỉnh.
+- Dùng `Save Breaks` khi lịch đã sẵn sàng publish.
 
-![Giao diện Sắp xếp giờ nghỉ](../assets/guidelines/arrange_breaks.png)
+Cách phản ứng:
 
-1. **Chọn Ca và Thời Gian**:
-   - Sử dụng thanh bộ lọc ở góc trên bên phải để chọn **Ca làm việc (Shift)**, **Tháng (Month)** và **Tuần (Week)** cần sắp xếp.
-2. **Gán Giờ Nghỉ Thủ Công**:
-   - Trên bảng danh sách nhân viên, nhấp vào ô tương ứng với ngày làm việc của nhân viên để chọn gán **Slot 1**, **Slot 2** hoặc **Không gán/Bỏ gán (—)**.
-3. **Gán Giờ Nghỉ Tự Động (Auto Assign)**:
-   - Bật tính năng **Auto Assign** (ON) ở phía trên để hệ thống tự động tính toán và phân bổ đều giờ nghỉ cho các nhân sự trong nhóm dựa trên thuật toán cân bằng.
-4. **Sao Chép Lịch Nghỉ (Copy Day)**:
-   - Nhấp vào nút **Copy** ở đầu cột ngày làm việc để sao chép toàn bộ lịch nghỉ giải lao đã xếp của ngày đó sang các ngày khác trong tuần nhằm tiết kiệm thời gian.
-5. **Tổng Quan Tháng (Month Overview)**:
-   - Chuyển sang tab **Month Overview** để xem bảng theo dõi lịch nghỉ giải lao của tất cả các ngày trong tháng dưới dạng biểu đồ lưới.
+- Chọn group theo position để tránh nhầm role.
+- Khi đổi slot cho một group, kiểm tra các thành viên còn lại có được chọn đúng không.
+- Nếu bảng khó xem, đóng Control sidebar và kiểm tra lại phần grid.
 
-![Giao diện Tổng quan tháng](../assets/guidelines/month_overview.png)
+## 2. Break Swap
 
-   - Giúp kiểm tra trực quan sự cân bằng số ngày trực Slot 1 và Slot 2 của từng nhân viên theo từng cấp bậc (Data Analyst, Data Supervisor, Sr Data Supervisor).
-6. **Lưu Lịch Nghỉ Lên Cloud**:
-   - Sau khi hoàn tất sắp xếp, bấm nút **Save Breaks (Lưu lịch nghỉ)** ở góc trên để đẩy dữ liệu lên hệ thống đám mây, giúp nhân viên có thể xem lịch trực tiếp trên Dashboard của họ.
+Mục đích: xem, duyệt hoặc từ chối request đổi break.
 
----
+![Break Swap](../assets/guidelines/break_swap.png)
 
-## 3. Tính Năng Dành Cho Ban Đào Tạo (Training Manager / Assistant)
+Khi mở request:
 
-Ban Đào tạo tập trung vào việc giám sát và xử lý các vấn đề tuân thủ nội quy của nhân viên.
+- Kiểm tra người gửi, partner, ca, role, ngày tham chiếu và phạm vi.
+- `Single Day` nghĩa là đổi 1 ngày.
+- `Whole Week` nghĩa là đổi từ ngày tham chiếu tới hết tuần.
 
-### A. Kiểm Soát Tuân Thủ Chính Sách (Policy Compliance & Feedback)
-- **Tra cứu vi phạm**: Xem danh sách các trường hợp vi phạm chính sách giờ giấc làm việc hoặc nghỉ giải lao (đi muộn, về sớm, nghỉ sai giờ được gán).
-- **Phản hồi và Xử lý**: 
-  - Xem giải trình/phản hồi từ nhân viên gửi lên.
-  - Phê duyệt hoặc từ chối giải trình vi phạm.
-  - Bấm nút **✓ Mark Resolved (Đánh dấu đã xử lý)** hoặc hủy bỏ biên bản khiếu nại khi đã thống nhất hướng giải quyết.
+Cách phản ứng:
 
-![Giao diện Tuân thủ chính sách](../assets/guidelines/policy_compliance.png)
+- `Pending`: kiểm tra thiếu approval hay thiếu dữ liệu.
+- `Approved`: không sửa nếu không có lý do rõ ràng.
+- `Rejected`: ghi lý do ngắn, rõ ràng.
+- `Cancelled`: chỉ xử lý request mới nếu staff tạo lại.
+
+## 3. 30-min Break
+
+Mục đích: xem, duyệt hoặc từ chối extra break.
+
+![30-min Break](../assets/guidelines/ext_breaks.png)
+
+Khi mở request:
+
+- Kiểm tra staff, ngày, số ngày và giờ.
+- Nếu request có nhiều ngày, tính từng ngày riêng.
+- Rule hiện tại: staff nữ có 3 ngày extra break mỗi tháng.
+- 1 request 3 ngày = tính 3 ngày đã dùng.
+
+Cách phản ứng:
+
+- `Approved`: chỉ duyệt khi không vượt giới hạn.
+- `Rejected`: ghi rõ lý do, ví dụ vượt số ngày hoặc sai giờ.
+- Nếu hệ thống đếm sai, chụp màn hình và báo lại.
+
+## 4. Policy Compliance / Feedback
+
+Mục đích: xem record policy, xử lý phản hồi và cập nhật trạng thái.
+
+![Policy Compliance](../assets/guidelines/policy_compliance.png)
+
+Khi xem record:
+
+- Lọc theo tháng, status hoặc staff nếu danh sách dài.
+- Kiểm tra trạng thái trước khi thao tác.
+- Lead/Sub có thể xóa record của chính mình khi record vẫn `Processing`, nếu rule hiện tại cho phép.
+
+Khi thêm record:
+
+- Nhập username, không nhập full name.
+- Chọn event bằng tiếng Việt nếu modal đang hiển thị tiếng Việt.
+- Kiểm tra shift, date và description trước khi save.
+
+Cách phản ứng:
+
+- Nếu record sai, sửa trước khi save nếu còn trong modal.
+- Nếu record đã save, xử lý theo quyền và workflow hiện có.
+- Nếu staff gửi khiếu nại, yêu cầu bằng chứng cụ thể.
+
+## 5. Week Overview / Month Overview
+
+Mục đích: xem cân bằng break theo tuần hoặc theo tháng.
+
+![Month Overview](../assets/guidelines/month_overview.png)
+
+Khi dùng view này:
+
+- Kiểm tra lệch slot A1/A2 hoặc phân bổ theo role.
+- Nếu thấy lệch lớn, quay lại Arrange Breaks để chỉnh.
+- Nếu có tuần trống dữ liệu, kiểm tra lại lịch đã import hoặc save chưa.
+
+## 6. Dashboard / Staff / Logbook / Attendance / Training / Shift Config
+
+Mục đích: kiểm tra nhanh dữ liệu và chỉnh đúng chỗ khi cần.
+
+Khi mở menu:
+
+- `Dashboard`: xem pending và trạng thái tổng quan.
+- `Staff`: xem thông tin staff, role và ca.
+- `Logbook / Attendance`: xem hoặc chỉnh dữ liệu chấm công nếu có quyền.
+- `Training`: xem nội dung coaching hoặc dữ liệu training.
+- `Shift Config`: chỉ chỉnh khi chắc chắn rule cần thay đổi.
+
+Cách phản ứng:
+
+- Nếu dữ liệu sai, kiểm tra nguồn trước khi chỉnh tay.
+- Nếu lỗi lặp lại nhiều lần, chụp màn hình đầy đủ và báo người phụ trách hệ thống.
+- Sau khi save config, kiểm tra lại các màn hình liên quan.
+
+## Cách minh họa tốt hơn
+
+Có. Với nhóm này, cách dễ đọc nhất là:
+
+- Ảnh chụp màn hình từng menu chính.
+- Ảnh có mũi tên hoặc highlight vào control cần bấm.
+- Ảnh trước/sau khi save.
+- Sơ đồ rất ngắn kiểu `Open -> Check -> Edit -> Save`.
+
+Nếu muốn, mình có thể chuyển hai file này sang dạng “1 menu = 1 ảnh + 3 gạch đầu dòng” để còn ngắn hơn nữa.

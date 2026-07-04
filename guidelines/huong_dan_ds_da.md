@@ -1,55 +1,106 @@
-# HƯỚNG DẪN SỬ DỤNG ỨNG DỤNG (DÀNH CHO DS VÀ DA CÁC BỘ PHẬN)
+# Hướng dẫn nhanh cho DA / DS
 
-Tài liệu này hướng dẫn cách sử dụng ứng dụng quản lý giờ nghỉ giải lao dành cho tất cả nhân sự thuộc bộ phận **Data Analyst (DA)**, **Sr Data Analyst (Sr DA)**, **Data Supervisor (DS)** và **Sr Data Supervisor (Sr DS)**.
+Tài liệu này chỉ ghi các menu cần dùng và cách phản ứng cơ bản. Mục tiêu là đọc nhanh, nhìn là biết nên làm gì tiếp theo.
 
----
+## Đăng nhập
 
-## 1. Hướng Dẫn Đăng Nhập
-
-Để đăng nhập vào ứng dụng, vui lòng làm theo các bước sau:
-
-1. Truy cập vào đường dẫn của ứng dụng trên trình duyệt.
-2. Tại trang đăng nhập, nhấp vào nút **Sign in with Google** (hoặc **Đăng nhập bằng Google**).
-3. Sử dụng email công ty có đuôi `@discoveryloft.com` để đăng nhập (ví dụ: `uyen.tran@discoveryloft.com`).
-4. Hệ thống sẽ tự động xác thực và đưa bạn đến trang Dashboard cá nhân.
+- Dùng tài khoản Google công ty `@discoveryloft.com`.
+- Không nhập tay username hoặc mật khẩu.
+- Nếu không vào được, chụp màn hình và báo Leader/Sub.
 
 ![Màn hình đăng nhập](../assets/guidelines/login_page.png)
 
-> [!IMPORTANT]
-> Vui lòng **không sử dụng** ô nhập Tên đăng nhập/Mật khẩu thủ công. Luôn sử dụng tùy chọn **Đăng nhập bằng Google** để truy cập ứng dụng nhanh chóng và an toàn nhất.
+## 1. Dashboard
 
----
+Mục đích: xem nhanh lịch break, trạng thái request và thông tin cần chú ý.
 
-## 2. Các Tính Năng Chính Của Nhân Viên (DA & DS)
+![Dashboard](../assets/guidelines/dashboard.png)
 
-### A. Trang Tổng Quan (Dashboard)
-Ngay sau khi đăng nhập, bạn sẽ thấy trang Tổng quan hiển thị các thông tin quan trọng nhất trong ngày:
+Khi vào Dashboard:
 
-![Trang tổng quan cá nhân](../assets/guidelines/dashboard.png)
+- Kiểm tra ngày, ca và slot break của mình.
+- Nếu thông tin đúng, tiếp tục làm theo lịch.
+- Nếu sai, không tự sửa, hãy báo Leader/Sub kèm ảnh chụp màn hình.
 
-1. **My Break Today (Giờ nghỉ giải lao của tôi hôm nay)**:
-   - Hiển thị Slot nghỉ cụ thể được gán cho bạn trong ngày hôm nay (Slot 1 hoặc Slot 2) cùng khung giờ nghỉ tương ứng.
-2. **This Week (Lịch tuần này)**:
-   - Bảng hiển thị thông tin ca trực và giờ nghỉ giải lao được gán cho bạn từ Thứ Hai đến Chủ Nhật trong tuần hiện tại.
+## 2. Break Swap
 
-### B. Đổi Giờ Nghỉ Giải Lao (Break Swap)
-Nếu bạn có nhu cầu đổi giờ nghỉ giải lao với một đồng nghiệp khác trong cùng ca trực:
+Mục đích: gửi yêu cầu đổi break với người cùng ca và cùng role.
 
-![Giao diện đổi giờ nghỉ](../assets/guidelines/break_swap.png)
+![Break Swap](../assets/guidelines/break_swap.png)
 
-1. Chuyển sang mục **Break Swap** trong menu điều hướng.
-2. Nhấp vào nút **Tạo yêu cầu đổi giờ nghỉ** (Create Request).
-3. Điền thông tin:
-   - Chọn ngày muốn đổi.
-   - Chọn đồng nghiệp cùng ca mà bạn muốn đổi giờ nghỉ cùng.
-4. **Phê duyệt yêu cầu từ đồng nghiệp**:
-   - Nếu có đồng nghiệp khác gửi yêu cầu đổi giờ nghỉ cho bạn, bạn có thể bấm **Accept (Đồng ý)** hoặc **Reject (Từ chối)**.
+Khi dùng menu này:
 
-### C. Đăng Ký Nghỉ Thêm 30 Phút (30-min Break / Extbreak)
-Tính năng này áp dụng riêng cho nhân sự Nữ (Female staff) theo chế độ đãi ngộ của công ty:
+- Chọn đúng ngày tham chiếu.
+- Chọn `Single Day` nếu chỉ đổi 1 ngày.
+- Chọn `Whole Week` nếu muốn đổi từ ngày đó tới hết tuần.
+- Kiểm tra partner, ngày và phạm vi trước khi gửi.
 
-![Giao diện đăng ký nghỉ thêm 30 phút](../assets/guidelines/ext_breaks.png)
+Cách phản ứng theo trạng thái:
 
-1. Vào mục **30-min Break** trong menu.
-2. Bạn có thể gửi yêu cầu xin nghỉ thêm 30 phút trong ca làm việc hôm nay (Tối đa 3 lần/tháng).
-3. Xem hạn mức đã sử dụng và lịch sử các ngày đã nghỉ thêm trong tháng hiện tại.
+- `Pending`: chờ duyệt.
+- `Approved`: làm theo slot mới.
+- `Rejected`: đọc lý do và tạo request mới nếu cần.
+- `Cancelled`: theo lịch hiện tại.
+
+## 3. 30-min Break
+
+Mục đích: đăng ký extra break / 30 phút cho staff nữ theo rule hiện tại.
+
+![30-min Break](../assets/guidelines/ext_breaks.png)
+
+Khi dùng menu này:
+
+- Chọn đúng ngày hoặc nhiều ngày cần đăng ký.
+- Kiểm tra số ngày đã dùng trong tháng.
+- Nếu 1 request có 3 ngày, hệ thống tính là 3 ngày.
+
+Cách phản ứng:
+
+- `Pending`: chờ duyệt.
+- `Approved`: đi đúng ngày và giờ đã duyệt.
+- `Rejected`: đọc lý do và gửi lại nếu cần.
+- `Cancelled` hoặc `Deleted`: request không còn hiệu lực.
+
+## 4. My Violations / Policy
+
+Mục đích: xem record policy liên quan đến chính mình.
+
+Khi mở menu:
+
+- Xem ngày, ca, event và mô tả record.
+- Kiểm tra trạng thái record.
+- Chuẩn bị bằng chứng nếu record chưa đúng.
+
+Khi phản hồi:
+
+- Nếu record đúng, ghi nhận và điều chỉnh ở ca sau.
+- Nếu record sai, gửi ảnh, timestamp, log hoặc thông tin ca cho Leader/Sub.
+- Nếu record đang `Processing`, phản hồi sớm.
+
+## 5. Staff / Logbook / Attendance
+
+Mục đích: xem thông tin staff hoặc dữ liệu chấm công nếu tài khoản được phép.
+
+Khi mở menu:
+
+- Kiểm tra role, ca hoặc thông tin cá nhân.
+- Nếu dữ liệu sai, báo đúng chỗ và kèm bằng chứng.
+- Nếu menu bị ẩn theo quyền, không cần báo lỗi.
+
+## 6. Khi gặp lỗi
+
+- Tải lại trang một lần.
+- Kiểm tra lại tháng, tuần, ca và bộ lọc.
+- Chụp màn hình đầy đủ menu, ngày và trạng thái.
+- Gửi cho người phụ trách hoặc Leader/Sub.
+
+## Cách minh họa tốt hơn
+
+Có. Ngoài đoạn hướng dẫn chữ, mình nên dùng:
+
+- Ảnh chụp màn hình theo từng menu.
+- Khoanh vùng hoặc mũi tên vào nút cần bấm.
+- Ảnh trước/sau khi thao tác.
+- Một flow ngắn kiểu `Mở menu -> Chọn dữ liệu -> Kiểm tra trạng thái -> Gửi/Save`.
+
+Mẫu ảnh nên giữ rất ngắn, chỉ cần 1 ảnh cho mỗi menu chính là đủ.
