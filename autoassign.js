@@ -196,18 +196,30 @@ function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Cou
   var thisDate  = _mondayToDate(sunday);
   var weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
 
-  var newA2Count = Math.min(brandNew.length, slot2Count);
-  var remA2      = slot2Count - newA2Count;
   var N          = existing.length;
   var wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
 
   var result = {};
+  // Existing teams rotate first; new teams fill only the remaining slot-2 target.
+  var oldSlot2Count = Math.min(slot2Count, existing.length);
   existing.forEach(function(t, i) {
-    result[t] = (N > 0 && remA2 > 0 && ((i - wStart + N) % N) < remA2) ? slot2 : slot1;
+    result[t] = (N > 0 && oldSlot2Count > 0 && ((i - wStart + N) % N) < oldSlot2Count) ? slot2 : slot1;
   });
+
+  var assignedSlot2 = existing.reduce(function(count, t) {
+    return count + (result[t] === slot2 ? 1 : 0);
+  }, 0);
+  var newSlot2Count = Math.max(0, slot2Count - assignedSlot2);
+
   brandNew.sort(_naturalSort).forEach(function(t, i) {
-    result[t] = i < newA2Count ? slot2 : slot1;
-    if (!knownSet.has(t)) { knownList.push(t); knownSet.add(t); }
+    result[t] = i < newSlot2Count ? slot2 : slot1;
+  });
+
+  brandNew.forEach(function(t) {
+    if (!knownSet.has(t)) {
+      knownList.push(t);
+      knownSet.add(t);
+    }
   });
 
   return result;
