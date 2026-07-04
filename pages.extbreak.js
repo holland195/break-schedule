@@ -7,151 +7,332 @@ function _countExtBreakDays(entries) {
 
 function renderExtBreak() {
   const isFemale = _getUserGender(currentUser) === 'F';
-  if (isTraining(currentUser)) {
-    if (typeof renderExtBreakTraining === 'function') return renderExtBreakTraining();
-    return '<div class="empty">Loading…</div>';
-  }
   const canApprove = isLeader(currentUser) || isTraining(currentUser);
+  const showFilters = isLeader(currentUser) || isTraining(currentUser);
   const pendingCount = DB.countPendingExtBreaks ? DB.countPendingExtBreaks() : 0;
+  
   if (!_extBreakFilterYM) _extBreakFilterYM = currentMonthKey();
   const mk = _extBreakFilterYM;
   const [yr, mo] = mk.split('-');
   const monthLabel = new Date(parseInt(yr), parseInt(mo) - 1, 1)
     .toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-  // For leader: show all female staff who have any ext break entries in the selected month.
-  // For agents: only themselves.
-  const allFemaleUsers = state.users.filter(u => _getUserGender(u) === 'F');
-  const femaleShiftUsers = isLeader(currentUser)
+  window._ebShiftFilter = window._ebShiftFilter || 'all';
+  window._ebSearchQuery = window._ebSearchQuery || '';
+  window._ebPosFilter = window._ebPosFilter || 'all';
+  window._ebStatusFilter = window._ebStatusFilter || 'all';
+
+  window._setEbShiftFilter = (val) => { window._ebShiftFilter = val; nav('extbreak'); };
+  window._setEbPosFilter = (val) => { window._ebPosFilter = val; window._applyEbFilters(); };
+  window._setEbStatusFilter = (val) => { window._ebStatusFilter = val; window._applyEbFilters(); };
+  const activeShiftFilter = window._ebShiftFilter;
+
+  // Filter female users based on role and shift
+  const allFemaleUsers = state.users.filter(u => {
+    if (_getUserGender(u) !== 'F') return false;
+    if (isTraining(currentUser) || isLeader(currentUser)) {
+      var _ur = u.role || (state.staffInfo[u.username] || {}).role || '';
+      var _urr = _resolveRole(_ur) || _ur;
+      if ((ROLES[_urr] || {}).level >= 2) return false;
+    }
+    return true;
+  });
+
+  const femaleShiftUsers = showFilters
     ? allFemaleUsers.filter(u => {
+        if (activeShiftFilter !== 'all') {
+          const wd = getWeekDates();
+          return wd.some(dk => _getSched(u.username, dk) === activeShiftFilter);
+        }
         const wd = getWeekDates();
-        return wd.some(dk => _getSched(u.username, dk) === currentShift);
+        return wd.some(dk => {
+          const s = _getSched(u.username, dk);
+          if (isTraining(currentUser)) {
+            return s === 'A' || s === 'D' || s === 'E';
+          } else {
+            return s === currentShift;
+          }
+        });
       })
     : allFemaleUsers;
 
   // My registrations this month
-  const myEntries = DB.getExtBreaks(currentUser.id, mk);
+  const myEntries = DB.getExtBreaks(currentUser.id, mk) || [];
   const myUsed = DB.countExtBreaks ? DB.countExtBreaks(currentUser.id, mk) : _countExtBreakDays(myEntries);
   const myRemaining = Math.max(0, 3 - myUsed);
 
-  // Build registration list for current user (female) or full view (leader)
-  const viewUsers = isLeader(currentUser) ? femaleShiftUsers : (isFemale ? [currentUser] : []);
+  // Build registration list for current user (female) or full view (leader/training)
+  const viewUsers = showFilters ? femaleShiftUsers : (isFemale ? [currentUser] : []);
 
-  const userCards = viewUsers.map(u => {
+  const rows = [];
+  let rowIdx = 0;
+  
+  viewUsers.forEach(u => {
     const entries = DB.getExtBreaks(u.id, mk) || [];
     const used = DB.countExtBreaks ? DB.countExtBreaks(u.id, mk) : _countExtBreakDays(entries);
-    const myRemaining = Math.max(0, 3 - used);
+    const rem = Math.max(0, 3 - used);
+    
+    entries.forEach((e, i) => {
+      const status = e.status || 'pending';
+      const isPending = status === 'pending';
+      
+      const resolvedBy = e.approvedBy
+        ? (() => {
+            const x = state.users.find(usr => usr.id === e.approvedBy);
+            if (x) return x.name;
+            const uname = Object.keys(state.staffInfo || {}).find(k => {
+              let h = 0;
+              for (let j = 0; j < k.length; j++) h = (Math.imul(31, h) + k.charCodeAt(j)) | 0;
+              return Math.abs(h) === e.approvedBy;
+            });
+            return uname ? (state.staffInfo[uname].name || uname) : 'Leader';
+          })()
+        : null;
 
-    const entryCards = entries.length === 0
-      ? '<div style="font-size:11px;color:var(--text3);padding:6px 0;">No registrations this month.</div>'
-      : entries.map((e, i) => {
-        const status = e.status || 'pending';
-        const isPending = status === 'pending';
-        const borderCol = status === 'approved' ? 'var(--ok)' : status === 'rejected' ? 'var(--err)' : 'var(--warn)';
-        const statusBadge = status === 'approved'
-          ? '<span class="req-status approved">APPROVED</span>'
-          : status === 'rejected'
-            ? '<span class="req-status rejected">REJECTED</span>'
-            : '<span class="req-status pending">PENDING</span>';
+      const todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
+      const dayStr = (e.days && e.days.length > 0) ? e.days[0] : (e.day || '');
+      const [_d, _m] = dayStr.split('/').map(Number);
+      const isPastDay = dayStr ? ((_m - 1) * 100 + _d) < todayMMDD : false;
+      const canCancel = (u.id === currentUser.id || isLeader(currentUser)) && !isPastDay;
 
-        const resolvedBy = e.approvedBy
-  ? (() => {
-      // Try state.users first
-      const u = state.users.find(x => x.id === e.approvedBy);
-      if (u) return u.name;
-      // Fall back to staffInfo by matching hashed ID
-      const uname = Object.keys(state.staffInfo || {}).find(k => {
-        let h = 0;
-        for (let i = 0; i < k.length; i++) h = (Math.imul(31, h) + k.charCodeAt(i)) | 0;
-        return Math.abs(h) === e.approvedBy;
+      rows.push({
+        user: u,
+        entry: e,
+        entryIndex: i,
+        used,
+        rem,
+        status,
+        isPending,
+        resolvedBy,
+        canCancel,
+        daysLabel: (e.days && e.days.length > 1) ? e.days.join(', ') : (e.day || '—'),
+        idx: rowIdx++
       });
-      return uname ? (state.staffInfo[uname].name || uname) : 'Leader';
-    })()
-  : null;
+    });
+  });
 
-        const resolvedBox = (!isPending && resolvedBy)
-          ? '<div class="req-resolved ' + status + '" style="margin-top:8px;">'
-          + (status === 'approved' ? '✓ ' : '✗ ')
-          + (status === 'approved' ? 'Approved' : 'Rejected') + ' by <b>' + resolvedBy + '</b>'
-          + (e.rejectedReason ? ' · <span style="opacity:.8">' + e.rejectedReason + '</span>' : '')
-          + '</div>'
-          : '';
+  window.toggleEbRow = (idx) => {
+    const detailRow = document.getElementById('eb-detail-' + idx);
+    const caret = document.getElementById('eb-caret-' + idx);
+    if (detailRow) {
+      const isHidden = detailRow.style.display === 'none';
+      detailRow.style.display = isHidden ? '' : 'none';
+      if (caret) {
+        caret.textContent = isHidden ? '▼' : '▶';
+      }
+    }
+  };
 
-        const actions = (canApprove && isPending)
-          ? '<div class="req-actions">'
-          + '<button class="btn btn-sm btn-ok" onclick="approveExtBreak(' + u.id + ',\'' + mk + '\',' + i + ')">✓ Approve</button>'
-          + '<button class="btn btn-sm btn-err" onclick="rejectExtBreakPrompt(' + u.id + ',\'' + mk + '\',' + i + ')">✗ Reject</button>'
-          + '</div>'
-          : '';
+  window._applyEbFilters = () => {
+    const posFilter = window._ebPosFilter || 'all';
+    const statusFilter = window._ebStatusFilter || 'all';
+    
+    let visible = 0;
+    document.querySelectorAll('#eb-table-body tr.expandable-row').forEach(row => {
+      const pos = row.dataset.position;
+      const status = row.dataset.status;
+      
+      const matchPos = posFilter === 'all' || pos === posFilter;
+      const matchStatus = statusFilter === 'all' || status === statusFilter;
+      
+      const show = matchPos && matchStatus;
+      row.style.display = show ? '' : 'none';
+      
+      const idx = row.dataset.idx;
+      const detailRow = document.getElementById('eb-detail-' + idx);
+      if (detailRow) {
+        if (!show) {
+          detailRow.style.display = 'none';
+          const caret = document.getElementById('eb-caret-' + idx);
+          if (caret) caret.textContent = '▶';
+        }
+      }
+      if (show) visible++;
+    });
+    
+    // Update Position custom dropdown
+    const valEbPos = document.getElementById('val-eb-pos');
+    if (valEbPos) {
+      const labels = { all: '', before: 'Before', after: 'After' };
+      valEbPos.textContent = labels[posFilter] !== undefined ? labels[posFilter] : posFilter;
+    }
+    document.querySelectorAll('#hdr-menu-eb-pos .hdr-filter-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.val === posFilter);
+    });
 
-        const todayMMDD = new Date().getMonth() * 100 + new Date().getDate();
-        const dayStr = (e.days && e.days.length > 0) ? e.days[0] : (e.day || '');
-        const [_d, _m] = dayStr.split('/').map(Number);
-        const isPastDay = dayStr ? ((_m - 1) * 100 + _d) < todayMMDD : false;
-        const canCancel = (u.id === currentUser.id || isLeader(currentUser)) && !isPastDay;
-        const delBtn = canCancel
-          ? '<button class="btn btn-xs" style="margin-top:6px;font-size:11px;color:var(--text3);" '
-          + 'onclick="deleteExtBreak(' + u.id + ',\'' + mk + '\',' + i + ',' + currentUser.id + ')">🗑 Cancel</button>'
-          : '';
+    // Update Status custom dropdown
+    const valEbStatus = document.getElementById('val-eb-status');
+    if (valEbStatus) {
+      const labels = { all: '', pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
+      valEbStatus.textContent = labels[statusFilter] !== undefined ? labels[statusFilter] : statusFilter;
+    }
+    document.querySelectorAll('#hdr-menu-eb-status .hdr-filter-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.val === statusFilter);
+    });
+    
+    let emp = document.getElementById('eb-filter-empty');
+    if (!visible) {
+      if (!emp) {
+        emp = document.createElement('tr');
+        emp.id = 'eb-filter-empty';
+        emp.innerHTML = '<td colspan="9" class="empty"><div class="empty-ico">🔍</div>No matching registrations.</td>';
+        document.getElementById('eb-table-body').appendChild(emp);
+      }
+    } else if (emp) {
+      emp.remove();
+    }
+  };
 
-        const daysLabel = (e.days && e.days.length > 1)
-          ? e.days.join(', ')
-          : (e.day || '—');
-
-        return '<div class="req-card ' + status + '" style="width:240px;">'
-          + '<div class="req-card-top">'
-          + '<div>'
-          + '<div class="req-card-name" style="font-size:12px;">' + daysLabel + '</div>'
-          + '<div class="req-card-meta">' + (e.position === 'before' ? '← Before' : 'After →') + ' · ' + timeSince(e.at) + '</div>'
-          + '</div>'
-          + statusBadge
-          + '</div>'
-          + '<hr class="req-card-divider">'
-          + '<div class="req-card-row"><span class="req-card-lbl">Time</span>'
-          + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--A-color);">' + (e.time || '—') + '</span>'
-          + '</div>'
-          + resolvedBox
-          + actions
-          + delBtn
-          + '</div>';
-      }).join('');
-
+  const renderRow = (r) => {
+    const u = r.user;
+    const e = r.entry;
+    
+    // Quota dots
     const dots = [0, 1, 2].map(i =>
-      '<span style="width:8px;height:8px;border-radius:50%;display:inline-block;'
-      + 'background:' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';'
-      + 'border:1px solid ' + (i < used ? 'var(--A-color)' : 'var(--border2)') + ';"></span>'
+      `<span style="width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:2.5px;
+        background:${i < r.used ? 'var(--A-color)' : 'var(--border2)'};"></span>`
     ).join('');
 
-    return '<div style="margin-bottom:18px;">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-      + '<span style="font-weight:600;font-size:13px;color:var(--text);">' + u.name + '</span>'
-      + '<span style="color:var(--A-color);font-size:12px;">♀</span>'
-      + '<span style="font-size:11px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role).label + '</span>'
-      + '<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">'
-      + '<div style="display:flex;gap:3px;">' + dots + '</div>'
-      + '<span style="font-size:11px;color:' + (myRemaining === 0 ? 'var(--err)' : 'var(--text3)') + ';">' + used + '/3</span>'
-      + (u.id === currentUser.id && isFemale && used < 3
-        ? '<button class="btn btn-sm btn-accent" onclick="openExtBreakModal()">Register</button>'
-        : '')
-      + '</div>'
-      + '</div>'
-      + '<div class="req-cards-grid">' + entryCards + '</div>'
-      + '</div>';
-  }).join('');
+    const quotaBadge = `<div style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;background:var(--bg3);padding:2px 6px;border-radius:99px;border:0.5px solid var(--border);">
+      <div style="display:flex;gap:2px;">${dots}</div>
+      <span style="font-size:9px;color:${r.rem === 0 ? 'var(--err)' : 'var(--text3)'};font-weight:600;">${r.used}/3</span>
+    </div>`;
 
-  const noAccessMsg = !isFemale && !isLeader(currentUser)
+    // Actions
+    let actionsHTML = '';
+    if (canApprove && r.isPending) {
+      actionsHTML = `
+        <div class="req-actions">
+          <button class="btn btn-xs btn-ok" onclick="approveExtBreak(${u.id},'${mk}',${r.entryIndex})">✓ Approve</button>
+          <button class="btn btn-xs btn-err" onclick="rejectExtBreakPrompt(${u.id},'${mk}',${r.entryIndex})">✗ Reject</button>
+        </div>`;
+    }
+
+    let delBtn = '';
+    if (r.canCancel) {
+      delBtn = `<button class="btn btn-xs" style="font-size:10px;color:var(--text3);" 
+        onclick="deleteExtBreak(${u.id},'${mk}',${r.entryIndex},${currentUser.id})">🗑 Cancel</button>`;
+    }
+
+    // Detail/resolved info
+    let hasDetails = false;
+    let detailContentHTML = '';
+    
+    if (r.status === 'rejected' && e.rejectedReason) {
+      hasDetails = true;
+      detailContentHTML += `
+        <div class="req-resolved ${r.status}" style="margin-top:0;">
+          <b>Rejected Reason</b>: ${e.rejectedReason}
+        </div>`;
+    }
+
+    const checkedByHTML = (r.status === 'approved' || r.status === 'rejected')
+      ? `<span style="font-weight:600;color:var(--text);">${r.resolvedBy || 'Leader'}</span>`
+      : `<span style="color:var(--text3);font-family:'IBM Plex Mono',monospace;">N/A</span>`;
+
+    const caretHTML = hasDetails ? `<span id="eb-caret-${r.idx}" style="color:var(--text3);margin-right:4px;display:inline-block;width:10px;font-size:9px;user-select:none;">▶</span>` : '<span style="display:inline-block;width:10px;margin-right:4px;"></span>';
+    const expandableClass = hasDetails ? 'expandable-row' : '';
+    const onClickAttr = hasDetails ? `onclick="toggleEbRow(${r.idx})"` : '';
+
+    // Group days of this registration entry by their main break slot code directly
+    const rDays = (e.days && e.days.length > 0) ? e.days : [e.day];
+    const rGroups = {};
+    rDays.forEach(dk => {
+      const br = getAssigned(u.id, dk) || getAssigned(u.id, getWkDay(dk));
+      const slotCode = br ? br.slot : '';
+      if (slotCode) {
+        if (!rGroups[slotCode]) rGroups[slotCode] = [];
+        rGroups[slotCode].push(dk);
+      }
+    });
+
+    const displayTimes = [];
+    if (Object.keys(rGroups).length > 0) {
+      function addMins(timeStr, mins) {
+        const [h, m] = timeStr.split(':').map(Number);
+        const total = h * 60 + m + mins;
+        const nh = Math.floor(total / 60) % 24;
+        const nm = total % 60;
+        return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+      }
+      function subMins(timeStr, mins) { return addMins(timeStr, -mins); }
+
+      const numGroups = Object.keys(rGroups).length;
+      for (const slotCode in rGroups) {
+        const representativeDay = rGroups[slotCode][0];
+        const slot = getSlotTime(slotCode, representativeDay);
+        if (!slot) continue;
+
+        const parts = slot.split('–');
+        if (parts.length !== 2) continue;
+        const [start, end] = parts.map(t => t.trim());
+        const extraTime = e.position === 'before' ? `${subMins(start, 30)}–${start}` : `${end}–${addMins(end, 30)}`;
+        
+        if (numGroups > 1) {
+          const datesStr = rGroups[slotCode].join(', ');
+          displayTimes.push(`${extraTime} (${datesStr}: ${slotCode})`);
+        } else {
+          displayTimes.push(`${extraTime} (${slotCode})`);
+        }
+      }
+    }
+
+    const timeCellHTML = displayTimes.length > 0 ? displayTimes.join(', ') : (e.time || '—');
+
+    const positionPill = e.position === 'before'
+      ? '<span class="req-scope day" style="border-color:var(--border2);color:var(--text2);background:var(--bg3);">← Before</span>'
+      : '<span class="req-scope week" style="border-color:var(--B-color);color:var(--B-color);background:var(--B-bg);">After →</span>';
+
+    return `
+      <tr class="${expandableClass}" ${onClickAttr} data-name="${u.name}" data-idx="${r.idx}" data-position="${e.position}" data-status="${r.status}">
+        <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:center;color:var(--text3);">${formatDateTime(e.at)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${caretHTML}
+            <span style="font-weight:600;font-size:12px;color:var(--text);">${u.name}</span>
+            <span style="font-size:10px;color:var(--text3);margin-left:4px;">(${u.team})</span>
+          </div>
+        </td>
+        <td style="text-align:center;">${quotaBadge}</td>
+        <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;text-align:center;">${r.daysLabel}</td>
+        <td style="text-align:center;">${positionPill}</td>
+        <td style="text-align:center;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--A-color);font-weight:600;">${timeCellHTML}</span>
+        </td>
+        <td style="text-align:center;">
+          <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
+        </td>
+        <td style="text-align:center;">${checkedByHTML}</td>
+        <td onclick="event.stopPropagation()">
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+            ${actionsHTML}
+            ${delBtn}
+          </div>
+        </td>
+      </tr>
+      ${hasDetails ? `
+        <tr id="eb-detail-${r.idx}" class="detail-row" style="display:none;">
+          <td colspan="9">
+            <div class="detail-content">
+              ${detailContentHTML}
+            </div>
+          </td>
+        </tr>` : ''}
+    `;
+  };
+
+  const noAccessMsg = !isFemale && !showFilters
     ? `<div class="empty"><div class="empty-ico">🌸</div>
         <div>This menu is for female staff only.</div>
         <div style="font-size:11px;color:var(--text3);margin-top:6px;">Female staff can register up to 3 extra 30-min breaks per month.</div>
       </div>` : '';
 
-  const myPendingHtml = (!isLeader(currentUser) && isFemale) ? (() => {
+  const myPendingHtml = (!showFilters && isFemale) ? (() => {
     const mk2 = currentMonthKey();
-    const myEntries = DB.getExtBreaks(currentUser.id, mk2) || [];
-    const myPending = myEntries.filter((e, i) => (e.status || 'pending') === 'pending');
+    const myEntries2 = DB.getExtBreaks(currentUser.id, mk2) || [];
+    const myPending = myEntries2.filter((e, i) => (e.status || 'pending') === 'pending');
     if (!myPending.length) return '';
     return `
-    
     <div style="padding:10px 14px;background:rgba(245,158,11,.10);border:1px solid var(--warn);
       border-radius:8px;margin-bottom:14px;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
@@ -166,45 +347,100 @@ function renderExtBreak() {
         </div>`).join('')}
     </div>`;
   })() : '';
+
+  const filterBarHTML = showFilters ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        ${['all','A','B','C','D','E'].map(val=>{
+          const isAct=window._ebShiftFilter===val;
+          const c=SHIFT_COLORS[val]||{};
+          return `<button onclick="window._ebShiftFilter='${val}';nav('extbreak')"
+            class="btn btn-sm"
+            style="border-color:${isAct?(val==='all'?'var(--accent)':c.color):'var(--border2)'};
+              background:${isAct?(val==='all'?'var(--accent)':c.bg):'var(--bg2)'};
+              color:${isAct?(val==='all'?'#fff':c.color):'var(--text2)'};font-weight:600;">
+            ${val==='all'?'All shifts':val}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
+
   return `
 <div class="page-header">
   <div>
     <div class="page-title">🌸 30-Min Extra Break</div>
-    <div class="page-sub">${monthLabel} · Shift ${currentShift} · ${isFemale && !isLeader(currentUser) ? `${myRemaining} registration${myRemaining !== 1 ? 's' : ''} remaining` : 'All female staff'}</div>
+    <div class="page-sub">${monthLabel} · Shift ${currentShift} · ${isFemale && !showFilters ? `${myRemaining} registration${myRemaining !== 1 ? 's' : ''} remaining` : 'All female staff'}</div>
   </div>
-
+  ${isFemale && !showFilters && myRemaining > 0 ? `
+    <div>
+      <button class="btn btn-accent" onclick="openExtBreakModal()">+ Register Break</button>
+    </div>
+  ` : ''}
 </div>
 
-${_monthPickerHTML(mk, '_setExtBreakFilterYM', 'extbreak')}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+  ${_monthPickerHTML(mk, '_setExtBreakFilterYM', 'extbreak')}
+</div>
 ${noAccessMsg}
 ${myPendingHtml}
 
-  
- 
-  ${canApprove && pendingCount > 0 ? `
-  <div style="padding:10px 16px;background:rgba(245,158,11,.12);border:1px solid var(--warn);
-    border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-    <span style="font-size:20px;">⏳</span>
-    <div>
-      <div style="font-weight:600;color:var(--warn);">${pendingCount} pending request${pendingCount > 1 ? 's' : ''}</div>
-      <div style="font-size:11px;color:var(--text2);">Review below — approve or reject each request</div>
-    </div>
-  </div>` : ''}
- 
-  ${viewUsers.length === 0 && !noAccessMsg ? `<div class="empty"><div class="empty-ico">👥</div>No female staff on Shift ${currentShift} this week.</div>` : ''}
- 
-  ${userCards}
-
-<div class="card" style="background:var(--bg3);border-color:var(--border2);">
-  <div class="card-title">Rules</div>
-  <div style="font-size:12px;color:var(--text2);line-height:1.8;">
-    ✦ Only female staff are eligible for the extra 30-min break.<br>
-    ✦ Maximum <b style="color:var(--accent);">3 registrations per calendar month</b>.<br>
-    ✦ The extra 30 min is taken immediately <b>before</b> or <b>after</b> your assigned main break window.<br>
-    ✦ You must have a main break assigned on that day before registering.<br>
-    ✦ Registration can be cancelled at any time before the break occurs.
+${canApprove && pendingCount > 0 ? `
+<div style="padding:10px 16px;background:rgba(245,158,11,.12);border:1px solid var(--warn);
+  border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+  <span style="font-size:20px;">⏳</span>
+  <div>
+    <div style="font-weight:600;color:var(--warn);">${pendingCount} pending request${pendingCount > 1 ? 's' : ''}</div>
+    <div style="font-size:11px;color:var(--text2);">Review below — approve or reject each request</div>
   </div>
-</div>`;
+</div>` : ''}
+
+<div class="req-table-container" ${viewUsers.length === 0 && !noAccessMsg ? 'style="display:none;"' : ''}>
+  <table class="req-table">
+    <thead>
+      <tr>
+        <th style="text-align: center; white-space: nowrap;">Requested date</th>
+        <th style="text-align: center;">Requester</th>
+        <th style="text-align: center; white-space: nowrap;">Total times</th>
+        <th style="text-align: center; white-space: nowrap;">Registered date(s)</th>
+        <th style="text-align: center; position: relative; white-space: nowrap;">
+          <div class="hdr-filter-btn" id="hdr-filter-eb-pos" onclick="toggleHdrDropdown(event, 'eb-pos')">
+            <span class="hdr-filter-label">Position:</span>
+            <span class="hdr-filter-val" id="val-eb-pos"></span>
+            <span class="hdr-filter-arrow">▼</span>
+          </div>
+          <div class="hdr-filter-menu" id="hdr-menu-eb-pos">
+            <div class="hdr-filter-item active" data-val="all" onclick="selectHdrFilter(event, 'eb-pos', 'all')">All</div>
+            <div class="hdr-filter-item" data-val="before" onclick="selectHdrFilter(event, 'eb-pos', 'before')">Before</div>
+            <div class="hdr-filter-item" data-val="after" onclick="selectHdrFilter(event, 'eb-pos', 'after')">After</div>
+          </div>
+        </th>
+        <th style="text-align: center; white-space: nowrap;">Extra time</th>
+        <th style="text-align: center; position: relative; white-space: nowrap;">
+          <div class="hdr-filter-btn" id="hdr-filter-eb-status" onclick="toggleHdrDropdown(event, 'eb-status')">
+            <span class="hdr-filter-label">Status:</span>
+            <span class="hdr-filter-val" id="val-eb-status"></span>
+            <span class="hdr-filter-arrow">▼</span>
+          </div>
+          <div class="hdr-filter-menu" id="hdr-menu-eb-status">
+            <div class="hdr-filter-item active" data-val="all" onclick="selectHdrFilter(event, 'eb-status', 'all')">All</div>
+            <div class="hdr-filter-item" data-val="pending" onclick="selectHdrFilter(event, 'eb-status', 'pending')">Pending</div>
+            <div class="hdr-filter-item" data-val="approved" onclick="selectHdrFilter(event, 'eb-status', 'approved')">Approved</div>
+            <div class="hdr-filter-item" data-val="rejected" onclick="selectHdrFilter(event, 'eb-status', 'rejected')">Rejected</div>
+          </div>
+        </th>
+        <th style="text-align: center; white-space: nowrap;">Checked by</th>
+        <th style="text-align: center; white-space: nowrap;">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="eb-table-body">
+      ${rows.length > 0 ? rows.map(r => renderRow(r)).join('') : '<tr><td colspan="9" class="empty"><div class="empty-ico">✅</div>No registrations for this month.</td></tr>'}
+    </tbody>
+  </table>
+</div>
+
+${viewUsers.length === 0 && !noAccessMsg ? `<div class="empty"><div class="empty-ico">👥</div>No female staff on Shift ${currentShift} this week.</div>` : ''}
+`;
 }
 
 // ── ExtBreak Modal ──
@@ -318,18 +554,20 @@ function _updateEbDayChange() {
 }
 
 function _updateEbPreview() {
-  const sel = document.getElementById('eb-day');
-  const chosen = sel.options[sel.selectedIndex];
-  const slot = chosen?.dataset?.slot || '';
-  if (!slot) return;
-
+  const checked = [...document.querySelectorAll('input[name="eb-day-check"]:checked')];
   const pos = document.querySelector('input[name="eb-pos"]:checked')?.value;
-  if (!pos) return;
+  if (!pos || !checked.length) return;
 
-  // Parse slot times like "09:30–11:00"
-  const parts = slot.split('–');
-  if (parts.length !== 2) return;
-  const [start, end] = parts.map(t => t.trim());
+  const target = _ebTargetUser || currentUser;
+  const rawShift = Object.values(_getSchedObj(target.username)).find(s => s && s !== '0') || currentShift;
+  const targetShift = (rawShift.match(/[A-E]/) || ['E'])[0];
+
+  const groups = {};
+  checked.forEach(c => {
+    const slot = c.dataset.slot;
+    if (!groups[slot]) groups[slot] = [];
+    groups[slot].push(c.value);
+  });
 
   function addMins(timeStr, mins) {
     const [h, m] = timeStr.split(':').map(Number);
@@ -340,20 +578,36 @@ function _updateEbPreview() {
   }
   function subMins(timeStr, mins) { return addMins(timeStr, -mins); }
 
-  let extraLabel;
-  if (pos === 'before') extraLabel = `${subMins(start, 30)}–${start}`;
-  else extraLabel = `${end}–${addMins(end, 30)}`;
+  let html = '';
+  const numGroups = Object.keys(groups).length;
+  for (const slot in groups) {
+    const parts = slot.split('–');
+    if (parts.length !== 2) continue;
+    const [start, end] = parts.map(t => t.trim());
+    let extraLabel = pos === 'before' ? `${subMins(start, 30)}–${start}` : `${end}–${addMins(end, 30)}`;
+    const slotCode = getShortSlot(targetShift, slot);
+    
+    let innerHTML = '';
+    if (numGroups > 1) {
+      innerHTML = `${groups[slot].join(', ')}: ${slotCode}`;
+    } else {
+      innerHTML = slotCode;
+    }
+    
+    html += `
+      <div style="margin-top: 6px; font-size: 11px;">
+        <span style="color:var(--text3);font-size:10px;font-weight:700;">MAIN (${slotCode})</span>
+        <span style="color:var(--accent);margin-left:4px;font-weight:600;">${slot}</span>
+        &nbsp;→&nbsp;
+        <span style="color:var(--text3);font-size:10px;font-weight:700;">EXTRA 30M</span>
+        <span style="color:var(--A-color);margin-left:4px;font-weight:600;">${extraLabel}</span>
+        <span style="font-size:10px;color:var(--text3);margin-left:4px;">(${innerHTML})</span>
+      </div>`;
+  }
 
   const preview = document.getElementById('eb-preview');
   preview.style.display = 'block';
-  preview.innerHTML = `
-    <span style="color:var(--text3);font-size:10px;">MAIN BREAK</span>
-    <span style="color:var(--accent);margin-left:8px;">${slot}</span>
-    &nbsp;+&nbsp;
-    <span style="color:var(--text3);font-size:10px;">EXTRA 30 MIN</span>
-    <span style="color:var(--A-color);margin-left:8px;">${extraLabel}</span>
-    &nbsp;=&nbsp;
-    <span style="color:var(--ok);">Total: 90 min window</span>`;
+  preview.innerHTML = html;
 }
 
 function submitExtBreak() {
@@ -378,11 +632,35 @@ function submitExtBreak() {
   }
 
   const days = checked.map(c => ({ dk: c.value, slot: c.dataset.slot }));
-  const firstSlot = days[0].slot;
-  const parts = firstSlot.split('–');
-  if (parts.length !== 2) { toast('Could not parse slot time.', 'err'); return; }
-  const [start, end] = parts.map(t => t.trim());
-  const time = pos === 'before' ? `${addMins(start, -30)}–${start}` : `${end}–${addMins(end, 30)}`;
+  
+  // Group days by their assigned main break slots
+  const groups = {};
+  days.forEach(d => {
+    if (!groups[d.slot]) groups[d.slot] = [];
+    groups[d.slot].push(d.dk);
+  });
+
+  const rawShift = Object.values(_getSchedObj(target.username)).find(s => s && s !== '0') || currentShift;
+  const targetShift = (rawShift.match(/[A-E]/) || ['E'])[0];
+
+  const timesList = [];
+  const numGroups = Object.keys(groups).length;
+  for (const slot in groups) {
+    const parts = slot.split('–');
+    if (parts.length !== 2) continue;
+    const [start, end] = parts.map(t => t.trim());
+    const extraTime = pos === 'before' ? `${addMins(start, -30)}–${start}` : `${end}–${addMins(end, 30)}`;
+    const slotCode = getShortSlot(targetShift, slot);
+    
+    if (numGroups > 1) {
+      const datesStr = groups[slot].join(', ');
+      timesList.push(`${extraTime} (${datesStr}: ${slotCode})`);
+    } else {
+      timesList.push(`${extraTime} (${slotCode})`);
+    }
+  }
+
+  const time = timesList.join(', ');
 
   // Store as one request with days array
   DB.addExtBreak(target.id, mk, {
