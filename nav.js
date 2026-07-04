@@ -334,3 +334,54 @@ function _getUniqueSelector(el) {
   }
   return path.join(' > ');
 }
+
+// Global table header filter dropdown handlers
+window.toggleHdrDropdown = (event, id) => {
+  event.stopPropagation();
+  const menu = document.getElementById('hdr-menu-' + id);
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
+  // Close all other menus first
+  document.querySelectorAll('.hdr-filter-menu.open').forEach(m => {
+    if (m !== menu) m.classList.remove('open');
+  });
+  menu.classList.toggle('open', !isOpen);
+};
+
+window.selectHdrFilter = (event, id, value) => {
+  event.stopPropagation();
+  
+  // Close the menu
+  const menu = document.getElementById('hdr-menu-' + id);
+  if (menu) menu.classList.remove('open');
+  
+  // Trigger appropriate filter function based on dropdown ID
+  if (id === 'type') {
+    if (typeof window._reqSetScopeFilter === 'function') {
+      window._reqSetScopeFilter(value);
+    }
+  } else if (id === 'status') {
+    if (typeof window._reqSetFilter === 'function') {
+      window._reqSetFilter(value);
+    }
+  } else if (id === 'eb-pos') {
+    if (typeof window._setEbPosFilter === 'function') {
+      window._setEbPosFilter(value);
+    }
+  } else if (id === 'eb-status') {
+    if (typeof window._setEbStatusFilter === 'function') {
+      window._setEbStatusFilter(value);
+    }
+  } else if (id === 'eb-shift') {
+    if (typeof window._setEbShiftFilter === 'function') {
+      window._setEbShiftFilter(value);
+    }
+  }
+};
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', () => {
+  document.querySelectorAll('.hdr-filter-menu.open').forEach(menu => {
+    menu.classList.remove('open');
+  });
+});

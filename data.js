@@ -615,6 +615,15 @@ function timeSince(ts) {
   if(d<86400000) return Math.floor(d/3600000)+'h ago';
   return Math.floor(d/86400000)+'d ago';
 }
+function formatDateTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const hr = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${day}/${month} ${hr}:${min}`;
+}
 let toastTimer;
 function toast(msg,type='ok') {
   const el=document.getElementById('toast');
