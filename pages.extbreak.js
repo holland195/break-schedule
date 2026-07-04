@@ -296,8 +296,8 @@ function renderExtBreak() {
         <td style="text-align:center;">${quotaBadge}</td>
         <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;text-align:center;">${r.daysLabel}</td>
         <td style="text-align:center;">${positionPill}</td>
-        <td style="text-align:center;">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--A-color);font-weight:600;">${timeCellHTML}</span>
+        <td class="req-extra-time-cell" style="text-align:center;">
+          <span class="req-extra-time-text" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--A-color);font-weight:600;">${timeCellHTML}</span>
         </td>
         <td style="text-align:center;">
           <span class="req-status ${r.status}">${r.status.toUpperCase()}</span>
@@ -396,7 +396,18 @@ ${canApprove && pendingCount > 0 ? `
 </div>` : ''}
 
 <div class="req-table-container" ${viewUsers.length === 0 && !noAccessMsg ? 'style="display:none;"' : ''}>
-  <table class="req-table">
+  <table class="req-table extbreak-table">
+    <colgroup>
+      <col class="eb-col-requested">
+      <col class="eb-col-requester">
+      <col class="eb-col-total">
+      <col class="eb-col-registered">
+      <col class="eb-col-position">
+      <col class="eb-col-extra-time">
+      <col class="eb-col-status">
+      <col class="eb-col-checked">
+      <col class="eb-col-actions">
+    </colgroup>
     <thead>
       <tr>
         <th style="text-align: center; white-space: nowrap;">Requested date</th>

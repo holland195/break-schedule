@@ -862,6 +862,28 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   color: var(--text);
   vertical-align: middle;
 }
+.extbreak-table {
+  table-layout: fixed;
+}
+.extbreak-table .eb-col-requested { width: 8%; }
+.extbreak-table .eb-col-requester { width: 14%; }
+.extbreak-table .eb-col-total { width: 7%; }
+.extbreak-table .eb-col-registered { width: 13%; }
+.extbreak-table .eb-col-position { width: 9%; }
+.extbreak-table .eb-col-extra-time { width: 22%; }
+.extbreak-table .eb-col-status { width: 8%; }
+.extbreak-table .eb-col-checked { width: 12%; }
+.extbreak-table .eb-col-actions { width: 7%; }
+.extbreak-table .req-extra-time-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.extbreak-table .req-extra-time-text {
+  display: block;
+  max-width: 100%;
+  line-height: 1.45;
+}
 .req-table tr:last-child td {
   border-bottom: none;
 }
