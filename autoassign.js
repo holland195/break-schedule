@@ -426,6 +426,34 @@ function autoAssignBreaks(importedUsers) {
         var slot2Count = members.length - slot1Count;
 
         var userSlotMap = _getSlotMap(rot, shift, tier, monday, members, slot1, slot2, slot2Count);
+        var slotBasisMap = userSlotMap;
+
+        // Shift E should split by group, matching the distribution panel and
+        // the "groups assigned as a block" rule. The user-level map can drift
+        // badly when the roster changes between weeks.
+        if (shift === 'E') {
+          var teamSeen = {};
+          var teamsForTier = [];
+          members.forEach(function(u) {
+            var teamKey = u.team || ('_' + (u.username || u.id));
+            if (!teamSeen[teamKey]) {
+              teamSeen[teamKey] = true;
+              teamsForTier.push(teamKey);
+            }
+          });
+
+          var teamSlot1Count = customPct !== null
+            ? Math.round(teamsForTier.length * customPct / 100)
+            : Math.ceil(teamsForTier.length / 2);
+          var teamSlot2Count = teamsForTier.length - teamSlot1Count;
+          var teamSlotMap = _getTeamSlotMap(rot, shift, tier, monday, teamsForTier, slot1, slot2, teamSlot2Count);
+
+          slotBasisMap = {};
+          members.forEach(function(u) {
+            var teamKey = u.team || ('_' + (u.username || u.id));
+            slotBasisMap[u.username || u.id] = teamSlotMap[teamKey] || slot1;
+          });
+        }
 
         var allAlreadyAssigned = members.every(function(u) {
           return weekDates.every(function(d) {
@@ -506,33 +534,36 @@ function autoAssignBreaks(importedUsers) {
 
         // 2. Normal rotation & Tue-Fri inversion logic
         members.forEach(function(u) {
-          var prevSatMonIdx = _getPrevWeekSatMonSlotIndex(u, prevMonday, shift);
-          var prevTueFriIdx = _getPrevWeekTueFriSlotIndex(u, prevMonday, shift);
-
           var baseSatMonSlot, baseTueFriSlot;
 
-          // Resolve Sat-Mon slot
-          if (prevSatMonIdx !== -1) {
-            baseSatMonSlot = (prevSatMonIdx === 0) ? slot2 : slot1;
+          if (shift === 'E') {
+            baseSatMonSlot = slotBasisMap[u.username || u.id] || slot1;
+            baseTueFriSlot = baseSatMonSlot;
           } else {
-            // Fallback to standard rotation
-            baseSatMonSlot = userSlotMap[u.username || u.id] || slot1;
-          }
+            var prevSatMonIdx = _getPrevWeekSatMonSlotIndex(u, prevMonday, shift);
+            var prevTueFriIdx = _getPrevWeekTueFriSlotIndex(u, prevMonday, shift);
 
-          // Resolve Tue-Fri slot
-          if (prevTueFriIdx !== -1) {
-            baseTueFriSlot = (prevTueFriIdx === 0) ? slot2 : slot1;
-          } else {
-            // Fallback to standard rotation opposite
-            var baseSlot = userSlotMap[u.username || u.id] || slot1;
-            baseTueFriSlot = (shift === 'A' || shift === 'D') ? ((baseSlot === slot2) ? slot1 : slot2) : baseSlot;
+            // Resolve Sat-Mon slot
+            if (prevSatMonIdx !== -1) {
+              baseSatMonSlot = (prevSatMonIdx === 0) ? slot2 : slot1;
+            } else {
+              // Fallback to standard rotation
+              baseSatMonSlot = slotBasisMap[u.username || u.id] || slot1;
+            }
+
+            // Resolve Tue-Fri slot
+            if (prevTueFriIdx !== -1) {
+              baseTueFriSlot = (prevTueFriIdx === 0) ? slot2 : slot1;
+            } else {
+              // Fallback to standard rotation opposite
+              var baseSlot = slotBasisMap[u.username || u.id] || slot1;
+              baseTueFriSlot = (baseSlot === slot2) ? slot1 : slot2;
+            }
           }
 
           weekDates.forEach(function(d) {
             if (_getSched(u.username, d) !== shift) return;
             if (_isOffOrHalfDay(u.username, d)) return;
-            var ex = DB.getBreak(u.id, d);
-            if (ex && _slotBelongsToShift(ex.slot, shift)) return;
 
             var assignedSlot;
             if (shift === 'A' || shift === 'D') {
@@ -545,6 +576,13 @@ function autoAssignBreaks(importedUsers) {
             } else {
               // Shift E: use baseTueFriSlot (which alternates weekly directly) for all days
               assignedSlot = baseTueFriSlot;
+            }
+
+            var ex = DB.getBreak(u.id, d);
+            if (ex && _slotBelongsToShift(ex.slot, shift)) {
+              var expectedIdx = assignedSlot === slot2 ? 1 : 0;
+              var existingIdx = _slotIndex(ex.slot, shift);
+              if (shift !== 'E' || ex.note !== 'auto' || existingIdx === expectedIdx) return;
             }
 
             DB.setBreak(u.id, d, {
