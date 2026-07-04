@@ -460,7 +460,12 @@ function autoAssignBreaks(importedUsers) {
             if (_getSched(u.username, d) !== shift) return true;
             if (_isOffOrHalfDay(u.username, d)) return true;
             var ex = DB.getBreak(u.id, d);
-            return ex && _slotBelongsToShift(ex.slot, shift);
+            if (!ex || !_slotBelongsToShift(ex.slot, shift)) return false;
+            if (shift !== 'E' || ex.note !== 'auto') return true;
+
+            var expectedSlot = slotBasisMap[u.username || u.id] || slot1;
+            var expectedIdx = expectedSlot === slot2 ? 1 : 0;
+            return _slotIndex(ex.slot, shift) === expectedIdx;
           });
         });
         if (allAlreadyAssigned) {
