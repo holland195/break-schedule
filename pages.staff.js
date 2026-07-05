@@ -1383,7 +1383,7 @@ function _renderStaffAttendance() {
 
     const rowBg = conflicts.length ? 'background:rgba(248,113,113,.03);' : '';
     const stickyCell = 'position:sticky;z-index:1;background:var(--bg3);';
-    var _saEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    var _saEffRole = u.role || (state.staffInfo[u.username]||{}).role || '';
     return `<tr style="border-bottom:0.5px solid var(--border);${rowBg}">
       <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.empNo || '—'}</td>
       <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
@@ -1661,7 +1661,7 @@ function renderStaffRows(users, displayDates) {
   var _nowMs = new Date().setHours(0,0,0,0);
   var _nowYr = new Date().getFullYear();
   return users.map(function(u) {
-    var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    var _srEffRole = u.role || (state.staffInfo[u.username]||{}).role || '';
     var _isMyRow = u.username === currentUser.username && _canReqSwap;
     return '<tr>' +
     '<td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">' + (u.team || '—') + '</td>' +
@@ -1709,11 +1709,11 @@ function _sortStaffUsers(users) {
   };
 
   return users.filter(function(u) {
-    var _r = u.role || (state.staffInfo[u.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===u.username;})||{}).role||'';
+    var _r = u.role || (state.staffInfo[u.username]||{}).role || '';
     return !!_resolveRole(_r);
   }).sort(function(a, b) {
-    var aRole = a.role || (state.staffInfo[a.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===a.username;})||{}).role||'';
-    var bRole = b.role || (state.staffInfo[b.username]||{}).role || ((STAFF_INFO_DB||[]).find(function(x){return x.username===b.username;})||{}).role||'';
+    var aRole = a.role || (state.staffInfo[a.username]||{}).role || '';
+    var bRole = b.role || (state.staffInfo[b.username]||{}).role || '';
     var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
     var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
     if (aRnk !== bRnk) return aRnk - bRnk;

@@ -347,7 +347,7 @@ ${typeof renderReport === 'function' ? renderReport() : '<div class="empty">Repo
 
   // Users on this shift in displayDates (exclude leaders, supervisors, training, admin — level >= 2; exclude empty-role)
   const shiftUsers = state.users.filter(u => {
-    var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
+    var _role = u.role || (state.staffInfo[u.username] || {}).role || '';
     if (!_role) return false;
     if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
 
@@ -885,7 +885,7 @@ function exportWeeklyLogCSV() {
 
   // Same user filtering as renderAttendance()
   var shiftUsers = state.users.filter(function(u) {
-    var _role = u.role || ((STAFF_INFO_DB.find(function(s) { return s.username === u.username; }) || {}).role) || '';
+    var _role = u.role || (state.staffInfo[u.username] || {}).role || '';
     if (!_role) return false;
     if ((ROLES[_resolveRole(_role)] || {}).level >= 2) return false;
     return displayDates.some(function(dk) {
