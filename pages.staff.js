@@ -535,7 +535,9 @@ function _renderStaffSchedule() {
         <th style="${_stickyTh}left:390px;min-width:140px;width:140px;${_shadowR}">POSITION</th>
         ${displayDates.map(function(d) {
           const isOpen = _ssFilterDk === d;
-          return '<th class="c" style="min-width:48px;padding:6px 2px;">' +
+          const isFiltered = isOpen && _ssShiftFilter !== 'All';
+          const headerBg = isFiltered ? 'background:rgba(31,102,241,0.16) !important;' : '';
+          return '<th class="c" style="min-width:48px;padding:6px 2px;' + headerBg + '">' +
             '<div style="font-size:8px;font-weight:400;opacity:.65;line-height:1.5;">' + getWkDay(d) + '</div>' +
             '<div style="color:var(--accent);font-size:11px;line-height:1.3;">' + d + '</div>' +
             '<select onclick="event.stopPropagation()" onchange="window._ssFilterDk=this.value===\'All\'?\'\':\'' + d + '\';window._ssShiftFilter=this.value;nav(\'staff\')"' +
@@ -572,10 +574,6 @@ function _renderStaffSchedule() {
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
-  var _ssActiveFilterBadge = (_ssFilterDk && _ssShiftFilter !== 'All')
-    ? '<span style="font-size:11px;color:var(--text3);margin-left:8px;">Shift <b>' + _ssShiftFilter + '</b> on ' + _ssFilterDk + ' <span onclick="_ssFilterDk=\'\';_ssShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;color:var(--err);margin-left:2px;">✕</span></span>'
-    : '';
-
   return `
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
   ${_searchBar}
@@ -583,7 +581,6 @@ function _renderStaffSchedule() {
   <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;nav('staff')">
     ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
   </select>
-  ${_ssActiveFilterBadge}
   ${_dosSwapBtn}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
@@ -603,18 +600,19 @@ function _navStaff() {
 }
 
 var _attNow = new Date();
-let _attImportMonth = _attNow.getDate() >= 25
+var _attImportMonth = _attNow.getDate() >= 25
   ? (_attNow.getMonth() === 11 ? 1 : _attNow.getMonth() + 2)
   : _attNow.getMonth() + 1;
-let _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
+var _attImportYear = (_attNow.getDate() >= 25 && _attNow.getMonth() === 11)
   ? _attNow.getFullYear() + 1
   : _attNow.getFullYear();
-let _staffAttConflictFilter = false;
-let _saShiftFilter = 'All';
+var _staffAttConflictFilter = false;
+var _saShiftFilter = 'All';
 var _saFilterDk = '';
 var _saDateFilter = '';
 var _saShiftFilterDate = ''; // date for per-day shift filter (separate from date zoom)
-let _saFillCode = 'XA';
+var _saFillCode = 'XA';
+var _saSearchQuery = '';
 var _saFilteredUsernames = [];
 var _saCurrentDates = [];
 var _saCurrentMonthKey = '';
@@ -704,37 +702,29 @@ function _renderWorkingTime() {
     var isWknd = dow === 0 || dow === 6;
     var isSun  = dow === 0;
     var isOpen = _wtFilterDk === dk;
-    // Compute which shifts exist on this date
-    var shiftSet = {};
-    allWtUsers.forEach(function(u) {
-      var s = (_getSched(u.username, dk) || '').charAt(0);
-      if (SH_COL[s]) shiftSet[s] = true;
-    });
-    // Arrow row: ↓ to open, then A/D/E badges when open
-    var arrowPart = '<div style="margin-top:2px;">';
-    if (!isOpen) {
-      arrowPart += '<span onclick="_wtFilterDk=\'' + dk + '\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">↓</span>';
-    } else {
-      arrowPart += '<span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">↑</span>';
-      ['A','D','E'].forEach(function(s) {
-        if (!shiftSet[s]) return;
-        var isAct = _wtShiftFilter === s;
-        arrowPart += '<span onclick="_wtShiftFilter=(_wtShiftFilter===\'' + s + '\'?\'All\':\'' + s + '\');nav(\'staff\')"' +
-          ' style="cursor:pointer;font-size:8px;font-weight:700;padding:0 3px;border-radius:2px;margin:0 1px;display:inline-block;line-height:14px;' +
-          'color:' + (isAct ? '#fff' : SH_COL[s]) + ';background:' + (isAct ? SH_COL[s] : 'transparent') + ';border:1px solid ' + SH_COL[s] + ';">' + s + '</span>';
-      });
-    }
-    arrowPart += '</div>';
+    var selectPart = '<select onclick="event.stopPropagation()" onchange="window._wtFilterDk=this.value===\'All\'?\'\':\'' + dk + '\';window._wtShiftFilter=this.value;nav(\'staff\')"' +
+      ' style="display:block;margin:4px auto 0 auto;font-size:9px;padding:1px 2px;pointer-events:auto;border:1px solid var(--border2);border-radius:4px;background:var(--bg3);color:var(--text2);cursor:pointer;width:38px;height:18px;text-align:center;">' +
+      ['All','A','D','E'].map(function(s) {
+        var isSel = isOpen && _wtShiftFilter === s;
+        if (!isOpen && s === 'All') isSel = true;
+        return '<option value="' + s + '"' + (isSel ? ' selected' : '') + '>' + s + '</option>';
+      }).join('') +
+      '</select>';
+
+    var isFiltered = isOpen && _wtShiftFilter !== 'All';
+    var headerBg = isFiltered ? 'rgba(31,102,241,0.16) !important' : (isWknd ? 'var(--bg4)' : 'var(--bg3)');
+    var headerBorder = isFiltered ? 'border-bottom:2px solid var(--accent);' : 'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';';
+
     theadRow1 +=
       '<th style="min-width:40px;padding:4px 2px;text-align:center;font-size:10px;font-weight:600;' +
       'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
-      'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
+      'background:' + headerBg + ';' +
+      headerBorder +
       'border-left:' + (idx === 0 ? '2px solid var(--border)' : isSun ? '2px solid var(--border)' : 'none') + ';' +
       'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
       '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
       '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
-      arrowPart +
+      selectPart +
       '</th>';
   });
   theadRow1 +=
@@ -778,7 +768,9 @@ function _renderWorkingTime() {
       var wkBg = isWknd2 ? 'background:var(--bg4);' : '';
       var safeName = (u.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       var cellBorder = idx === 0 ? 'border-left:2px solid var(--border);' : '';
-      return '<td style="text-align:center;padding:3px 1px;cursor:pointer;' + cellBorder + (hasAny ? '' : wkBg) + '"' +
+      var isFiltered = dk === _wtFilterDk && _wtShiftFilter !== 'All';
+      var cellBgStyle = isFiltered ? 'background:rgba(31,102,241,0.06) !important;' : '';
+      return '<td style="text-align:center;padding:3px 1px;cursor:pointer;' + cellBorder + cellBgStyle + (hasAny ? '' : wkBg) + '"' +
         ' onclick="openWtModal(\'' + u.username + '\',\'' + monthKey + '\',\'' + dk + '\',\'' + safeName + '\')">' +
         (hasAny
           ? '<div style="display:flex;flex-direction:column;gap:1px;padding:2px 1px;">' +
@@ -825,11 +817,6 @@ function _renderWorkingTime() {
       return '<option value="' + y + '"' + (y === year ? ' selected' : '') + '>' + y + '</option>';
     }).join('') + '</select>';
 
-  var shiftSelect = (_wtFilterDk && _wtShiftFilter !== 'All')
-    ? '<span style="font-size:11px;color:var(--text3);">Shift <b>' + _wtShiftFilter + '</b> · ' + _wtFilterDk +
-      ' <span onclick="_wtFilterDk=\'\';_wtShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;color:var(--err);margin-left:2px;">✕</span></span>'
-    : '';
-
   var legend =
     '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">' +
     '<span style="background:' + CAT_LATE.bg     + ';color:' + CAT_LATE.color     + ';padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Late login (min)' +
@@ -839,7 +826,7 @@ function _renderWorkingTime() {
     '</div>';
 
   return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">' +
-    monthPicker + shiftSelect +
+    monthPicker +
     '</div>' +
     legend +
     '<div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">' +
@@ -1123,109 +1110,14 @@ function attCellClick(username, monthKey, dk) {
   _navStaff();
 }
 
-function _renderStaffAttendance() {
+function _liveFilterAttendance() {
   const year = _attImportYear;
   const month = _attImportMonth;
   const monthKey = `${year}-${String(month).padStart(2, '0')}`;
-  const prevMonth = month === 1 ? 12 : month - 1;
-  const prevYear = month === 1 ? year - 1 : year;
-  const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
   var allDates = _getAllDatesInMonth(year, month);
-  const dates = (_saDateFilter && allDates.indexOf(_saDateFilter) !== -1) ? [_saDateFilter] : allDates;
+  const dates = allDates;
   const attData = state.monthlyAttendance || {};
 
-  const monthPicker = `
-      <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
-        onchange="_attImportMonth=+this.value;_saDateFilter='';_saFilterDk='';_saShiftFilter='All';_navStaff()">
-        ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
-    `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
-      .toLocaleString('en-US', { month: 'long' })}</option>`
-  ).join('')}
-      </select>
-      <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
-        onchange="_attImportYear=+this.value;_saDateFilter='';_saFilterDk='';_saShiftFilter='All';_navStaff()">
-        ${[2026, 2027].map(y =>
-    `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
-  ).join('')}
-      </select>`;
-
-  // ── FIX: check monthlyAttendance directly, not through state.users ──
-  const hasData = Object.values(attData).some(userMonths => {
-    const ud = userMonths?.[monthKey];
-    return ud && Object.keys(ud).length > 0;
-  });
-
-  if (!hasData) {
-    return `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        ${monthPicker}
-      </div>
-      <div class="empty" style="padding:48px;">
-        <div class="empty-ico">📋</div>
-        No attendance data for ${monthLabel}.
-      </div>`;
-  }
-
-  // Legend
-  const legendHTML = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">
-      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working
-      <span style="background:rgba(167,139,250,.14);color:#a78bfa;padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
-      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
-      <span style="background:rgba(234,179,8,.13);color:#ca8a04;padding:2px 7px;border-radius:4px;font-weight:600;">A</span> Annual
-      <span style="background:rgba(220,38,38,.13);color:#dc2626;padding:2px 7px;border-radius:4px;font-weight:600;">H</span> Holiday
-      <span style="background:rgba(22,163,74,.13);color:#16a34a;padding:2px 7px;border-radius:4px;font-weight:600;">0</span> Day off
-      <span style="background:rgba(225,29,72,.12);color:#e11d48;padding:2px 7px;border-radius:4px;font-weight:600;">U</span> Unpaid
-      <span style="background:rgba(234,88,12,.12);color:#ea580c;padding:2px 7px;border-radius:4px;font-weight:600;">S</span> Sick
-      <span style="background:rgba(99,102,241,.13);color:#6366f1;padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Personal
-      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
-      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
-    </div>`;
-
-  // Build table header dates — arrow icon opens per-day A/D/E shift filter
-  const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  var _saSHCol = { A: '#0ea5e9', D: '#f59e0b', E: '#a78bfa' };
-  const theadDates = dates.map(dk => {
-    const [_d, _m] = dk.split('/');
-    const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
-    const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
-    const isWknd = dow === 0 || dow === 6;
-    const isSun = dow === 0;
-    const isOpen = _saFilterDk === dk;
-    // Which shifts exist on this date (from all attendance users)
-    var _saShiftSet = {};
-    (state.users || []).forEach(function(u) {
-      var s = (_getSched(u.username, dk) || '').charAt(0);
-      if (_saSHCol[s]) _saShiftSet[s] = true;
-    });
-    var arrowPart = '<div style="margin-top:2px;">';
-    if (!isOpen) {
-      arrowPart += '<span onclick="_saFilterDk=\'' + dk + '\';_navStaff()" style="cursor:pointer;font-size:9px;color:var(--text3);padding:1px 4px;border-radius:3px;display:inline-block;" title="Filter by shift">↓</span>';
-    } else {
-      arrowPart += '<span onclick="_saFilterDk=\'\';_saShiftFilter=\'All\';_navStaff()" style="cursor:pointer;font-size:9px;color:var(--accent);padding:1px 4px;" title="Close filter">↑</span>';
-      ['A','D','E'].forEach(function(s) {
-        if (!_saShiftSet[s]) return;
-        var isAct = _saShiftFilter === s;
-        arrowPart += '<span onclick="_saShiftFilter=(_saShiftFilter===\'' + s + '\'?\'All\':\'' + s + '\');_navStaff()"' +
-          ' style="cursor:pointer;font-size:8px;font-weight:700;padding:0 3px;border-radius:2px;margin:0 1px;display:inline-block;line-height:14px;' +
-          'color:' + (isAct ? '#fff' : _saSHCol[s]) + ';background:' + (isAct ? _saSHCol[s] : 'transparent') + ';border:1px solid ' + _saSHCol[s] + ';">' + s + '</span>';
-      });
-    }
-    arrowPart += '</div>';
-    return '<th style="min-width:40px;padding:4px 2px;text-align:center;' +
-      'font-size:10px;font-weight:600;' +
-      'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
-      'background:' + (isWknd ? 'var(--bg4)' : 'var(--bg3)') + ';' +
-      'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';' +
-      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
-      'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
-      '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
-      '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
-      arrowPart +
-      '</th>';
-  }).join('');
-
-  // Build list of usernames from both active roster (state.users) and historical attData (excluding viewers)
   var _activeUsernames = (state.users || [])
     .filter(function(u) { return u.username !== 'tuan.mai' && u.username !== 'nhon.bui'; })
     .map(function(u) { return u.username; });
@@ -1239,24 +1131,11 @@ function _renderStaffAttendance() {
   _historicalUsernames.forEach(function(u) { _allUsernamesSet[u] = true; });
   const attUsernames = Object.keys(_allUsernamesSet);
 
-  // Build empNo lookup from policyCompliance records (covers users missing empNo in users array)
   var _pcEmpNo = {};
   (state.policyCompliance || []).forEach(function(r) {
     if (r.username && r.empNo && !_pcEmpNo[r.username]) _pcEmpNo[r.username] = r.empNo;
   });
 
-  var _attTier = function(role) {
-    var r = (_resolveRole(role) || '').toLowerCase();
-    if (r === 'training manager') return 0;
-    if (r.includes('training')) return 1;
-    if (r === 'd.a leader' || r === 'leader') return 2;
-    if (r === 'd.a supervisor' || r === 'supervisor') return 3;
-    if (r === 'sr data supervisor' || r === 'sr qa') return 4;
-    if (r === 'data supervisor' || r === 'qa') return 5;
-    if (r === 'sr data analyst' || r === 'sr agent') return 6;
-    if (r === 'data analyst' || r === 'agent') return 7;
-    return 8;
-  };
   var isJulyOnward = (year > 2026) || (year === 2026 && month >= 7);
   var rowUsers = attUsernames.map(function(uname) {
     var si = state.staffInfo?.[uname];
@@ -1274,30 +1153,46 @@ function _renderStaffAttendance() {
   }
   rowUsers.sort(function(a, b) { return _roleSort(a, b); });
 
-  // Pre-compute conflicts per user (needed for filter + total count)
-  const _preConflicts = {};
-  for (const u of rowUsers) {
-    const uAtt = attData[u.username]?.[monthKey] || {};
-    const uc = [];
-    for (const dk of dates) {
-      const rawCode = uAtt[dk];
-      if (!rawCode && !_parseAttCode(rawCode)) continue;
-      const cl = _checkAttConflict(u, dk, _parseAttCode(rawCode));
-      if (cl && cl.length > 0) uc.push({ dk, msgs: cl });
-    }
+  var _preConflicts = {};
+  rowUsers.forEach(function(u) {
+    var uAtt = attData[u.username]?.[monthKey] || {};
+    var uc = [];
+    dates.forEach(function(dk) {
+      var rawCode = uAtt[dk];
+      if (!rawCode && !_parseAttCode(rawCode)) return;
+      var cl = _checkAttConflict(u, dk, _parseAttCode(rawCode));
+      if (cl && cl.length > 0) uc.push({ dk: dk, msgs: cl });
+    });
     _preConflicts[u.username] = uc;
-  }
+  });
 
-  const totalConflicts = rowUsers.filter(u => _preConflicts[u.username]?.length > 0).length;
   let filteredUsers = _staffAttConflictFilter
     ? rowUsers.filter(u => _preConflicts[u.username]?.length > 0)
     : rowUsers;
+
   if (_saFilterDk && _saShiftFilter !== 'All') {
     filteredUsers = filteredUsers.filter(u => {
       return (_getSched(u.username, _saFilterDk) || '').charAt(0) === _saShiftFilter;
     });
   }
+
+  var sq = (_saSearchQuery || '').trim().toLowerCase();
+  if (sq) {
+    var parts = sq.split(/[;,|]+/).map(function(p) { return p.trim(); }).filter(Boolean);
+    if (parts.length > 0) {
+      filteredUsers = filteredUsers.filter(u => {
+        var nameLower = (u.name || '').toLowerCase();
+        var unameLower = (u.username || '').toLowerCase();
+        var empNoLower = (u.empNo || '').toLowerCase();
+        return parts.some(part => {
+          return nameLower.includes(part) || unameLower.includes(part) || empNoLower.includes(part);
+        });
+      });
+    }
+  }
+
   filteredUsers = _sortStaffUsers(filteredUsers);
+  _saFilteredUsernames = filteredUsers.map(u => u.username);
 
   var _shColors = {
     A: ['rgba(14,165,233,.14)','#0ea5e9'],
@@ -1330,8 +1225,11 @@ function _renderStaffAttendance() {
       const dow = new Date(_cellYear, parseInt(_mm) - 1, parseInt(_dd)).getDay();
       const isWknd = dow === 0 || dow === 6;
 
+      const isFiltered = dk === _saFilterDk && _saShiftFilter !== 'All';
+      const cellBgStyle = isFiltered ? 'background:rgba(31,102,241,0.06) !important;' : '';
+
       if (!rawCode && !parsed) {
-        return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};cursor:pointer;"
+        return `<td style="text-align:center;padding:2px 1px;background:${isWknd ? 'var(--bg4)' : ''};${cellBgStyle}cursor:pointer;"
           onclick="attCellClick('${u.username}','${monthKey}','${dk}')"
           onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:''}">
           <span style="font-size:10px;color:var(--text3);">·</span></td>`;
@@ -1368,14 +1266,13 @@ function _renderStaffAttendance() {
 
       const conflictBadge = hasConflict
         ? `<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>` : '';
-      const dimWknd = false; // weekends are full contrast
+      const dimWknd = false;
       const title = conflictList ? conflictList.join(' | ') : (parsed?.reason || rawCode || '');
-
 
       const hoverAttr = `onmouseover="_attHoveredCell={username:'${u.username}',monthKey:'${monthKey}',dk:'${dk}',code:'${(rawCode||'').replace(/'/g,"\\'")}'}"`;
       const cellInteract = `onclick="attCellClick('${u.username}','${monthKey}','${dk}')" style="cursor:pointer;"`;
-      return `<td style="text-align:center;padding:2px 2px;${bg}${dimWknd ? 'opacity:.55;' : ''}"
-        title="${title}" ${hoverAttr} ${cellInteract}>
+      return `<td style="text-align:center;padding:2px 2px;${bg}${cellBgStyle}${dimWknd ? 'opacity:.55;' : ''}"
+        title="${dimWknd ? '' : title}" ${hoverAttr} ${cellInteract}>
         <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${color}">${txt}${conflictBadge}</span>
       </td>`;
 
@@ -1394,15 +1291,100 @@ function _renderStaffAttendance() {
     </tr>`;
   }).join('');
 
-  const conflictBanner = totalConflicts > 0
-    ? `<div style="padding:10px 14px;background:var(--D-bg);border:1px solid var(--err);
-        border-radius:8px;font-size:12px;color:var(--err);margin-bottom:12px;font-weight:500;">
-        ⚠ ${totalConflicts} staff with conflicts between monthly schedule and attendance log
-      </div>`
-    : `<div style="padding:8px 14px;background:var(--C-bg);border-radius:8px;
-        font-size:12px;color:var(--ok);margin-bottom:12px;">
-        ✓ No conflicts detected for ${monthLabel}
+  return { html: tbodyRows, count: filteredUsers.length };
+}
+
+function _renderStaffAttendance() {
+  const year = _attImportYear;
+  const month = _attImportMonth;
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear = month === 1 ? year - 1 : year;
+  const monthLabel = `${new Date(prevYear, prevMonth - 1, 25).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(year, month - 1, 24).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  var allDates = _getAllDatesInMonth(year, month);
+  const dates = allDates;
+  const attData = state.monthlyAttendance || {};
+
+  const monthPicker = `
+      <select class="login-select" style="padding:5px 8px;font-size:12px;width:110px;"
+        onchange="_attImportMonth=+this.value;_saDateFilter='';_saFilterDk='';_saShiftFilter='All';_saSearchQuery='';_navStaff()">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m =>
+    `<option value="${m}" ${m === month ? 'selected' : ''}>${new Date(year, m - 1, 1)
+      .toLocaleString('en-US', { month: 'long' })}</option>`
+  ).join('')}
+      </select>
+      <select class="login-select" style="padding:5px 8px;font-size:12px;width:70px;"
+        onchange="_attImportYear=+this.value;_saDateFilter='';_saFilterDk='';_saShiftFilter='All';_saSearchQuery='';_navStaff()">
+        ${[2026, 2027].map(y =>
+    `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`
+  ).join('')}
+      </select>`;
+
+  const hasData = Object.values(attData).some(userMonths => {
+    const ud = userMonths?.[monthKey];
+    return ud && Object.keys(ud).length > 0;
+  });
+
+  if (!hasData) {
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        ${monthPicker}
+      </div>
+      <div class="empty" style="padding:48px;">
+        <div class="empty-ico">📋</div>
+        No attendance data for ${monthLabel}.
       </div>`;
+  }
+
+  const legendHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;margin-bottom:10px;align-items:center;">
+      <span style="background:var(--C-bg);color:var(--ok);padding:2px 8px;border-radius:4px;font-weight:500;">XA–XE</span> Working
+      <span style="background:rgba(167,139,250,.14);color:#a78bfa;padding:2px 8px;border-radius:4px;font-weight:500;">D1/D2</span> Half day
+      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
+      <span style="background:rgba(234,179,8,.13);color:#ca8a04;padding:2px 7px;border-radius:4px;font-weight:600;">A</span> Annual
+      <span style="background:rgba(220,38,38,.13);color:#dc2626;padding:2px 7px;border-radius:4px;font-weight:600;">H</span> Holiday
+      <span style="background:rgba(22,163,74,.13);color:#16a34a;padding:2px 7px;border-radius:4px;font-weight:600;">0</span> Day off
+      <span style="background:rgba(225,29,72,.12);color:#e11d48;padding:2px 7px;border-radius:4px;font-weight:600;">U</span> Unpaid
+      <span style="background:rgba(234,88,12,.12);color:#ea580c;padding:2px 7px;border-radius:4px;font-weight:600;">S</span> Sick
+      <span style="background:rgba(99,102,241,.13);color:#6366f1;padding:2px 7px;border-radius:4px;font-weight:600;">L</span> Personal
+      <span style="color:var(--text3);font-size:10px;margin:0 2px;">│</span>
+      <span style="background:var(--D-bg);color:var(--err);padding:2px 8px;border-radius:4px;font-weight:700;border:1.5px solid var(--err);">⚠</span> Conflict
+    </div>`;
+
+  const WDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const theadDates = dates.map(dk => {
+    const [_d, _m] = dk.split('/');
+    const _cy = (parseInt(_m) === month) ? year : (month === 1 ? year - 1 : year);
+    const dow = new Date(_cy, parseInt(_m) - 1, parseInt(_d)).getDay();
+    const isWknd = dow === 0 || dow === 6;
+    const isSun = dow === 0;
+    const isOpen = _saFilterDk === dk;
+
+    const isFiltered = isOpen && _saShiftFilter !== 'All';
+    const headerBg = isFiltered ? 'rgba(31,102,241,0.16) !important' : (isWknd ? 'var(--bg4)' : 'var(--bg3)');
+    const headerBorder = isFiltered ? 'border-bottom:2px solid var(--accent);' : 'border-bottom:2px solid ' + (isSun ? 'var(--err)' : isWknd ? 'var(--border2)' : 'var(--accent)') + ';';
+
+    var selectPart = '<select onclick="event.stopPropagation()" onchange="window._saFilterDk=this.value===\'All\'?\'\':\'' + dk + '\';window._saShiftFilter=this.value;_saSearchQuery=document.getElementById(\'sa-search-input\')?document.getElementById(\'sa-search-input\').value:\'\';_navStaff()"' +
+      ' style="display:block;margin:4px auto 0 auto;font-size:9px;padding:1px 2px;pointer-events:auto;border:1px solid var(--border2);border-radius:4px;background:var(--bg3);color:var(--text2);cursor:pointer;width:38px;height:18px;text-align:center;">' +
+      ['All','A','D','E'].map(function(s) {
+        var isSel = isOpen && _saShiftFilter === s;
+        if (!isOpen && s === 'All') isSel = true;
+        return '<option value="' + s + '"' + (isSel ? ' selected' : '') + '>' + s + '</option>';
+      }).join('') +
+      '</select>';
+
+    return '<th style="min-width:40px;padding:4px 2px;text-align:center;' +
+      'font-size:10px;font-weight:600;' +
+      'color:' + (isSun ? 'var(--err)' : isWknd ? 'var(--warn)' : 'var(--text2)') + ';' +
+      'background:' + headerBg + ';' +
+      headerBorder +
+      'border-left:' + (isSun ? '2px solid var(--border)' : 'none') + ';' +
+      'position:sticky;top:0;z-index:2;white-space:nowrap;">' +
+      '<div style="font-size:9px;' + (isWknd ? '' : 'opacity:.65;') + 'line-height:1.5;">' + WDAY_SHORT[dow] + '</div>' +
+      '<div style="font-size:11px;line-height:1.3;letter-spacing:-.3px;">' + _d + '/<span style="font-size:9px;opacity:.7;">' + _m + '</span></div>' +
+      selectPart +
+      '</th>';
+  }).join('');
 
   const conflictFilterBtn = `
     <button class="btn btn-sm" onclick="_staffAttConflictFilter=!_staffAttConflictFilter;nav('staff')"
@@ -1410,36 +1392,29 @@ function _renderStaffAttendance() {
       ⚠ Conflicts only${_staffAttConflictFilter ? ' ✕' : ''}
     </button>`;
 
-  const datePicker = '<select class="login-select" style="padding:5px 8px;font-size:12px;width:90px;" onchange="_saDateFilter=this.value;_navStaff()">' +
-    '<option value="">All dates</option>' +
-    allDates.map(function(dk) {
-      return '<option value="' + dk + '"' + (_saDateFilter === dk ? ' selected' : '') + '>' + dk + '</option>';
-    }).join('') +
-    '</select>';
-
-  const shiftFilterPicker = (_saFilterDk && _saShiftFilter !== 'All')
-    ? `<span style="font-size:11px;color:var(--text3);">Shift <b>${_saShiftFilter}</b> · ${_saFilterDk} <span onclick="_saFilterDk='';_saShiftFilter='All';_navStaff()" style="cursor:pointer;color:var(--err);margin-left:2px;">✕</span></span>`
-    : '';
-
   const codePicker = `<button class="btn btn-accent btn-sm" onclick="fillAttAll()" style="font-size:11px;">Fill All ↓</button>
     <button class="btn btn-sm" onclick="clearAttAll()" style="color:var(--err);border-color:var(--err);font-size:11px;">Clear ✕</button>
     <button class="btn btn-sm" onclick="undoClearAtt()" title="Undo last clear (Ctrl+Z)" style="font-size:11px;${!_staffAttUndoStack.length ? 'opacity:.35;cursor:not-allowed;' : ''}">↩ Undo</button>`;
 
-  _saFilteredUsernames = filteredUsers.map(u => u.username);
   _saCurrentDates = dates;
   _saCurrentMonthKey = monthKey;
   _installAttKbd();
 
+  var res = _liveFilterAttendance();
+  const tbodyRows = res.html;
+  const initialCount = res.count;
+
   return `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
       <span id="sa-kbd-marker" style="display:none;"></span>
-      ${datePicker}
+      <input class="filter-input" id="sa-search-input" style="width:200px;" placeholder="Search name, username, emp#…" value="${_saSearchQuery || ''}"
+        oninput="_saSearchQuery=this.value; var res=_liveFilterAttendance(); document.getElementById('sa-tbody').innerHTML=res.html; document.getElementById('sa-count-label').textContent=res.count + ' staff';">
+      <div style="width:1px;height:20px;background:var(--border);"></div>
       ${monthPicker}
-      ${shiftFilterPicker}
       ${codePicker}
       ${conflictFilterBtn}
       ${_attCopiedCode ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">📋 ${_attCopiedCode} <button onclick="_attCopiedCode='';nav('staff')" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;font-size:12px;line-height:1;">✕</button></span>` : ''}
-      <span style="font-size:11px;color:var(--text3);margin-left:4px;">${filteredUsers.length} staff</span>
+      <span id="sa-count-label" style="font-size:11px;color:var(--text3);margin-left:auto;">${initialCount} staff</span>
     </div>
     ${legendHTML}
     <div id="sa-table-wrap" style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;">
@@ -1458,7 +1433,7 @@ function _renderStaffAttendance() {
             ${theadDates}
           </tr>
         </thead>
-        <tbody>${tbodyRows}</tbody>
+        <tbody id="sa-tbody">${tbodyRows}</tbody>
       </table>
     </div>`;
 }
@@ -1670,18 +1645,20 @@ function renderStaffRows(users, displayDates) {
     '<td style="font-size:11px;color:' + _roleColor(_srEffRole) + ';position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">' + (getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—') + '</td>' +
     displayDates.map(function(d) {
       var s = _getSched(u.username, d);
+      var isFiltered = d === _ssFilterDk && _ssShiftFilter !== 'All';
+      var cellBg = isFiltered ? 'background:rgba(31,102,241,0.06) !important;' : '';
       if (_isMyRow && s === '0') {
         var _dp = d.split('/');
         var _ddt = new Date(_nowYr, parseInt(_dp[1])-1, parseInt(_dp[0]));
         var _eligible = Math.floor((_ddt - _nowMs) / 86400000) >= 2;
         if (_eligible) {
-          return '<td class="c" style="cursor:pointer;" onclick="openDayoffSwapModal(\'' + d + '\')" title="Request day-off swap">' +
+          return '<td class="c" style="cursor:pointer;' + cellBg + '" onclick="openDayoffSwapModal(\'' + d + '\')" title="Request day-off swap">' +
             '<span class="sh sh-0">—</span>' +
             '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">↔</div>' +
             '</td>';
         }
       }
-      return '<td class="c"><span class="sh sh-' + s + '">' + (s === '0' ? '—' : s) + '</span></td>';
+      return '<td class="c" style="' + cellBg + '"><span class="sh sh-' + s + '">' + (s === '0' ? '—' : s) + '</span></td>';
     }).join('') +
     '</tr>';
   }).join('');
