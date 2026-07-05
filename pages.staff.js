@@ -470,14 +470,8 @@ async function confirmScheduleImport() {
 }
 // ── Sub-tab 2: Staff Schedule ──
 function _renderStaffSchedule() {
-  // DA/DS/Sr DA/Sr DS: default to their working shift; force week view (no full-month for non-leaders)
-  var _isNonLeader = !isLeader(currentUser) && !isTraining(currentUser);
-  if (_isNonLeader) {
-    if (_ssShiftFilter === 'All') _ssShiftFilter = currentShift || 'A';
-    showFullMonth = false; // non-leaders always see week view
-  }
+  showFullMonth = true; // force full-month view (Week view removed)
   const hasUsers = state.users && state.users.length > 0;
-
   if (!hasUsers) {
     return `
 <div class="empty" style="padding:48px 0;">
@@ -487,7 +481,6 @@ function _renderStaffSchedule() {
 </div>`;
   }
 
-  // Collect available months across all schedule data (fast: only MM strings)
   var _allMonthSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) {
     Object.keys(sc || {}).forEach(function(k) {
@@ -496,26 +489,18 @@ function _renderStaffSchedule() {
   });
   var availableMonths = Object.keys(_allMonthSet).sort();
 
-  // Auto-init or validate _schedMonth before restricting date collection
   if (!_schedMonth || !availableMonths.includes(_schedMonth)) {
     var _activeMM0 = _ssActiveMonday.split('/')[1];
     _schedMonth = availableMonths.includes(_activeMM0) ? _activeMM0 : (availableMonths[availableMonths.length - 1] || _activeMM0);
   }
 
-  // Collect dates ONLY for the selected month (avoids iterating all months for every render)
   var _sdSet = {};
   Object.values(state.staffSchedule || {}).forEach(function(sc) {
     Object.keys(sc || {}).forEach(function(k) {
       if (/^\d{2}\/\d{2}$/.test(k) && k.split('/')[1] === _schedMonth) _sdSet[k] = 1;
     });
   });
-  const allDates = Object.keys(_sdSet).sort(function(a, b) {
-    var da = parseInt(a.split('/')[0]), ma = parseInt(a.split('/')[1]);
-    var db = parseInt(b.split('/')[0]), mb = parseInt(b.split('/')[1]);
-    return ma !== mb ? ma - mb : da - db;
-  });
-
-  const hasImportedDates = allDates.length > 0;
+  const displayDates = _sortDateKeys(Object.keys(_sdSet));
 
   var _currTrn = isTraining(currentUser);
   const filteredUsers = state.users.filter(u => {
@@ -524,7 +509,7 @@ function _renderStaffSchedule() {
     var _roleStr = (_resolveRole(_effR) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
-    if (!_currTrn && _isTrn) return false;   // lead/sub: hide training users
+    if (!_currTrn && _isTrn) return false;
     var _sq = (staffFilters.search || '').toLowerCase();
     if (!_sq) return true;
     return (u.team || '').toLowerCase().includes(_sq) ||
@@ -548,10 +533,21 @@ function _renderStaffSchedule() {
         <th style="${_stickyTh}left:60px;min-width:200px;width:200px;">FULL NAME</th>
         <th style="${_stickyTh}left:260px;min-width:130px;width:130px;">USER</th>
         <th style="${_stickyTh}left:390px;min-width:140px;width:140px;${_shadowR}">POSITION</th>
-        ${displayDates.map(function(d) { return '<th class="c" style="min-width:42px;padding:6px 2px;">' +
-          '<div style="font-size:8px;font-weight:400;opacity:.65;line-height:1.5;">' + getWkDay(d) + '</div>' +
-          '<div style="color:var(--accent);font-size:11px;line-height:1.3;">' + d + '</div>' +
-          '</th>'; }).join('')}
+        ${displayDates.map(function(d) {
+          const isOpen = _ssFilterDk === d;
+          return '<th class="c" style="min-width:48px;padding:6px 2px;">' +
+            '<div style="font-size:8px;font-weight:400;opacity:.65;line-height:1.5;">' + getWkDay(d) + '</div>' +
+            '<div style="color:var(--accent);font-size:11px;line-height:1.3;">' + d + '</div>' +
+            '<select onclick="event.stopPropagation()" onchange="window._ssFilterDk=this.value===\'All\'?\'\':\'' + d + '\';window._ssShiftFilter=this.value;nav(\'staff\')"' +
+            ' style="display:block;margin:4px auto 0 auto;font-size:9px;padding:1px 2px;pointer-events:auto;border:1px solid var(--border2);border-radius:4px;background:var(--bg3);color:var(--text2);cursor:pointer;width:38px;height:18px;text-align:center;">' +
+            ['All','A','D','E'].map(function(s) {
+              var isSel = isOpen && _ssShiftFilter === s;
+              if (!isOpen && s === 'All') isSel = true;
+              return '<option value="' + s + '"' + (isSel ? ' selected' : '') + '>' + s + '</option>';
+            }).join('') +
+            '</select>' +
+            '</th>';
+        }).join('')}
       </tr>
     </thead>
     <tbody id="staff-tbody">${renderStaffRows(_tblUsers, displayDates)}</tbody>
@@ -559,90 +555,35 @@ function _renderStaffSchedule() {
 </div>`;
   };
 
-  var _shiftPicker = '<select class="login-select" style="width:120px;padding:4px 8px;font-size:11px;" onchange="_ssShiftFilter=this.value;nav(\'staff\')">' +
-    ['All','A','D','E'].map(function(s) { return '<option value="' + s + '"' + (_ssShiftFilter === s ? ' selected' : '') + '>' + (s === 'All' ? 'All shifts' : 'Shift ' + s) + '</option>'; }).join('') +
-    '</select>';
-
   var _ssCanSwap = !isLeader(currentUser) && !isTraining(currentUser);
   var _dosSwapBtn = _ssCanSwap ? '<button class="btn btn-sm" onclick="openDayoffSwapModal(null)" style="font-size:11px;">↔ Day-off Swap</button>' : '';
 
-  if (!hasImportedDates) {
-    var _wkDates = getWeekRange(_ssActiveMonday);
-    var _wkFiltered = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
-      return _wkDates.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; });
+  var _displayUsers;
+  if (_ssFilterDk && _ssShiftFilter !== 'All') {
+    _displayUsers = filteredUsers.filter(function(u) {
+      return (_getSched(u.username, _ssFilterDk) || '').charAt(0) === _ssShiftFilter;
     });
-    return `
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-  ${_searchBar}
-  <div style="width:1px;height:20px;background:var(--border);"></div>
-  <span style="font-size:11px;color:var(--text3);">Current week</span>
-  ${_shiftPicker}
-  ${_dosSwapBtn}
-  <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_wkFiltered.length} staff</span>
-</div>
-${_schedTbl(_wkDates, _wkFiltered)}`;
+  } else {
+    _displayUsers = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
+      return displayDates.some(function(d) { return (_getSched(u.username, d) || '').charAt(0) === _ssShiftFilter; });
+    });
   }
-
-  // Get all unique Mondays covering the dates of the selected month
-  var _uniqueMondays = {};
-  allDates.forEach(function(d) {
-    if (d.split('/')[1] === _schedMonth) {
-      var _parts = d.split('/').map(Number);
-      var _dt = new Date(2026, _parts[1] - 1, _parts[0]);
-      var _dayOfWeek = _dt.getDay();
-      var _diffToMon = _dayOfWeek === 0 ? -6 : 1 - _dayOfWeek;
-      var _mon = new Date(_dt);
-      _mon.setDate(_dt.getDate() + _diffToMon);
-      var _monStr = String(_mon.getDate()).padStart(2, '0') + '/' + String(_mon.getMonth() + 1).padStart(2, '0');
-      _uniqueMondays[_monStr] = true;
-    }
-  });
-  var monthMondays = _sortDateKeys(Object.keys(_uniqueMondays));
-
-  // Snap _ssActiveMonday to selected month if it drifted (i.e. has no days in the selected month)
-  var _ssActiveMonRange = getWeekRange(_ssActiveMonday);
-  var _ssActiveMonHasDaysInMonth = _ssActiveMonRange.some(function(d) { return d.split('/')[1] === _schedMonth; });
-  if (!_ssActiveMonHasDaysInMonth) {
-    var _firstMon = monthMondays[0];
-    if (_firstMon) {
-      _ssActiveMonday = _firstMon;
-      localStorage.setItem('_ssActiveMonday', _ssActiveMonday);
-    }
-  }
-
-  // Clip week range to selected month so it never leaks into adjacent months
-  var weekRange = getWeekRange(_ssActiveMonday).filter(function(d) { return d.split('/')[1] === _schedMonth; });
-  var monthDates = _sortDateKeys(allDates.filter(function(d) { return /\d{2}\/\d{2}/.test(d) && d.split('/')[1] === _schedMonth; }));
-  var displayDates = showFullMonth ? monthDates : weekRange;
-
-  var _sfDates = showFullMonth ? monthDates : weekRange;
-  var _displayUsers = _ssShiftFilter === 'All' ? filteredUsers : filteredUsers.filter(function(u) {
-    return _sfDates.some(function(d) { return _getSched(u.username, d) === _ssShiftFilter; });
-  });
 
   const MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
     '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
 
-  // Month picker: for non-leaders switching months stays in week view
-  var _monthPickerChange = _isNonLeader ? '_schedMonth=this.value;nav(\'staff\')' : '_schedMonth=this.value;showFullMonth=true;nav(\'staff\')';
+  var _ssActiveFilterBadge = (_ssFilterDk && _ssShiftFilter !== 'All')
+    ? '<span style="font-size:11px;color:var(--text3);margin-left:8px;">Shift <b>' + _ssShiftFilter + '</b> on ' + _ssFilterDk + ' <span onclick="_ssFilterDk=\'\';_ssShiftFilter=\'All\';nav(\'staff\')" style="cursor:pointer;color:var(--err);margin-left:2px;">✕</span></span>'
+    : '';
 
   return `
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
   ${_searchBar}
   <div style="width:1px;height:20px;background:var(--border);"></div>
-  ${!_isNonLeader ? `<button class="toggle-btn ${showFullMonth ? 'active' : ''}" onclick="showFullMonth=!showFullMonth;nav('staff')" style="font-size:11px;">
-    ${showFullMonth ? '🗓 Week view' : '🗓 Full month'}
-  </button>` : ''}
-  <select class="login-select" style="width:130px;padding:4px;" onchange="${_monthPickerChange}">
+  <select class="login-select" style="width:130px;padding:4px;" onchange="_schedMonth=this.value;nav('staff')">
     ${availableMonths.map(m => `<option value="${m}" ${m === _schedMonth ? 'selected' : ''}>${MONTH_LABELS[m] || m}</option>`).join('')}
   </select>
-  ${!showFullMonth ? `<select class="login-select" style="width:160px;padding:4px;" onchange="_ssActiveMonday=this.value;localStorage.setItem('_ssActiveMonday',this.value);nav('staff')">
-    ${monthMondays.map(function(mon) {
-      var end = getWeekRange(mon).filter(function(d){return d.split('/')[1]===_schedMonth;}).pop() || mon;
-      return '<option value="' + mon + '"' + (mon === _ssActiveMonday ? ' selected' : '') + '>' + mon + ' – ' + end + '</option>';
-    }).join('')}
-  </select>` : ''}
-  ${_shiftPicker}
+  ${_ssActiveFilterBadge}
   ${_dosSwapBtn}
   <span style="font-size:11px;color:var(--text3);margin-left:auto;">${_displayUsers.length} staff</span>
 </div>
@@ -1797,12 +1738,16 @@ function _sortStaffUsers(users) {
 
 function _liveFilter() {
   var _lfSet = {};
-  Object.values(state.staffSchedule || {}).forEach(function(sc) { Object.keys(sc||{}).forEach(function(k){ _lfSet[k]=1; }); });
-  const allDates = Object.keys(_lfSet);
-  const weekRange = getWeekRange(activeMonday);
-  const displayDates = showFullMonth ? allDates : weekRange;
+  Object.values(state.staffSchedule || {}).forEach(function(sc) {
+    Object.keys(sc || {}).forEach(function(k) {
+      if (/^\d{2}\/\d{2}$/.test(k) && k.split('/')[1] === _schedMonth) _lfSet[k] = 1;
+    });
+  });
+  const displayDates = _sortDateKeys(Object.keys(_lfSet));
+
   var _currTrn2 = isTraining(currentUser);
   const filtered = state.users.filter(u => {
+    if (u.username === 'tuan.mai' || u.username === 'nhon.bui') return false;
     var _effR2   = u.role || (state.staffInfo[u.username]||{}).role || '';
     var _roleStr = (_resolveRole(_effR2) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
@@ -1815,10 +1760,22 @@ function _liveFilter() {
       (u.username || '').toLowerCase().includes(_sq2) ||
       _roleStr.includes(_sq2);
   });
+
+  var _lfUsers;
+  if (_ssFilterDk && _ssShiftFilter !== 'All') {
+    _lfUsers = filtered.filter(function(u) {
+      return (_getSched(u.username, _ssFilterDk) || '').charAt(0) === _ssShiftFilter;
+    });
+  } else {
+    _lfUsers = _ssShiftFilter === 'All' ? filtered : filtered.filter(function(u) {
+      return displayDates.some(function(d) { return (_getSched(u.username, d) || '').charAt(0) === _ssShiftFilter; });
+    });
+  }
+
   const tbody = document.getElementById('staff-tbody');
-  if (tbody) tbody.innerHTML = renderStaffRows(_sortStaffUsers(filtered), displayDates);
+  if (tbody) tbody.innerHTML = renderStaffRows(_sortStaffUsers(_lfUsers), displayDates);
   const sub = document.querySelector('#staff-subtab-content .page-sub');
-  if (sub) sub.textContent = `${filtered.length} staff`;
+  if (sub) sub.textContent = `${_lfUsers.length} staff`;
 }
 
 // ═══════════════════════════════════════════════

@@ -387,11 +387,13 @@ let activeMonday = (() => {
   mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1)); // Sun → back 6, Mon → 0, Tue → 1, …
   return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
 })();
-let showFullMonth = false;
-let _schedMonth   = null; // null = auto-detect from activeMonday
-let _ssShiftFilter = 'All'; // staff schedule shift filter (week mode only)
+var showFullMonth = true;
+var _schedMonth   = null; // null = auto-detect from activeMonday
+var _ssShiftFilter = 'All'; // staff schedule shift filter (week mode only)
+var _ssFilterDk    = '';
+
 // Monday anchor for Staff Schedule (separate from activeMonday which is Monday-based for Arrange)
-let _ssActiveMonday = (() => {
+var _ssActiveMonday = (() => {
   const cached = localStorage.getItem('_ssActiveMonday');
   if (cached) return cached;
   const now = new Date(); const dow = now.getDay();
