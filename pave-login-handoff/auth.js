@@ -119,6 +119,7 @@ async function doLogin() {
     }
 
     currentUser  = user;
+    currentUser.photoURL = (credential && credential.user && credential.user.photoURL) || '';
     currentShift = _guardShift(s || 'E');
     err.textContent = '';
 
@@ -145,7 +146,7 @@ async function doLogin() {
       return;
     }
 
-    DB.saveSession({ username: u, userId: user.id, shift: currentShift });
+    DB.saveSession({ username: u, userId: user.id, shift: currentShift, photoURL: currentUser.photoURL || '' });
     window._loginInProgress = false;
     btn.disabled = false;
     _afterLogin();
@@ -206,6 +207,7 @@ async function doGoogleLogin() {
     const isAdminUser = (ROLES[_resolveRole(user.role)]?.level || 0) >= 3;
 
     currentUser  = user;
+    currentUser.photoURL = credential.user.photoURL || '';
     err.textContent = '';
 
     if (typeof syncEnabled === 'function' && syncEnabled()) {
@@ -221,7 +223,7 @@ async function doGoogleLogin() {
     // Google users skip password-change prompt — mark as already changed
     localStorage.setItem('pw_changed_' + u, '1');
 
-    DB.saveSession({ username: u, userId: user.id, shift: currentShift });
+    DB.saveSession({ username: u, userId: user.id, shift: currentShift, photoURL: currentUser.photoURL || '' });
     window._loginInProgress = false;
     if (btn) btn.disabled = false;
     _afterLogin();
@@ -314,7 +316,7 @@ async function submitChangePassword() {
     // Store localStorage flag — survives cloud pull overwrites on THIS device
     localStorage.setItem(`pw_changed_${username}`, '1');
 
-    DB.saveSession({ username, userId: currentUser.id, shift: currentShift });
+    DB.saveSession({ username, userId: currentUser.id, shift: currentShift, photoURL: currentUser.photoURL || '' });
     save();
 
     // ── 3. Hide change-password view ──
@@ -388,9 +390,10 @@ function enterApp(fromSession) {
   const avatarColors = { 'role-leader': '#f59e0b', 'role-training': '#10b981', 'role-qa': '#a78bfa', 'role-agent': '#1F66F1' };
   const avatarBg = avatarColors[ri.tag] || '#1F66F1';
 
-  if (currentUser.username === 'cuong.pham') {
+  var _photoSrc = currentUser.photoURL || (currentUser.username === 'cuong.pham' ? 'avatar_cuong.png' : '');
+  if (_photoSrc) {
     topAvatar.style.background = 'none';
-    topAvatar.innerHTML = '<img src="avatar_cuong.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'C\';p.style.background=\'' + avatarBg + '\'" />';
+    topAvatar.innerHTML = '<img src="' + _photoSrc + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="var p=this.parentElement;p.innerHTML=\'' + currentUser.name.charAt(0) + '\';p.style.background=\'' + avatarBg + '\';p.style.display=\'flex\'" />';
   } else {
     topAvatar.innerHTML = '';
     topAvatar.textContent   = currentUser.name.charAt(0);

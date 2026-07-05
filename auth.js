@@ -122,6 +122,7 @@ async function doLogin() {
     }
 
     currentUser  = user;
+    currentUser.photoURL = (credential && credential.user && credential.user.photoURL) || '';
     err.textContent = '';
 
     // ── Pull cloud data FIRST before checking mustChangePw ──
@@ -151,7 +152,7 @@ async function doLogin() {
       return;
     }
 
-    DB.saveSession({ username: u, userId: user.id, shift: currentShift });
+    DB.saveSession({ username: u, userId: user.id, shift: currentShift, photoURL: currentUser.photoURL || '' });
     window._loginInProgress = false;
     btn.disabled = false;
     _afterLogin();
@@ -226,7 +227,7 @@ async function doGoogleLogin() {
     // Google users skip password-change prompt — mark as already changed
     localStorage.setItem('pw_changed_' + u, '1');
 
-    DB.saveSession({ username: u, userId: user.id, shift: currentShift });
+    DB.saveSession({ username: u, userId: user.id, shift: currentShift, photoURL: currentUser.photoURL || '' });
     window._loginInProgress = false;
     if (btn) btn.disabled = false;
     _afterLogin();
@@ -319,7 +320,7 @@ async function submitChangePassword() {
     // Store localStorage flag — survives cloud pull overwrites on THIS device
     localStorage.setItem(`pw_changed_${username}`, '1');
 
-    DB.saveSession({ username, userId: currentUser.id, shift: currentShift });
+    DB.saveSession({ username, userId: currentUser.id, shift: currentShift, photoURL: currentUser.photoURL || '' });
     save();
 
     // ── 3. Hide change-password view ──
