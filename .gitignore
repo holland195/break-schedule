@@ -8,4 +8,3 @@ scratch/
 worker/.wrangler/
 worker/.dev.vars
 *.ps1
-*.sh
