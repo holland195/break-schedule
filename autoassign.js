@@ -177,23 +177,43 @@ function _saveRotation(rot) {
 // of the same team lands on the same slot. Rotation key: `${shift}_${tier}_teams`.
 // slot2Count = number of teams that go to slot2 this week.
 // Fully idempotent.
-function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Count) {
+function _shiftMondayByWeeks(monday, weeks) {
+  var parts = monday.split('/');
+  var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+  dt.setDate(dt.getDate() + (weeks * 7));
+  return String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+}
+
+function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Count, teamMeta) {
+  teamMeta = teamMeta || {};
+  var teamFirstDayIndex = teamMeta.firstDayIndex || teamMeta;
+  var legacyDeferred = teamMeta.legacyDeferred || {};
   var key = shift + '_' + tier + '_teams';
   if (!rot[key] || !rot[key].baseDate) rot[key] = {};
   var entry = rot[key];
   if (!entry.baseDate) entry.baseDate = sunday;
   if (!entry.members) entry.members = [];
+  if (!entry.activeFrom) entry.activeFrom = {};
 
   var knownList = entry.members;
   var knownSet  = new Set(knownList);
+  var activeFrom = entry.activeFrom;
+  var thisDate = _mondayToDate(sunday);
 
   var brandNew = teams.filter(function(t) { return !knownSet.has(t); });
-  var existing = teams.filter(function(t) { return  knownSet.has(t); });
+  var deferred = teams.filter(function(t) {
+    return knownSet.has(t) && (
+      legacyDeferred[t] ||
+      (activeFrom[t] && _mondayToDate(activeFrom[t]) > thisDate)
+    );
+  });
+  var existing = teams.filter(function(t) {
+    return knownSet.has(t) && !legacyDeferred[t] && (!activeFrom[t] || _mondayToDate(activeFrom[t]) <= thisDate);
+  });
 
   existing.sort(function(a, b) { return knownList.indexOf(a) - knownList.indexOf(b); });
 
   var baseDate  = _mondayToDate(entry.baseDate);
-  var thisDate  = _mondayToDate(sunday);
   var weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
 
   var N          = existing.length;
@@ -211,7 +231,8 @@ function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Cou
   }, 0);
   var newSlot2Count = Math.max(0, slot2Count - assignedSlot2);
 
-  brandNew.sort(_naturalSort).forEach(function(t, i) {
+  var newTeamsForAssignment = deferred.concat(brandNew.sort(_naturalSort));
+  newTeamsForAssignment.forEach(function(t, i) {
     result[t] = i < newSlot2Count ? slot2 : slot1;
   });
 
@@ -220,6 +241,8 @@ function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Cou
       knownList.push(t);
       knownSet.add(t);
     }
+    var firstDayIndex = teamFirstDayIndex && teamFirstDayIndex[t] !== undefined ? teamFirstDayIndex[t] : 0;
+    activeFrom[t] = _shiftMondayByWeeks(sunday, firstDayIndex >= 5 ? 2 : 1);
   });
 
   return result;
@@ -437,7 +460,7 @@ function autoAssignBreaks(importedUsers) {
           : Math.ceil(members.length / 2);
         var slot2Count = members.length - slot1Count;
 
-        var userSlotMap = _getSlotMap(rot, shift, tier, monday, members, slot1, slot2, slot2Count);
+        var userSlotMap = shift === 'E' ? {} : _getSlotMap(rot, shift, tier, monday, members, slot1, slot2, slot2Count);
         var slotBasisMap = userSlotMap;
 
         // Shift E should split by group, matching the distribution panel and
@@ -446,11 +469,43 @@ function autoAssignBreaks(importedUsers) {
         if (shift === 'E') {
           var teamSeen = {};
           var teamsForTier = [];
+          var teamFirstDayIndex = {};
+          var prevWeekdayShiftByTeam = {};
+          var prevWeekendShiftByTeam = {};
+          var earlierShiftByTeam = {};
+          var prevWeekDatesForTeam = getWeekRange(_shiftMondayByWeeks(monday, -1));
+          var prevWeekStartDate = _mondayToDate(prevWeekDatesForTeam[0]);
           members.forEach(function(u) {
             var teamKey = u.team || ('_' + (u.username || u.id));
             if (!teamSeen[teamKey]) {
               teamSeen[teamKey] = true;
               teamsForTier.push(teamKey);
+            }
+            prevWeekDatesForTeam.forEach(function(d, idx) {
+              if (_getSched(u.username, d) !== shift) return;
+              if (_isOffOrHalfDay(u.username, d)) return;
+              if (idx >= 5) prevWeekendShiftByTeam[teamKey] = true;
+              else prevWeekdayShiftByTeam[teamKey] = true;
+            });
+            Object.keys(state.staffSchedule[u.username] || {}).forEach(function(d) {
+              if (!/^\d{1,2}\/\d{1,2}$/.test(d)) return;
+              if (_mondayToDate(d) >= prevWeekStartDate) return;
+              if (_getSched(u.username, d) !== shift) return;
+              if (_isOffOrHalfDay(u.username, d)) return;
+              earlierShiftByTeam[teamKey] = true;
+            });
+            weekDates.forEach(function(d, idx) {
+              if (_getSched(u.username, d) !== shift) return;
+              if (_isOffOrHalfDay(u.username, d)) return;
+              if (teamFirstDayIndex[teamKey] === undefined || idx < teamFirstDayIndex[teamKey]) {
+                teamFirstDayIndex[teamKey] = idx;
+              }
+            });
+          });
+          var legacyDeferredTeams = {};
+          teamsForTier.forEach(function(teamKey) {
+            if (prevWeekendShiftByTeam[teamKey] && !prevWeekdayShiftByTeam[teamKey] && !earlierShiftByTeam[teamKey]) {
+              legacyDeferredTeams[teamKey] = true;
             }
           });
 
@@ -458,7 +513,10 @@ function autoAssignBreaks(importedUsers) {
             ? Math.round(teamsForTier.length * customPct / 100)
             : Math.ceil(teamsForTier.length / 2);
           var teamSlot2Count = teamsForTier.length - teamSlot1Count;
-          var teamSlotMap = _getTeamSlotMap(rot, shift, tier, monday, teamsForTier, slot1, slot2, teamSlot2Count);
+          var teamSlotMap = _getTeamSlotMap(rot, shift, tier, monday, teamsForTier, slot1, slot2, teamSlot2Count, {
+            firstDayIndex: teamFirstDayIndex,
+            legacyDeferred: legacyDeferredTeams,
+          });
 
           slotBasisMap = {};
           members.forEach(function(u) {
