@@ -6,136 +6,7 @@
 const STORAGE  = 'bsched_v6';
 const WEEK_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-const STAFF_INFO_DB = [
-  { username:'admin',                   name:'System Admin',                      gender:'M', role:'Admin'                    },
-  { username:'cuong.pham',              name:'Phạm Minh Cường',                   gender:'M', role:'Data Analyst Leader'              },
-  { username:'son.tran',                name:'Trần Thái Sơn',                     gender:'M', role:'Training Manager'          },
-  { username:'anh.tran',                name:'Trần Thị Kim Anh',                  gender:'F', role:'Training Assistant'        },
-  { username:'kim.huynh',               name:'Huỳnh Thị Mỹ Kim',                  gender:'F', role:'Data Supervisor'                        },
-  { username:'tu.le',                   name:'Lê Văn Tú',                         gender:'M', role:'Training Assistant'        },
-  { username:'phuong.nguyen',           name:'Nguyễn Thị Anh Phương',             gender:'F', role:'Sr Data Supervisor'                     },
-  { username:'tong.nguyen',             name:'Nguyễn Trần Tông',                  gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'thinh.nguyen',            name:'Nguyễn Hữu Thịnh',                  gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'nhan.trinh',              name:'Trịnh Mỹ Nhân',                     gender:'F', role:'Training Assistant'        },
-  { username:'uyen.tran',               name:'Trần Hà Phương Uyên',               gender:'F', role:'Data Analyst'                     },
-  { username:'dung.tran',               name:'Trần Quốc Dũng',                    gender:'M', role:'Data Analyst Leader'              },
-  { username:'tam.to',                  name:'Tô Hoài Tâm',                       gender:'M', role:'Data Analyst Leader'              },
-  { username:'thanh.nguyen',            name:'Nguyễn Đức Thanh',                  gender:'M', role:'Data Analyst Supervisor'          },
-  { username:'dinhtu.tran',             name:'Trần Đình Tú',                      gender:'M', role:'Data Analyst'                     },
-  { username:'tu.nguyentan',            name:'Nguyễn Tấn Tú',                     gender:'M', role:'Data Supervisor'                        },
-  { username:'hongthuy.nguyen',         name:'Nguyễn Thị Phương Hồng Thuỷ',      gender:'F', role:'Data Analyst Leader'              },
-  { username:'anh.dao',                 name:'Đào Công Tấn Anh',                  gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'nhat.ngo',                name:'Ngô Trung Nhật',                    gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'bao.vo',                  name:'Võ Hoàng Gia Bảo',                  gender:'F', role:'Sr Data Analyst'                  },
-  { username:'hai.nguyen',              name:'Nguyễn Hồ Giang Hải',               gender:'M', role:'Data Analyst Supervisor'          },
-  { username:'hoa.nguyen',              name:'Nguyễn Đức Hòa',                    gender:'M', role:'Data Analyst Supervisor'          },
-  { username:'nhu.le',                  name:'Lê Thị Quỳnh Như',                  gender:'F', role:'Data Supervisor'                        },
-  { username:'duy.huynh',               name:'Huỳnh Minh Duy',                    gender:'M', role:'Data Analyst Supervisor'          },
-  { username:'trang.tran',              name:'Trần Thị Phương Trang',             gender:'F', role:'Data Supervisor'                        },
-  { username:'thao.nguyen',             name:'Nguyễn Ngọc Thương Thảo',           gender:'F', role:'Sr Data Analyst'                  },
-  { username:'sang.tran',               name:'Trần Tấn Sang',                     gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'hien.nhu',                name:'Nhữ Thị Hiền',                      gender:'F', role:'Data Supervisor'                        },
-  { username:'hieu.cao',                name:'Cao Đức Hiếu',                      gender:'M', role:'Data Supervisor'                        },
-  { username:'giau.nguyen',             name:'Nguyễn Đặng Ngọc Giàu',             gender:'F', role:'Sr Data Analyst'                  },
-  { username:'thanhha.tran',            name:'Trần Thanh Hà',                     gender:'M', role:'Sr Data Analyst'                  },
-  { username:'chi.nguyen',              name:'Nguyễn Thị Kim Chi',                gender:'F', role:'Sr Data Analyst'                  },
-  { username:'ngocanh.tran',            name:'Trần Thị Ngọc Ánh',                 gender:'F', role:'Data Analyst Leader'              },
-  { username:'linh.van',                name:'Văn Thị Ngọc Linh',                 gender:'F', role:'Training Assistant'        },
-  { username:'huyhien.nguyen',          name:'Nguyễn Huy Hiền',                   gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'trang.tram',              name:'Trầm Thùy Trang',                   gender:'F', role:'Training Assistant'        },
-  { username:'tram.mai',                name:'Mai Hà Bảo Trâm',                   gender:'F', role:'Data Supervisor'                        },
-  { username:'tran.le',                 name:'Lê Nguyễn Huyền Trân',              gender:'F', role:''                          },
-  { username:'thien.nguyen',            name:'Nguyễn Hữu Thiện',                  gender:'M', role:'Data Supervisor'                        },
-  { username:'kien.nguyen',             name:'Nguyễn Trung Kiên',                 gender:'M', role:''                          },
-  { username:'my.nguyen',               name:'Nguyễn Thị Ánh Mỹ',                gender:'F', role:'Data Supervisor'                        },
-  { username:'y.nguyen',                name:'Nguyễn Lê Như Ý',                   gender:'F', role:'Data Supervisor'                        },
-  { username:'trinh.ho',                name:'Hồ Thị Tú Trinh',                   gender:'F', role:'Sr Data Supervisor'                     },
-  { username:'danh.huynh',              name:'Huỳnh Văn Danh',                    gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'triet.le',                name:'Lê Công Triết',                     gender:'M', role:'Data Analyst'                     },
-  { username:'truong.nguyen',           name:'Nguyễn Văn Trưởng',                 gender:'M', role:'Data Supervisor'                        },
-  { username:'thong.nhat',              name:'Thông Nhát',                        gender:'M', role:'Sr Data Supervisor'                     },
-  { username:'son.bui',                 name:'Bùi Trọng Sơn',                     gender:'M', role:'Data Supervisor'                        },
-  { username:'phuc.ho',                 name:'Hồ Tấn Phúc',                       gender:'M', role:'Data Supervisor'                        },
-  { username:'tu.lehoang',              name:'Lê Hoàng Anh Tú',                   gender:'M', role:'Data Supervisor'                        },
-  { username:'duy.nguyenquoc',          name:'Nguyễn Quốc Duy',                   gender:'M', role:'Data Analyst'                     },
-  { username:'nam.nguyenthanh',         name:'Nguyễn Thành Nam',                  gender:'M', role:'Data Analyst'                     },
-  { username:'tram.tranngoc',           name:'Trần Ngọc Trâm',                    gender:'F', role:'Sr Data Supervisor'                     },
-  { username:'khang.nguyen',            name:'Nguyễn Hoàng Duy Khang',            gender:'M', role:'Data Supervisor'                        },
-  { username:'anh.bui',                 name:'Bùi Nhật Anh',                      gender:'M', role:'Data Supervisor'                        },
-  { username:'linh.thai',               name:'Thái Thị Thanh Linh',               gender:'F', role:'Data Supervisor'                        },
-  { username:'kien.vu',                 name:'Vũ Trung Kiên',                     gender:'M', role:'Data Supervisor'                        },
-  { username:'vu.nguyen',               name:'Nguyễn Anh Vũ',                     gender:'M', role:'Data Supervisor'                        },
-  { username:'yen.ho',                  name:'Hồ Thị Hải Yến',                    gender:'F', role:'Data Supervisor'                        },
-  { username:'anh.nguyen',              name:'Nguyễn Thị Phương Anh',             gender:'F', role:'Data Analyst'                     },
-  { username:'tuan.tran',               name:'Trần Trọng Tuấn',                   gender:'M', role:'Data Analyst'                     },
-  { username:'toan.ho',                 name:'Hồ Quốc Toàn',                      gender:'M', role:'Data Supervisor'                        },
-  { username:'duy.nguyenhuynhquoc',     name:'Nguyễn Huỳnh Quốc Duy',             gender:'M', role:'Data Supervisor'                        },
-  { username:'thien.nguyenthanh',       name:'Nguyễn Thanh Thiện',                gender:'M', role:'Data Analyst'                     },
-  { username:'tan.pham',                name:'Phạm Hà Duy Tân',                   gender:'M', role:'Data Supervisor'                        },
-  { username:'ngoc.truong',             name:'Trương Thị Như Ngọc',               gender:'F', role:'Data Analyst'                     },
-  { username:'oanh.ngo',                name:'Ngô Thục Oanh',                     gender:'F', role:'Data Analyst'                     },
-  { username:'binh.nguyen',             name:'Nguyễn Phạm Thanh Bình',            gender:'M', role:'Data Supervisor'                        },
-  { username:'duy.bui',                 name:'Bùi Lập Duy',                       gender:'M', role:'Data Analyst'                     },
-  { username:'hoang.nguyentuyen',       name:'Nguyễn Tuyên Hoàng',                gender:'M', role:'Data Supervisor'                        },
-  { username:'nhu.nguyen',              name:'Nguyễn Huỳnh Ý Như',                gender:'F', role:'Data Supervisor'                        },
-  { username:'hien.phamthi',            name:'Phạm Thị Hiền',                     gender:'F', role:'Data Analyst'                     },
-  { username:'phat.huynhtan',           name:'Huỳnh Tấn Phát',                    gender:'M', role:'Data Analyst'                     },
-  { username:'anh.le',                  name:'Lê Huỳnh Minh Anh',                 gender:'F', role:'Data Analyst'                     },
-  { username:'duc.ngominh',             name:'Ngô Minh Đức',                      gender:'M', role:'Data Analyst'                     },
-  { username:'nhi.le',                  name:'Lê Khả Nhi',                        gender:'F', role:'Data Supervisor'                        },
-  { username:'huyen.huynh',             name:'Huỳnh Thị Thanh Huyền',             gender:'F', role:'Data Analyst'                     },
-  { username:'nhu.khong',               name:'Khổng Thị Quỳnh Như',               gender:'F', role:'Data Supervisor'                        },
-  { username:'hoa.nguyenthi',           name:'Nguyễn Thị Hòa',                    gender:'F', role:'Data Supervisor'                        },
-  { username:'nguyen.nguyentran',       name:'Nguyễn Trần Khai Nguyên',           gender:'M', role:'Data Analyst'                     },
-  { username:'thang.pham',              name:'Phạm Văn Thắng',                    gender:'M', role:'Data Supervisor'                        },
-  { username:'ngoc.nguyen',             name:'Nguyễn Lâm Bảo Ngọc',               gender:'M', role:'Data Supervisor'                        },
-  { username:'nhan.nguyenthanh',        name:'Nguyễn Thành Nhân',                 gender:'M', role:'Data Analyst'                     },
-  { username:'quang.nguyenthanh',       name:'Nguyễn Thành Quang',                gender:'M', role:'Data Analyst'                     },
-  { username:'huy.tran',                name:'Trần Gia Huy',                      gender:'M', role:'Data Analyst'                     },
-  { username:'phong.nguyen',            name:'Nguyễn Thanh Phong',                gender:'M', role:'Data Analyst'                     },
-  { username:'duy.le',                  name:'Lê Khương Duy',                     gender:'M', role:'Data Analyst'                     },
-  { username:'thao.phan',               name:'Phan Thị Phương Thảo',              gender:'F', role:'Data Supervisor'                        },
-  { username:'an.nguyen',               name:'Nguyễn Hoàng Thiên Ân',             gender:'M', role:'Data Analyst'                     },
-  { username:'bao.phan',                name:'Phan Thái Bảo',                     gender:'M', role:'Data Analyst'                     },
-  { username:'nam.nguyendinh',          name:'Nguyễn Đình Nam',                   gender:'M', role:'Data Analyst'                     },
-  { username:'hai.cao',                 name:'Cao Chí Hải',                       gender:'M', role:'Data Supervisor'                        },
-  { username:'thinh.phanxuan',          name:'Phan Xuân Thịnh',                   gender:'M', role:'Data Supervisor'                        },
-  { username:'kiet.voanh',              name:'Võ Anh Kiệt',                       gender:'M', role:'Data Supervisor'                        },
-  { username:'tinh.nguyenmaiviet',      name:'Nguyễn Mai Việt Tính',              gender:'M', role:'Data Analyst'                     },
-  { username:'luu.nguyendinh',          name:'Nguyễn Đinh Lưu',                   gender:'M', role:'Data Supervisor'                        },
-  { username:'nguyen.vudinh',           name:'Vũ Đình Nguyễn',                    gender:'M', role:'Data Analyst'                     },
-  { username:'cuong.nguyenthanhthe',    name:'Nguyễn Thanh Thế Cường',            gender:'M', role:'Data Supervisor'                        },
-  { username:'tuong.nhambon',           name:'Nhâm Bổn Tường',                    gender:'M', role:'Data Analyst'                     },
-  { username:'quang.phamdoduy',         name:'Phạm Đỗ Duy Quang',                 gender:'M', role:'Data Analyst'                     },
-  { username:'thuy.ngodiem',            name:'Ngô Diễm Thùy',                     gender:'F', role:'Data Analyst'                     },
-  { username:'truc.luquang',            name:'Lư Quang Trực',                     gender:'M', role:'Data Supervisor'                        },
-  { username:'phong.phantrung',         name:'Phan Trung Phong',                  gender:'M', role:'Data Analyst'                     },
-  { username:'phong.trinhhoai',         name:'Trịnh Hoài Phong',                  gender:'M', role:'Data Supervisor'                        },
-  { username:'danh.phamcong',           name:'Phạm Công Danh',                    gender:'M', role:'Data Analyst'                     },
-  { username:'tam.nguyenmaikhanh',      name:'Nguyễn Mai Khánh Tâm',              gender:'M', role:'Data Supervisor'                        },
-  { username:'y.anhongkim',             name:'Ân Hồng Kim Ý',                     gender:'F', role:'Data Supervisor'                        },
-  { username:'ngan.luongthi',           name:'Lương Thị Ngân',                    gender:'F', role:'Data Supervisor'                        },
-  { username:'ngan.huynhtuyet',         name:'Huỳnh Tuyết Ngân',                  gender:'F', role:'Data Supervisor'                        },
-  { username:'nhi.huynhtranuyen',       name:'Huỳnh Trần Uyển Nhi',               gender:'F', role:'Data Supervisor'                        },
-  { username:'diem.nguyenthithanh',     name:'Nguyễn Thị Thanh Diễm',             gender:'F', role:'Data Analyst'                     },
-  { username:'mai.luungoc',             name:'Lưu Ngọc Mai',                      gender:'F', role:'Data Analyst'                     },
-  { username:'anh.trantuan',            name:'Trần Tuấn Anh',                     gender:'M', role:'Data Supervisor'                        },
-  { username:'que.nguyenthihong',       name:'Nguyễn Thị Hồng Quế',               gender:'F', role:'Data Supervisor'                        },
-  { username:'vi.votuan',               name:'Võ Tuấn Vĩ',                        gender:'M', role:'Data Analyst'                     },
-  { username:'phu.nguyenhoang',         name:'Nguyễn Hoàng Phú',                  gender:'M', role:'Data Analyst'                     },
-  { username:'kim.hoanglap',            name:'Hoàng Lạp Kim',                     gender:'M', role:'Data Analyst'                     },
-  { username:'minh.kieuhuynh',          name:'Kiều Huỳnh Minh',                   gender:'M', role:'Data Analyst'                     },
-  { username:'duy.nk',                  name:'Nguyễn Khánh Duy',                  gender:'M', role:'Data Analyst'                     },
-  { username:'linh.ptt',                name:'Phan Thị Trúc Linh',                gender:'F', role:'Data Analyst'                     },
-  { username:'thien.ht',                name:'Hồ Trọng Thiện',                    gender:'M', role:'Data Analyst'                     },
-  { username:'tho.nh',                  name:'Nguyễn Hữu Thọ',                    gender:'M', role:'Data Analyst'                     },
-  { username:'duc.nv',                  name:'Nguyễn Viết Đức',                   gender:'M', role:'Data Analyst'                     },
-  { username:'nam.np',                  name:'Nguyễn Phương Nam',                 gender:'M', role:'Data Analyst'                     },
-  { username:'na.phc',                  name:'Phan Hoàng Chin Na',                gender:'F', role:'Data Analyst'                     },
-  { username:'thai.ps',                 name:'Phạm Sỹ Thái',                      gender:'M', role:'Data Analyst'                     },
-  { username:'tu.nbt',                  name:'Nguyễn Bảo Thái Tú',                gender:'M', role:'Data Analyst'                     },
-  { username:'thanh.dlq',               name:'Đỗ Lê Quốc Thành',                  gender:'M', role:'Data Analyst'                     },
-];
+const STAFF_INFO_DB = [];
   
 const SHIFTS = {
   A:{label:'Shift A',start:'15:00',end:'00:00',display:'3:00 PM → 12:00 AM',color:'var(--A-color)',bg:'var(--A-bg)'},
@@ -349,27 +220,7 @@ state.staffInfo['admin'] = {
 };
 if (!state.staffInfo['admin'].password) state.staffInfo['admin'].password = '1234';
 
-// Seed STAFF_INFO_DB entries — only fill in users that don't exist in localStorage yet.
-// NEVER overwrite an existing entry — that would wipe passwords changed on other browsers.
-STAFF_INFO_DB.forEach(r => {
-  if (r.username === 'admin') return;
-  if (!state.staffInfo[r.username]) {
-    // Seed only minimum fields needed for login/display
-    // empNo and dob are NOT seeded — fetched from cloud only
-    // mustChangePassword defaults true — cloud pull corrects it after login
-    state.staffInfo[r.username] = {
-      name:               r.name,
-      role:               r.role,
-      gender:             r.gender,
-      mustChangePassword: true,
-    };
-  } else {
-    // Entry exists — only patch missing name/role/gender, never touch mustChangePassword
-    if (!state.staffInfo[r.username].name)   state.staffInfo[r.username].name   = r.name;
-    state.staffInfo[r.username].role = r.role; // always authoritative from STAFF_INFO_DB
-    if (!state.staffInfo[r.username].gender) state.staffInfo[r.username].gender = r.gender;
-  }
-});
+
 save();
 
 // ── Runtime state ──
@@ -387,11 +238,13 @@ let activeMonday = (() => {
   mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1)); // Sun → back 6, Mon → 0, Tue → 1, …
   return `${mon.getDate().toString().padStart(2,'0')}/${(mon.getMonth()+1).toString().padStart(2,'0')}`;
 })();
-let showFullMonth = false;
-let _schedMonth   = null; // null = auto-detect from activeMonday
-let _ssShiftFilter = 'All'; // staff schedule shift filter (week mode only)
+var showFullMonth = true;
+var _schedMonth   = null; // null = auto-detect from activeMonday
+var _ssShiftFilter = 'All'; // staff schedule shift filter (week mode only)
+var _ssFilterDk    = '';
+
 // Monday anchor for Staff Schedule (separate from activeMonday which is Monday-based for Arrange)
-let _ssActiveMonday = (() => {
+var _ssActiveMonday = (() => {
   const cached = localStorage.getItem('_ssActiveMonday');
   if (cached) return cached;
   const now = new Date(); const dow = now.getDay();
