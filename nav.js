@@ -2,6 +2,14 @@
 //  NAVIGATION
 // ═══════════════════════════════════════════════
 
+window.handleNavClick = function(event, page) {
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) {
+    return;
+  }
+  event.preventDefault();
+  nav(page);
+};
+
 function nav(page) {
   var _prevPage = currentPage; // capture before update for reset logic below
   currentPage = page;

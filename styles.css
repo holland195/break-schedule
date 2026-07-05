@@ -307,6 +307,7 @@ body.login-active #screen-app { display: none !important; }
   position: relative; white-space: nowrap;
   overflow: hidden;
   margin-bottom: 1px;
+  text-decoration: none;
 }
 .nav-item:hover {
   background: var(--bg3); color: var(--text);

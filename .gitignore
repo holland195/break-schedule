@@ -7,3 +7,4 @@ scratch/
 .wrangler/
 worker/.wrangler/
 worker/.dev.vars
+*.ps1

@@ -664,9 +664,11 @@ function _resizeArrTable() {
   var ph   = document.querySelector('.page-header');
   var tabs = document.querySelector('.arrange-tab-bar');
   var ctrl = document.querySelector('.arrange-controls-wrap');
+  var movNav = document.querySelector('.mov-nav-bar');
   if (ph)   used += ph.offsetHeight   + GAP;
   if (tabs) used += tabs.offsetHeight + GAP;
   if (ctrl) used += ctrl.offsetHeight + GAP;
+  if (movNav) used += movNav.offsetHeight + GAP;
   wrap.style.maxHeight = Math.max(200, window.innerHeight - used) + 'px';
 }
 
@@ -792,7 +794,7 @@ function _renderArrangeMonthOverview() {
       return '<th style="text-align:center;min-width:34px;padding:5px 2px;font-size:10px;font-weight:700;' +
         'background:' + bg + ';color:' + col + ';opacity:' + (isPast ? '.35' : '1') + ';' +
         borderLeft +
-        'position:sticky;top:0;z-index:10;">' +
+        'position:sticky;top:0;z-index:30;">' +
         '<div>' + dd + '</div>' +
         '<div style="font-size:9px;font-weight:400;opacity:.7;">' + dayName + '</div>' +
       '</th>';
@@ -908,8 +910,10 @@ function _renderArrangeMonthOverview() {
         'background:' + (isEven ? 'var(--bg2)' : 'var(--bg3)') + ';' +
         'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);' +
         'border-right:1px solid var(--border);">' +
-          '<div style="font-weight:600;font-size:12px;">' + team + '</div>' +
-          (memberNames ? '<div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:1px;max-width:240px;overflow:hidden;text-overflow:ellipsis;" title="' + memberNames + '">' + memberNames + '</div>' : '') +
+          '<div style="font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;" title="' + (memberNames ? memberNames + ' - ' + team : team) + '">' +
+            (memberNames ? '<span style="font-weight:700;color:var(--text);">' + memberNames + '</span> - ' : '') +
+            '<span style="color:var(--text2);font-weight:400;">' + team + '</span>' +
+          '</div>' +
           balanceBarHTML +
         '</td>';
 
@@ -921,12 +925,12 @@ function _renderArrangeMonthOverview() {
     }).join('');
 
     return '<div id="mov-m' + month + '-' + year + '" style="margin-bottom:32px;scroll-margin-top:52px;">' +
-      '<div style="overflow-x:auto;border-radius:6px;border:1px solid var(--border);box-shadow:0 1px 6px rgba(0,0,0,.07);">' +
-      '<table style="border-collapse:collapse;width:max-content;min-width:100%;">' +
+      '<div class="arr-table-wrap" style="box-shadow:0 1px 6px rgba(0,0,0,.07);">' +
+      '<table class="arr-table" style="border-collapse:separate;width:max-content;min-width:100%;">' +
       '<thead><tr>' +
-        '<th style="position:sticky;left:0;z-index:11;background:var(--bg3);padding:5px 12px 5px 10px;' +
+        '<th style="position:sticky;left:0;top:0;z-index:40;background:var(--bg3);padding:5px 12px 5px 10px;' +
           'font-size:10px;font-weight:700;color:var(--text3);text-align:left;letter-spacing:.06em;' +
-          'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);border-right:1px solid var(--border);">TEAM (' + teams.length + ')</th>' +
+          'box-shadow:3px 0 8px -2px rgba(0,0,0,.18);border-right:1px solid var(--border);border-bottom:2px solid var(--border2);">TEAM (' + teams.length + ')</th>' +
         theadCols +
       '</tr></thead>' +
       '<tbody>' + tbodyRows + '</tbody>' +
@@ -947,12 +951,16 @@ function _renderArrangeMonthOverview() {
       _monthNames[m-1].substring(0,3) + '</button>';
   }).join('');
 
-  var navBar = '<div style="position:sticky;top:0;z-index:20;background:var(--bg1);' +
+  var navBar = '<div class="mov-nav-bar" style="position:sticky;top:0;z-index:20;background:var(--bg1);' +
     'padding:8px 0 8px;margin-bottom:16px;' +
     'border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">' +
     navChips + '</div>';
 
   var content = sections || '<div class="empty" style="padding:40px; text-align:center; color:var(--text3);">No staff scheduled for this month.</div>';
+
+  // Disconnect previous observer so it doesn't fire on stale elements
+  if (_arrResizeObs) { _arrResizeObs.disconnect(); _arrResizeObs = null; }
+  requestAnimationFrame(function() { _initArrResize(); });
 
   return navBar + content;
 }
