@@ -666,6 +666,7 @@
         const user = _resolveUser(username);
         if (user) {
           currentUser = user;
+          currentUser.photoURL = (firebaseUser && firebaseUser.photoURL) || session?.photoURL || '';
 
           // Pull latest cloud data first (needed for mustChangePw flag)
           if (typeof syncEnabled === 'function' && syncEnabled()) {
