@@ -836,15 +836,17 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--r);
-  overflow: hidden;
+  overflow-x: auto;
   margin-top: 16px;
   box-shadow: var(--shadow);
+  min-height: 280px;
 }
 .req-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
   font-size: 12px;
+  min-width: 1150px;
 }
 .req-table th {
   background: var(--bg3);
@@ -867,14 +869,14 @@ td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px }
   table-layout: fixed;
 }
 .extbreak-table .eb-col-requested { width: 8%; }
-.extbreak-table .eb-col-requester { width: 14%; }
+.extbreak-table .eb-col-requester { width: 13%; }
 .extbreak-table .eb-col-total { width: 7%; }
-.extbreak-table .eb-col-registered { width: 13%; }
-.extbreak-table .eb-col-position { width: 9%; }
-.extbreak-table .eb-col-extra-time { width: 22%; }
-.extbreak-table .eb-col-status { width: 8%; }
-.extbreak-table .eb-col-checked { width: 12%; }
-.extbreak-table .eb-col-actions { width: 7%; }
+.extbreak-table .eb-col-registered { width: 12%; }
+.extbreak-table .eb-col-position { width: 11%; }
+.extbreak-table .eb-col-extra-time { width: 17%; }
+.extbreak-table .eb-col-status { width: 10%; }
+.extbreak-table .eb-col-checked { width: 11%; }
+.extbreak-table .eb-col-actions { width: 11%; }
 .extbreak-table .req-extra-time-cell {
   white-space: normal;
   overflow-wrap: anywhere;
