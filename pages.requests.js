@@ -301,7 +301,7 @@ ${_monthPickerHTML(filterYM, '_setReqFilterYM', 'requests')}
       <tr>
         <th style="width: 110px; text-align: center;">Requested Date</th>
         <th style="width: 180px; text-align: center;">Requester</th>
-        <th style="width: 100px; text-align: center; position: relative;">
+        <th style="width: 120px; text-align: center; position: relative;">
           <div class="hdr-filter-btn" id="hdr-filter-type" onclick="toggleHdrDropdown(event, 'type')">
             <span class="hdr-filter-label">Type:</span>
             <span class="hdr-filter-val" id="val-type">${_reqScopeFilter === 'all' ? '' : _reqScopeFilter}</span>
@@ -318,7 +318,7 @@ ${_monthPickerHTML(filterYM, '_setReqFilterYM', 'requests')}
         <th style="width: 130px; text-align: center;">Swap Details</th>
         <th style="width: 180px;">Partner</th>
         <th>Reason</th>
-        <th style="width: 100px; text-align: center; position: relative;">
+        <th style="width: 120px; text-align: center; position: relative;">
           <div class="hdr-filter-btn" id="hdr-filter-status" onclick="toggleHdrDropdown(event, 'status')">
             <span class="hdr-filter-label">Status:</span>
             <span class="hdr-filter-val" id="val-status">${_reqStatusFilter === 'all' ? '' : _reqStatusFilter}</span>
@@ -414,7 +414,7 @@ function _reqSetScopeFilter(f) {
 
 function _applyReqFilters() {
   let visible = 0;
-  document.querySelectorAll('#req-table-body tr.expandable-row').forEach(c => {
+  document.querySelectorAll('#req-table-body tr[data-idx]').forEach(c => {
     const matchStatus = _reqStatusFilter === 'all' || c.dataset.status === _reqStatusFilter;
     const matchScope = _reqScopeFilter === 'all' || c.dataset.scope === _reqScopeFilter;
     const show = matchStatus && matchScope;

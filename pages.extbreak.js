@@ -128,7 +128,7 @@ function renderExtBreak() {
     const statusFilter = window._ebStatusFilter || 'all';
     
     let visible = 0;
-    document.querySelectorAll('#eb-table-body tr.expandable-row').forEach(row => {
+    document.querySelectorAll('#eb-table-body tr[data-idx]').forEach(row => {
       const pos = row.dataset.position;
       const status = row.dataset.status;
       
