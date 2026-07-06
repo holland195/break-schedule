@@ -217,11 +217,13 @@ function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Cou
   var weeksDiff = Math.round((thisDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
 
   var N          = existing.length;
-  var wStart     = N > 0 ? ((weeksDiff % N) + N) % N : 0;
+  var wStart     = (N > 0 && slot2Count > 0) ? (((weeksDiff * slot2Count) % N) + N) % N : 0;
 
   var result = {};
   // Existing teams rotate first; new teams fill only the remaining slot-2 target.
-  var oldSlot2Count = Math.min(slot2Count, existing.length);
+  var oldSlot2Count = teams.length > 0
+    ? Math.min(slot2Count, Math.round(existing.length * slot2Count / teams.length))
+    : 0;
   existing.forEach(function(t, i) {
     result[t] = (N > 0 && oldSlot2Count > 0 && ((i - wStart + N) % N) < oldSlot2Count) ? slot2 : slot1;
   });
@@ -420,10 +422,14 @@ function autoAssignBreaks(importedUsers) {
   var totalAssigned = 0;
 
   mondays.forEach(function(monday) {
+    if (!_isFutureWeek(monday)) {
+      console.log('[autoassign] Skipping past week ' + monday);
+      return;
+    }
     var weekDates = getWeekRange(monday);
     var shifts = Object.keys(getConfigForDate(monday).breakSlots);
-    var isFuture = _isFutureWeek(monday);
-    var weekLabel = isFuture ? '(future)' : '(current/past)';
+    var isFuture = true;
+    var weekLabel = '(future)';
     console.log('[autoassign] Processing week ' + monday + ' ' + weekLabel);
 
     shifts.forEach(function(shift) {
@@ -467,62 +473,160 @@ function autoAssignBreaks(importedUsers) {
         // the "groups assigned as a block" rule. The user-level map can drift
         // badly when the roster changes between weeks.
         if (shift === 'E') {
-          var teamSeen = {};
-          var teamsForTier = [];
-          var teamFirstDayIndex = {};
-          var prevWeekdayShiftByTeam = {};
-          var prevWeekendShiftByTeam = {};
-          var earlierShiftByTeam = {};
-          var prevWeekDatesForTeam = getWeekRange(_shiftMondayByWeeks(monday, -1));
-          var prevWeekStartDate = _mondayToDate(prevWeekDatesForTeam[0]);
-          members.forEach(function(u) {
-            var teamKey = u.team || ('_' + (u.username || u.id));
-            if (!teamSeen[teamKey]) {
-              teamSeen[teamKey] = true;
-              teamsForTier.push(teamKey);
-            }
-            prevWeekDatesForTeam.forEach(function(d, idx) {
-              if (_getSched(u.username, d) !== shift) return;
-              if (_isOffOrHalfDay(u.username, d)) return;
-              if (idx >= 5) prevWeekendShiftByTeam[teamKey] = true;
-              else prevWeekdayShiftByTeam[teamKey] = true;
-            });
-            Object.keys(state.staffSchedule[u.username] || {}).forEach(function(d) {
-              if (!/^\d{1,2}\/\d{1,2}$/.test(d)) return;
-              if (_mondayToDate(d) >= prevWeekStartDate) return;
-              if (_getSched(u.username, d) !== shift) return;
-              if (_isOffOrHalfDay(u.username, d)) return;
-              earlierShiftByTeam[teamKey] = true;
-            });
-            weekDates.forEach(function(d, idx) {
-              if (_getSched(u.username, d) !== shift) return;
-              if (_isOffOrHalfDay(u.username, d)) return;
-              if (teamFirstDayIndex[teamKey] === undefined || idx < teamFirstDayIndex[teamKey]) {
-                teamFirstDayIndex[teamKey] = idx;
+          // ── Shift E Specific Custom Assignment Rules ──
+          var parts = monday.split('/');
+          var dt = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]));
+          dt.setDate(dt.getDate() - 7);
+          var prevMonday = String(dt.getDate()).padStart(2, '0') + '/' + String(dt.getMonth() + 1).padStart(2, '0');
+          var prevWeekRange = getWeekRange(prevMonday);
+
+          var dbSlot1 = 'E1';
+          var dbSlot2 = 'E2';
+
+          var getPrevWeekdayBreak = function(u) {
+            for (var i = 0; i <= 5; i++) { // Mon-Sat
+              var d = prevWeekRange[i];
+              if (_getSched(u.username, d) !== 'E') continue;
+              var br = DB.getBreak(u.id, d);
+              if (br && br.slot) {
+                var idx = _slotIndex(br.slot, 'E');
+                if (idx === 0) return dbSlot1;
+                if (idx === 1) return dbSlot2;
               }
-            });
-          });
-          var legacyDeferredTeams = {};
-          teamsForTier.forEach(function(teamKey) {
-            if (prevWeekendShiftByTeam[teamKey] && !prevWeekdayShiftByTeam[teamKey] && !earlierShiftByTeam[teamKey]) {
-              legacyDeferredTeams[teamKey] = true;
+            }
+            return null;
+          };
+
+          var getPrevSundayBreak = function(u) {
+            var d = prevWeekRange[6]; // Sunday
+            if (_getSched(u.username, d) !== 'E') return null;
+            var br = DB.getBreak(u.id, d);
+            if (br && br.slot) {
+              var idx = _slotIndex(br.slot, 'E');
+              if (idx === 0) return dbSlot1;
+              if (idx === 1) return dbSlot2;
+            }
+            return null;
+          };
+
+          // 1. Pre-compute Weekday (Mon-Sat) Break Slots
+          var weekdaySlots = {};
+          var oldWeekdayMembers = [];
+          var newWeekdayMembers = [];
+
+          members.forEach(function(u) {
+            var prevSlot = getPrevWeekdayBreak(u);
+            if (prevSlot) {
+              weekdaySlots[u.id] = (prevSlot === dbSlot1 ? dbSlot2 : dbSlot1);
+              oldWeekdayMembers.push(u);
+            } else {
+              newWeekdayMembers.push(u);
             }
           });
 
-          var teamSlot1Count = customPct !== null
-            ? Math.round(teamsForTier.length * customPct / 100)
-            : Math.ceil(teamsForTier.length / 2);
-          var teamSlot2Count = teamsForTier.length - teamSlot1Count;
-          var teamSlotMap = _getTeamSlotMap(rot, shift, tier, monday, teamsForTier, slot1, slot2, teamSlot2Count, {
-            firstDayIndex: teamFirstDayIndex,
-            legacyDeferred: legacyDeferredTeams,
+          var targetE1 = customPct !== null
+            ? Math.round(members.length * customPct / 100)
+            : Math.ceil(members.length / 2);
+
+          var oldE1Count = oldWeekdayMembers.filter(function(u) { return weekdaySlots[u.id] === dbSlot1; }).length;
+          
+          // Group new weekday members by team to assign as blocks
+          var newWeekdayTeams = {};
+          newWeekdayMembers.forEach(function(u) {
+            var teamKey = u.team || ('_' + (u.username || u.id));
+            if (!newWeekdayTeams[teamKey]) newWeekdayTeams[teamKey] = [];
+            newWeekdayTeams[teamKey].push(u);
           });
 
-          slotBasisMap = {};
-          members.forEach(function(u) {
-            var teamKey = u.team || ('_' + (u.username || u.id));
-            slotBasisMap[u.username || u.id] = teamSlotMap[teamKey] || slot1;
+          var weekdayTeamKeys = Object.keys(newWeekdayTeams).sort();
+          var currentE1 = oldE1Count;
+
+          weekdayTeamKeys.forEach(function(teamKey) {
+            var teamMates = newWeekdayTeams[teamKey];
+            if (currentE1 < targetE1) {
+              teamMates.forEach(function(u) { weekdaySlots[u.id] = dbSlot1; });
+              currentE1 += teamMates.length;
+            } else {
+              teamMates.forEach(function(u) { weekdaySlots[u.id] = dbSlot2; });
+            }
           });
+
+          // 2. Pre-compute Sunday Break Slots
+          var sundaySlots = {};
+          var sunDate = weekDates[6]; // Sunday of this week
+
+          var sundayMembers = members.filter(function(u) {
+            if (_getSched(u.username, sunDate) !== 'E') return false;
+            if (_isOffOrHalfDay(u.username, sunDate)) return false;
+            return true;
+          });
+
+          var oldSundayMembers = [];
+          var newSundayMembers = [];
+
+          sundayMembers.forEach(function(u) {
+            var prevSlot = getPrevSundayBreak(u);
+            if (prevSlot) {
+              sundaySlots[u.id] = prevSlot;
+              oldSundayMembers.push(u);
+            } else {
+              newSundayMembers.push(u);
+            }
+          });
+
+          var targetSunE1 = Math.ceil(sundayMembers.length / 2);
+          var oldSunE1Count = oldSundayMembers.filter(function(u) { return sundaySlots[u.id] === dbSlot1; }).length;
+
+          // Group new Sunday members by team to assign as blocks
+          var newSunTeams = {};
+          newSundayMembers.forEach(function(u) {
+            var teamKey = u.team || ('_' + (u.username || u.id));
+            if (!newSunTeams[teamKey]) newSunTeams[teamKey] = [];
+            newSunTeams[teamKey].push(u);
+          });
+
+          var sunTeamKeys = Object.keys(newSunTeams).sort();
+          var currentSunE1 = oldSunE1Count;
+
+          sunTeamKeys.forEach(function(teamKey) {
+            var teamMates = newSunTeams[teamKey];
+            if (currentSunE1 < targetSunE1) {
+              teamMates.forEach(function(u) { sundaySlots[u.id] = dbSlot1; });
+              currentSunE1 += teamMates.length;
+            } else {
+              teamMates.forEach(function(u) { sundaySlots[u.id] = dbSlot2; });
+            }
+          });
+
+          // 3. Write assignments to Database
+          members.forEach(function(u) {
+            weekDates.forEach(function(d) {
+              if (_getSched(u.username, d) !== 'E') return;
+              if (_isOffOrHalfDay(u.username, d)) return;
+
+              var isSunday = (getWkDay(d) === 'Sun');
+              var assignedSlot = isSunday ? sundaySlots[u.id] : weekdaySlots[u.id];
+
+              if (!assignedSlot) assignedSlot = dbSlot1; // Fallback
+
+              var ex = DB.getBreak(u.id, d);
+              if (ex && _slotBelongsToShift(ex.slot, 'E')) {
+                var expectedIdx = assignedSlot === dbSlot2 ? 1 : 0;
+                var existingIdx = _slotIndex(ex.slot, 'E');
+                if (ex.note !== 'auto' || existingIdx === expectedIdx) return;
+              }
+
+              DB.setBreak(u.id, d, {
+                slot: assignedSlot,
+                note: 'auto',
+                by:   null,
+                at:   RUN_TIMESTAMP,
+              });
+              totalAssigned++;
+            });
+          });
+
+          return; // Skip standard daily loops for this Shift E tier
         }
 
         var allAlreadyAssigned = members.every(function(u) {
@@ -821,6 +925,7 @@ async function toggleBulkBreak(shift) {
 function resetRotation(shift, tier) {
   const rot = _loadRotation();
   delete rot[`${shift}_${tier}`];
+  delete rot[`${shift}_${tier}_teams`];
   _saveRotation(rot);
   toast(`Rotation reset for Shift ${shift} / ${tier}`, 'warn');
 }
