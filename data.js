@@ -312,6 +312,27 @@ function getShiftMates(shift,day) {
 }
 function getBreakKey(uid,day)  { return `${uid}_${day||todayKey()}`; }
 function getAssigned(uid,day)  { return DB.getBreak(uid, day||todayKey()); }
+function getDisplayAssigned(uid,day) {
+  var dk = day || todayKey();
+  var base = getAssigned(uid, dk);
+  var requests = state.requests || [];
+  for (var i = 0; i < requests.length; i++) {
+    var r = requests[i];
+    if (!r || r.status !== 'approved' || r.type === 'dayoff-swap') continue;
+    var days = r.swapDays || [r.day];
+    if (days.indexOf(dk) === -1) continue;
+    var slot = '';
+    if (r.userId === uid) slot = r.requested;
+    else if (r.swapPartnerId === uid) slot = r.current;
+    if (!slot || slot === 'Not assigned') continue;
+    var display = Object.assign({}, base || {});
+    display.slot = slot;
+    display.swapDisplay = true;
+    display.swapRequestId = r.id;
+    return display;
+  }
+  return base;
+}
 
 function assign(uid, day, slot, note) {
   const now = Date.now();
