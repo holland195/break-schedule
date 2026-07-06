@@ -146,7 +146,7 @@ function renderScheduleTraining() {
     users.forEach(u => {
       if (getUS(u,selDay)!==sh) return; // only count if on shift that day
       total++;
-      const br = DB.getBreak(u.id, selDay);
+      const br = getDisplayAssigned(u.id, selDay);
       if (!br) return;
       const code = getShortSlot(sh, br.slot);
 const idx = code.length === 2 ? parseInt(code[1]) - 1 : -1;
@@ -301,14 +301,15 @@ if (idx===0) s1++; else if (idx===1) s2++;
         const us=getUS(u,dk);
         const isSel=dk===selDay;
         if (us!==sh) return `<td style="text-align:center;padding:5px 2px;${isSel?'background:rgba(31,102,241,.03);':''}"><span style="font-size:10px;color:var(--text3);">—</span></td>`;
-        const br=DB.getBreak(u.id,dk);
+        const br=getDisplayAssigned(u.id,dk);
 const code=br?getShortSlot(sh,br.slot):'?';
 const slotNum=code.length===2?parseInt(code[1]):0;
 const cls=slotNum>0?`slot-${slotNum}`:'';
+const swapTitle=br&&br.swapDisplay?' (approved swap)':'';
         return `<td style="text-align:center;padding:4px 2px;${isSel?'background:rgba(31,102,241,.03);':''}">
           <span class="${br?`break-slot assigned ${cls}`:''}"
             style="font-size:10px;padding:3px 7px;${br?'':'color:var(--text3);'}"
-            title="${br?br.slot:'Not assigned'}">${code}</span>
+            title="${br?br.slot+swapTitle:'Not assigned'}">${code}</span>
         </td>`;
       }).join('');
       return `<tr class="tdr" data-name="${u.name.toLowerCase()}">

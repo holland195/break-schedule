@@ -106,9 +106,10 @@ function renderSchedule() {
   var slot1Count = 0, slot2Count = 0;
   allShiftUsers.forEach(function(u) {
     monthDates.forEach(function(dk) {
-      var br = DB.getBreak(u.id, dk);
+      var br = getDisplayAssigned(u.id, dk);
       if (!br) return;
-      var idx = shiftSlots.indexOf(br.slot);
+      var code = getShortSlot(shiftToShow, br.slot);
+      var idx = code.length === 2 ? parseInt(code[1]) - 1 : shiftSlots.indexOf(br.slot);
       if (idx === 0) slot1Count++;
       else if (idx === 1) slot2Count++;
     });
@@ -207,16 +208,17 @@ function renderSchedule() {
         return '<td style="text-align:center;padding:3px 1px;' + tdBg + '">' +
           '<span style="font-size:9px;color:var(--text3);">' + (userShift !== '0' ? userShift : '·') + '</span></td>';
       }
-      var br = DB.getBreak(u.id, dk);
+      var br = getDisplayAssigned(u.id, dk);
       var hasExt = !!(_extDaysByUser[u.id] && _extDaysByUser[u.id][dk]);
       var slotIdx = br ? getShortSlot(shiftToShow, br.slot) : '';
       var slotNum = slotIdx.length === 2 ? parseInt(slotIdx[1]) : 0;
       var slotCls = slotNum > 0 ? 'slot-' + slotNum : '';
       var shortCode = br ? getShortSlot(shiftToShow, br.slot) : '?';
+      var swapTitle = br && br.swapDisplay ? ' (approved swap)' : '';
       return '<td style="text-align:center;padding:3px 1px;' + tdBg + '"' + (hasExt ? ' class="cell-female-ext"' : '') + '>' +
         '<span class="' + (br ? 'break-slot assigned ' + slotCls : '') + '" ' +
         'style="font-size:9px;padding:2px 4px;' + (br ? '' : 'color:var(--text3)') + '" ' +
-        'title="' + (br ? br.slot + (hasExt ? ' 🌸+30min' : '') : 'Not assigned') + '">' +
+        'title="' + (br ? br.slot + swapTitle + (hasExt ? ' 🌸+30min' : '') : 'Not assigned') + '">' +
         shortCode + (hasExt ? '🌸' : '') +
         '</span></td>';
     }).join('');

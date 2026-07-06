@@ -1005,15 +1005,8 @@ function resolveRequest(idx, status) {
       state.staffSchedule[r.targetUsername][r.myDate] = '0';
     } else {
     const days = r.swapDays || [r.day];
-    days.forEach(d => {
-      // Give requester the partner's slot
-      assign(r.userId, d, r.requested, 'approved by ' + currentUser.name);
-      // Give partner the requester's original slot on that day
-      if (r.swapPartnerId && r.current && r.current !== 'Not assigned') {
-        const mySlotOnDay = getAssigned(r.userId, d)?.slot || r.current;
-        assign(r.swapPartnerId, d, r.current, 'swap approved — ' + currentUser.name);
-      }
-    });
+    r.appliedAsDisplayOnly = true;
+    r.appliedDays = days.slice();
 
     // Auto-deny any other pending break-swap requests that conflict with same partner + days
     state.requests.forEach((other, i) => {
