@@ -128,6 +128,8 @@ function renderRequests() {
             <button class="btn btn-ok" onclick="resolveRequest(${rIndex},'approved')">✓ Approve</button>
             <button class="btn btn-err" onclick="resolveRequest(${rIndex},'rejected')">✗ Reject</button>
           </div>`;
+      } else if (_dosCanApprove && r.status === 'approved') {
+        actionsHTML = `<div class="req-actions"><button class="btn btn-err" onclick="cancelApprovedDayoffSwap(${rIndex})">✗ Cancel</button></div>`;
       } else if (isOwn && r.status === 'pending') {
         actionsHTML = `<div class="req-actions"><button class="btn btn-err" onclick="cancelOwnRequest(${rIndex})">✗ Cancel</button></div>`;
       }
@@ -539,6 +541,38 @@ function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
   return {ok:true, reason:''};
 }
 
+function _getDayoffSwapShift(username) {
+  var sc = state.staffSchedule[username] || {};
+  var counts = {};
+  Object.keys(sc).forEach(function(k) {
+    var v = sc[k];
+    if (v && v !== '0') counts[v] = (counts[v] || 0) + 1;
+  });
+  var best = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; })[0];
+  return best || 'A';
+}
+
+function _applyDayoffSwapSchedule(r, reverse) {
+  if (!state.staffSchedule[r.username]) state.staffSchedule[r.username] = {};
+  if (!state.staffSchedule[r.targetUsername]) state.staffSchedule[r.targetUsername] = {};
+
+  var requesterShift = _getDayoffSwapShift(r.username);
+  var targetShift = _getDayoffSwapShift(r.targetUsername);
+
+  if (reverse) {
+    state.staffSchedule[r.username][r.myDate] = '0';
+    state.staffSchedule[r.username][r.theirDate] = requesterShift;
+    state.staffSchedule[r.targetUsername][r.theirDate] = '0';
+    state.staffSchedule[r.targetUsername][r.myDate] = targetShift;
+    return;
+  }
+
+  state.staffSchedule[r.username][r.myDate] = requesterShift;
+  state.staffSchedule[r.username][r.theirDate] = '0';
+  state.staffSchedule[r.targetUsername][r.theirDate] = targetShift;
+  state.staffSchedule[r.targetUsername][r.myDate] = '0';
+}
+
 function _dayoffSwapModalHTML() {
   return '<div id="modal-dayoff-swap" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-dayoff-swap\')">' +
     '<div class="modal" style="width:420px;">' +
@@ -764,6 +798,24 @@ function submitDayoffSwap() {
   nav('requests');
 }
 
+function cancelApprovedDayoffSwap(idx) {
+  if (!confirm('Cancel this approved day-off swap and restore the original off days?')) return;
+  const r = state.requests[idx];
+  if (!r || r.type !== 'dayoff-swap' || r.status !== 'approved') return;
+  if (!(isLeader(currentUser) || isTraining(currentUser))) return;
+
+  _applyDayoffSwapSchedule(r, true);
+  r.status = 'rejected';
+  r.respNote = 'Cancelled by lead/sub. Day-off swap reversed.';
+  r.resolvedAt = Date.now();
+  r.resolvedBy = currentUser.id;
+
+  if (typeof syncWrite === 'function') syncWrite(); else save();
+  toast('Day-off swap cancelled and reversed.', 'warn');
+  updateBadge();
+  nav('requests');
+}
+
 // ═══════════════════════════════════════════════
 //  EXCEL IMPORT — Staff Info (SheetJS)
 // ═══════════════════════════════════════════════
@@ -985,24 +1037,7 @@ function resolveRequest(idx, status) {
 
   if (status === 'approved') {
     if (r.type === 'dayoff-swap') {
-      // Determine each person's normal shift by looking at their most-used schedule code
-      var _getShift = function(username) {
-        var sc = state.staffSchedule[username] || {};
-        var _counts = {};
-        Object.keys(sc).forEach(function(k) {
-          var v = sc[k]; if (v && v !== '0') _counts[v] = (_counts[v] || 0) + 1;
-        });
-        var _best = Object.keys(_counts).sort(function(a, b) { return _counts[b] - _counts[a]; })[0];
-        return _best || 'A';
-      };
-      if (!state.staffSchedule[r.username]) state.staffSchedule[r.username] = {};
-      if (!state.staffSchedule[r.targetUsername]) state.staffSchedule[r.targetUsername] = {};
-      // Requester: give up their day off, work on target's date
-      state.staffSchedule[r.username][r.myDate] = _getShift(r.username);
-      state.staffSchedule[r.username][r.theirDate] = '0';
-      // Target: give up their day off, work on requester's date
-      state.staffSchedule[r.targetUsername][r.theirDate] = _getShift(r.targetUsername);
-      state.staffSchedule[r.targetUsername][r.myDate] = '0';
+      _applyDayoffSwapSchedule(r, false);
     } else {
     const days = r.swapDays || [r.day];
     r.appliedAsDisplayOnly = true;
