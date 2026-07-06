@@ -852,6 +852,11 @@ function _updateReqDay() {
   _updateReqPartners();
 }
 
+function _reqSwapRoleGroup(role) {
+  var resolved = _resolveRole(role || '') || '';
+  return resolved === 'Sr Data Analyst' ? 'Data Analyst' : resolved;
+}
+
 function _updateReqPartners() {
   const day = document.getElementById('req-day').value;
   const isWeek = document.getElementById('req-scope-week')?.checked;
@@ -859,11 +864,13 @@ function _updateReqPartners() {
 
   const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   const mySlot = myBr ? myBr.slot : null;
+  const myRoleGroup = _reqSwapRoleGroup(currentUser.role || (state.staffInfo[currentUser.username] || {}).role || '');
 
   // If week swap: partner must have same slot mismatch on ALL days they share this shift
   const partners = state.users.filter(u => {
     if (u.id === currentUser.id) return false;
-    if (u.role !== currentUser.role) return false;
+    var partnerRoleGroup = _reqSwapRoleGroup(u.role || (state.staffInfo[u.username] || {}).role || '');
+    if (!myRoleGroup || partnerRoleGroup !== myRoleGroup) return false;
     var shiftVal = _getSched(u.username, day);
     if (shiftVal !== currentShift) return false;
     const theirBr = getAssigned(u.id, day) || getAssigned(u.id, getWkDay(day));
