@@ -198,6 +198,18 @@ async function doGoogleLogin() {
     }
 
     const u = email.split('@')[0].toLowerCase();
+
+    if (typeof syncEnabled === 'function') {
+      err.style.color = 'var(--text3)';
+      err.textContent = 'Loading...';
+      if (!syncEnabled() && typeof syncTryAutoConnect === 'function') {
+        await syncTryAutoConnect();
+      } else if (syncEnabled() && typeof syncPull === 'function') {
+        await syncPull();
+      }
+      err.textContent = '';
+    }
+
     const user = _resolveUser(u);
 
     if (!user) {
