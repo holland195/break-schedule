@@ -476,7 +476,7 @@
     <div class="modal" style="width:560px;">
       <div class="modal-title">🔄 Break Swap Request</div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
-        Choose a partner with the <b>same exact role</b> on the same shift. Your partner must approve before slots are
+        Choose a partner in the same role group on the same shift. Data Analyst and Sr Data Analyst can swap with each other. Your partner must approve before slots are
         swapped.
       </p>
       <!-- Scope -->
@@ -506,7 +506,7 @@
       <div class="fg"><label>Your break on that day</label>
         <input id="req-cur" readonly style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);">
       </div>
-      <div class="fg"><label>③ Swap partner (same shift · same role · different slot)</label>
+      <div class="fg"><label>③ Swap partner (same shift · same role group · different slot)</label>
         <select id="req-partner" onchange="_updateReqSlot()">
           <option value="">— choose day first —</option>
         </select>
