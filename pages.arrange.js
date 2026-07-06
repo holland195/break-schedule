@@ -390,6 +390,7 @@ async function saveBreakSplits() {
     shiftsToProcess.forEach(function(shift) {
       ['agent', 'qa', 'sr_qa'].forEach(function(tier) {
         delete rot[shift + '_' + tier];
+        delete rot[shift + '_' + tier + '_teams'];
       });
     });
     _saveRotation(rot);
@@ -411,7 +412,10 @@ async function resetBreakSplit(shift) {
   }
   setBreakSplitPct(shift, null);
   var rot = _loadRotation ? _loadRotation() : {};
-  ['agent', 'qa', 'sr_qa'].forEach(function(tier) { delete rot[shift + '_' + tier]; });
+  ['agent', 'qa', 'sr_qa'].forEach(function(tier) {
+    delete rot[shift + '_' + tier];
+    delete rot[shift + '_' + tier + '_teams'];
+  });
   if (typeof _saveRotation === 'function') _saveRotation(rot);
   
   var _nextWeek = _nextWeekMonday(activeMonday);
