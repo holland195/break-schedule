@@ -592,7 +592,57 @@ function _snapState() {
     myResolved:     currentUser ? (state.requests || []).filter(r => r.userId === currentUser.id && r.status !== 'pending').length : 0,
     myExtApproved:  currentUser ? Object.entries(state.extBreaks || {}).filter(([k]) => k.startsWith(currentUser.id + '_')).flatMap(([, a]) => a || []).filter(e => e.status === 'approved' || e.status === 'rejected').length : 0,
     partnerPending: currentUser ? (state.requests || []).filter(r => r.swapPartnerId === currentUser.id && r.status === 'pending').length : 0,
+    violationKeys:  _getViolationNotificationKeys(currentUser, state.policyCompliance || []),
   };
+}
+
+function _getViolationNotificationKey(record) {
+  return String(record.no || '') + '|' + String(record.createdAt || record.date || '');
+}
+
+function _shouldNotifyViolationRecord(record, user) {
+  if (typeof _pcShouldNotifyUser === 'function') return _pcShouldNotifyUser(record, user);
+  if (!record || !user) return false;
+  var uname = user.username || user.name || '';
+  if (!uname) return false;
+  if (record.username === uname && record.createdBy !== uname) return true;
+  return !!(typeof isTraining === 'function' && isTraining(user) && record.createdBy !== uname);
+}
+
+function _getViolationNotificationKeys(user, records) {
+  return (records || [])
+    .filter(record => _shouldNotifyViolationRecord(record, user))
+    .map(_getViolationNotificationKey)
+    .sort();
+}
+
+function _getNewViolationNotificationRecords(prevKeys) {
+  var prev = new Set(prevKeys || []);
+  return (state.policyCompliance || []).filter(function(record) {
+    return _shouldNotifyViolationRecord(record, currentUser) && !prev.has(_getViolationNotificationKey(record));
+  });
+}
+
+function _checkViolationNotifications(prevState) {
+  var newViolationRecords = _getNewViolationNotificationRecords(prevState.violationKeys || []);
+  if (newViolationRecords.length === 0) return;
+
+  if (typeof isTraining === 'function' && isTraining(currentUser)) {
+    if (newViolationRecords.length === 1) {
+      var rec = newViolationRecords[0];
+      toast('New violation record for ' + (rec.name || rec.username || 'staff'), 'warn');
+      return;
+    }
+    toast(newViolationRecords.length + ' new violation record(s)', 'warn');
+    return;
+  }
+
+  var firstRecord = newViolationRecords[0];
+  var eventLabel = (typeof _fbEventLabel === 'function') ? _fbEventLabel(firstRecord.event) : (firstRecord.event || 'policy violation');
+  var msg = newViolationRecords.length === 1
+    ? 'New violation recorded for you: ' + eventLabel
+    : newViolationRecords.length + ' new violation record(s) were added for you';
+  toast(msg, 'warn');
 }
 
 function _onRemoteUpdate(remote) {
@@ -607,6 +657,7 @@ function _onRemoteUpdate(remote) {
   _applyRemoteData(remote);
   save();
   _checkNotifications(prev);
+  _checkViolationNotifications(prev);
 
   // Re-render if no modal open
   const noRerenderPages = new Set(['arrange', 'staff']);

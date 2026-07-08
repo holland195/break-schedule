@@ -11,6 +11,10 @@ window.handleNavClick = function(event, page) {
 };
 
 function nav(page) {
+  if (page === 'feedback') {
+    page = 'policy';
+    if (typeof _pcTab !== 'undefined') _pcTab = 'policy';
+  }
   var _prevPage = currentPage; // capture before update for reset logic below
   currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
@@ -28,8 +32,10 @@ function nav(page) {
       (typeof _attLogYear === 'undefined' || _attLogYear === window._prevAttLogYear) &&
       (typeof attendanceLogView === 'undefined' || attendanceLogView === window._prevAttendanceLogView)
     )) &&
-    (page !== 'feedback' || (typeof _fbTab === 'undefined' || _fbTab === window._prevFbTab)) &&
-    (page !== 'policy' || (typeof _pcTab === 'undefined' || _pcTab === window._prevPcTab)) &&
+    (page !== 'policy' || (
+      (typeof _pcTab === 'undefined' || _pcTab === window._prevPcTab) &&
+      (typeof _fbTab === 'undefined' || _fbTab === window._prevFbTab)
+    )) &&
     (page !== 'requests' || (typeof _reqFilterYM === 'undefined' || _reqFilterYM === window._prevReqFilterYM)) &&
     (page !== 'extbreak' || (typeof _extBreakFilterYM === 'undefined' || _extBreakFilterYM === window._prevExtBreakFilterYM)) &&
     (page !== 'arrange' || (
@@ -55,9 +61,10 @@ function nav(page) {
   if (page === 'dashboard' && isTraining(currentUser)) {
     page = 'training_overview';
   }
-  // Policy page: reset to "All Records" tab for training users on fresh navigation
-  if (page === 'policy' && _prevPage !== 'policy' && typeof isTraining === 'function' && isTraining(currentUser)) {
-    if (typeof _pcTab !== 'undefined') _pcTab = 'records';
+  if (page === 'policy' && _prevPage !== 'policy') {
+    if (typeof _pcDefaultTabForUser === 'function') _pcTab = _pcDefaultTabForUser(currentUser);
+    else if (typeof isTraining === 'function' && isTraining(currentUser)) _pcTab = 'records';
+    else if (typeof isLeader === 'function' && !isLeader(currentUser)) _pcTab = 'policy';
   }
   // Guard: attendance — leader+ only (level ≥ 2)
   if (page === 'attendance' && !isLeader(currentUser)) {
@@ -80,12 +87,6 @@ function nav(page) {
     content.innerHTML = '<div class="empty">Access denied.</div>';
     return;
   }
-  // policy — no guard, all roles can access
-  if (page === 'policy' && !isLeader(currentUser)) {
-    content.innerHTML = '<div class="empty">Access denied.</div>'; return;
-  }
-
-
   const pages = {
     dashboard: renderDashboard,
     schedule: renderSchedule,
@@ -98,7 +99,6 @@ function nav(page) {
     shiftconfig: renderShiftConfig,
     training_overview: renderTrainingDashboard,
     policy: renderPolicyCompliance,
-    feedback: renderPolicyFeedback,
   };
   if (page !== _prevPage) { window._tShiftFilter = 'all'; window._tSearch = ''; window._tAttDay = undefined; }
   if (pages[page]) content.innerHTML = pages[page]();
@@ -179,10 +179,9 @@ function _initNavTooltips() {
     schedule:  'Break Schedule',
     requests:  'Break Swap',
     extbreak:  '30-min Break',
-    feedback:  'My Violations',
+    policy:    'Violations',
     arrange:   'Arrange Breaks',
     attendance:'Logbook',
-    policy:    'Policy',
     staff:     'Staff',
     sync:      'Cloud Sync',
     shiftconfig: 'Shift Config',
