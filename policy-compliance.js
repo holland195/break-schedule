@@ -177,6 +177,57 @@ function _pcInit() {
 }
 function _pcData() { _pcInit(); return state.policyCompliance; }
 
+function _pcNotifUserKey(user) {
+  return (user && (user.username || user.name)) || '';
+}
+
+function _pcNotifSeenMap(record) {
+  if (!record.notificationSeenBy || typeof record.notificationSeenBy !== 'object') {
+    record.notificationSeenBy = {};
+  }
+  return record.notificationSeenBy;
+}
+
+function _pcIsNewRecordForTarget(record, user) {
+  var uname = _pcNotifUserKey(user);
+  return !!(record && uname && record.username === uname && record.createdBy !== uname);
+}
+
+function _pcIsNewRecordForTraining(record, user) {
+  var uname = _pcNotifUserKey(user);
+  return !!(record && uname && typeof isTraining === 'function' && isTraining(user) && record.createdBy !== uname);
+}
+
+function _pcShouldNotifyUser(record, user) {
+  return _pcIsNewRecordForTarget(record, user) || _pcIsNewRecordForTraining(record, user);
+}
+
+function _pcTrainingNewCount() {
+  var uname = _pcNotifUserKey(currentUser);
+  if (!uname || !isTraining(currentUser)) return 0;
+  return _pcData().filter(function(record) {
+    return _pcIsNewRecordForTraining(record, currentUser) && !_pcNotifSeenMap(record)[uname];
+  }).length;
+}
+
+function _pcMarkNotificationsSeenForCurrentUser() {
+  var uname = _pcNotifUserKey(currentUser);
+  if (!uname) return;
+  var changed = false;
+  _pcData().forEach(function(record) {
+    if (!_pcShouldNotifyUser(record, currentUser)) return;
+    var seenMap = _pcNotifSeenMap(record);
+    if (seenMap[uname]) return;
+    seenMap[uname] = Date.now();
+    changed = true;
+  });
+  if (!changed) return;
+  state._policyComplianceUpdatedAt = Date.now();
+  save();
+  if (typeof syncWrite === 'function') syncWrite();
+  updateFeedbackBadge();
+}
+
 // Does NOT reset _pcPage — callers that need page reset do it explicitly
 function _pcApplyFilters() {
   var f = _pcRF;
@@ -195,7 +246,15 @@ function _pcApplyFilters() {
           !(r.username||'').toLowerCase().includes(q)) return false;
     }
     return true;
-  }).sort(function(a, b) { return b.no - a.no; });
+  }).sort(function(a, b) {
+    var dComp = (b.date||'').localeCompare(a.date||'');
+    if (dComp !== 0) return dComp;
+    if (a.time && b.time) {
+      var tComp = b.time.localeCompare(a.time);
+      if (tComp !== 0) return tComp;
+    }
+    return b.no - a.no;
+  });
 }
 
 // ── Helpers ──
@@ -230,16 +289,33 @@ function _pcCutoff30() {
 
 function _pcUpdateBadge() {
   var data = _pcData();
-  var n;
+  var n = 0;
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+
   if (isTraining(currentUser)) {
-    // Training sees records that need their decision
+    // Training sees records that need their decision (Need Review / Need Resolve)
     n = data.filter(function(r) { return r.status === 'Need Review' || r.status === 'Need Resolve'; }).length;
+  } else if (isLeader(currentUser)) {
+    // Leaders see all active records that need attention (Processing / Need Review / Need Resolve)
+    n = data.filter(function(r) {
+      return r.status === 'Processing' || r.status === 'Need Review' || r.status === 'Need Resolve';
+    }).length;
   } else {
-    // Leaders/agents see all active (not yet resolved/cancelled) records
-    n = data.filter(function(r) { return r.status === 'Processing'; }).length;
+    // Regular agents see only their own active/pending records
+    var uname = (currentUser.username || currentUser.name || '').toLowerCase();
+    n = data.filter(function(r) {
+      return r.username && r.username.toLowerCase() === uname && (r.status === 'Processing' || r.status === 'Need Review' || r.status === 'Need Resolve');
+    }).length;
   }
+
   var el = document.getElementById('pc-badge');
   if (el) { el.textContent = n; el.style.display = n > 0 ? '' : 'none'; }
+}
+
+function _pcRoleMode(user) {
+  if (typeof isTraining === 'function' && isTraining(user)) return 'training';
+  if (typeof isLeader === 'function' && isLeader(user)) return 'lead';
+  return 'personal';
 }
 
 // ════════════════════════════════════════════
@@ -247,20 +323,41 @@ function _pcUpdateBadge() {
 // ════════════════════════════════════════════
 function renderPolicyCompliance() {
   _pcInit();
-  var isAdm = isAdmin(currentUser);
-  var isLdr = isLeader(currentUser);
+  _pcMarkNotificationsSeenForCurrentUser();
+
+  var isPersonal = _pcIsPersonalReportUser(currentUser);
+  if (isPersonal) {
+    var myRecords = (typeof _fbMyRecords === 'function') ? _fbMyRecords() : [];
+    var recordCountText = myRecords.length === 1 ? '1 record' : myRecords.length + ' records';
+    var feedContent = (typeof _fbRenderMine === 'function') ? _fbRenderMine() : '<div class="fb-empty">No violations on record.</div>';
+
+    return '<div class="page-header pc-page-head"><div>'
+      + '<div class="page-title">Violations</div>'
+      + '<div class="page-sub">' + recordCountText + ' &nbsp;&middot;&nbsp; Personal violation reports</div>'
+      + '</div><button type="button" class="btn btn-sm" onclick="_pcOpenRulesModal()">View rules</button></div>'
+      + '<div id="pc-content">'
+      + '  <div class="pc-personal-container" style="max-width:820px;margin:0 auto;padding:16px 0;">'
+      +      feedContent
+      + '  </div>'
+      + '</div>'
+      + _pcRulesModalHTML()
+      + _pcEditModalHTML();
+  }
+
+  var mode = _pcRoleMode(currentUser);
 
   var T = function(id, ico, lbl) {
     var on = _pcTab === id;
-    return '<button onclick="_pcTab=\''+id+'\';_pcPage=1;nav(\'policy\')" style="padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;white-space:nowrap;transition:all .12s;color:'+(on?'var(--accent)':'var(--text3)')+';border-bottom:3px solid '+(on?'var(--accent)':'transparent')+';margin-bottom:-2px;">'+ico+' '+lbl+'</button>';
+    return '<button type="button" role="tab" aria-selected="'+(on?'true':'false')+'" onclick="_pcTab=\''+id+'\';_pcPage=1;nav(\'policy\')" class="pc-tab'+(on?' on':'')+'">'
+      + ico + ' ' + lbl
+      + '</button>';
   };
 
-  var tabs = '<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto;">'
-    + T('rules',  '&#x1F4D6;', 'Rules')
-    + T('policy', '&#x1F4CA;', 'Policy 2026')
-    + T('weekly', '&#x1F5D3;', 'Weekly')
-    + T('summary','&#x1F4C5;', 'Summary 30D')
-    + T('records','&#x1F4CB;', 'All Records')
+  var tabs = '<div class="pc-tabbar pc-tabbar-' + mode + '" role="tablist" aria-label="Violations sections">'
+    + T('policy', '📊', 'General report')
+    + T('weekly', '🗓️', 'Weekly')
+    + T('summary','📅', 'Summary 30D')
+    + T('records','📋', 'All Records')
     + '</div>';
 
   var content = '';
@@ -268,15 +365,148 @@ function renderPolicyCompliance() {
   else if (_pcTab==='records') content = _pcRenderRecords();
   else if (_pcTab==='summary') content = _pcRenderSummary();
   else if (_pcTab==='weekly')  content = _pcRenderWeekly();
-  else if (_pcTab==='rules')   content = _pcRenderRules();
 
-  return '<div class="page-header"><div>'
-    + '<div class="page-title">&#x1F4CB; Policy Compliance</div>'
-    + '<div class="page-sub">'+_pcData().length+' records &nbsp;&middot;&nbsp; Jan – May 2026</div>'
-    + '</div></div>'
+  var titleHint = mode === 'personal'
+    ? 'Personal violation reports'
+    : 'Team violation reports';
+
+  return '<div class="page-header pc-page-head"><div>'
+    + '<div class="page-title">Violations</div>'
+    + '<div class="page-sub">'+_pcData().length+' records &nbsp;&middot;&nbsp; '+titleHint+'</div>'
+    + '</div><button type="button" class="btn btn-sm" onclick="_pcOpenRulesModal()">View rules</button></div>'
     + tabs
     + '<div id="pc-content">'+content+'</div>'
+    + _pcRulesModalHTML()
+    + _pcCellDetailsModalHTML()
     + _pcEditModalHTML();
+}
+
+function _pcIsPersonalReportUser(user) {
+  return !(typeof isLeader === 'function' && isLeader(user));
+}
+
+function _pcFormatCellEvents(eventList) {
+  if (!eventList || eventList.length === 0) return '<span style="color:var(--text3);">—</span>';
+  
+  var evCounts = {};
+  eventList.forEach(function(ev) {
+    evCounts[ev] = (evCounts[ev] || 0) + 1;
+  });
+  
+  return Object.entries(evCounts).sort(function(a,b){return b[1]-a[1];}).map(function(e){
+    var labelVi = _pcEventLabelVi(e[0]);
+    return '<span title="'+labelVi+'" style="display:inline-flex;align-items:center;font-family:\'IBM Plex Mono\',monospace;font-size:10px;padding:1px 5px;border-radius:4px;background:var(--bg4);color:var(--text2);margin:1px;white-space:nowrap;">'
+      + e[0] + (e[1] > 1 ? '<b style="color:var(--accent);margin-left:2px;">×' + e[1] + '</b>' : '') + '</span>';
+  }).join('');
+}
+
+function _pcDefaultTabForUser(user) {
+  return 'policy';
+}
+
+function _pcOpenRulesModal() {
+  var modal = document.getElementById('pc-rules-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function _pcCloseRulesModal() {
+  var modal = document.getElementById('pc-rules-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _pcRulesModalHTML() {
+  return '<div id="pc-rules-modal" class="pc-rules-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="pc-rules-title" onclick="if(event.target===this)_pcCloseRulesModal()">'
+    + '<div class="pc-rules-dialog">'
+    + '<div class="pc-rules-head"><div><div id="pc-rules-title" class="pc-rules-title">Violation rules</div><div class="pc-rules-sub">Policy reference, shown only when needed.</div></div><button type="button" class="btn btn-sm" onclick="_pcCloseRulesModal()">Close</button></div>'
+    + '<div class="pc-rules-body">' + _pcRenderRules() + '</div>'
+    + '</div></div>';
+}
+
+function _pcCellDetailsModalHTML() {
+  return '<div id="pc-cell-details-modal" class="pc-rules-modal" style="display:none;" role="dialog" aria-modal="true" onclick="if(event.target===this)_pcCloseCellDetailsModal()">'
+    + '<div class="pc-rules-dialog" style="max-width:520px;">'
+    + '<div class="pc-rules-head"><div><div id="pc-cell-details-title" class="pc-rules-title">Violations List</div><div id="pc-cell-details-sub" class="pc-rules-sub">Detailed records for this period.</div></div><button type="button" class="btn btn-sm" onclick="_pcCloseCellDetailsModal()">Close</button></div>'
+    + '<div class="pc-rules-body" id="pc-cell-details-body" style="padding:16px 20px;max-height:60vh;overflow-y:auto;"></div>'
+    + '</div></div>';
+}
+
+function _pcCloseCellDetailsModal() {
+  var modal = document.getElementById('pc-cell-details-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _pcShowCellDetails(username, name, periodKey, type) {
+  var records = [];
+  var all = _pcData();
+
+  if (type === 'month') {
+    records = all.filter(function(r) {
+      return r.username === username && r.date && r.date.startsWith(periodKey) && r.status !== 'Cancelled';
+    });
+  } else if (type === 'week') {
+    var monthPfx = String(_pcWeeklyYear) + '-' + (_pcWeeklyMonth < 10 ? '0' : '') + _pcWeeklyMonth;
+    var targetWeek = parseInt(periodKey);
+    records = all.filter(function(r) {
+      return r.username === username && r.date && r.date.startsWith(monthPfx) && _pcIsoWeek(r.date) === targetWeek && r.status !== 'Cancelled';
+    });
+  }
+
+  // Sort by date and time descending
+  records.sort(function(a, b) {
+    var dComp = (b.date||'').localeCompare(a.date||'');
+    if (dComp !== 0) return dComp;
+    if (a.time && b.time) return b.time.localeCompare(a.time);
+    return b.no - a.no;
+  });
+
+  var titleEl = document.getElementById('pc-cell-details-title');
+  var subEl = document.getElementById('pc-cell-details-sub');
+  var bodyEl = document.getElementById('pc-cell-details-body');
+
+  if (titleEl) titleEl.textContent = name;
+  if (subEl) {
+    if (type === 'month') {
+      var parts = periodKey.split('-');
+      var monthsMap = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'};
+      var mName = monthsMap[parts[1]] || parts[1];
+      subEl.textContent = 'Violations in ' + mName + ' ' + parts[0] + ' (' + records.length + ' records)';
+    } else {
+      subEl.textContent = 'Violations in Wk' + periodKey + ' (' + records.length + ' records)';
+    }
+  }
+
+  if (bodyEl) {
+    if (records.length === 0) {
+      bodyEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);">No records found.</div>';
+    } else {
+      bodyEl.innerHTML = records.map(function(r) {
+        var labelVi = _pcEventLabelVi(r.event);
+        return '<div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--bg3);display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background-color .15s;" '
+          + 'onclick="_pcCloseCellDetailsModal();_pcOpenEditModalByNo('+r.no+')" '
+          + 'onmouseover="this.style.backgroundColor=\'rgba(31,102,241,.06)\'" '
+          + 'onmouseout="this.style.backgroundColor=\'var(--bg3)\'">'
+          + '<div>'
+            + '<div style="font-size:11px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:3px;">'+r.date+(r.time ? ' ' + r.time : '')+' &nbsp;&middot;&nbsp; Record #'+r.no+'</div>'
+            + '<div style="font-size:13px;font-weight:600;"><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);margin-right:4px;">'+r.event+'</b> — '+labelVi+'</div>'
+          + '</div>'
+          + '<span style="font-size:16px;color:var(--text3);font-weight:700;">&rarr;</span>'
+          + '</div>';
+      }).join('');
+    }
+  }
+
+  var modal = document.getElementById('pc-cell-details-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+if (!window._pcReportPopoverEscBound) {
+  window._pcReportPopoverEscBound = true;
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      _pcCloseRulesModal();
+      _pcCloseCellDetailsModal();
+    }
+  });
 }
 
 // ════════════════════════════════════════════
@@ -290,7 +520,7 @@ function _pcRenderPolicy() {
   var years   = ['2026'];
   var quarters= ['Q1','Q2','Q3','Q4'];
   var months  = ['2026-01','2026-02','2026-03','2026-04','2026-05'];
-  var mLabels = {'2026-01':'Jan 2026','2026-02':'Feb 2026','2026-03':'Mar 2026','2026-04':'Apr 2026','2026-05':'May 2026'};
+  var mLabels = {'2026-01':'Jan','2026-02':'Feb','2026-03':'Mar','2026-04':'Apr','2026-05':'May'};
 
   var filterBar = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Year</div>'
@@ -333,13 +563,8 @@ function _pcRenderPolicy() {
   var res    = scoped.filter(function(r){return r.status==='Resolved';}).length;
   var rev    = scoped.filter(function(r){return r.status==='Processing'||r.status==='Need Review'||r.status==='Need Resolve';}).length;
 
-  // ── Stats row ──
-  var stats = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">'
-    + '<div class="stat"><div class="stat-label">Violations</div><div class="stat-num" style="color:var(--accent);">'+scoped.length+'</div></div>'
-    + '<div class="stat"><div class="stat-label">Resolved</div><div class="stat-num" style="color:var(--ok);">'+res+'</div></div>'
-    + '<div class="stat"><div class="stat-label">To review</div><div class="stat-num" style="color:var(--warn);">'+rev+'</div></div>'
-    + '<div class="stat"><div class="stat-label">Employees</div><div class="stat-num">'+[...new Set(scoped.map(function(r){return r.username;}))].length+'</div></div>'
-    + '</div>';
+  // ── Stats row (hidden to avoid duplication with All Records) ──
+  var stats = '';
 
   // ── Per-employee summary table ──
   var byEmp = {};
@@ -350,7 +575,8 @@ function _pcRenderPolicy() {
     byEmp[k].total++;
     byEmp[k].events[r.event] = (byEmp[k].events[r.event]||0)+1;
     var mon = r.date.slice(0,7);
-    byEmp[k].months[mon] = (byEmp[k].months[mon]||0)+1;
+    if (!byEmp[k].months[mon]) byEmp[k].months[mon] = [];
+    byEmp[k].months[mon].push(r.event);
   });
 
   var empList = Object.values(byEmp).sort(function(a,b){return b.total-a.total;});
@@ -384,8 +610,11 @@ function _pcRenderPolicy() {
       + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
       + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
       + shownMonths.map(function(m){
-          var n = e.months[m]||0;
-          return '<td style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+_pcHeat(n)+'">'+(n||'—')+'</td>';
+          var list = e.months[m]||[];
+          var n = list.length;
+          var clickAttr = n > 0 ? ' onclick="_pcShowCellDetails(\''+e.username+'\', \''+e.name.replace(/'/g, "\\'")+'\', \''+m+'\', \'month\')"' : '';
+          var cursorStyle = n > 0 ? 'cursor:pointer;' : '';
+          return '<td'+clickAttr+' style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+cursorStyle+(n?_pcHeat(n):'')+'">'+_pcFormatCellEvents(list)+'</td>';
         }).join('')
       + '</tr>';
   }).join('');
@@ -406,8 +635,11 @@ function _pcRenderPolicy() {
       + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
       + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
       + shownMonths.map(function(m){
-          var n = e.months[m]||0;
-          return '<td style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+_pcHeat(n)+'">'+(n||'—')+'</td>';
+          var list = e.months[m]||[];
+          var n = list.length;
+          var clickAttr = n > 0 ? ' onclick="_pcShowCellDetails(\''+e.username+'\', \''+e.name.replace(/'/g, "\\'")+'\', \''+m+'\', \'month\')"' : '';
+          var cursorStyle = n > 0 ? 'cursor:pointer;' : '';
+          return '<td'+clickAttr+' style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+cursorStyle+(n?_pcHeat(n):'')+'">'+_pcFormatCellEvents(list)+'</td>';
         }).join('')
       + '</tr>';
   }).join('');
@@ -487,7 +719,7 @@ function _pcRenderRecords() {
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Status</div>'+mkSel('status',f.status,['Processing','Need Review','Need Resolve','Resolved','Cancelled'],'All statuses')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Role</div>'+mkSel('role',f.role,['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor','Data Analyst Leader','Data Analyst Supervisor','Agent Training Manager','Agent Training Assistant'],'All roles')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Shift</div>'+mkSel('shift',f.shift,['A','B','C','D','E'],'All')+'</div>'
-    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'+mkSel('event',f.event,Object.keys(PC_EVENTS).map(function(k){return {v:k,l:k+' — '+PC_EVENTS[k].split('—')[0].trim()};}), 'All events')+'</div>'
+    + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'+mkSel('event',f.event,Object.keys(PC_EVENTS).map(function(k){return {v:k,l:k+' — '+_pcEventLabelVi(k)};}), 'All events')+'</div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Leader</div>'+mkSel('leader',f.leader,leaders,'All leaders')+'</div>'
     + '</div>'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
@@ -522,10 +754,18 @@ function _pcRenderRecords() {
             + '</td>';
         }
 
-        return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="_pcOpenEditModalByNo('+r.no+')">'
+        var rowBg = '';
+        if (r.status === 'Need Review') rowBg = 'background-color:rgba(239,68,68,.04);';
+        else if (r.status === 'Need Resolve') rowBg = 'background-color:rgba(31,102,241,.04);';
+
+        var fbIcon = r.agentFeedback
+          ? ' <span title="Agent replied: ' + r.agentFeedback.replace(/"/g, '&quot;') + '" style="color:var(--ok);font-size:12px;cursor:pointer;margin-left:4px;">💬</span>'
+          : '';
+
+        return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;'+rowBg+'" onclick="_pcOpenEditModalByNo('+r.no+')">'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.no+'</td>'
-          + '<td style="padding:7px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;">'+r.date+'</td>'
-          + '<td style="padding:7px 10px;font-weight:600;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+'</td>'
+          + '<td style="padding:7px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;white-space:nowrap;">'+r.date+(r.time ? ' <span style="color:var(--text3);font-size:10px;">'+r.time+'</span>' : '')+'</td>'
+          + '<td style="padding:7px 10px;font-weight:600;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+fbIcon+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.empNo+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(r.role)+'</td>'
           + '<td style="padding:7px 10px;text-align:center;"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;background:var(--bg4);color:var(--text2);">'+(r.shift||'—')+'</span></td>'
@@ -592,7 +832,7 @@ function _pcRenderSummary() {
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Event</div>'
     + '<select style="'+ss+'" onchange="_pcS30Event=this.value;_pcRerender()">'
     + '<option value="">All events</option>'
-    + Object.keys(PC_EVENTS).map(function(k){return '<option value="'+k+'"'+(_pcS30Event===k?' selected':'')+'>'+k+' — '+PC_EVENTS[k].split('—')[0].trim()+'</option>';}).join('')
+    + Object.keys(PC_EVENTS).map(function(k){return '<option value="'+k+'"'+(_pcS30Event===k?' selected':'')+'>'+k+' — '+_pcEventLabelVi(k)+'</option>';}).join('')
     + '</select></div>'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Leader</div>'
     + '<select style="'+ss+'" onchange="_pcS30Leader=this.value;_pcRerender()">'
@@ -713,7 +953,7 @@ function _pcRenderSummary() {
             : '<span title="≥2 violations — email recommended" style="font-size:10px;margin-left:6px;color:var(--err);font-weight:700;">⚠</span>')
         : '';
       var evBadges = Object.entries(evCounts).sort(function(a,b){return b[1]-a[1];}).map(function(e){
-        return '<span title="'+( PC_EVENTS[e[0]]||e[0])+'" style="display:inline-flex;align-items:center;gap:3px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg4);color:var(--text2);margin:1px;">'
+        return '<span title="'+(_pcEventLabelVi(e[0])||e[0])+'" style="display:inline-flex;align-items:center;gap:3px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg4);color:var(--text2);margin:1px;">'
           + e[0]+(e[1]>1?'<b style="color:var(--accent);margin-left:2px;">×'+e[1]+'</b>':'')+'</span>';
       }).join('');
       return '<tr style="border-bottom:1px solid var(--border);">'
@@ -732,16 +972,9 @@ function _pcRenderSummary() {
       + thead + '<tbody>'+rows+'</tbody></table></div></div>';
   });
 
-  // ── Event reference ──
-  var ref = '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:4px;">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;margin-bottom:8px;">Event code reference</div>'
-    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;font-size:12px;">'
-    + Object.entries(PC_EVENTS).map(function(e){return '<div><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);">'+e[0]+'</b> — '+e[1]+'</div>';}).join('')
-    + '</div></div>';
-
   return filterBar + statRow + warningCard
     + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:start;margin-bottom:16px;">'
-    + sections + '</div>' + ref;
+    + sections + '</div>';
 }
 
 // ════════════════════════════════════════════
@@ -798,7 +1031,8 @@ function _pcRenderWeekly() {
     var k = r.username || r.name;
     if (!byEmp[k]) byEmp[k] = {name:r.name,empNo:r.empNo,role:r.role,username:r.username,warningMailDate:null,total:0,weeks:{}};
     var wk = _pcIsoWeek(r.date);
-    byEmp[k].weeks[wk] = (byEmp[k].weeks[wk]||0) + 1;
+    if (!byEmp[k].weeks[wk]) byEmp[k].weeks[wk] = [];
+    byEmp[k].weeks[wk].push(r.event);
     byEmp[k].total++;
     if (r.warningMailDate) byEmp[k].warningMailDate = r.warningMailDate;
   });
@@ -853,7 +1087,13 @@ function _pcRenderWeekly() {
           + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(e.role)+'</td>'
           + '<td style="padding:7px 10px;">'+warnStr+'</td>'
           + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;'+_pcHeat(e.total)+'">'+e.total+'</td>'
-          + shownWeeks.map(function(w){var n=e.weeks[w]||0;return '<td style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+(n?_pcHeat(n):'')+'">'+(n||'—')+'</td>';}).join('')
+          + shownWeeks.map(function(w){
+              var list=e.weeks[w]||[];
+              var n=list.length;
+              var clickAttr = n > 0 ? ' onclick="_pcShowCellDetails(\''+e.username+'\', \''+e.name.replace(/'/g, "\\'")+'\', \''+w+'\', \'week\')"' : '';
+              var cursorStyle = n > 0 ? 'cursor:pointer;' : '';
+              return '<td'+clickAttr+' style="padding:7px 6px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:12px;'+cursorStyle+(n?_pcHeat(n):'')+'">'+_pcFormatCellEvents(list)+'</td>';
+            }).join('')
           + '</tr>';
       }).join('');
 
@@ -898,8 +1138,8 @@ function _pcOpenEditModal(idx) {
   document.getElementById('pc-modal-title').textContent = 'Record #'+r.no+' — '+r.name;
   document.getElementById('pc-modal-body').innerHTML = ''
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;font-size:12px;background:var(--bg3);border-radius:8px;padding:12px;">'
-    + '<div><span style="color:var(--text3);">Date</span><br><b>'+r.date+'</b></div>'
-    + '<div><span style="color:var(--text3);">Event</span><br><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);">'+r.event+'</b> — '+PC_EVENTS[r.event]+'</div>'
+    + '<div><span style="color:var(--text3);">Date & Time</span><br><b>'+r.date+(r.time ? ' ' + r.time : '')+'</b></div>'
+    + '<div><span style="color:var(--text3);">Event</span><br><b style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);">'+r.event+'</b> — '+_pcEventLabelVi(r.event)+'</div>'
     + '<div><span style="color:var(--text3);">Employee</span><br><b>'+r.name+'</b> · '+r.empNo+'</div>'
     + '<div><span style="color:var(--text3);">Role / Shift</span><br>'+_resolveRole(r.role)+' / Shift '+(r.shift||'—')+'</div>'
     + '<div><span style="color:var(--text3);">Leader</span><br>'+r.leader+'</div>'
@@ -970,6 +1210,8 @@ function _pcSaveEdit(no) {
 function _pcOpenAddModal() {
   if (!isLeader(currentUser)) return;
   var today = _pcToday();
+  var now = new Date();
+  var curTime = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   var usernames = state.users.map(function(u){return u.username;}).filter(Boolean).sort();
   var SHIFT_TIMES = {A:'3PM→12AM',B:'7PM→4AM',C:'9PM→6AM',D:'12AM→9AM',E:'6AM→3PM'};
 
@@ -984,8 +1226,11 @@ function _pcOpenAddModal() {
     + '<datalist id="pca-user-list">'+usernames.map(function(u){return '<option value="'+u+'">';}).join('')+'</datalist>'
     + '<div id="pca-status" style="font-size:11px;min-height:14px;margin-top:3px;"></div></div>'
 
-    // Date
-    + '<div class="fg"><label>Date *</label><input type="date" id="pca-date" value="'+today+'"></div>'
+    // Date & Time
+    + '<div class="fg" style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:6px;margin-bottom:0;">'
+    + '<div><label>Date *</label><input type="date" id="pca-date" value="'+today+'"></div>'
+    + '<div><label>Time *</label><input type="time" id="pca-time" value="'+curTime+'"></div>'
+    + '</div>'
 
     // Shift (badge picker)
     + '<div class="fg"><label>Shift <span style="font-size:10px;color:var(--accent);background:rgba(31,102,241,.1);padding:1px 6px;border-radius:99px;margin-left:3px;">from schedule</span></label>'
@@ -1133,6 +1378,7 @@ function _pcaSaveRecord() {
   d.push({
     no: no,
     date:    document.getElementById('pca-date').value,
+    time:    document.getElementById('pca-time') ? document.getElementById('pca-time').value : '',
     leader: currentUser.username || currentUser.name,
     createdBy: currentUser.username || '',
     empNo:   empnoEl  ? empnoEl.textContent.replace('—','')  : '',
