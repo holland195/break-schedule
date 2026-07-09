@@ -315,7 +315,7 @@ const swapTitle=br&&br.swapDisplay?' (approved swap)':'';
       return `<tr class="tdr" data-name="${u.name.toLowerCase()}">
         <td style="padding:6px 10px;white-space:nowrap;position:sticky;left:0;z-index:1;background:var(--bg2);">
           <div style="font-size:12px;font-weight:600;">${u.name}</div>
-          <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</div>
+          <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role, u.team).label}</div>
         </td>${cells}
       </tr>`;
     }).join('');
@@ -571,7 +571,7 @@ function renderAttendanceTraining() {
           <span style="width:4px;height:32px;border-radius:2px;background:${c.color||'var(--border2)'};flex-shrink:0;display:inline-block;"></span>
           <div>
             <div style="font-size:12px;font-weight:600;">${u.name}</div>
-            <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role).label}</div>
+            <div style="font-size:10px;color:var(--text3);">${u.team||''} · ${getRoleInfo(u.role, u.team).label}</div>
           </div>
         </div>
       </td>
