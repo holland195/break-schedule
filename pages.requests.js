@@ -684,7 +684,10 @@ function _dosUpdateUsers() {
   document.getElementById('dos-target-date-wrap').innerHTML = '';
   document.getElementById('dos-validation-msg').style.display = 'none';
   if (!_dosMyDate) { _sel.innerHTML = '<option value="">— Select person —</option>'; return; }
-  var _myRole = _resolveRole(currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '') || '';
+  var _myRole = _resolveRole(
+    currentUser.role || (state.staffInfo[currentUser.username]||{}).role || '',
+    currentUser.team || (state.staffInfo[currentUser.username]||{}).team || ''
+  ) || '';
   // Use the displayed week for shift detection (working days excluding day-off)
   var _weekDates = getWeekRange(_ssActiveMonday);
   // Adjacent dates are the valid swap targets (±1 day, restricted to Mon/Sat/Sun)
@@ -699,7 +702,10 @@ function _dosUpdateUsers() {
   });
   var _candidates = state.users.filter(function(u) {
     if (u.username === currentUser.username) return false;
-    var _uRole = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+    var _uRole = _resolveRole(
+      u.role || (state.staffInfo[u.username]||{}).role || '',
+      u.team || (state.staffInfo[u.username]||{}).team || ''
+    ) || '';
     if (!_myRole || !_uRole || _uRole !== _myRole) return false;
     // Must work the same shift as the requester
     if (_myShift) {
@@ -904,8 +910,8 @@ function _updateReqDay() {
   _updateReqPartners();
 }
 
-function _reqSwapRoleGroup(role) {
-  var resolved = _resolveRole(role || '') || '';
+function _reqSwapRoleGroup(role, team) {
+  var resolved = _resolveRole(role || '', team || '') || '';
   return resolved === 'Sr Data Analyst' ? 'Data Analyst' : resolved;
 }
 
@@ -916,12 +922,18 @@ function _updateReqPartners() {
 
   const myBr = getAssigned(currentUser.id, day) || getAssigned(currentUser.id, getWkDay(day));
   const mySlot = myBr ? myBr.slot : null;
-  const myRoleGroup = _reqSwapRoleGroup(currentUser.role || (state.staffInfo[currentUser.username] || {}).role || '');
+  const myRoleGroup = _reqSwapRoleGroup(
+    currentUser.role || (state.staffInfo[currentUser.username] || {}).role || '',
+    currentUser.team || (state.staffInfo[currentUser.username] || {}).team || ''
+  );
 
   // If week swap: partner must have same slot mismatch on ALL days they share this shift
   const partners = state.users.filter(u => {
     if (u.id === currentUser.id) return false;
-    var partnerRoleGroup = _reqSwapRoleGroup(u.role || (state.staffInfo[u.username] || {}).role || '');
+    var partnerRoleGroup = _reqSwapRoleGroup(
+      u.role || (state.staffInfo[u.username] || {}).role || '',
+      u.team || (state.staffInfo[u.username] || {}).team || ''
+    );
     if (!myRoleGroup || partnerRoleGroup !== myRoleGroup) return false;
     var shiftVal = _getSched(u.username, day);
     if (shiftVal !== currentShift) return false;

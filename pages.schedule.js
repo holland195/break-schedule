@@ -97,7 +97,7 @@ function renderSchedule() {
   var allShiftUsers = state.users.filter(function(u) {
     if (u.username === 'tuan.mai' || u.username === 'nhon.bui') return false;
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul >= 2) return false;
     return monthDates.some(function(dk) { return getUserShift(u, dk) === shiftToShow; });
   });
