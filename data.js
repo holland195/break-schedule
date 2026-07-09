@@ -71,7 +71,7 @@ const ROLES = {
   'Sr Data Analyst':          {level:1,tag:'role-agent', label:'Sr Data Analyst'},
   'Data Analyst':             {level:0,tag:'role-agent', label:'Data Analyst'},
   'Data Supervisor':          {level:0,tag:'role-qa',    label:'Data Supervisor'},
-  'Sr Data Supervisor':       {level:1,tag:'role-qa',    label:'Sr Data Supervisor'},
+  'Sr Data Supervisor':       {level:1,tag:'role-sr-qa', label:'Sr Data Supervisor'},
 };
 
 // ═══════════════════════════════════════════════
@@ -284,13 +284,28 @@ const ROLE_ALIASES = {
   'Senior Data Analyst Supervisor':'Data Analyst Supervisor',
   'Leader':                   'Data Analyst Leader',
   'Supervisor':               'Data Analyst Supervisor',
+  'SDS':                      'Sr Data Supervisor',
+  'I-SDS':                    'Sr Data Supervisor',
 };
-function _resolveRole(role) { return ROLE_ALIASES[role] || role; }
+function _resolveRole(role, team) {
+  if (role && typeof role === 'object') {
+    const u = role;
+    role = u.role;
+    team = u.team;
+  }
+  if (team) {
+    const t = String(team).toUpperCase();
+    if (t.startsWith('I-SDS') || t.startsWith('SDS')) {
+      return 'Sr Data Supervisor';
+    }
+  }
+  return ROLE_ALIASES[role] || role;
+}
 
-function isLeader(u)   { return u && (ROLES[_resolveRole(u.role)]?.level||0)>=2; }
-function isTraining(u) { return u && (ROLES[_resolveRole(u.role)]?.level||0)===3; }
-function isAdmin(u)    { return u && (ROLES[_resolveRole(u.role)]?.level||0)===4; }
-function getRoleInfo(r) { const k=_resolveRole(r); return ROLES[k]||{level:0,tag:'role-agent',label:r||'—'}; }
+function isLeader(u)   { return u && (ROLES[_resolveRole(u.role, u.team)]?.level||0)>=2; }
+function isTraining(u) { return u && (ROLES[_resolveRole(u.role, u.team)]?.level||0)===3; }
+function isAdmin(u)    { return u && (ROLES[_resolveRole(u.role, u.team)]?.level||0)===4; }
+function getRoleInfo(r, t) { const k=_resolveRole(r, t); return ROLES[k]||{level:0,tag:'role-agent',label:r||'—'}; }
 
 function todayKey() {
   const d=new Date(); return WEEK_DAYS[d.getDay()===0?6:d.getDay()-1];

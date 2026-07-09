@@ -95,9 +95,9 @@ function _slotBelongsToShift(slot, shift) {
   return (BREAK_SLOTS[shift] || []).some(s => _nd(s) === _nd(slot));
 }
 
-function _roleTier(role) {
+function _roleTier(role, team) {
   if (!role) return null;
-  const r = role.toLowerCase().trim();
+  const r = _resolveRole(role, team).toLowerCase().trim();
 
   // New role names — must come BEFORE the broad 'supervisor' exclusion below
   if (r === 'data analyst' || r === 'sr data analyst') return 'agent';
@@ -248,6 +248,34 @@ function _getTeamSlotMap(rot, shift, tier, sunday, teams, slot1, slot2, slot2Cou
   });
 
   return result;
+}
+
+function _getTeamPrevWeekSatMonSlotIndex(team, prevMonday, shift, tier) {
+  var teamMembers = (state.users || []).filter(function(u) {
+    if (u.team !== team) return false;
+    var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
+    var teamVal = u.team || (DB.getStaffInfo(u.username) || {}).team || '';
+    return _roleTier(role, teamVal) === tier;
+  });
+  for (var i = 0; i < teamMembers.length; i++) {
+    var idx = _getPrevWeekSatMonSlotIndex(teamMembers[i], prevMonday, shift);
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function _getTeamPrevWeekTueFriSlotIndex(team, prevMonday, shift, tier) {
+  var teamMembers = (state.users || []).filter(function(u) {
+    if (u.team !== team) return false;
+    var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
+    var teamVal = u.team || (DB.getStaffInfo(u.username) || {}).team || '';
+    return _roleTier(role, teamVal) === tier;
+  });
+  for (var i = 0; i < teamMembers.length; i++) {
+    var idx = _getPrevWeekTueFriSlotIndex(teamMembers[i], prevMonday, shift);
+    if (idx !== -1) return idx;
+  }
+  return -1;
 }
 
 // Guarantees EXACTLY slot2Count members on slot2 every week, with the
@@ -442,7 +470,8 @@ function autoAssignBreaks(importedUsers) {
 
       var onShift = importedUsers.filter(function(u) {
         var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
-        if (!_roleTier(role)) return false;
+        var team = u.team || (DB.getStaffInfo(u.username) || {}).team || '';
+        if (!_roleTier(role, team)) return false;
         return weekDates.some(function(d) {
           return _getSched(u.username, d) === shift;
         });
@@ -452,7 +481,8 @@ function autoAssignBreaks(importedUsers) {
       var tiers = { agent: [], qa: [], sr_qa: [] };
       onShift.forEach(function(u) {
         var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
-        var t = _roleTier(role);
+        var team = u.team || (DB.getStaffInfo(u.username) || {}).team || '';
+        var t = _roleTier(role, team);
         if (t) tiers[t].push(u);
       });
 
@@ -461,13 +491,35 @@ function autoAssignBreaks(importedUsers) {
         if (members.length === 0) return;
 
         var customPct = getBreakSplitPct(shift, tier);
-        var slot1Count = customPct !== null
-          ? Math.round(members.length * customPct / 100)
-          : Math.ceil(members.length / 2);
-        var slot2Count = members.length - slot1Count;
+        var slotBasisMap = {};
 
-        var userSlotMap = shift === 'E' ? {} : _getSlotMap(rot, shift, tier, monday, members, slot1, slot2, slot2Count);
-        var slotBasisMap = userSlotMap;
+        if (shift === 'A' || shift === 'D') {
+          var teamList = [];
+          var seenTeams = {};
+          members.forEach(function(u) {
+            if (u.team && !seenTeams[u.team]) {
+              seenTeams[u.team] = true;
+              teamList.push(u.team);
+            }
+          });
+          teamList.sort(_naturalSort);
+
+          var teamSlot1Count = customPct !== null
+            ? Math.round(teamList.length * customPct / 100)
+            : Math.ceil(teamList.length / 2);
+          var teamSlot2Count = teamList.length - teamSlot1Count;
+
+          var teamSlotMap = _getTeamSlotMap(rot, shift, tier, monday, teamList, slot1, slot2, teamSlot2Count);
+          members.forEach(function(u) {
+            slotBasisMap[u.username || u.id] = teamSlotMap[u.team] || slot1;
+          });
+        } else {
+          var slot1Count = customPct !== null
+            ? Math.round(members.length * customPct / 100)
+            : Math.ceil(members.length / 2);
+          var slot2Count = members.length - slot1Count;
+          slotBasisMap = shift === 'E' ? {} : _getSlotMap(rot, shift, tier, monday, members, slot1, slot2, slot2Count);
+        }
 
         // Shift E should split by group, matching the distribution panel and
         // the "groups assigned as a block" rule. The user-level map can drift
@@ -719,8 +771,8 @@ function autoAssignBreaks(importedUsers) {
             baseSatMonSlot = slotBasisMap[u.username || u.id] || slot1;
             baseTueFriSlot = baseSatMonSlot;
           } else {
-            var prevSatMonIdx = _getPrevWeekSatMonSlotIndex(u, prevMonday, shift);
-            var prevTueFriIdx = _getPrevWeekTueFriSlotIndex(u, prevMonday, shift);
+            var prevSatMonIdx = u.team ? _getTeamPrevWeekSatMonSlotIndex(u.team, prevMonday, shift, tier) : -1;
+            var prevTueFriIdx = u.team ? _getTeamPrevWeekTueFriSlotIndex(u.team, prevMonday, shift, tier) : -1;
 
             // Resolve Sat-Mon slot
             if (prevSatMonIdx !== -1) {
@@ -796,7 +848,8 @@ function autoAssignBreaks(importedUsers) {
         var tierUsers = { agent: [], qa: [], sr_qa: [] };
         importedUsers.forEach(function(u) {
           var role = (DB.getStaffInfo(u.username) || {}).role || u.role || '';
-          var t = _roleTier(role);
+          var team = u.team || (DB.getStaffInfo(u.username) || {}).team || '';
+          var t = _roleTier(role, team);
           if (t && _getSched(u.username, dk) === shift) {
             if (!_isOffOrHalfDay(u.username, dk)) {
               tierUsers[t].push(u);

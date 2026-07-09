@@ -13,6 +13,31 @@ let _bulkSlotIdx = 0;         // slot dropdown index
 // Persisted paste area content — survives re-renders
 let _pasteContent = '';
 
+const _ARRANGE_ROLE_ORDER = {
+  'Data Analyst': 0,
+  'Sr Data Analyst': 1,
+  'Data Supervisor': 2,
+  'Sr Data Supervisor': 3,
+};
+
+function _arrangeRoleRank(role, team) {
+  return _ARRANGE_ROLE_ORDER[_resolveRole(role, team)] ?? 99;
+}
+
+function _compareArrangeMembers(a, b) {
+  var roleDiff = _arrangeRoleRank(a.role, a.team) - _arrangeRoleRank(b.role, b.team);
+  if (roleDiff !== 0) return roleDiff;
+  var teamDiff = (a.team || '').localeCompare(b.team || '', undefined, { numeric: true, sensitivity: 'base' });
+  if (teamDiff !== 0) return teamDiff;
+  return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+}
+
+function _compareArrangeTeams(teamA, teamB, teamRoles) {
+  var roleDiff = (_ARRANGE_ROLE_ORDER[teamRoles[teamA]] ?? 99) - (_ARRANGE_ROLE_ORDER[teamRoles[teamB]] ?? 99);
+  if (roleDiff !== 0) return roleDiff;
+  return (teamA || '').localeCompare(teamB || '', undefined, { numeric: true, sensitivity: 'base' });
+}
+
 function renderArrange() {
   if (!isLeader(currentUser)) return '<div class="empty">Access denied.</div>';
 
@@ -477,14 +502,16 @@ function _getArrangeSummaryBarHTML(allMates, weekRange) {
 
 function _renderArrangeAssignTab(weekRange) {
   // Only include analyst-tier roles (level 0–1) in teams for manual assign
+  const _shiftTeamRoles = {};
+  state.users.forEach(function(u) {
+    if (!_shiftTeamRoles[u.team]) _shiftTeamRoles[u.team] = _resolveRole(u.role, u.team) || u.role || '';
+  });
   const allShiftTeams = [...new Set(state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul == null || _ul >= 2) return false;
     return weekRange.some(d => _getSched(u.username, d) === currentShift);
-  }).map(u => u.team))].sort((a, b) =>
-    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-  );
+  }).map(u => u.team))].sort((a, b) => _compareArrangeTeams(a, b, _shiftTeamRoles));
 
   const slots = BREAK_SLOTS[currentShift] || [];
 
@@ -505,10 +532,10 @@ function _renderArrangeAssignTab(weekRange) {
     state.users.filter(function(u) {
       if (u.team !== t) return false;
       var _ur2 = u.role || (state.staffInfo[u.username]||{}).role || '';
-      var _ul2 = (ROLES[_resolveRole(_ur2)||_ur2] || {}).level;
+      var _ul2 = (ROLES[_resolveRole(_ur2, u.team)||_ur2] || {}).level;
       return _ul2 != null && _ul2 < 2;
     }).forEach(function(u) {
-      var lbl = getRoleInfo(u.role).label;
+      var lbl = getRoleInfo(u.role, u.team).label;
       if (_validPosLabels.includes(lbl) && !seen[lbl]) { seen[lbl] = true; labels.push(lbl); }
     });
     _teamRoles[t] = labels;
@@ -567,7 +594,7 @@ function _renderArrangeAssignTab(weekRange) {
     allShiftTeams.forEach(function(t) {
       var found = null;
       state.users.filter(function(u) { return u.team === t; }).forEach(function(u) {
-        if (!found) { found = _tierRoleKey[(u.role || '').toLowerCase().trim()] || null; }
+        if (!found) { found = _tierRoleKey[_resolveRole(u.role || '', u.team).toLowerCase().trim()] || null; }
       });
       if (found && _distTiers[found]) _distTiers[found].push(t);
     });
@@ -581,7 +608,7 @@ function _renderArrangeAssignTab(weekRange) {
       teams.forEach(function(team) {
         var s1 = 0, s2 = 0;
         state.users.filter(function(u) {
-          return u.team === team && _tierRoleKey[(u.role || '').toLowerCase().trim()] === tier;
+          return u.team === team && _tierRoleKey[_resolveRole(u.role || '', u.team).toLowerCase().trim()] === tier;
         }).forEach(function(u) {
           weekRange.forEach(function(d, di) {
             if (_getSched(u.username, d) !== currentShift) return;
@@ -642,7 +669,7 @@ function _renderArrangeAssignTab(weekRange) {
 
   const allMates = state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul == null || _ul >= 2) return false;
     return weekRange.some(d => _getSched(u.username, d) === currentShift);
   });
@@ -747,6 +774,7 @@ function _renderArrangeMonthOverview() {
 
   function getFullTeamName(team) {
     if (!team) return '';
+    if (team.startsWith('I-SDS')) return 'Sr Data Supervisor ' + team.substring(5);
     if (team.startsWith('SDS')) return 'Sr Data Supervisor ' + team.substring(3);
     if (team.startsWith('DS')) return 'Data Supervisor ' + team.substring(2);
     if (team.startsWith('DA')) return 'Data Analyst ' + team.substring(2);
@@ -768,19 +796,16 @@ function _renderArrangeMonthOverview() {
     var teamSet = {};
     state.users.forEach(function(u) {
       var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-      var _ul = (ROLES[_resolveRole(_ur)||_ur]||{}).level || 0;
+      var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur]||{}).level || 0;
       if (_ul >= 2) return;
       var onShift = dates.some(function(dk) { return _getSched(u.username, dk) === currentShift; });
       if (!onShift) return;
-      var resolvedRole = _resolveRole(u.role || _ur) || u.role || '';
+      var resolvedRole = _resolveRole(u.role || _ur, u.team) || u.role || '';
       if (!teamSet[u.team]) teamSet[u.team] = resolvedRole;
     });
 
     var teams = Object.keys(teamSet).sort(function(a, b) {
-      var ta = _arrTierOrder.indexOf(_arrTierKey[teamSet[a]] || 'analyst');
-      var tb = _arrTierOrder.indexOf(_arrTierKey[teamSet[b]] || 'analyst');
-      if (ta !== tb) return ta - tb;
-      return a.localeCompare(b, undefined, { numeric: true });
+      return _compareArrangeTeams(a, b, teamSet);
     });
 
     if (!teams.length) return '';
@@ -982,10 +1007,10 @@ function getArrangeDayMemberList(_unused) {
   // Exclude unknown roles (level == null), leaders, training, admin (level >= 2).
   const allMates = state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul == null || _ul >= 2) return false;
     return weekRange.some(d => _getSched(u.username, d) === currentShift);
-  });
+  }).sort(_compareArrangeMembers);
 
   if (!allMates.length) return `<div class="empty" style="padding:60px;">
     <div class="empty-ico">👥</div>No staff on Shift ${currentShift} this week.</div>`;
@@ -1093,7 +1118,7 @@ function getArrangeDayMemberList(_unused) {
         </div>
         <div style="display:flex;align-items:center;gap:5px;">
           <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${u.team}</span>
-          <span class="role-tag ${getRoleInfo(u.role).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role).label}</span>
+          <span class="role-tag ${getRoleInfo(u.role, u.team).tag}" style="font-size:9px;padding:1px 6px;">${getRoleInfo(u.role, u.team).label}</span>
         </div>
       </td>
       ${dayCells}
@@ -1102,10 +1127,10 @@ function getArrangeDayMemberList(_unused) {
 
   // Per-day slot totals by role tier — sticky tfoot
   const ARR_TIERS = [
-    { label: 'Data Analyst', match: u => ['Data Analyst', 'Sr Data Analyst'].includes(_resolveRole(u.role)) },
-    { label: 'Data Supervisor', match: u => _resolveRole(u.role) === 'Data Supervisor' },
-    { label: 'Sr Data Supervisor', match: u => _resolveRole(u.role) === 'Sr Data Supervisor' },
-    { label: 'Total', match: u => ['Data Analyst', 'Sr Data Analyst', 'Data Supervisor', 'Sr Data Supervisor'].includes(_resolveRole(u.role)) },
+    { label: 'Data Analyst', match: u => ['Data Analyst', 'Sr Data Analyst'].includes(_resolveRole(u.role, u.team)) },
+    { label: 'Data Supervisor', match: u => _resolveRole(u.role, u.team) === 'Data Supervisor' },
+    { label: 'Sr Data Supervisor', match: u => _resolveRole(u.role, u.team) === 'Sr Data Supervisor' },
+    { label: 'Total', match: u => ['Data Analyst', 'Sr Data Analyst', 'Data Supervisor', 'Sr Data Supervisor'].includes(_resolveRole(u.role, u.team)) },
   ];
 
   const tierFootRows = ARR_TIERS.map((tier, tierIdx) => {
@@ -1226,11 +1251,8 @@ function _copyBreaksForSlack() {
 
   var shiftUsers = (state.users || []).filter(function(u) {
     if (_getSched(u.username, dk).toUpperCase() !== (currentShift || '').toUpperCase()) return false;
-    return validRoles.indexOf(_resolveRole(u.role)) >= 0;
-  }).sort(function(a, b) {
-    if (a.team !== b.team) return a.team.localeCompare(b.team, undefined, {numeric:true});
-    return _roleSort(a, b);
-  });
+    return validRoles.indexOf(_resolveRole(u.role, u.team)) >= 0;
+  }).sort(_compareArrangeMembers);
 
   var tableRows = '';
   shiftUsers.forEach(function(u) {
@@ -1244,7 +1266,7 @@ function _copyBreaksForSlack() {
     var cellBg = isOff2 ? (offBg[ck2] || 'rgba(107,114,128,.1)') : slotIdx2 === 0 ? 'rgba(59,130,246,.18)' : slotIdx2 === 1 ? 'rgba(34,197,94,.18)' : 'var(--bg3)';
     var cellFg = isOff2 ? (offFg[ck2] || 'var(--text3)') : 'var(--text1)';
     var cellText = isOff2 ? ck2 : (shortCode2 || '—');
-    var ra = roleAbbr[_resolveRole(u.role)] || _resolveRole(u.role);
+    var ra = roleAbbr[_resolveRole(u.role, u.team)] || _resolveRole(u.role, u.team);
     var td = 'border-right:1px solid var(--border);border-bottom:1px solid var(--border);';
     tableRows += '<tr>'
       + '<td style="padding:5px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;color:var(--text2);white-space:nowrap;' + td + '">' + (u.team || '') + '</td>'
@@ -1319,7 +1341,7 @@ function quickAssign(uid, day, slot) {
   const weekRange = getWeekRange(activeMonday);
   const allMates = state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul == null || _ul >= 2) return false;
     return weekRange.some(d => _getSched(u.username, d) === currentShift);
   });
@@ -1371,7 +1393,7 @@ function cycleAssignSlot(uid, day) {
   const weekRange = getWeekRange(activeMonday);
   const allMates = state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul == null || _ul >= 2) return false;
     return weekRange.some(d => _getSched(u.username, d) === currentShift);
   });
@@ -1506,7 +1528,7 @@ function confirmCopyDay() {
   // Get all visible mates (analysts/supervisors level 0-1)
   const allMates = state.users.filter(u => {
     var _ur = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _ul = (ROLES[_resolveRole(_ur)||_ur] || {}).level;
+    var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     return _ul != null && _ul < 2;
   });
   
