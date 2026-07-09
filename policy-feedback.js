@@ -184,11 +184,12 @@ function _fbRenderMine() {
       + '<div class="fb-card-title-row">'
       + '<span class="fb-code-pill">' + _fbHtml(r.event) + '</span>'
       + '<span class="fb-event-label">' + _fbHtml(_fbEventLabel(r.event)) + '</span>'
-      + '<span class="fb-date">' + _fbHtml(r.date) + '</span>'
+      + '<span class="fb-date">' + _fbHtml(r.date + (r.time ? ' ' + r.time : '')) + '</span>'
       + '</div>'
       + '<div class="fb-status-line">'
       + _fbStatusDot(r.status)
       + '<span class="fb-status-text fb-status-text-' + _fbStatusClass(r.status) + '">' + _fbHtml(r.status) + '</span>'
+      + (r.leader ? '<span class="fb-card-creator" style="margin-left:auto;font-size:11px;color:var(--text3);">Reported by: <span style="color:var(--text2);font-weight:600;">' + _fbHtml(r.leader) + '</span></span>' : '')
       + '</div>'
       + '</div>'
       + (r.description ? '<div class="fb-description">' + _fbHtml(r.description) + '</div>' : '')
@@ -419,6 +420,7 @@ function _fbRenderPersonDetail(username, groups) {
       + '<div class="fb-status-line">'
       + _fbStatusDot(r.status)
       + '<span class="fb-status-text fb-status-text-' + _fbStatusClass(r.status) + '">' + _fbHtml(r.status) + '</span>'
+      + (r.leader ? '<span class="fb-card-creator" style="margin-left:auto;font-size:11px;color:var(--text3);">Reported by: <span style="color:var(--text2);font-weight:600;">' + _fbHtml(r.leader) + '</span></span>' : '')
       + '</div>'
       + '</div>'
       + (r.description ? '<div class="fb-description">' + _fbHtml(r.description) + '</div>' : '')
