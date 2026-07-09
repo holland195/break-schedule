@@ -32,7 +32,8 @@ function renderExtBreak() {
     if (_getUserGender(u) !== 'F') return false;
     if (isTraining(currentUser) || isLeader(currentUser)) {
       var _ur = u.role || (state.staffInfo[u.username] || {}).role || '';
-      var _urr = _resolveRole(_ur) || _ur;
+      var _ut = u.team || (state.staffInfo[u.username] || {}).team || '';
+      var _urr = _resolveRole(_ur, _ut) || _ur;
       if ((ROLES[_urr] || {}).level >= 2) return false;
     }
     return true;
