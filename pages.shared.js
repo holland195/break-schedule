@@ -114,8 +114,8 @@ const ROLE_SORT_ORDER = {
 };
 
 function _roleSort(a, b) {
-  const ra = ROLE_SORT_ORDER[_resolveRole(a.role)] ?? 9;
-  const rb = ROLE_SORT_ORDER[_resolveRole(b.role)] ?? 9;
+  const ra = ROLE_SORT_ORDER[_resolveRole(a.role, a.team)] ?? 9;
+  const rb = ROLE_SORT_ORDER[_resolveRole(b.role, b.team)] ?? 9;
   if (ra !== rb) return ra - rb;
   return (a.name || '').localeCompare(b.name || '');
 }
@@ -130,8 +130,8 @@ var _ROLE_COLOR = {
   'Sr Data Analyst':         '#fb923c',
   'Data Analyst':            '#60a5fa',
 };
-function _roleColor(role) {
-  return _ROLE_COLOR[_resolveRole(role)||role] || 'var(--text2)';
+function _roleColor(role, team) {
+  return _ROLE_COLOR[_resolveRole(role, team)||role] || 'var(--text2)';
 }
 
 //  RENDER: DASHBOARD

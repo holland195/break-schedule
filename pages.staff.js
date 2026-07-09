@@ -41,7 +41,7 @@ function _renderStaffInfo() {
     (u.name || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
     (u.username || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
     (u.empNo || '').toLowerCase().includes(infoFilter.toLowerCase()) ||
-    (_resolveRole(u.role) || '').toLowerCase().includes(infoFilter.toLowerCase())
+    (_resolveRole(u.role, u.team) || '').toLowerCase().includes(infoFilter.toLowerCase())
   );
 
   const rows = _renderStaffInfoRows(infoFilter);
@@ -81,7 +81,7 @@ function _renderStaffInfo() {
 function _renderStaffInfoRows(filter) {
   const all = Object.entries(state.staffInfo || {})
     .map(([username, d]) => ({ username, ...d }))
-    .filter(u => _resolveRole(u.role))
+    .filter(u => _resolveRole(u.role, u.team))
     .sort(_roleSort);
   const f = (filter || '').toLowerCase();
   return all.filter(u =>
@@ -89,7 +89,7 @@ function _renderStaffInfoRows(filter) {
     (u.name || '').toLowerCase().includes(f) ||
     (u.username || '').toLowerCase().includes(f) ||
     (u.empNo || '').toLowerCase().includes(f) ||
-    (_resolveRole(u.role) || '').toLowerCase().includes(f)
+    (_resolveRole(u.role, u.team) || '').toLowerCase().includes(f)
   ).map(u => {
     // Gender: icon only
     var g = u.gender === 'F'
@@ -98,7 +98,7 @@ function _renderStaffInfoRows(filter) {
         ? `<span style="color:var(--B-color);font-size:15px;" title="Male">♂</span>`
         : `<span style="color:var(--text3);font-size:11px;">—</span>`;
 
-    var roleColor = _roleColor(u.role);
+    var roleColor = _roleColor(u.role, u.team);
 
     var empNo = u.empNo || '—';
     var dob   = u.dob   || '—';
@@ -123,7 +123,7 @@ function _renderStaffInfoRows(filter) {
       '<td class="mono" style="color:var(--accent);font-size:11px;">' + u.username + '</td>' +
       '<td style="text-align:center;vertical-align:middle;">' + g + '</td>' +
       '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text2);">' + dob + '</td>' +
-      '<td style="font-size:11px;color:' + roleColor + ';font-weight:500;">' + (getRoleInfo(u.role).label || _resolveRole(u.role) || '—') + '</td>' +
+      '<td style="font-size:11px;color:' + roleColor + ';font-weight:500;">' + (getRoleInfo(u.role, u.team).label || _resolveRole(u.role, u.team) || '—') + '</td>' +
       '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text2);">' + phone + '</td>' +
       (isTraining(currentUser) ? '<td style="text-align:center;white-space:nowrap;">' + actionBtns + '</td>' : '') +
       '</tr>';
@@ -190,7 +190,7 @@ function openStaffInfoModal(username) {
     usernameEl.disabled = true;
     document.getElementById('sif-empno').value = d.empNo || '';
     document.getElementById('sif-team').value = d.team || '';
-    document.getElementById('sif-role').value = _resolveRole(d.role) || d.role || 'Data Analyst';
+    document.getElementById('sif-role').value = _resolveRole(d.role, d.team) || d.role || 'Data Analyst';
     document.getElementById('sif-gender').value = d.gender || '';
     document.getElementById('sif-dob').value = d.dob || '';
     document.getElementById('sif-phone').value = d.phone || '';
@@ -397,7 +397,7 @@ const user = {
       <td style="padding:6px; border:1px solid var(--border); text-align:center;">${u.team}</td>
       <td style="padding:6px; border:1px solid var(--border); font-weight:600;">${u.name}</td>
       <td style="padding:6px; border:1px solid var(--border); color:var(--accent); font-family:monospace;">${u.username}</td>
-      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${_resolveRole(u.role)}</td>
+      <td style="padding:6px; border:1px solid var(--border); font-size:10px;">${_resolveRole(u.role, u.team)}</td>
       ${dateCols.map(d => {
     const shift = u.schedule[d.dateKey] || '0';
     let colorStyle = "";
@@ -506,7 +506,7 @@ function _renderStaffSchedule() {
   const filteredUsers = state.users.filter(u => {
     if (u.username === 'tuan.mai' || u.username === 'nhon.bui') return false;
     var _effR    = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _roleStr = (_resolveRole(_effR) || '').toLowerCase();
+    var _roleStr = (_resolveRole(_effR, u.team) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
     if (!_currTrn && _isTrn) return false;
@@ -649,14 +649,14 @@ function _renderWorkingTime() {
     var si = state.staffInfo[uname] || {};
     var fu = state.users.find(function(u) { return u.username === uname; });
     var role = (fu && fu.role) || si.role || '';
-    var lvl  = (ROLES[_resolveRole(role)] || {}).level;
+    var team  = (fu && fu.team)  || si.team  || '';
+    var lvl  = (ROLES[_resolveRole(role, team)] || {}).level;
     if (lvl === undefined) lvl = 0;
     // Exclude training (3), admin (4)
     if (lvl >= 3) return null;
     var empNo = (fu && fu.empNo) || si.empNo || _wtPcEmpNo[uname] || '';
     if (isJulyOnward && empNo && empNo.trim().toUpperCase().indexOf('AG') === 0) return null;
     var name  = (fu && fu.name)  || si.name  || uname;
-    var team  = (fu && fu.team)  || si.team  || '';
     return { username: uname, name: name, role: role, team: team, empNo: empNo, id: fu ? fu.id : null };
   }).filter(Boolean);
 
@@ -791,8 +791,8 @@ function _renderWorkingTime() {
         '<div style="font-size:12px;font-weight:600;">' + u.name + '</div>' +
       '</td>' +
       '<td style="padding:5px 8px;white-space:nowrap;' + stickyCell + 'left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);' +
-        'font-size:11px;color:' + _roleColor(effRole) + ';">' +
-        (getRoleInfo(effRole).label || _resolveRole(effRole) || '—') + '</td>' +
+        'font-size:11px;color:' + _roleColor(effRole, u.team) + ';">' +
+        (getRoleInfo(effRole, u.team).label || _resolveRole(effRole, u.team) || '—') + '</td>' +
       cells +
 
       '<td style="padding:5px 4px;text-align:center;min-width:45px;width:45px;border-left:2px solid var(--border);' +
@@ -1214,7 +1214,8 @@ function _liveFilterAttendance() {
   const tbodyRows = filteredUsers.map(u => {
     const uAtt = attData[u.username]?.[monthKey] || {};
     const conflicts = _preConflicts[u.username] || [];
-    var _uEffRoleForConflict = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '') || '';
+    var _uTeam = u.team || (state.staffInfo[u.username]||{}).team || '';
+    var _uEffRoleForConflict = _resolveRole(u.role || (state.staffInfo[u.username]||{}).role || '', _uTeam) || '';
     var _uIsTraining = (ROLES[_uEffRoleForConflict]||{}).level === 3;
 
     const cells = dates.map(dk => {
@@ -1286,7 +1287,7 @@ function _liveFilterAttendance() {
       <td style="padding:5px 10px;white-space:nowrap;${stickyCell}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">
         <div style="font-size:12px;font-weight:600;">${u.name}</div>
       </td>
-      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:${_roleColor(_saEffRole)};">${getRoleInfo(_saEffRole).label || _resolveRole(_saEffRole) || '—'}</td>
+      <td style="padding:5px 8px;white-space:nowrap;${stickyCell}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:${_roleColor(_saEffRole, u.team)};">${getRoleInfo(_saEffRole, u.team).label || _resolveRole(_saEffRole, u.team) || '—'}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -1642,7 +1643,7 @@ function renderStaffRows(users, displayDates) {
     '<td class="mono" style="font-size:11px;position:sticky;left:0;z-index:2;background:var(--bg3);min-width:60px;width:60px;">' + (u.team || '—') + '</td>' +
     '<td style="font-weight:600;position:sticky;left:60px;z-index:2;background:var(--bg3);min-width:200px;width:200px;">' + u.name + '</td>' +
     '<td class="mono" style="color:var(--accent);font-size:11px;position:sticky;left:260px;z-index:2;background:var(--bg3);min-width:130px;width:130px;">' + (u.username || '') + '</td>' +
-    '<td style="font-size:11px;color:' + _roleColor(_srEffRole) + ';position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">' + (getRoleInfo(_srEffRole).label || _resolveRole(_srEffRole) || '—') + '</td>' +
+    '<td style="font-size:11px;color:' + _roleColor(_srEffRole, u.team) + ';position:sticky;left:390px;z-index:2;background:var(--bg3);min-width:140px;width:140px;box-shadow:3px 0 6px rgba(0,0,0,.12);">' + (getRoleInfo(_srEffRole, u.team).label || _resolveRole(_srEffRole, u.team) || '—') + '</td>' +
     displayDates.map(function(d) {
       var s = _getSched(u.username, d);
       var isFiltered = d === _ssFilterDk && _ssShiftFilter !== 'All';
@@ -1687,11 +1688,11 @@ function _sortStaffUsers(users) {
 
   return users.filter(function(u) {
     var _r = u.role || (state.staffInfo[u.username]||{}).role || '';
-    return !!_resolveRole(_r);
+    return !!_resolveRole(_r, u.team);
   }).sort(function(a, b) {
     var aRole = a.role || (state.staffInfo[a.username]||{}).role || '';
     var bRole = b.role || (state.staffInfo[b.username]||{}).role || '';
-    var aRes = _resolveRole(aRole)||aRole, bRes = _resolveRole(bRole)||bRole;
+    var aRes = _resolveRole(aRole, a.team)||aRole, bRes = _resolveRole(bRole, b.team)||bRole;
     var aRnk = _STAFF_SORT_RANK[aRes]||99, bRnk = _STAFF_SORT_RANK[bRes]||99;
     if (aRnk !== bRnk) return aRnk - bRnk;
 
@@ -1726,7 +1727,7 @@ function _liveFilter() {
   const filtered = state.users.filter(u => {
     if (u.username === 'tuan.mai' || u.username === 'nhon.bui') return false;
     var _effR2   = u.role || (state.staffInfo[u.username]||{}).role || '';
-    var _roleStr = (_resolveRole(_effR2) || '').toLowerCase();
+    var _roleStr = (_resolveRole(_effR2, u.team) || '').toLowerCase();
     var _teamCh  = (u.team || '').toUpperCase().charAt(0);
     var _isTrn   = isTraining(u) || _roleStr.includes('training') || _teamCh === 'T';
     if (!_currTrn2 && _isTrn) return false;
