@@ -85,7 +85,7 @@ function renderDashboard() {
   };
   var _tgGroups = {};
   shiftMates.forEach(function(u) {
-    var pos = getRoleInfo(u.role).label || 'Other';
+    var pos = getRoleInfo(u.role, u.team).label || 'Other';
     if (!_tgGroups[pos]) _tgGroups[pos] = [];
     _tgGroups[pos].push(u);
   });
@@ -113,7 +113,7 @@ function renderDashboard() {
             u.name + (isSelf ? ' <span style="font-size:10px;color:var(--accent);">(you)</span>' : '') +
             (u.gender === 'F' ? '<span style="font-size:10px;color:var(--A-color);margin-left:3px;">♀</span>' : '') +
           '</div>' +
-          '<div style="font-size:10px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role).label + '</div>' +
+          '<div style="font-size:10px;color:var(--text3);">' + u.team + ' · ' + getRoleInfo(u.role, u.team).label + '</div>' +
         '</div>' +
       '</div>';
     }).join('');

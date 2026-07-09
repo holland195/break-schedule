@@ -1,6 +1,23 @@
 let scheduleMonday = null; // null = "use current real week"
 var scheduleMonthStr = ''; // 'MM/YYYY'; empty = current month
 
+var _SCHEDULE_ROLE_ORDER = {
+  'Data Analyst': 0,
+  'Sr Data Analyst': 1,
+  'Data Supervisor': 2,
+  'Sr Data Supervisor': 3,
+};
+
+function _compareScheduleUsers(a, b) {
+  var aRole = _resolveRole(a.role || (state.staffInfo[a.username] || {}).role || '', a.team || (state.staffInfo[a.username] || {}).team || '');
+  var bRole = _resolveRole(b.role || (state.staffInfo[b.username] || {}).role || '', b.team || (state.staffInfo[b.username] || {}).team || '');
+  var roleDiff = (_SCHEDULE_ROLE_ORDER[aRole] ?? 99) - (_SCHEDULE_ROLE_ORDER[bRole] ?? 99);
+  if (roleDiff !== 0) return roleDiff;
+  var teamDiff = (a.team || '').localeCompare(b.team || '', undefined, { numeric: true, sensitivity: 'base' });
+  if (teamDiff !== 0) return teamDiff;
+  return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+}
+
 function renderSchedule() {
   if (isTraining(currentUser)) {
     if (typeof renderScheduleTraining === 'function') return renderScheduleTraining();
@@ -100,7 +117,7 @@ function renderSchedule() {
     var _ul = (ROLES[_resolveRole(_ur, u.team)||_ur] || {}).level;
     if (_ul >= 2) return false;
     return monthDates.some(function(dk) { return getUserShift(u, dk) === shiftToShow; });
-  });
+  }).sort(_compareScheduleUsers);
 
   // Slot totals across the month
   var slot1Count = 0, slot2Count = 0;
@@ -225,7 +242,7 @@ function renderSchedule() {
     return '<tr>' +
       '<td class="sched-name-col">' +
         '<div class="sched-name">' + u.name + '</div>' +
-        '<div class="sched-meta">' + (u.team || '') + ' · ' + getRoleInfo(u.role).label + '</div>' +
+        '<div class="sched-meta">' + (u.team || '') + ' · ' + getRoleInfo(u.role, u.team).label + '</div>' +
       '</td>' + cells + '</tr>';
   }).join('');
 
