@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-//  CLOUD SYNC — Firebase Realtime Database
+//  CLOUD SYNC — Cloudflare D1 via Worker API
 //
 //  WHY FIREBASE: No rate limits, 1GB free storage,
 //  10GB/month transfer, simple REST API.
@@ -7,29 +7,25 @@
 //  HOW IT WORKS:
 //
 //  1. Admin sets up once:
-//     a. Go to console.firebase.google.com → Add project
-//     b. Build → Realtime Database → Create database
-//        → Start in TEST MODE (we secure it with a secret rule)
-//     c. Copy the Database URL (looks like:
-//        https://your-project-default-rtdb.firebaseio.com)
-//     d. Go to Project Settings → Service Accounts →
-//        Database secrets → Show → copy the secret
-//     e. Login as admin → Cloud Sync page → paste both → Connect
-//     f. Update sync-config.json in GitHub repo → push → done
+//     a. Deploy the Cloudflare Worker that exposes /api/state
+//     b. Bind it to the D1 database
+//     c. Copy the worker URL and shared API key
+//     d. Login as admin → Cloud Sync page → paste both → Connect
+//     e. Update sync-config.json in GitHub repo → push → done
 //
 //  2. sync-config.json (in repo root):
-//     { "dbUrl": "https://xxx.firebaseio.com", "apiKey": "your-secret" }
+//     { "dbUrl": "https://your-worker.workers.dev/api/state", "apiKey": "your-shared-secret" }
 //
 //  3. Every browser:
 //     a. Fetches sync-config.json → gets dbUrl + apiKey
-//     b. Reads Firebase → pulls latest data
-//     c. Writes use auth=apiKey query param
+//     b. Reads Worker API → pulls latest data from D1
+//     c. Writes use X-API-Key header
 //     d. No rate limits. No size limits.
 //
 //  SECURITY:
-//  • Database rules restrict write to requests with auth secret
+//  • Worker API restricts read/write to requests with the shared API key
 //  • sync-config.json is in your PRIVATE GitHub repo
-//  • apiKey is the database secret (not Firebase API key)
+//  • apiKey is the Worker shared secret
 // ═══════════════════════════════════════════════
 
 const SYNC_CFG_KEY = 'bsched_sync_cfg';
@@ -85,7 +81,7 @@ async function discoverDbUrl() {
   return cfg ? cfg.dbUrl : null;
 }
 
-// ── Firebase REST helpers ──
+// ── Cloud state REST helpers ──
 const FB_PATH = '/bsched.json';
 
 function _fbUrl(dbUrl, secret) {
@@ -899,7 +895,7 @@ function renderSyncSettings() {
 <div class="card" style="max-width:620px;margin-top:0;background:var(--bg3);">
   <div class="card-title">How it works (after setup)</div>
   <div style="font-size:12px;color:var(--text2);line-height:2.1;">
-    ✦ Data stored in <b>Firebase Realtime Database</b> — no rate limits, 1 GB free<br>
+    ✦ Data stored in <b>Cloudflare D1</b> through the Worker state API<br>
     ✦ <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;">sync-config.json</code> in your <b>private</b> GitHub repo contains <b>dbUrl</b> and <b>apiKey</b><br>
     ✦ Every browser fetches this file at page load → syncs automatically<br>
     ✦ <b>Safe because the repo is private</b> — only team members with repo access can see the key
@@ -908,38 +904,36 @@ function renderSyncSettings() {
 
 <!-- Setup steps -->
 <div class="card" style="max-width:620px;margin-top:0;">
-  <div class="card-title">🔑 Admin Setup — 2 steps, done once</div>
+  <div class="card-title">🔑 Admin Setup — Worker + D1</div>
 
   <div style="background:var(--bg3);border-left:3px solid var(--accent);padding:14px 16px;border-radius:0 6px 6px 0;margin-bottom:18px;font-size:12px;line-height:2.2;">
-    <b style="font-size:13px;display:block;margin-bottom:4px;">Step 1 — Create Firebase Project</b>
-    <b>1a</b> → Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent);text-decoration:underline;">console.firebase.google.com</a> → <b>Add project</b> → any name<br>
-    <b>1b</b> → Left menu: <b>Build → Realtime Database → Create database</b><br>
-    <b>1c</b> → Choose location → <b>Start in test mode</b> → Enable<br>
-    <b>1d</b> → Copy the <b>Database URL</b> shown (e.g. <code style="background:var(--bg4);padding:1px 4px;border-radius:3px;">https://xxx-rtdb.firebaseio.com</code>)<br>
+    <b style="font-size:13px;display:block;margin-bottom:4px;">Step 1 — Prepare Worker endpoint</b>
+    <b>1a</b> → Deploy the Cloudflare Worker that exposes <code style="background:var(--bg4);padding:1px 4px;border-radius:3px;">/api/state</code><br>
+    <b>1b</b> → Confirm the Worker is bound to the D1 database<br>
+    <b>1c</b> → Copy the Worker URL (e.g. <code style="background:var(--bg4);padding:1px 4px;border-radius:3px;">https://your-app.workers.dev/api/state</code>)<br>
     <div style="height:8px;"></div>
-    <b style="font-size:13px;display:block;margin-bottom:4px;">Step 2 — Get the Database Secret</b>
-    <b>2a</b> → Project Settings (gear icon) → <b>Service accounts</b> tab<br>
-    <b>2b</b> → Scroll down → <b>Database secrets</b> → click <b>Show</b> → copy the secret<br>
+    <b style="font-size:13px;display:block;margin-bottom:4px;">Step 2 — Get the Worker API key</b>
+    <b>2a</b> → Copy the shared API key used by the Worker<br>
     <b>2c</b> → Paste both below → click <b>Connect</b><br>
     <div style="height:8px;"></div>
     <b style="font-size:13px;display:block;margin-bottom:4px;">Step 3 — Add sync-config.json to GitHub</b>
     <b>3a</b> → In your GitHub repo, update <code style="background:var(--bg4);padding:1px 6px;border-radius:3px;">sync-config.json</code> with content shown below<br>
     <b>3b</b> → Commit and push → all browsers auto-connect on next page load<br>
-    <span style="color:var(--text3);font-size:11px;">✦ Keep repo <b>Private</b> — this file contains your database secret</span>
+    <span style="color:var(--text3);font-size:11px;">✦ Keep repo <b>Private</b> — this file contains your Worker API key</span>
   </div>
 
   <div class="fg">
-    <label>Firebase Database URL</label>
+    <label>Worker State URL</label>
     <input id="sync-db-url" class="login-input" type="text"
-      placeholder="https://your-project-default-rtdb.firebaseio.com (or .firebasedatabase.app)"
+      placeholder="https://your-worker.workers.dev/api/state"
       value="${dbUrl}"
       style="font-family:'IBM Plex Mono',monospace;font-size:11px;">
   </div>
   <div class="fg" style="margin-top:10px;">
-    <label>Database Secret</label>
+    <label>Worker API Key</label>
     <div style="display:flex;gap:8px;">
       <input id="sync-api-key" class="login-input" type="password"
-        placeholder="your-database-secret"
+        placeholder="your-worker-api-key"
         value="${syncCfg.apiKey || ''}"
         style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:11px;">
       <button class="btn btn-sm" onclick="const i=document.getElementById('sync-api-key');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';">👁</button>
@@ -963,7 +957,7 @@ ${dbUrl ? `
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.7;">
     Create or update <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;">sync-config.json</code>
     in your GitHub repo root.<br>
-    <b style="color:var(--warn);">⚠ Keep your repo Private — this file contains your database secret.</b>
+    <b style="color:var(--warn);">⚠ Keep your repo Private — this file contains your Worker API key.</b>
   </div>
   <div style="background:var(--bg3);border-radius:8px;padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ok);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
     <pre style="margin:0;white-space:pre-wrap;word-break:break-all;">{
@@ -997,14 +991,14 @@ ${dbUrl ? `
     All functions are <b>ON</b> by default.
   </div>
   ${[
-    { key:'syncAttendance',         label:'Import Attendance',         dir:'Sheets → Firebase',  desc:'Daily 6AM — imports attendance codes from the Attendance sheet' },
-    { key:'syncSchedule',           label:'Import Schedule',           dir:'Sheets → Firebase',  desc:'Daily 6AM — imports staff shift schedule from the Schedule sheet' },
-    { key:'syncLogbook',            label:'Import Logbook',            dir:'Sheets → Firebase',  desc:'Daily 6AM — imports clock-in/out times from Logbook sheets' },
-    { key:'syncWorkingTime',        label:'Import Working Time',       dir:'Sheets → Firebase',  desc:'Daily 6AM — imports Late/Early/Training/Others minutes from Working Time sheet' },
-    { key:'syncPolicy',             label:'Import Policy Violations',  dir:'Sheets → Firebase',  desc:'Daily 00:00 — imports policy violation records from the Policy sheet' },
-    { key:'writebackShiftA', label:'Writeback - Shift A', dir:'Firebase -> Sheets', desc:'Daily 15:30 - writes Shift A attendance, working time, and policy back to Sheets' },
-    { key:'writebackShiftD', label:'Writeback - Shift D', dir:'Firebase -> Sheets', desc:'Daily 00:30 - writes Shift D attendance, working time, and policy back to Sheets' },
-    { key:'writebackShiftE', label:'Writeback - Shift E', dir:'Firebase -> Sheets', desc:'Daily 06:30 - writes Shift E attendance, working time, and policy back to Sheets' },
+    { key:'syncAttendance',         label:'Import Attendance',         dir:'Sheets → Cloud',  desc:'Daily 6AM — imports attendance codes from the Attendance sheet' },
+    { key:'syncSchedule',           label:'Import Schedule',           dir:'Sheets → Cloud',  desc:'Daily 6AM — imports staff shift schedule from the Schedule sheet' },
+    { key:'syncLogbook',            label:'Import Logbook',            dir:'Sheets → Cloud',  desc:'Daily 6AM — imports clock-in/out times from Logbook sheets' },
+    { key:'syncWorkingTime',        label:'Import Working Time',       dir:'Sheets → Cloud',  desc:'Daily 6AM — imports Late/Early/Training/Others minutes from Working Time sheet' },
+    { key:'syncPolicy',             label:'Import Policy Violations',  dir:'Sheets → Cloud',  desc:'Daily 00:00 — imports policy violation records from the Policy sheet' },
+    { key:'writebackShiftA', label:'Writeback - Shift A', dir:'Cloud -> Sheets', desc:'Daily 15:30 - writes Shift A attendance, working time, and policy back to Sheets' },
+    { key:'writebackShiftD', label:'Writeback - Shift D', dir:'Cloud -> Sheets', desc:'Daily 00:30 - writes Shift D attendance, working time, and policy back to Sheets' },
+    { key:'writebackShiftE', label:'Writeback - Shift E', dir:'Cloud -> Sheets', desc:'Daily 06:30 - writes Shift E attendance, working time, and policy back to Sheets' },
   ].map(function(f) {
     var enabled = state.gasConfig[f.key] !== false;
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">' +
@@ -1036,12 +1030,14 @@ async function saveSyncCfg() {
   const dbUrl  = (document.getElementById('sync-db-url').value || '').trim().replace(/\/$/, '');
   const apiKey = (document.getElementById('sync-api-key').value || '').trim();
   const status = document.getElementById('sync-test-status');
-  if (!dbUrl)  { status.innerHTML = '<span style="color:var(--err)">Paste your Firebase Database URL.</span>'; return; }
-  if (!apiKey) { status.innerHTML = '<span style="color:var(--err)">Paste your Database Secret.</span>'; return; }
-  if (!dbUrl.includes('firebaseio.com') && !dbUrl.includes('firebasedatabase.app')) {
-    status.innerHTML = '<span style="color:var(--err)">⚠ URL should contain <code>firebaseio.com</code> or <code>firebasedatabase.app</code></span>'; return;
+  if (!dbUrl)  { status.innerHTML = '<span style="color:var(--err)">Paste your Worker state URL.</span>'; return; }
+  if (!apiKey) { status.innerHTML = '<span style="color:var(--err)">Paste your Worker API key.</span>'; return; }
+  let parsedUrl = null;
+  try { parsedUrl = new URL(dbUrl); } catch (e) {}
+  if (!parsedUrl || !/^https?:$/.test(parsedUrl.protocol)) {
+    status.innerHTML = '<span style="color:var(--err)">⚠ Enter a valid Worker URL.</span>'; return;
   }
-  status.innerHTML = '<span style="color:var(--text3)">⏳ Connecting to Firebase…</span>';
+  status.innerHTML = '<span style="color:var(--text3)">⏳ Connecting to cloud state…</span>';
   _cachedDbUrl = dbUrl;
   syncSaveCfg({ dbUrl, apiKey });
   // Test connection with a pull
@@ -1050,11 +1046,11 @@ async function saveSyncCfg() {
     await syncPush();
     startSyncPolling();
     updateSyncBadge('ok');
-    status.innerHTML = '<span style="color:var(--ok)">✓ Connected to Firebase!</span>';
+    status.innerHTML = '<span style="color:var(--ok)">✓ Connected to cloud state!</span>';
     setTimeout(() => nav('sync'), 1200);
   } else {
     syncSaveCfg({});
-    status.innerHTML = '<span style="color:var(--err)">⚠ Connection failed. Check your Database URL and Secret.</span>';
+    status.innerHTML = '<span style="color:var(--err)">⚠ Connection failed. Check your Worker URL and API key.</span>';
   }
 }
 
