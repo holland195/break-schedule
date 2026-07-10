@@ -121,14 +121,15 @@ function renderRequests() {
     const rIndex = state.requests.indexOf(r);
     
     if (isDayoff) {
-      const _dosCanApprove = (isLeader(currentUser) || isTraining(currentUser)) && !isOwn;
+      const _dosCanManage = isLeader(currentUser) || isTraining(currentUser);
+      const _dosCanApprove = _dosCanManage && !isOwn;
       if (_dosCanApprove && r.status === 'pending') {
         actionsHTML = `
           <div class="req-actions">
             <button class="btn btn-ok" onclick="resolveRequest(${rIndex},'approved')">✓ Approve</button>
             <button class="btn btn-err" onclick="resolveRequest(${rIndex},'rejected')">✗ Reject</button>
           </div>`;
-      } else if (_dosCanApprove && r.status === 'approved') {
+      } else if (_dosCanManage && r.status === 'approved') {
         actionsHTML = `<div class="req-actions"><button class="btn btn-err" onclick="cancelApprovedDayoffSwap(${rIndex})">✗ Cancel</button></div>`;
       } else if (isOwn && r.status === 'pending') {
         actionsHTML = `<div class="req-actions"><button class="btn btn-err" onclick="cancelOwnRequest(${rIndex})">✗ Cancel</button></div>`;
@@ -168,6 +169,13 @@ function renderRequests() {
       detailContentHTML += `
         <div class="req-resolved ${r.status}" style="margin-top:4px;">
           <b>Note</b>: ${r.respNote} <span style="opacity:.6;font-size:10px;margin-left:4px;">(${timeSince(r.resolvedAt)})</span>
+        </div>`;
+    }
+    if (r.source === 'staff-schedule-manager') {
+      hasDetails = true;
+      detailContentHTML += `
+        <div class="req-resolved approved" style="margin-top:4px;">
+          <b>Source</b>: Created from Staff Schedule and applied immediately.
         </div>`;
     }
 
@@ -489,6 +497,71 @@ function _dosGetWeekDates(dk) {
   return getWeekRange(monDk);
 }
 
+function _getUserWeekShiftSummary(username, referenceDate, excludedDate) {
+  var weekDates = _dosGetWeekDates(referenceDate);
+  var counts = {};
+  var distinct = [];
+  weekDates.forEach(function(dk) {
+    if (excludedDate && dk === excludedDate) return;
+    var code = _getSched(username, dk);
+    if (!code || code === '0') return;
+    counts[code] = (counts[code] || 0) + 1;
+    if (distinct.indexOf(code) === -1) distinct.push(code);
+  });
+  var primaryShift = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; })[0] || '';
+  return {
+    weekDates: weekDates,
+    counts: counts,
+    distinctShifts: distinct,
+    primaryShift: primaryShift
+  };
+}
+
+function _isFutureDayoff(dk, minDaysAhead) {
+  var p = dk.split('/');
+  var yr = new Date().getFullYear();
+  var dt = new Date(yr, parseInt(p[1], 10) - 1, parseInt(p[0], 10));
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.floor((dt - today) / 86400000) >= (minDaysAhead || 1);
+}
+
+function _checkManagerDirectDayoffSwapValid(sourceUsername, sourceDate, targetUsername, targetDate) {
+  var sourceInfo = state.users.find(function(u){ return u.username === sourceUsername; }) || { name: sourceUsername };
+  var targetInfo = state.users.find(function(u){ return u.username === targetUsername; }) || { name: targetUsername };
+  var sourceWeek = _getUserWeekShiftSummary(sourceUsername, sourceDate, sourceDate);
+  if (sourceWeek.distinctShifts.length > 1) {
+    return {
+      ok: false,
+      reason: sourceInfo.name + ' changes shift in this week, so direct schedule swap is ignored.',
+      blockType: 'shift-transition'
+    };
+  }
+  var targetWeek = _getUserWeekShiftSummary(targetUsername, targetDate, targetDate);
+  if (!sourceWeek.primaryShift || !targetWeek.primaryShift || sourceWeek.primaryShift !== targetWeek.primaryShift) {
+    return {
+      ok: false,
+      reason: sourceInfo.name + ' and ' + targetInfo.name + ' are not working the same shift for this swap.',
+      blockType: 'same-shift'
+    };
+  }
+  var baseCheck = _checkDayoffSwapValid(sourceUsername, sourceDate, targetUsername, targetDate);
+  if (!baseCheck.ok) {
+    return {
+      ok: false,
+      reason: baseCheck.reason,
+      blockType: 'schedule'
+    };
+  }
+  return {
+    ok: true,
+    reason: '',
+    blockType: '',
+    sourceShift: sourceWeek.primaryShift,
+    targetShift: targetWeek.primaryShift
+  };
+}
+
 // Returns {ok, reason} — checks that neither party ends up with 8+ consecutive working days
 function _checkDayoffSwapValid(myUsername, myDate, theirUsername, theirDate) {
   var _yr = new Date().getFullYear();
@@ -552,12 +625,18 @@ function _getDayoffSwapShift(username) {
   return best || 'A';
 }
 
+function _ensureDayoffSwapShifts(r) {
+  if (!r.requesterShift) r.requesterShift = _getDayoffSwapShift(r.username);
+  if (!r.targetShift) r.targetShift = _getDayoffSwapShift(r.targetUsername);
+}
+
 function _applyDayoffSwapSchedule(r, reverse) {
   if (!state.staffSchedule[r.username]) state.staffSchedule[r.username] = {};
   if (!state.staffSchedule[r.targetUsername]) state.staffSchedule[r.targetUsername] = {};
 
-  var requesterShift = _getDayoffSwapShift(r.username);
-  var targetShift = _getDayoffSwapShift(r.targetUsername);
+  _ensureDayoffSwapShifts(r);
+  var requesterShift = r.requesterShift;
+  var targetShift = r.targetShift;
 
   if (reverse) {
     state.staffSchedule[r.username][r.myDate] = '0';
@@ -571,6 +650,49 @@ function _applyDayoffSwapSchedule(r, reverse) {
   state.staffSchedule[r.username][r.theirDate] = '0';
   state.staffSchedule[r.targetUsername][r.theirDate] = targetShift;
   state.staffSchedule[r.targetUsername][r.myDate] = '0';
+}
+
+function _createDayoffSwapRequest(opts) {
+  var requester = opts.requesterUser || state.users.find(function(u) { return u.username === opts.username; });
+  var target = opts.targetUser || state.users.find(function(u) { return u.username === opts.targetUsername; });
+  if (!requester || !target) return null;
+
+  var request = {
+    id: opts.id || Date.now(),
+    type: 'dayoff-swap',
+    userId: requester.id,
+    username: requester.username,
+    targetId: target.id,
+    targetUsername: target.username,
+    myDate: opts.myDate,
+    theirDate: opts.theirDate,
+    status: opts.status || 'pending',
+    at: opts.at || Date.now(),
+    reason: opts.reason || '',
+    resolvedBy: opts.resolvedBy == null ? null : opts.resolvedBy,
+    resolvedAt: opts.resolvedAt == null ? null : opts.resolvedAt,
+    respNote: opts.respNote || '',
+    shift: opts.shift || _getDayoffSwapShift(requester.username),
+    source: opts.source || 'requests',
+    syncedToSheet: opts.syncedToSheet === true,
+    cancelledToSheet: opts.cancelledToSheet === true,
+    requesterShift: opts.requesterShift || '',
+    targetShift: opts.targetShift || ''
+  };
+
+  _ensureDayoffSwapShifts(request);
+  if (opts.applyImmediately) _applyDayoffSwapSchedule(request, false);
+  state.requests.push(request);
+  return request;
+}
+
+function _approveDayoffSwapRequest(r, resolverId) {
+  r.status = 'approved';
+  r.resolvedBy = resolverId;
+  r.resolvedAt = Date.now();
+  r.cancelledToSheet = false;
+  _ensureDayoffSwapShifts(r);
+  _applyDayoffSwapSchedule(r, false);
 }
 
 function _dayoffSwapModalHTML() {
@@ -783,20 +905,15 @@ function submitDayoffSwap() {
   if (!result.ok) { toast('Cannot swap: ' + result.reason, 'err'); return; }
   var targetUser = state.users.find(function(u) { return u.username === targetUsername; });
   if (!targetUser) return;
-  state.requests.push({
-    type: 'dayoff-swap',
-    userId: currentUser.id,
-    username: currentUser.username,
-    targetId: targetUser.id,
-    targetUsername: targetUsername,
+  _createDayoffSwapRequest({
+    requesterUser: currentUser,
+    targetUser: targetUser,
     myDate: _dosMyDate,
     theirDate: targetDate,
-    status: 'pending',
-    at: Date.now(),
     reason: reason,
-    resolvedBy: null,
-    resolvedAt: null,
-    shift: currentShift
+    status: 'pending',
+    shift: currentShift,
+    source: 'requests'
   });
   syncWrite();
   closeModal('modal-dayoff-swap');
@@ -815,6 +932,7 @@ function cancelApprovedDayoffSwap(idx) {
   r.respNote = 'Cancelled by lead/sub. Day-off swap reversed.';
   r.resolvedAt = Date.now();
   r.resolvedBy = currentUser.id;
+  if (r.syncedToSheet) r.cancelledToSheet = false;
 
   if (typeof syncWrite === 'function') syncWrite(); else save();
   toast('Day-off swap cancelled and reversed.', 'warn');
@@ -1043,14 +1161,13 @@ function submitRequest() {
 
 function resolveRequest(idx, status) {
   const r = state.requests[idx];
-  r.status = status;
-  r.resolvedBy = currentUser.id;
-  r.resolvedAt = Date.now();
-
   if (status === 'approved') {
     if (r.type === 'dayoff-swap') {
-      _applyDayoffSwapSchedule(r, false);
+      _approveDayoffSwapRequest(r, currentUser.id);
     } else {
+    r.status = status;
+    r.resolvedBy = currentUser.id;
+    r.resolvedAt = Date.now();
     const days = r.swapDays || [r.day];
     r.appliedAsDisplayOnly = true;
     r.appliedDays = days.slice();
@@ -1071,6 +1188,10 @@ function resolveRequest(idx, status) {
       }
     });
     } // end break-swap else
+  } else {
+    r.status = status;
+    r.resolvedBy = currentUser.id;
+    r.resolvedAt = Date.now();
   }
 
   if (typeof syncWrite === 'function') syncWrite(); else save();

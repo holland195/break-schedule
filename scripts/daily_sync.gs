@@ -322,6 +322,66 @@ function syncSchedule(current, log) {
     }
   }
 
+  if (current.requests && Array.isArray(current.requests)) {
+    var cancelledSynced = current.requests.filter(function(r) {
+      return r.type === 'dayoff-swap' &&
+        r.status !== 'approved' &&
+        r.syncedToSheet === true &&
+        r.cancelledToSheet !== true;
+    });
+
+    if (cancelledSynced.length > 0) {
+      log('[Schedule] Found ' + cancelledSynced.length + ' cancelled approved day-off swaps to reverse in GSheet.');
+
+      var cancelUserRowMap = {};
+      dataRows.forEach(function(row, idx) {
+        var usernameCol = isJulyLayout ? 4 : 3;
+        var username = String(row[usernameCol] || '').trim().toLowerCase();
+        if (username) cancelUserRowMap[username] = idx + 4;
+      });
+
+      var cancelDateColMap = {};
+      dateCols.forEach(function(col) {
+        cancelDateColMap[col.dateKey] = col.colIndex + 1;
+      });
+
+      var cancelGetShiftFromRow = function(rowNum) {
+        var rowValues = sheet.getRange(rowNum, shiftStartCol + 1, 1, lastCol - shiftStartCol).getValues()[0];
+        var counts = {};
+        rowValues.forEach(function(val) {
+          var v = String(val || '').trim().toUpperCase();
+          if (v && v !== '0' && v !== 'OFF') counts[v] = (counts[v] || 0) + 1;
+        });
+        var best = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; })[0];
+        return best || 'A';
+      };
+
+      cancelledSynced.forEach(function(r) {
+        var rowRequester = cancelUserRowMap[(r.username || '').toLowerCase()];
+        var rowTarget = cancelUserRowMap[(r.targetUsername || '').toLowerCase()];
+        var colMyDate = cancelDateColMap[r.myDate];
+        var colTheirDate = cancelDateColMap[r.theirDate];
+        if (!rowRequester) { log('[Schedule] Requester row not found in sheet for: ' + r.username); return; }
+        if (!rowTarget) { log('[Schedule] Target row not found in sheet for: ' + r.targetUsername); return; }
+        if (!colMyDate) { log('[Schedule] Column not found in sheet for date: ' + r.myDate); return; }
+        if (!colTheirDate) { log('[Schedule] Column not found in sheet for date: ' + r.theirDate); return; }
+
+        var requesterShift = r.requesterShift || cancelGetShiftFromRow(rowRequester);
+        var targetShift = r.targetShift || cancelGetShiftFromRow(rowTarget);
+
+        sheet.getRange(rowRequester, colMyDate).setValue('0');
+        sheet.getRange(rowRequester, colTheirDate).setValue(requesterShift);
+        sheet.getRange(rowTarget, colTheirDate).setValue('0');
+        sheet.getRange(rowTarget, colMyDate).setValue(targetShift);
+
+        r.cancelledToSheet = true;
+        log('[Schedule] Reversed synced day-off swap in GSheet for ' + r.username + ' <-> ' + r.targetUsername);
+      });
+
+      dataRows = sheet.getRange(4, 1, Math.max(1, lastRow - 3), lastCol).getValues();
+    }
+  }
+
   var notFound = [];
 
   dataRows.forEach(function(row) {
@@ -1016,6 +1076,62 @@ function findUsername(data, nameVal, empNo) {
   }
 
   return null;
+}
+
+function _normalizeHeaderLabel(val) {
+  return String(val || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function _detectPreferredEmpNoColumn(rows, defaultIdx) {
+  var preferredLabels = [
+    'new employee number',
+    'new emp no',
+    'new empno',
+    'new no',
+    'employee number',
+    'emp no',
+    'empno',
+    'employee no',
+    'id',
+    'no.'
+  ];
+  var bestIdx = typeof defaultIdx === 'number' ? defaultIdx : 1;
+  var bestScore = 9999;
+
+  for (var r = 0; r < Math.min(4, rows.length); r++) {
+    var row = rows[r] || [];
+    for (var c = 0; c < row.length; c++) {
+      var label = _normalizeHeaderLabel(row[c]);
+      if (!label) continue;
+      var score = preferredLabels.indexOf(label);
+      if (score >= 0 && score < bestScore) {
+        bestScore = score;
+        bestIdx = c;
+      }
+    }
+  }
+
+  return bestIdx;
+}
+
+function _detectPreferredNameColumn(rows, defaultIdx) {
+  var labels = ['name', 'full name', 'employee name'];
+  var bestIdx = typeof defaultIdx === 'number' ? defaultIdx : 2;
+  var bestScore = 9999;
+
+  for (var r = 0; r < Math.min(4, rows.length); r++) {
+    var row = rows[r] || [];
+    for (var c = 0; c < row.length; c++) {
+      var label = _normalizeHeaderLabel(row[c]);
+      var score = labels.indexOf(label);
+      if (score >= 0 && score < bestScore) {
+        bestScore = score;
+        bestIdx = c;
+      }
+    }
+  }
+
+  return bestIdx;
 }
 
 // ═══════════════════════════════════════════════
@@ -1929,11 +2045,13 @@ function syncMonthlyAttWriteback(current, log) {
     return result;
   }
 
+  var empNoColIdx = _detectPreferredEmpNoColumn(rows, 1);
+  var nameColIdx = _detectPreferredNameColumn(rows, 2);
   var usernameToRow = {};
   for (var ri = 3; ri < rows.length; ri++) {
     var row = rows[ri];
-    var nameVal = String(row[2] || '').trim();
-    var empNo = String(row[1] || '').trim();
+    var nameVal = String(row[nameColIdx] || '').trim();
+    var empNo = String(row[empNoColIdx] || '').trim();
     if (!nameVal && !empNo) continue;
     var username = findUsername(current, nameVal, empNo);
     if (username) usernameToRow[username] = ri + 1;
@@ -2000,19 +2118,8 @@ function syncWorkingTimeWriteback(current, log) {
     return result;
   }
 
-  var empNoColIdx = 1;
-  var nameColIdx = 2;
-  for (var hr = 0; hr < Math.min(3, allData.length); hr++) {
-    var hdrRow = allData[hr];
-    for (var hc = 0; hc < hdrRow.length; hc++) {
-      var hdrVal = String(hdrRow[hc] || '').trim().replace(/\s+/g, ' ').toLowerCase();
-      if ((hdrVal.indexOf('employee number') !== -1 || hdrVal.indexOf('emp no') !== -1 || hdrVal === 'id' || hdrVal === 'no.') && hdrVal !== 'no.') {
-        empNoColIdx = hc;
-      } else if (hdrVal === 'name' || hdrVal === 'full name') {
-        nameColIdx = hc;
-      }
-    }
-  }
+  var empNoColIdx = _detectPreferredEmpNoColumn(allData, 1);
+  var nameColIdx = _detectPreferredNameColumn(allData, 2);
 
   var dataStartRowIdx = -1;
   for (var dr = dateRowIdx + 1; dr < allData.length; dr++) {
