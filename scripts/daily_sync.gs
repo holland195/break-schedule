@@ -53,6 +53,7 @@ function dailySync() {
 
     // ── 4b. Sync working time (Late/Early/Training/Others in minutes) ──
     const wtResult = syncWorkingTime(current, addLog);
+    const policyWritebackResult = syncPolicyWriteback(current, addLog);
 
     // ── 5. Push back to Firebase ──
     addLog('[Backup] Saving full daily JSON backup to Google Drive…');
@@ -72,6 +73,7 @@ function dailySync() {
     addLog('  Schedule:      ' + schedResult.updated + ' users updated, ' + schedResult.dateCols + ' date cols');
     addLog('  Logbook:       ' + logbookResult.imported + ' matched, ' + logbookResult.skipped + ' skipped, ' + logbookResult.dateCols + ' day cols');
     addLog('  Working Time:  ' + wtResult.updated + ' users updated, ' + wtResult.dateCols + ' date cols');
+    addLog('  Policy WB:     ' + policyWritebackResult.written + ' appended, ' + policyWritebackResult.matched + ' already in sheet, ' + policyWritebackResult.skipped + ' skipped');
 
   } catch (e) {
     const errMsg = '✗ PAVE Sync FAILED: ' + e.message + '\n\nStack: ' + e.stack;
@@ -1151,6 +1153,175 @@ function dailySyncPolicy() {
     } catch(mailErr) { Logger.log('Mail failed: ' + mailErr.message); }
     throw e;
   }
+}
+
+function _getPolicySheet(log) {
+  var ss;
+  try { ss = SpreadsheetApp.openById(POLICY_SPREADSHEET_ID); }
+  catch(e) {
+    log('[Policy] âœ— Cannot open spreadsheet: ' + e.message);
+    return null;
+  }
+
+  var sheet = ss.getSheetByName(POLICY_SHEET_NAME);
+  if (!sheet) {
+    var sheets = ss.getSheets();
+    if (sheets.length === 0) { log('[Policy] âœ— No sheets found.'); return null; }
+    sheet = sheets[0];
+    log('[Policy] âš  Sheet "' + POLICY_SHEET_NAME + '" not found, using "' + sheet.getName() + '"');
+  } else {
+    log('[Policy] Sheet "' + sheet.getName() + '" found.');
+  }
+
+  return sheet;
+}
+
+function _findPolicyColumn(header, names) {
+  for (var i = 0; i < names.length; i++) {
+    var idx = header.indexOf(names[i]);
+    if (idx >= 0) return idx;
+  }
+  for (var j = 0; j < names.length; j++) {
+    for (var k = 0; k < header.length; k++) {
+      if (header[k].indexOf(names[j]) >= 0) return k;
+    }
+  }
+  return -1;
+}
+
+function _getPolicyColumnMap(header) {
+  return {
+    date:      _findPolicyColumn(header, ['date','violation date','date of violation']),
+    time:      _findPolicyColumn(header, ['time','violation time','time of violation']),
+    name:      _findPolicyColumn(header, ['name','full name','employee name']),
+    empNo:     _findPolicyColumn(header, ['emp no','empno','emp. no','employee no','employee number','emp #']),
+    username:  _findPolicyColumn(header, ['user name','username','user','login']),
+    role:      _findPolicyColumn(header, ['role','position']),
+    shift:     _findPolicyColumn(header, ['shift']),
+    event:     _findPolicyColumn(header, ['event','event code','violation','violation code','code']),
+    leader:    _findPolicyColumn(header, ['leader','sub-admin','team leader','direct leader','tl']),
+    status:    _findPolicyColumn(header, ['status']),
+    note:      _findPolicyColumn(header, ['description','note','notes','remarks','remark','details']),
+    duration:  _findPolicyColumn(header, ['duration','duration (minutes)','duration(minutes)','minutes']),
+    imageLink: _findPolicyColumn(header, ['image link','imagelink','image','link','drive link','screenshot']),
+    agentFb:   _findPolicyColumn(header, ['agent feedback','agentfeedback','feedback','agent fb']),
+  };
+}
+
+function _policyRowKey(dateStr, username, name, eventCode) {
+  return (dateStr || '') + '|' + (username || name || '') + '|' + (eventCode || '');
+}
+
+function _isAppCreatedPolicyRecord(record) {
+  if (!record || record.by === 'gs_sync') return false;
+  if (record.gsheetSyncedAt) return false;
+  return !!(record.createdBy || record.time || record.id || record.username || record.name);
+}
+
+function syncPolicyWriteback(current, log) {
+  var result = { written: 0, matched: 0, skipped: 0, total: 0 };
+  if (current.gasConfig && current.gasConfig.writebackPolicy === false) {
+    log('[Policy WB] Skipped (disabled via GAS Function Controls in web app).');
+    return result;
+  }
+
+  var records = (current.policyCompliance || []).filter(_isAppCreatedPolicyRecord);
+  if (records.length === 0) {
+    log('[Policy WB] No new app-created policy violations to write.');
+    return result;
+  }
+  result.total = records.length;
+
+  var sheet = _getPolicySheet(function(msg) { log(msg.replace('[Policy]', '[Policy WB]')); });
+  if (!sheet) return result;
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1 || lastCol < 1) {
+    log('[Policy WB] âš  Sheet appears empty (header row missing).');
+    result.skipped = result.total;
+    return result;
+  }
+
+  var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var header = allData[0].map(function(h) { return String(h || '').trim().toLowerCase(); });
+  var C = _getPolicyColumnMap(header);
+
+  log('[Policy WB] Column map: date=' + C.date + ' name=' + C.name + ' username=' + C.username
+    + ' event=' + C.event + ' status=' + C.status + ' time=' + C.time);
+
+  if (C.date < 0 || C.event < 0) {
+    log('[Policy WB] âœ— Required columns "date" and "event" not found. Header: ' + header.join(' | '));
+    result.skipped = result.total;
+    return result;
+  }
+
+  var existingKeys = {};
+  for (var ri = 1; ri < allData.length; ri++) {
+    var row = allData[ri];
+    var dateStr = _parsePolicyDate(C.date >= 0 ? row[C.date] : '');
+    var eventCode = C.event >= 0 ? String(row[C.event] || '').trim() : '';
+    if (!dateStr || !eventCode) continue;
+    var username = C.username >= 0 ? String(row[C.username] || '').trim().toLowerCase() : '';
+    var name = C.name >= 0 ? String(row[C.name] || '').trim() : '';
+    existingKeys[_policyRowKey(dateStr, username, name, eventCode)] = true;
+  }
+
+  var rowsToAppend = [];
+  var appendedRecords = [];
+  var syncStamp = Date.now();
+
+  records.forEach(function(r) {
+    var dateStr = _parsePolicyDate(r.date);
+    var eventCode = String(r.event || '').trim();
+    if (!dateStr || !eventCode) {
+      result.skipped++;
+      return;
+    }
+
+    var key = _policyRowKey(dateStr, String(r.username || '').trim().toLowerCase(), String(r.name || '').trim(), eventCode);
+    if (existingKeys[key]) {
+      r.gsheetSyncedAt = syncStamp;
+      r.gsheetSyncStatus = 'existing';
+      result.matched++;
+      return;
+    }
+
+    var out = new Array(lastCol).fill('');
+    if (C.date >= 0) out[C.date] = dateStr;
+    if (C.time >= 0) out[C.time] = r.time || '';
+    if (C.name >= 0) out[C.name] = r.name || '';
+    if (C.empNo >= 0) out[C.empNo] = r.empNo || '';
+    if (C.username >= 0) out[C.username] = (r.username || '').toLowerCase();
+    if (C.role >= 0) out[C.role] = r.role || '';
+    if (C.shift >= 0) out[C.shift] = r.shift || '';
+    if (C.event >= 0) out[C.event] = eventCode;
+    if (C.leader >= 0) out[C.leader] = r.leader || r.createdBy || '';
+    if (C.status >= 0) out[C.status] = r.status || 'Processing';
+    if (C.note >= 0) out[C.note] = r.description || '';
+    if (C.duration >= 0) out[C.duration] = r.duration || '';
+    if (C.imageLink >= 0) out[C.imageLink] = r.imageLink || '';
+    if (C.agentFb >= 0) out[C.agentFb] = r.agentFeedback || '';
+
+    rowsToAppend.push(out);
+    appendedRecords.push(r);
+    existingKeys[key] = true;
+  });
+
+  if (rowsToAppend.length > 0) {
+    sheet.getRange(lastRow + 1, 1, rowsToAppend.length, lastCol).setValues(rowsToAppend);
+    appendedRecords.forEach(function(r, idx) {
+      r.gsheetSyncedAt = syncStamp;
+      r.gsheetSyncStatus = 'appended';
+      r.gsheetRowNumber = lastRow + 1 + idx;
+    });
+    current._policyComplianceUpdatedAt = syncStamp;
+  }
+
+  result.written = rowsToAppend.length;
+  log('[Policy WB] Done: ' + result.written + ' appended, ' + result.matched + ' already in sheet, '
+    + result.skipped + ' skipped, ' + result.total + ' app-created candidates');
+  return result;
 }
 
 function syncPolicy(current, log) {
