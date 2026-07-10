@@ -225,6 +225,11 @@ function _applyRemoteData(remote) {
   }
   if (remote.requests)    state.requests    = remote.requests;
   if (remote.extBreaks)   state.extBreaks   = remote.extBreaks;
+  if (remote.projectAssignments) {
+    state.projectAssignments = Array.isArray(remote.projectAssignments)
+      ? remote.projectAssignments
+      : [];
+  }
   if (remote.breakSplits) {
     const localAt  = state._breakSplitsUpdatedAt || 0;
     const remoteAt = remote._breakSplitsUpdatedAt || 0;
@@ -451,6 +456,7 @@ Object.entries(state.staffInfo || {}).forEach(([uname, si]) => {
   breaks:            state.breaks,
   requests:          state.requests,
   extBreaks:         state.extBreaks,
+  projectAssignments: state.projectAssignments || [],
   breakSplits:       state.breakSplits || {},
   logbook:           state.logbook || {},
   monthlyAttendance: state.monthlyAttendance || {},
@@ -996,9 +1002,9 @@ ${dbUrl ? `
     { key:'syncLogbook',            label:'Import Logbook',            dir:'Sheets → Firebase',  desc:'Daily 6AM — imports clock-in/out times from Logbook sheets' },
     { key:'syncWorkingTime',        label:'Import Working Time',       dir:'Sheets → Firebase',  desc:'Daily 6AM — imports Late/Early/Training/Others minutes from Working Time sheet' },
     { key:'syncPolicy',             label:'Import Policy Violations',  dir:'Sheets → Firebase',  desc:'Daily 00:00 — imports policy violation records from the Policy sheet' },
-    { key:'writebackShiftA', label:'Writeback — Shift A', dir:'Firebase → Sheets', desc:'Daily 15:30 — writes Shift A staff attendance (logbook is synced monthly)' },
-    { key:'writebackShiftD', label:'Writeback — Shift D', dir:'Firebase → Sheets', desc:'Daily 00:30 — writes Shift D staff attendance (logbook is synced monthly)' },
-    { key:'writebackShiftE', label:'Writeback — Shift E', dir:'Firebase → Sheets', desc:'Daily 06:30 — writes Shift E staff attendance (logbook is synced monthly)' },
+    { key:'writebackShiftA', label:'Writeback - Shift A', dir:'Firebase -> Sheets', desc:'Daily 15:30 - writes Shift A attendance, working time, and policy back to Sheets' },
+    { key:'writebackShiftD', label:'Writeback - Shift D', dir:'Firebase -> Sheets', desc:'Daily 00:30 - writes Shift D attendance, working time, and policy back to Sheets' },
+    { key:'writebackShiftE', label:'Writeback - Shift E', dir:'Firebase -> Sheets', desc:'Daily 06:30 - writes Shift E attendance, working time, and policy back to Sheets' },
   ].map(function(f) {
     var enabled = state.gasConfig[f.key] !== false;
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">' +

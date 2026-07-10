@@ -4,13 +4,6 @@
 //  Trigger: Daily (e.g. 6AM–7AM)
 // ═══════════════════════════════════════════════
 const SPREADSHEET_ID          = '19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs';
-const SLACK_WEBHOOK_A         = ''; // paste shift-a-15h-00h webhook URL here
-const SLACK_WEBHOOK_D         = ''; // paste shift-d-00h-09h webhook URL here
-const SLACK_WEBHOOK_E         = ''; // paste shift-e-09h-18h webhook URL here
-const SLACK_BOT_TOKEN         = 'xoxb-...'; // xoxb-... bot token (OAuth, files:write + chat:write scope)
-const SLACK_CHANNEL_A         = ''; // channel ID for shift-a-15h-00h  (right-click channel → Copy link → last segment)
-const SLACK_CHANNEL_D         = ''; // channel ID for shift-d-00h-09h
-const SLACK_CHANNEL_E         = ''; // channel ID for shift-e-09h-18h
 const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
 const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
 const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
@@ -53,7 +46,6 @@ function dailySync() {
 
     // ── 4b. Sync working time (Late/Early/Training/Others in minutes) ──
     const wtResult = syncWorkingTime(current, addLog);
-    const policyWritebackResult = syncPolicyWriteback(current, addLog);
 
     // ── 5. Push back to Firebase ──
     addLog('[Backup] Saving full daily JSON backup to Google Drive…');
@@ -73,7 +65,6 @@ function dailySync() {
     addLog('  Schedule:      ' + schedResult.updated + ' users updated, ' + schedResult.dateCols + ' date cols');
     addLog('  Logbook:       ' + logbookResult.imported + ' matched, ' + logbookResult.skipped + ' skipped, ' + logbookResult.dateCols + ' day cols');
     addLog('  Working Time:  ' + wtResult.updated + ' users updated, ' + wtResult.dateCols + ' date cols');
-    addLog('  Policy WB:     ' + policyWritebackResult.written + ' appended, ' + policyWritebackResult.matched + ' already in sheet, ' + policyWritebackResult.skipped + ' skipped');
 
   } catch (e) {
     const errMsg = '✗ PAVE Sync FAILED: ' + e.message + '\n\nStack: ' + e.stack;
@@ -1220,11 +1211,6 @@ function _isAppCreatedPolicyRecord(record) {
 
 function syncPolicyWriteback(current, log) {
   var result = { written: 0, matched: 0, skipped: 0, total: 0 };
-  if (current.gasConfig && current.gasConfig.writebackPolicy === false) {
-    log('[Policy WB] Skipped (disabled via GAS Function Controls in web app).');
-    return result;
-  }
-
   var records = (current.policyCompliance || []).filter(_isAppCreatedPolicyRecord);
   if (records.length === 0) {
     log('[Policy WB] No new app-created policy violations to write.');
@@ -1743,587 +1729,159 @@ function testLogbookDetection() {
   }
 }
 
-// ═══════════════════════════════════════════════
-//  SLACK AUTO-POST
-//  Three entry points — one per shift.
-//  Run createSlackTriggers() once to install time-based triggers.
-//  Webhook URLs: set SLACK_WEBHOOK_A/D/E constants above.
-//  On/off toggle: stored in Firebase slackAutoPost[shift].enabled
-// ═══════════════════════════════════════════════
+// Consolidated shift writeback entrypoints
+function syncAttendanceWriteback(current, log) {
+  if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
+  current = current || {};
+  var result = { written: 0, skipped: 0, total: 0 };
+  var logbook = current.logbook || {};
 
-// Entry points — one trigger per shift
-function dailySlackShiftA() { _postShiftBreaks('A', SLACK_WEBHOOK_A, SLACK_CHANNEL_A, [0, 1, 2, 6]); }
-function dailySlackShiftD() { _postShiftBreaks('D', SLACK_WEBHOOK_D, SLACK_CHANNEL_D, [0, 1, 2, 6]); }
-function dailySlackShiftE() { _postShiftBreaks('E', SLACK_WEBHOOK_E, SLACK_CHANNEL_E, [0, 1, 6]);    }
-// Day indices: 0=Sun, 1=Mon, 2=Tue, 6=Sat
+  var today = new Date();
+  var todayDk = String(today.getDate()).padStart(2, '0') + '/' + String(today.getMonth() + 1).padStart(2, '0');
+  var manualKeys = Object.keys(logbook).filter(function(key) {
+    var rec = logbook[key];
+    if (!rec || rec._deleted || rec.note === 'auto' || rec.by == null) return false;
+    return key.substring(key.lastIndexOf('_') + 1) === todayDk;
+  });
+  result.total = manualKeys.length;
 
-function _postShiftBreaks(shift, webhook, channelId, allowedDays) {
-  var now = new Date();
-  // Use Vietnam time for day-of-week check
-  var vnNow = new Date(Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', "yyyy-MM-dd'T'HH:mm:ss"));
-  var dow = vnNow.getDay();
-
-  if (allowedDays.indexOf(dow) < 0) {
-    Logger.log('[Slack ' + shift + '] Skipped — not a scheduled day (dow=' + dow + ')');
-    return;
-  }
-  if (!webhook) {
-    Logger.log('[Slack ' + shift + '] No webhook URL configured. Set SLACK_WEBHOOK_' + shift + '.');
-    return;
+  if (manualKeys.length === 0) {
+    log('[Writeback] No manual logbook edits found for ' + todayDk + '.');
+    return result;
   }
 
-  var raw = firebaseGet();
-  var current = raw ? JSON.parse(raw) : {};
-
-  // Check enabled flag in Firebase
-  var cfg = (current.slackAutoPost || {})[shift];
-  if (!cfg || !cfg.enabled) {
-    Logger.log('[Slack ' + shift + '] Auto-post disabled for this shift.');
-    return;
-  }
-
-  // Today's dateKey DD/MM in Vietnam time
-  var dk = Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'dd/MM');
-  var monthKey = Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'yyyy-MM');
-
-  // Mirror of data.js BREAK_SLOTS — update both together when shift times change.
-  // The web app now uses Firebase shiftConfig for date-versioned overrides;
-  // GAS reads this hardcoded map for Slack post legends only.
-  var BREAK_SLOTS_MAP = {
-    A: ['18:00–19:30', '19:30–21:00'],
-    D: ['04:00–05:30', '05:30–07:00'],
-    E: ['09:30–11:00', '11:00–12:30']
-  };
-  var slots = BREAK_SLOTS_MAP[shift] || [];
-  var WEEK_DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  var dn = WEEK_DAYS[dow];
-  var OFF_CODES = ['A','H','U','S','L','0'];
-  var VALID_ROLES = ['Data Analyst','Sr Data Analyst','Data Supervisor','Sr Data Supervisor'];
-  var ROLE_ABBR = {'Data Analyst':'D.A','Sr Data Analyst':'Sr D.A','Data Supervisor':'D.S','Sr Data Supervisor':'Sr D.S'};
-  var ROLE_ORDER = ['Sr Data Supervisor','Data Supervisor','Sr Data Analyst','Data Analyst'];
-
-  var users = Array.isArray(current.users) ? current.users : Object.values(current.users || {});
-
-  // On single-day posts (Mon/Sat/Sun) exclude absent staff — only show on Tuesday multi-day post
-  var isTuesdayPost = (dow === 2);
-  var staffRows = [];
-  users.forEach(function(u) {
-    var _usc = (current.staffSchedule || {})[u.username] || (u.schedule || {});
-    var sched = (_usc[dk] || _usc[dn] || '').toUpperCase();
-    var _rawRole = u.role || ((current.staffInfo || {})[u.username] || {}).role || '';
-    var resolvedRole = _resolveRoleGas(_rawRole);
-    if (sched !== shift) return;
-    if (VALID_ROLES.indexOf(resolvedRole) < 0) return;
-    var attCode = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
-      ? (current.monthlyAttendance[u.username][monthKey][dk] || '') : '').replace(/\.0$/, '').toUpperCase();
-    var isOff = OFF_CODES.indexOf(attCode) >= 0;
-    if (isOff && !isTuesdayPost) return; // exclude absent on single-day posts
-    var br = (current.breaks || {})[u.id + '_' + dk];
-    var slotIdx = -1;
-    if (br) { slotIdx = slots.indexOf(br.slot); if (slotIdx < 0) { if (br.slot === shift+'1') slotIdx = 0; else if (br.slot === shift+'2') slotIdx = 1; } }
-    var slotCode = slotIdx >= 0 ? (shift + (slotIdx + 1)) : (isOff ? attCode : '—');
-    staffRows.push({
-      id: u.id,
-      team: u.team || '',
-      name: u.name || '',
-      role: resolvedRole,
-      roleOrder: ROLE_ORDER.indexOf(resolvedRole),
-      slotCode: slotCode,
-      isOff: isOff
-    });
+  var ss = SpreadsheetApp.openById(LOGBOOK_SPREADSHEET_ID);
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var usersList = Array.isArray(current.users) ? current.users : (current.users ? Object.values(current.users) : []);
+  var usernameToUid = {};
+  usersList.forEach(function(u) {
+    if (u && u.username && u.id != null) usernameToUid[String(u.username).toLowerCase()] = u.id;
   });
 
-  // Sort: team asc, then role tier (Sr D.S → D.S → Sr D.A → D.A), then name
-  staffRows.sort(function(a, b) {
-    var tc = a.team.localeCompare(b.team, undefined, { numeric: true });
-    if (tc !== 0) return tc;
-    var ra = a.roleOrder < 0 ? 99 : a.roleOrder;
-    var rb = b.roleOrder < 0 ? 99 : b.roleOrder;
-    if (ra !== rb) return ra - rb;
-    return a.name.localeCompare(b.name);
+  var keysByMonth = {};
+  manualKeys.forEach(function(key) {
+    var sep = key.lastIndexOf('_');
+    var dateKey = key.substring(sep + 1);
+    var dateParts = dateKey.split('/');
+    if (dateParts.length < 2) return;
+    var monthIdx = parseInt(dateParts[1], 10) - 1;
+    if (isNaN(monthIdx) || monthIdx < 0 || monthIdx > 11) return;
+    var monthName = MONTH_NAMES[monthIdx];
+    if (!keysByMonth[monthName]) keysByMonth[monthName] = [];
+    keysByMonth[monthName].push(key);
   });
 
-  // Vietnamese day name
-  var vnDays = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
-  var vnDay = vnDays[dow];
-  var shortDate = dk.slice(0, 5); // "02/06"
-
-  // Tuesday: collect Wed/Thu/Fri as extra date columns (landscape). Other days: portrait single column.
-  var dateCols = [dk];
-  if (isTuesdayPost) {
-    // Add Wed(+1), Thu(+2), Fri(+3) relative to today
-    for (var di = 1; di <= 3; di++) {
-      var xd = new Date(vnNow.getFullYear(), vnNow.getMonth(), vnNow.getDate() + di);
-      dateCols.push(
-        String(xd.getDate()).padStart(2,'0') + '/' + String(xd.getMonth()+1).padStart(2,'0')
-      );
-    }
-  }
-
-  // For multi-day: re-collect staffRows per date (staffRows currently only has today's breaks)
-  // Build a map: dateKey → {userId → slotCode}
-  var breaksByDate = {};
-  dateCols.forEach(function(dki) {
-    breaksByDate[dki] = {};
-    var dkiParts = dki.split('/');
-    var dni2 = WEEK_DAYS[new Date(vnNow.getFullYear(), parseInt(dkiParts[1])-1, parseInt(dkiParts[0])).getDay()];
-    users.forEach(function(u) {
-      var _usc2 = (current.staffSchedule || {})[u.username] || (u.schedule || {});
-      var sched2 = (_usc2[dki] || _usc2[dni2] || '').toUpperCase();
-      if (sched2 !== shift) return;
-      var _rawRole2 = u.role || ((current.staffInfo || {})[u.username] || {}).role || '';
-      if (VALID_ROLES.indexOf(_resolveRoleGas(_rawRole2)) < 0) return;
-      var br2 = (current.breaks || {})[u.id + '_' + dki];
-      var attCode2 = String(((current.monthlyAttendance || {})[u.username] || {})[monthKey]
-        ? (current.monthlyAttendance[u.username][monthKey][dki] || '') : '').replace(/\.0$/, '').toUpperCase();
-      var isOff2 = OFF_CODES.indexOf(attCode2) >= 0;
-      var si2 = -1;
-      if (br2) { si2 = slots.indexOf(br2.slot); if (si2 < 0) { if (br2.slot === shift+'1') si2 = 0; else if (br2.slot === shift+'2') si2 = 1; } }
-      breaksByDate[dki][u.id] = isOff2 ? attCode2 : (si2 >= 0 ? (shift + (si2+1)) : '—');
-    });
-  });
-
-  var caption = isTuesdayPost
-    ? 'Mọi người check lịch break tuần này (' + vnDay + '–Thứ Sáu) nha.'
-    : 'Mọi người check lịch break ' + vnDay + ' (' + shortDate + ') nha.';
-
-  // Build PDF table and upload, or fall back to webhook monospace
-  var pdfBlob = _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, caption, ROLE_ABBR, isTuesdayPost);
-
-  if (SLACK_BOT_TOKEN && channelId && pdfBlob) {
-    _slackUploadImage(pdfBlob, caption, channelId, shift, dk);
-  } else {
-    // Webhook fallback: monospace preformatted table
-    Logger.log('[Slack ' + shift + '] Using webhook path (no bot token configured).');
-    var COL_TEAM = 6, COL_NAME = 24, COL_ROLE = 7;
-    function padC(s, n) { var t = String(s); while (t.length < n) t = t + ' '; return t.slice(0, n); }
-    var sep = '+' + padC('', COL_TEAM+2) + '+' + padC('', COL_NAME+2) + '+' + padC('', COL_ROLE+2) + '+------+';
-    var hdr = '| ' + padC('Team', COL_TEAM) + ' | ' + padC('Name', COL_NAME) + ' | ' + padC('Role', COL_ROLE) + ' | Slot |';
-    var tableLines = [sep, hdr, sep];
-    staffRows.forEach(function(r) {
-      var abbr = ROLE_ABBR[r.role] || r.role;
-      tableLines.push('| ' + padC(r.team, COL_TEAM) + ' | ' + padC(r.name, COL_NAME) + ' | ' + padC(abbr, COL_ROLE) + ' | ' + padC(r.slotCode, 4) + ' |');
-    });
-    tableLines.push(sep);
-    slots.forEach(function(s, i) { tableLines.push(shift + (i+1) + ': ' + s); });
-    var blocks = [
-      { type: 'section', text: { type: 'mrkdwn', text: ':calendar: *' + caption + '*' } },
-      { type: 'rich_text', elements: [{ type: 'rich_text_preformatted', elements: [{ type: 'text', text: tableLines.join('\n') }] }] }
-    ];
-    var wResp = UrlFetchApp.fetch(webhook, {
-      method: 'post', contentType: 'application/json',
-      payload: JSON.stringify({ blocks: blocks }),
-      muteHttpExceptions: true
-    });
-    Logger.log('[Slack ' + shift + '] Webhook response: ' + wResp.getResponseCode());
-  }
-
-  // Stamp lastPostedAt back to Firebase
-  if (!current.slackAutoPost) current.slackAutoPost = {};
-  if (!current.slackAutoPost[shift]) current.slackAutoPost[shift] = {};
-  current.slackAutoPost[shift].lastPostedAt = now.getTime();
-  firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
-  Logger.log('[Slack ' + shift + '] Posted for ' + dk + ' and stamped lastPostedAt.');
-}
-
-// Builds a PDF of the break table using a temporary Google Sheet.
-// Single day → portrait. Tuesday (isTuesday=true) → landscape with Wed/Thu/Fri columns.
-// Legend column placed next to each date column.
-// Returns a Blob, or null on failure.
-function _buildBreakTablePdf(shift, staffRows, slots, dateCols, breaksByDate, caption, roleAbbr, isTuesday) {
-  var ss = SpreadsheetApp.create('_pave_slack_tmp_' + shift);
-  try {
-    var sheet = ss.getActiveSheet();
-
-    var ACCENT    = '#1f66f1';
-    var SLOT1_BG  = '#dbeafe';
-    var SLOT2_BG  = '#dcfce7';
-    var OFF_BG    = { A:'#fef9c3', H:'#fee2e2', '0':'#dcfce7', U:'#ffe4e6', S:'#ffedd5', L:'#cffafe' };
-    var OFF_FG    = { A:'#92680a', H:'#b91c1c', '0':'#15803d', U:'#be123c', S:'#c2410c', L:'#0e7490' };
-    var HEADER_FG = '#ffffff';
-    var TEXT_DARK = '#1e293b';
-    var BORDER    = '#cbd5e1';
-    var DAY_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-
-    // Column layout: TEAM(1) | NAME(2) | ROLE(3) | date1 | date2 | ... | legend
-    // Fixed cols = 3, then 1 col per date, then 1 shared legend col at the end
-    var FIXED = 3;
-    var numCols = FIXED + dateCols.length + 1;
-    var numDataRows = staffRows.length;
-
-    // ── Row 1: column headers (no caption row — caption is sent as Slack message text) ──
-    var fixedHeaders = ['TEAM', 'NAME', 'ROLE'];
-    fixedHeaders.forEach(function(h, c) {
-      sheet.getRange(1, c+1)
-        .setValue(h).setBackground(ACCENT).setFontColor(HEADER_FG)
-        .setFontWeight('bold').setFontSize(9)
-        .setHorizontalAlignment('left').setVerticalAlignment('middle');
-    });
-    dateCols.forEach(function(dki, di) {
-      var parts = dki.split('/');
-      var dow2 = new Date(new Date().getFullYear(), parseInt(parts[1])-1, parseInt(parts[0])).getDay();
-      var dateLabel = dki.slice(0,5) + '\n(' + DAY_NAMES[dow2] + ')';
-      var slotCol = FIXED + di + 1;
-      sheet.getRange(1, slotCol)
-        .setValue(dateLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
-        .setFontWeight('bold').setFontSize(9)
-        .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
-    });
-    // Single legend column at the end
-    var legendLabel = slots.map(function(s, si) { return shift+(si+1)+': '+s; }).join('\n');
-    sheet.getRange(1, numCols)
-      .setValue(legendLabel).setBackground(ACCENT).setFontColor(HEADER_FG)
-      .setFontSize(8).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
-
-    // ── Data rows starting at row 2 ──
-    staffRows.forEach(function(r, i) {
-      var row = i + 2;
-      var abbr = roleAbbr[r.role] || r.role;
-      var rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-      sheet.getRange(row, 1).setValue(r.team).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
-      sheet.getRange(row, 2).setValue(r.name).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
-      sheet.getRange(row, 3).setValue(abbr).setBackground(rowBg).setFontColor(TEXT_DARK).setFontSize(9).setHorizontalAlignment('left');
-      dateCols.forEach(function(dki, di) {
-        var slotCode = (breaksByDate[dki] || {})[r.id] || '—';
-        var isOffCell = slotCode.length <= 2 && ['A','H','U','S','L','0'].indexOf(slotCode) >= 0;
-        var si = slotCode === shift+'1' ? 0 : slotCode === shift+'2' ? 1 : -1;
-        var cellBg = isOffCell ? (OFF_BG[slotCode] || '#f1f5f9') : si === 0 ? SLOT1_BG : si === 1 ? SLOT2_BG : rowBg;
-        var cellFg = isOffCell ? (OFF_FG[slotCode] || TEXT_DARK) : TEXT_DARK;
-        sheet.getRange(row, FIXED + di + 1)
-          .setValue(slotCode).setBackground(cellBg).setFontColor(cellFg)
-          .setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center');
-      });
-      sheet.getRange(row, numCols).setBackground(rowBg);
-    });
-
-    // ── Column widths ──
-    sheet.setColumnWidth(1, 55);   // Team
-    sheet.setColumnWidth(2, 190);  // Name
-    sheet.setColumnWidth(3, 65);   // Role
-    dateCols.forEach(function(_, di) {
-      sheet.setColumnWidth(FIXED + di + 1, 70);  // date/slot
-    });
-    sheet.setColumnWidth(numCols, 90);  // legend (single, at end)
-
-    // ── Row heights ──
-    sheet.setRowHeight(1, isTuesday ? 32 : 42);
-    for (var ri = 2; ri <= numDataRows + 1; ri++) sheet.setRowHeight(ri, 21);
-
-    // ── Borders on table ──
-    sheet.getRange(1, 1, numDataRows + 1, numCols)
-      .setBorder(true, true, true, true, true, true, BORDER, SpreadsheetApp.BorderStyle.SOLID);
-
-    // ── Hide unused rows/cols ──
-    var lastRow = numDataRows + 1;
-    var maxRows = sheet.getMaxRows();
-    var maxCols = sheet.getMaxColumns();
-    if (maxRows > lastRow) sheet.hideRows(lastRow + 1, maxRows - lastRow);
-    if (maxCols > numCols) sheet.hideColumns(numCols + 1, maxCols - numCols);
-
-    SpreadsheetApp.flush();
-    Utilities.sleep(1500);
-
-    var ssId    = ss.getId();
-    var sheetId = sheet.getSheetId();
-    var orientation = isTuesday ? 'false' : 'true'; // portrait=true for single day, landscape for Tuesday
-    var exportUrl = 'https://docs.google.com/spreadsheets/d/' + ssId
-      + '/export?format=pdf&gid=' + sheetId
-      + '&size=statement&portrait=' + orientation
-      + '&fitw=true&fith=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false'
-      + '&top_margin=0.1&bottom_margin=0.1&left_margin=0.1&right_margin=0.1&attachment=false';
-
-    var token = ScriptApp.getOAuthToken();
-    var resp = UrlFetchApp.fetch(exportUrl, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
-    if (resp.getResponseCode() !== 200) {
-      Logger.log('[Slack PDF] Export failed: ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 200));
-      return null;
-    }
-    return resp.getBlob()
-      .setName('break_' + shift + '_' + dateCols[0].replace('/', '-') + '.pdf')
-      .setContentType('application/pdf');
-
-  } catch (e) {
-    Logger.log('[Slack PNG] Error: ' + e.message);
-    return null;
-  } finally {
-    DriveApp.getFileById(ss.getId()).setTrashed(true);
-  }
-}
-
-// Uploads a PNG blob to a Slack channel via the bot token file upload API.
-function _slackUploadImage(blob, caption, channelId, shift, dk) {
-  try {
-    var bytes = blob.getBytes();
-    var filename = blob.getName();
-
-    // Step 1: get upload URL
-    var urlResp = UrlFetchApp.fetch('https://slack.com/api/files.getUploadURLExternal', {
-      method: 'post',
-      headers: { Authorization: 'Bearer ' + SLACK_BOT_TOKEN },
-      payload: { filename: filename, length: String(bytes.length) },
-      muteHttpExceptions: true
-    });
-    var urlData = JSON.parse(urlResp.getContentText());
-    if (!urlData.ok) { Logger.log('[Slack upload] getUploadURL failed: ' + urlResp.getContentText()); return; }
-
-    // Step 2: upload bytes
-    UrlFetchApp.fetch(urlData.upload_url, {
-      method: 'post',
-      payload: blob.getBytes(),
-      headers: { 'Content-Type': blob.getContentType() },
-      muteHttpExceptions: true
-    });
-
-    // Step 3: complete upload and post to channel
-    var completeResp = UrlFetchApp.fetch('https://slack.com/api/files.completeUploadExternal', {
-      method: 'post',
-      headers: { Authorization: 'Bearer ' + SLACK_BOT_TOKEN, 'Content-Type': 'application/json' },
-      payload: JSON.stringify({
-        files: [{ id: urlData.file_id }],
-        channel_id: channelId,
-        initial_comment: ':calendar: *' + caption + '*'
-      }),
-      muteHttpExceptions: true
-    });
-    var completeData = JSON.parse(completeResp.getContentText());
-    if (!completeData.ok) { Logger.log('[Slack upload] complete failed: ' + completeResp.getContentText()); return; }
-
-    Logger.log('[Slack ' + shift + '] PNG uploaded for ' + dk);
-  } catch (e) {
-    Logger.log('[Slack upload] Error: ' + e.message);
-  }
-}
-
-// Minimal role resolver matching the web app's _resolveRole()
-function _resolveRoleGas(role) {
-  var aliases = {
-    'Agent': 'Data Analyst', 'Sr Agent': 'Sr Data Analyst',
-    'QA': 'Data Supervisor', 'Sr QA': 'Sr Data Supervisor',
-    'Senior Data Analyst': 'Sr Data Analyst',
-    'Senior Data Supervisor': 'Sr Data Supervisor',
-    'Leader': 'Data Analyst Leader',
-    'Supervisor': 'Data Analyst Supervisor',
-    'Agent Leader': 'Data Analyst Leader',
-    'Agent Supervisor': 'Data Analyst Supervisor'
-  };
-  return aliases[role] || role || '';
-}
-
-// Run once in GAS editor to install the 3 time-based triggers.
-function createSlackTriggers() {
-  ScriptApp.getProjectTriggers().forEach(function(t) {
-    var fn = t.getHandlerFunction();
-    if (fn === 'dailySlackShiftA' || fn === 'dailySlackShiftD' || fn === 'dailySlackShiftE') {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-  // Shift A fires at 15h (day-of-week check inside the function)
-  ScriptApp.newTrigger('dailySlackShiftA').timeBased().atHour(15).nearMinute(15).everyDays(1).create();
-  // Shift D fires at 0h
-  ScriptApp.newTrigger('dailySlackShiftD').timeBased().atHour(0).nearMinute(15).everyDays(1).create();
-  // Shift E fires at 6h
-  ScriptApp.newTrigger('dailySlackShiftE').timeBased().atHour(6).nearMinute(15).everyDays(1).create();
-  Logger.log('✓ Slack triggers created: ShiftA@15h, ShiftD@0h, ShiftE@6h (all daily, day filter inside function)');
-}
-
-// ═══════════════════════════════════════════════
-//  ATTENDANCE WRITEBACK
-//  Reads manual attendance edits from Firebase and writes them back to the
-//  logbook Google Sheet. Runs 3× daily, 30 min after each shift starts.
-//  Call createWritebackTriggers() once from the GAS editor to install.
-// ═══════════════════════════════════════════════
-
-function syncAttendanceWriteback() {
-  var startTime = new Date();
-  var log = [];
-  function addLog(msg) { Logger.log(msg); log.push(msg); }
-
-  try {
-    addLog('=== Attendance Writeback Start: ' + startTime.toISOString() + ' ===');
-
-    var raw = firebaseGet();
-    var current = raw ? JSON.parse(raw) : {};
-    var logbook = current.logbook || {};
-
-    // Only process today's manual edits (note !== 'auto', not deleted)
-    var _today = new Date();
-    var todayDk = String(_today.getDate()).padStart(2,'0') + '/' + String(_today.getMonth()+1).padStart(2,'0');
-    var manualKeys = Object.keys(logbook).filter(function(key) {
-      var rec = logbook[key];
-      if (!rec || rec._deleted || rec.note === 'auto' || rec.by == null) return false;
-      return key.substring(key.lastIndexOf('_') + 1) === todayDk;
-    });
-
-    if (manualKeys.length === 0) {
-      addLog('[Writeback] No manual edits found. Done.');
+  Object.keys(keysByMonth).forEach(function(monthName) {
+    var sheet = getOrCreateMonthlyLogbookSheet(ss, monthName, log);
+    if (!sheet) {
+      log('[Writeback] Sheet "' + monthName + '" missing, skipping ' + keysByMonth[monthName].length + ' record(s).');
+      result.skipped += keysByMonth[monthName].length;
       return;
     }
-    addLog('[Writeback] ' + manualKeys.length + ' manual edit(s) to write back.');
 
-    var ss;
-    try { ss = SpreadsheetApp.openById(LOGBOOK_SPREADSHEET_ID); }
-    catch(e) {
-      addLog('[Writeback] ✗ Cannot open logbook spreadsheet: ' + e.message);
-      throw e;
+    var lastCol = sheet.getLastColumn();
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 3 || lastCol < 5) {
+      log('[Writeback] Sheet "' + monthName + '" appears empty.');
+      result.skipped += keysByMonth[monthName].length;
+      return;
     }
 
-    var MONTH_NAMES = ['January','February','March','April','May','June',
-                       'July','August','September','October','November','December'];
+    var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+    var dateRow = -1;
+    var bestCnt = 0;
+    for (var ri = 0; ri < Math.min(10, allData.length); ri++) {
+      var cnt = 0;
+      for (var c = 4; c < allData[ri].length; c++) {
+        if (parseDateHeader(allData[ri][c])) cnt++;
+      }
+      if (cnt > bestCnt) {
+        bestCnt = cnt;
+        dateRow = ri;
+      }
+    }
+    if (dateRow < 0 || bestCnt < 2) {
+      log('[Writeback] No date header row found in "' + monthName + '".');
+      result.skipped += keysByMonth[monthName].length;
+      return;
+    }
 
-    // Build uid list for name-fallback lookup
-    var _usersList = Array.isArray(current.users) ? current.users
-                   : (current.users ? Object.values(current.users) : []);
-    var usernameToUid = {};
-    _usersList.forEach(function(u) {
-      if (u && u.username && u.id != null) usernameToUid[String(u.username).toLowerCase()] = u.id;
-    });
+    var subHdrRow = -1;
+    for (var sri = dateRow + 1; sri < Math.min(dateRow + 8, allData.length); sri++) {
+      var hasStart = false;
+      var hasOther = false;
+      for (var sc = 0; sc < allData[sri].length; sc++) {
+        var sv = String(allData[sri][sc]).trim().toLowerCase();
+        if (sv === 'start') hasStart = true;
+        if (sv === 'end' || sv === 'early' || sv === 'late') hasOther = true;
+      }
+      if (hasStart && hasOther) {
+        subHdrRow = sri;
+        break;
+      }
+    }
+    if (subHdrRow < 0) {
+      log('[Writeback] No Start/End sub-header row in "' + monthName + '".');
+      result.skipped += keysByMonth[monthName].length;
+      return;
+    }
 
-    // Group manual-edit keys by month sheet name
-    var keysByMonth = {};
-    manualKeys.forEach(function(key) {
+    var shiftColIdx = 6;
+    var dataStartRow = subHdrRow + 1;
+    var dateHdr = allData[dateRow];
+    var subHdr = allData[subHdrRow];
+    var dateColMap = {};
+    for (var dc = shiftColIdx + 1; dc < dateHdr.length; dc++) {
+      if (String(subHdr[dc] || '').trim().toLowerCase() !== 'start') continue;
+      var dk = null;
+      for (var back = 0; back <= 3 && !dk; back++) {
+        if (dc - back > shiftColIdx) dk = parseDateHeader(dateHdr[dc - back]);
+      }
+      if (!dk) continue;
+      dateColMap[dk] = { startColIdx: dc, endColIdx: dc + 2 };
+    }
+
+    var uidToSheetRow = {};
+    for (var dri = dataStartRow; dri < allData.length; dri++) {
+      var row = allData[dri];
+      var name = String(row[2] || '').trim();
+      var newUser = String(row[4] || '').trim().toLowerCase();
+      var oldUser = String(row[3] || '').trim().toLowerCase();
+      if (!name && !newUser) continue;
+      var uid = newUser ? usernameToUid[newUser] : undefined;
+      if (uid == null && oldUser) uid = usernameToUid[oldUser];
+      if (uid == null && name) {
+        var nameLower = name.toLowerCase();
+        var matchedUser = usersList.filter(function(u) { return (u.name || '').toLowerCase() === nameLower; })[0];
+        if (matchedUser) uid = matchedUser.id;
+      }
+      if (uid != null) uidToSheetRow[uid] = dri + 1;
+    }
+
+    keysByMonth[monthName].forEach(function(key) {
+      var rec = logbook[key];
       var sep = key.lastIndexOf('_');
-      var dateKey = key.substring(sep + 1); // DD/MM
-      var dateParts = dateKey.split('/');
-      if (dateParts.length < 2) return;
-      var mIdx = parseInt(dateParts[1], 10) - 1;
-      if (isNaN(mIdx) || mIdx < 0 || mIdx > 11) return;
-      var mName = MONTH_NAMES[mIdx];
-      if (!keysByMonth[mName]) keysByMonth[mName] = [];
-      keysByMonth[mName].push(key);
+      var uid = parseInt(key.substring(0, sep), 10);
+      var dateKey = key.substring(sep + 1);
+      var sheetRow = uidToSheetRow[uid];
+      var colInfo = dateColMap[dateKey];
+
+      if (!sheetRow || !colInfo) {
+        log('[Writeback] No mapping for uid=' + uid + ' dk=' + dateKey);
+        result.skipped++;
+        return;
+      }
+
+      if (rec.start) sheet.getRange(sheetRow, colInfo.startColIdx + 1).setValue(_timeStrToFraction(rec.start));
+      if (rec.end) sheet.getRange(sheetRow, colInfo.endColIdx + 1).setValue(_timeStrToFraction(rec.end));
+      result.written++;
     });
+  });
 
-    var totalWritten = 0, totalSkipped = 0;
-
-    Object.keys(keysByMonth).forEach(function(monthName) {
-      var sheet = getOrCreateMonthlyLogbookSheet(ss, monthName, addLog);
-      if (!sheet) {
-        addLog('[Writeback] ✗ Sheet "' + monthName + '" could not be found or created — skipping ' + keysByMonth[monthName].length + ' record(s).');
-        totalSkipped += keysByMonth[monthName].length;
-        return;
-      }
-
-      var lastCol = sheet.getLastColumn(), lastRow = sheet.getLastRow();
-      if (lastRow < 3 || lastCol < 5) {
-        addLog('[Writeback] ⚠ Sheet "' + monthName + '" appears empty.');
-        totalSkipped += keysByMonth[monthName].length;
-        return;
-      }
-      var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-
-      // Detect date header row
-      var dateRow = -1, bestCnt = 0;
-      for (var ri = 0; ri < Math.min(10, allData.length); ri++) {
-        var cnt = 0;
-        for (var c = 4; c < allData[ri].length; c++) { if (parseDateHeader(allData[ri][c])) cnt++; }
-        if (cnt > bestCnt) { bestCnt = cnt; dateRow = ri; }
-      }
-      if (dateRow < 0 || bestCnt < 2) {
-        addLog('[Writeback] ✗ No date header row found in "' + monthName + '".');
-        totalSkipped += keysByMonth[monthName].length;
-        return;
-      }
-
-      // Detect sub-header row (contains "start" + one of "end"/"early"/"late")
-      var subHdrRow = -1;
-      for (var ri = dateRow+1; ri < Math.min(dateRow+8, allData.length); ri++) {
-        var _hs = false, _ho = false;
-        for (var c = 0; c < allData[ri].length; c++) {
-          var _sv = String(allData[ri][c]).trim().toLowerCase();
-          if (_sv === 'start') _hs = true;
-          if (_sv === 'end' || _sv === 'early' || _sv === 'late') _ho = true;
-        }
-        if (_hs && _ho) { subHdrRow = ri; break; }
-      }
-      if (subHdrRow < 0) {
-        addLog('[Writeback] ✗ No Start/End sub-header row in "' + monthName + '".');
-        totalSkipped += keysByMonth[monthName].length;
-        return;
-      }
-
-      var shiftColIdx = 6;
-      var dataStartRow = subHdrRow + 1;
-      var row1 = allData[dateRow], row3 = allData[subHdrRow];
-
-      // Build dateKey → { startColIdx, endColIdx } (0-based array index)
-      var dateColMap = {};
-      for (var c = shiftColIdx+1; c < row1.length; c++) {
-        if (String(row3[c]||'').trim().toLowerCase() !== 'start') continue;
-        var dk = null;
-        for (var back = 0; back <= 3 && !dk; back++) {
-          if (c - back > shiftColIdx) dk = parseDateHeader(row1[c - back]);
-        }
-        if (!dk) continue;
-        dateColMap[dk] = { startColIdx: c, endColIdx: c + 2 };
-      }
-
-      // Build uid → sheet row (1-based) map
-      var uidToSheetRow = {};
-      for (var ri = dataStartRow; ri < allData.length; ri++) {
-        var row = allData[ri];
-        var name    = String(row[2] || '').trim();
-        var newUser = String(row[4] || '').trim().toLowerCase();
-        var oldUser = String(row[3] || '').trim().toLowerCase();
-        if (!name && !newUser) continue;
-        var uid = newUser ? usernameToUid[newUser] : undefined;
-        if (uid == null && oldUser) uid = usernameToUid[oldUser];
-        if (uid == null && name) {
-          var nl = name.toLowerCase();
-          var mu = _usersList.filter(function(u){ return (u.name||'').toLowerCase()===nl; })[0];
-          if (mu) uid = mu.id;
-        }
-        if (uid != null) uidToSheetRow[uid] = ri + 1; // convert to 1-based
-      }
-
-      addLog('[Writeback] "' + monthName + '": ' + Object.keys(dateColMap).length + ' date cols, '
-        + Object.keys(uidToSheetRow).length + ' employee rows mapped.');
-
-      // Write each manual edit
-      keysByMonth[monthName].forEach(function(key) {
-        var rec = logbook[key];
-        var sep = key.lastIndexOf('_');
-        var uid = parseInt(key.substring(0, sep), 10);
-        var dateKey = key.substring(sep + 1);
-
-        var sheetRow = uidToSheetRow[uid];
-        var colInfo  = dateColMap[dateKey];
-
-        if (!sheetRow || !colInfo) {
-          addLog('[Writeback] ✗ No mapping: uid=' + uid + ' dk=' + dateKey);
-          totalSkipped++;
-          return;
-        }
-
-        // Write start (col is 0-based index, getRange needs 1-based)
-        if (rec.start) sheet.getRange(sheetRow, colInfo.startColIdx + 1).setValue(_timeStrToFraction(rec.start));
-        if (rec.end)   sheet.getRange(sheetRow, colInfo.endColIdx   + 1).setValue(_timeStrToFraction(rec.end));
-
-        addLog('[Writeback] ✓ ' + key
-          + ' start=' + (rec.start||'-') + ' end=' + (rec.end||'-')
-          + ' by=' + (rec.byName || rec.by || '?'));
-        totalWritten++;
-      });
-    });
-
-    var duration = ((new Date() - startTime) / 1000).toFixed(1);
-    addLog('=== Writeback Complete in ' + duration + 's: '
-      + totalWritten + ' written, ' + totalSkipped + ' skipped ===');
-
-  } catch(e) {
-    Logger.log('✗ Attendance Writeback FAILED: ' + e.message + '\n' + e.stack);
-    try {
-      MailApp.sendEmail({
-        to:      NOTIFY_EMAIL,
-        subject: '⚠ PAVE Attendance Writeback Failed — ' + Utilities.formatDate(startTime, 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'),
-        body:    'Error: ' + e.message + '\n\nStack:\n' + e.stack + '\n\nLog:\n' + log.join('\n'),
-      });
-    } catch(mailErr) { Logger.log('Mail failed: ' + mailErr.message); }
-    throw e;
-  }
+  log('[Writeback] Logbook writeback done: ' + result.written + ' written, ' + result.skipped + ' skipped.');
+  return result;
 }
 
-// Converts "HH:MM" or "HH:MM:SS" string → fractional day (0..1) for Sheets time cells.
-// Sheets stores times as fractional days; writing this value preserves native time formatting
-// (e.g. the column's "h:mm:ss AM/PM" format) instead of writing a plain text string.
 function _timeStrToFraction(str) {
   if (!str) return null;
   var p = String(str).split(':');
@@ -2333,98 +1891,72 @@ function _timeStrToFraction(str) {
   return (h * 3600 + m * 60 + s) / 86400;
 }
 
-// ═══════════════════════════════════════════════
-//  MONTHLY ATTENDANCE WRITEBACK
-//  Writes Firebase monthlyAttendance codes back to the Attendance Google Sheet.
-//  Runs after the logbook writeback via the same 3 daily triggers.
-// ═══════════════════════════════════════════════
-function syncMonthlyAttWriteback() {
-  Logger.log('[MonthlyWriteback] Start: ' + new Date().toISOString());
-
-  var raw, current;
-  try {
-    raw = firebaseGet();
-    current = raw ? JSON.parse(raw) : {};
-  } catch(e) {
-    Logger.log('[MonthlyWriteback] Firebase fetch error: ' + e.message);
-    return;
-  }
-
+function syncMonthlyAttWriteback(current, log) {
+  if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
+  current = current || {};
+  var result = { written: 0, monthKey: '', dateKey: '' };
   var monthlyAtt = current.monthlyAttendance || {};
   if (Object.keys(monthlyAtt).length === 0) {
-    Logger.log('[MonthlyWriteback] No monthlyAttendance data. Done.');
-    return;
+    log('[MonthlyWriteback] No monthlyAttendance data.');
+    return result;
   }
 
-  var ss;
-  try {
-    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  } catch(e) {
-    Logger.log('[MonthlyWriteback] Cannot open spreadsheet: ' + e.message);
-    return;
-  }
-
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheet = ss.getSheetByName(ATTENDANCE_SHEET);
   if (!sheet) {
-    Logger.log('[MonthlyWriteback] Sheet not found: ' + ATTENDANCE_SHEET);
-    return;
+    log('[MonthlyWriteback] Sheet not found: ' + ATTENDANCE_SHEET);
+    return result;
   }
 
   var rows = sheet.getDataRange().getValues();
+  if (!rows.length) return result;
   var headerRow = rows[0];
-
-  // Build date columns — same logic as syncAttendance()
   var dateCols = [];
   headerRow.forEach(function(h, i) {
     if (i < 4) return;
     var dk = parseDateHeader(h);
     if (dk) dateCols.push({ index: i, dateKey: dk });
   });
-
-  if (dateCols.length === 0) {
-    Logger.log('[MonthlyWriteback] No date columns found in header row.');
-    return;
+  if (!dateCols.length) {
+    log('[MonthlyWriteback] No date columns found.');
+    return result;
   }
 
-  // Detect working monthKey from first date column
-  var firstDk    = dateCols[0].dateKey;
-  var firstDay   = parseInt(firstDk.split('/')[0]);
-  var firstMonth = parseInt(firstDk.split('/')[1]);
-  var year  = new Date().getFullYear();
+  var firstDk = dateCols[0].dateKey;
+  var firstDay = parseInt(firstDk.split('/')[0], 10);
+  var firstMonth = parseInt(firstDk.split('/')[1], 10);
+  var year = new Date().getFullYear();
   var month = firstDay >= 25 ? firstMonth + 1 : firstMonth;
-  if (month > 12) { month = 1; year++; }
-  var monthKey = year + '-' + String(month).padStart(2, '0');
-
-  Logger.log('[MonthlyWriteback] Working month: ' + monthKey + ' | ' + dateCols.length + ' date columns');
-
-  // Only write today's column — do not overwrite historical data already in the sheet
-  var _now = new Date();
-  var todayDk = String(_now.getDate()).padStart(2, '0') + '/' + String(_now.getMonth() + 1).padStart(2, '0');
-  var todayCols = dateCols.filter(function(col) { return col.dateKey === todayDk; });
-  if (todayCols.length === 0) {
-    Logger.log('[MonthlyWriteback] Today (' + todayDk + ') not in sheet columns — nothing to write.');
-    return;
+  if (month > 12) {
+    month = 1;
+    year++;
   }
-  Logger.log('[MonthlyWriteback] Writing today only: ' + todayDk);
+  var monthKey = year + '-' + String(month).padStart(2, '0');
+  result.monthKey = monthKey;
 
-  // Build username → 1-based row map (data starts row 4 = index 3)
+  var now = new Date();
+  var todayDk = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
+  result.dateKey = todayDk;
+  var todayCols = dateCols.filter(function(col) { return col.dateKey === todayDk; });
+  if (!todayCols.length) {
+    log('[MonthlyWriteback] Today (' + todayDk + ') not found in Attendance sheet.');
+    return result;
+  }
+
   var usernameToRow = {};
   for (var ri = 3; ri < rows.length; ri++) {
     var row = rows[ri];
     var nameVal = String(row[2] || '').trim();
-    var empNo   = String(row[1] || '').trim();
+    var empNo = String(row[1] || '').trim();
     if (!nameVal && !empNo) continue;
     var username = findUsername(current, nameVal, empNo);
-    if (username) usernameToRow[username] = ri + 1; // 1-based for getRange
+    if (username) usernameToRow[username] = ri + 1;
   }
 
-  // Write codes from Firebase to sheet cells
-  var written = 0;
   Object.keys(monthlyAtt).forEach(function(username) {
     var userMonths = monthlyAtt[username];
     if (!userMonths || !userMonths[monthKey]) return;
     var monthData = userMonths[monthKey];
-
     var sheetRow = usernameToRow[username];
     if (!sheetRow) return;
 
@@ -2432,61 +1964,232 @@ function syncMonthlyAttWriteback() {
       var code = monthData[col.dateKey];
       if (!code) return;
       sheet.getRange(sheetRow, col.index + 1).setValue(code);
-      written++;
+      result.written++;
     });
   });
 
-  Logger.log('[MonthlyWriteback] Done: ' + written + ' cells written to ' + ATTENDANCE_SHEET + '.');
+  log('[MonthlyWriteback] Done: ' + result.written + ' cells for ' + todayDk + '.');
+  return result;
 }
 
-// Thin wrappers required because GAS time triggers must target named top-level functions.
-// Each wrapper checks its per-shift toggle from Firebase before running.
-function syncAttendanceWriteback_1530() {
-  var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
-  if (cfg.writebackShiftA === false) { Logger.log('[Writeback] Shift A skipped (disabled).'); return; }
-  syncMonthlyAttWriteback();
-}
-function syncAttendanceWriteback_0030() {
-  var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
-  if (cfg.writebackShiftD === false) { Logger.log('[Writeback] Shift D skipped (disabled).'); return; }
-  syncMonthlyAttWriteback();
-}
-function syncAttendanceWriteback_0630() {
-  var raw = firebaseGet(); var cfg = (raw ? JSON.parse(raw) : {}).gasConfig || {};
-  if (cfg.writebackShiftE === false) { Logger.log('[Writeback] Shift E skipped (disabled).'); return; }
-  syncMonthlyAttWriteback();
+function syncWorkingTimeWriteback(current, log) {
+  if (typeof log !== 'function') log = function(msg) { Logger.log(msg); };
+  current = current || {};
+  var result = { written: 0, skipped: 0, dateCols: 0, dateKey: '', monthKey: '' };
+  var workingTime = current.workingTime || {};
+  if (Object.keys(workingTime).length === 0) {
+    log('[WorkingTime WB] No workingTime data.');
+    return result;
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(WORKING_TIME_SHEET);
+  if (!sheet) {
+    log('[WorkingTime WB] Sheet not found: ' + WORKING_TIME_SHEET);
+    return result;
+  }
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 3 || lastCol < 4) {
+    log('[WorkingTime WB] Sheet appears empty.');
+    return result;
+  }
+
+  var allData = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var dateRowIdx = -1;
+  var bestCnt = 0;
+  for (var ri = 0; ri < Math.min(5, allData.length); ri++) {
+    var cnt = 0;
+    for (var c = 0; c < allData[ri].length; c++) {
+      if (parseDateHeader(allData[ri][c])) cnt++;
+    }
+    if (cnt > bestCnt) {
+      bestCnt = cnt;
+      dateRowIdx = ri;
+    }
+  }
+  if (dateRowIdx < 0 || bestCnt < 1) {
+    log('[WorkingTime WB] No date header row found.');
+    return result;
+  }
+
+  var empNoColIdx = 1;
+  var nameColIdx = 2;
+  for (var hr = 0; hr < Math.min(3, allData.length); hr++) {
+    var hdrRow = allData[hr];
+    for (var hc = 0; hc < hdrRow.length; hc++) {
+      var hdrVal = String(hdrRow[hc] || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      if ((hdrVal.indexOf('employee number') !== -1 || hdrVal.indexOf('emp no') !== -1 || hdrVal === 'id' || hdrVal === 'no.') && hdrVal !== 'no.') {
+        empNoColIdx = hc;
+      } else if (hdrVal === 'name' || hdrVal === 'full name') {
+        nameColIdx = hc;
+      }
+    }
+  }
+
+  var dataStartRowIdx = -1;
+  for (var dr = dateRowIdx + 1; dr < allData.length; dr++) {
+    var empVal = String(allData[dr][empNoColIdx] || '').trim();
+    var nameVal = String(allData[dr][nameColIdx] || '').trim();
+    if (!empVal || empVal === 'Employee Number' || empVal === 'Employee\nNumber' || empVal === 'Emp No.' || empVal.indexOf('=') === 0) continue;
+    if (empVal.toUpperCase().indexOf('AG') === 0 || nameVal !== '') {
+      dataStartRowIdx = dr;
+      break;
+    }
+  }
+  if (dataStartRowIdx < 0) dataStartRowIdx = dateRowIdx + 1;
+
+  var SKIP_LABELS = ['late','early','training','other','others','total'];
+  var dateHdrRow = allData[dateRowIdx];
+  var dateCols = [];
+  for (var dc = 0; dc < lastCol; dc++) {
+    var dateKey = parseDateHeader(dateHdrRow[dc]);
+    if (!dateKey) continue;
+    var cellVal = String(dateHdrRow[dc] || '').trim().toLowerCase();
+    if (SKIP_LABELS.indexOf(cellVal) !== -1) continue;
+    var skip = false;
+    for (var sr = dateRowIdx + 1; sr < dataStartRowIdx; sr++) {
+      var subVal = String(allData[sr][dc] || '').trim().toLowerCase();
+      if (SKIP_LABELS.indexOf(subVal) !== -1) {
+        skip = true;
+        break;
+      }
+    }
+    if (skip) continue;
+    dateCols.push({ colIndex: dc, dateKey: dateKey });
+  }
+  result.dateCols = dateCols.length;
+  if (!dateCols.length) {
+    log('[WorkingTime WB] No importable date columns found.');
+    return result;
+  }
+
+  var firstDk = dateCols[0].dateKey;
+  var fdParts = firstDk.split('/');
+  var fdDay = parseInt(fdParts[0], 10);
+  var fdMon = parseInt(fdParts[1], 10);
+  var fdYear = new Date().getFullYear();
+  var fdMonth = fdDay >= 25 ? fdMon + 1 : fdMon;
+  if (fdMonth > 12) {
+    fdMonth = 1;
+    fdYear++;
+  }
+  var monthKey = fdYear + '-' + String(fdMonth).padStart(2, '0');
+  result.monthKey = monthKey;
+
+  var now = new Date();
+  var todayDk = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
+  result.dateKey = todayDk;
+  var todayCols = dateCols.filter(function(col) { return col.dateKey === todayDk; });
+  if (!todayCols.length) {
+    log('[WorkingTime WB] Today (' + todayDk + ') not found in Working Time sheet.');
+    return result;
+  }
+
+  for (var rowIdx = dataStartRowIdx; rowIdx < allData.length; rowIdx++) {
+    var row = allData[rowIdx];
+    var empNo = String(row[empNoColIdx] || '').trim();
+    var fullName = String(row[nameColIdx] || '').trim();
+    if (!empNo && !fullName) continue;
+
+    var username = findUsername(current, fullName, empNo);
+    if (!username && empNo && empNo.toUpperCase().indexOf('AG') === 0) username = empNo.toLowerCase();
+    if (!username) {
+      result.skipped++;
+      continue;
+    }
+
+    var monthData = workingTime[username] && workingTime[username][monthKey];
+    if (!monthData) continue;
+
+    todayCols.forEach(function(col) {
+      var dayData = monthData[col.dateKey];
+      if (!dayData || dayData.total == null || dayData.total === '') return;
+      sheet.getRange(rowIdx + 1, col.colIndex + 1).setValue(dayData.total);
+      result.written++;
+    });
+  }
+
+  log('[WorkingTime WB] Done: ' + result.written + ' cells for ' + todayDk + '.');
+  return result;
 }
 
-// Logbook wrapper that runs monthly
-function syncLogbookMonthly() {
-  syncAttendanceWriteback();
+function _runShiftWriteback(shiftCode, toggleKey) {
+  var startTime = new Date();
+  var log = [];
+  function addLog(msg) { Logger.log(msg); log.push(msg); }
+
+  try {
+    addLog('=== Shift ' + shiftCode + ' Writeback Start: ' + startTime.toISOString() + ' ===');
+    var raw = firebaseGet();
+    var current = raw ? JSON.parse(raw) : {};
+    var cfg = current.gasConfig || {};
+    if (cfg[toggleKey] === false) {
+      addLog('[Writeback] Shift ' + shiftCode + ' skipped (disabled).');
+      return;
+    }
+
+    var attendanceResult = syncAttendanceWriteback(current, addLog);
+    var monthlyResult = syncMonthlyAttWriteback(current, addLog);
+    var workingTimeResult = syncWorkingTimeWriteback(current, addLog);
+    var policyResult = syncPolicyWriteback(current, addLog);
+
+    firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
+    addLog('[Firebase] Push OK.');
+
+    var duration = ((new Date() - startTime) / 1000).toFixed(1);
+    addLog('=== Shift ' + shiftCode + ' Writeback Complete in ' + duration + 's ===');
+    addLog('[Summary] Logbook=' + attendanceResult.written + ' MonthlyAttendance=' + monthlyResult.written + ' WorkingTime=' + workingTimeResult.written + ' Policy=' + policyResult.written);
+  } catch (e) {
+    Logger.log('Shift ' + shiftCode + ' Writeback FAILED: ' + e.message + '\n' + e.stack);
+    try {
+      MailApp.sendEmail({
+        to: NOTIFY_EMAIL,
+        subject: 'PAVE Shift ' + shiftCode + ' Writeback Failed - ' + Utilities.formatDate(startTime, 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'),
+        body: 'Error: ' + e.message + '\n\nStack:\n' + e.stack + '\n\nLog:\n' + log.join('\n')
+      });
+    } catch (mailErr) {
+      Logger.log('Mail failed: ' + mailErr.message);
+    }
+    throw e;
+  }
 }
 
-// Run once from the GAS editor to install the 3 daily writeback triggers + 1 monthly trigger.
+function syncWritebackShiftA() {
+  _runShiftWriteback('A', 'writebackShiftA');
+}
+
+function syncWritebackShiftD() {
+  _runShiftWriteback('D', 'writebackShiftD');
+}
+
+function syncWritebackShiftE() {
+  _runShiftWriteback('E', 'writebackShiftE');
+}
+
 function createWritebackTriggers() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
     var fn = t.getHandlerFunction();
-    if (fn === 'syncAttendanceWriteback_1530' ||
+    if (fn === 'syncWritebackShiftA' ||
+        fn === 'syncWritebackShiftD' ||
+        fn === 'syncWritebackShiftE' ||
+        fn === 'syncAttendanceWriteback_1530' ||
         fn === 'syncAttendanceWriteback_0030' ||
         fn === 'syncAttendanceWriteback_0630' ||
-        fn === 'syncLogbookMonthly') {
+        fn === 'syncLogbookMonthly' ||
+        fn.indexOf('dailySlackShift') === 0) {
       ScriptApp.deleteTrigger(t);
     }
   });
-  // Staff attendance: Shift A: 15:30 | Shift D: 00:30 | Shift E: 06:30 (daily)
-  ScriptApp.newTrigger('syncAttendanceWriteback_1530').timeBased().atHour(15).nearMinute(30).everyDays(1).create();
-  ScriptApp.newTrigger('syncAttendanceWriteback_0030').timeBased().atHour(0) .nearMinute(30).everyDays(1).create();
-  ScriptApp.newTrigger('syncAttendanceWriteback_0630').timeBased().atHour(6) .nearMinute(30).everyDays(1).create();
-  
-  // Logbook: 1st of every month at 1:00 AM
-  ScriptApp.newTrigger('syncLogbookMonthly').timeBased().onMonthDay(1).atHour(1).create();
-  
-  Logger.log('✓ Triggers created: Daily Staff Attendance (A@15:30, D@00:30, E@06:30), Monthly Logbook (1st of month @ 1:00 AM)');
+
+  ScriptApp.newTrigger('syncWritebackShiftA').timeBased().atHour(15).nearMinute(30).everyDays(1).create();
+  ScriptApp.newTrigger('syncWritebackShiftD').timeBased().atHour(0).nearMinute(30).everyDays(1).create();
+  ScriptApp.newTrigger('syncWritebackShiftE').timeBased().atHour(6).nearMinute(30).everyDays(1).create();
+
+  Logger.log('Writeback triggers created: Shift A @ 15:30, Shift D @ 00:30, Shift E @ 06:30.');
 }
 
-// ═══════════════════════════════════════════════
-//  MONTHLY SHEET RETRIEVAL & AUTO-CREATION
-// ═══════════════════════════════════════════════
 function getOrCreateMonthlyLogbookSheet(ss, sheetName, logFn) {
   var log = typeof logFn === 'function' ? logFn : Logger.log;
   
