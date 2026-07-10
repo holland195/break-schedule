@@ -1632,8 +1632,246 @@ function clearMonthlyAttendance(year, month) {
   nav('staff');
 }
 
+var _ssVisibleUsers = [];
+var _ssManagerSwap = { username: '', day: '' };
+
+function _ssCanManageSchedule() {
+  return isLeader(currentUser) || isTraining(currentUser);
+}
+
+function _ssIsFutureDayoff(dk) {
+  return _isFutureDayoff(dk, 1);
+}
+
+function _ssManagerIgnoreModalHTML() {
+  return '<div id="modal-staff-dayoff-ignore" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-staff-dayoff-ignore\')">' +
+    '<div class="modal" style="width:420px;">' +
+      '<div class="modal-title">Direct Swap Ignored</div>' +
+      '<div id="ss-manager-ignore-msg" style="font-size:13px;line-height:1.6;color:var(--text2);margin:14px 0 18px 0;"></div>' +
+      '<div style="display:flex;justify-content:flex-end;">' +
+        '<button class="btn btn-accent" onclick="closeModal(\'modal-staff-dayoff-ignore\')">OK</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function _ssShowManagerIgnoreModal(message) {
+  if (!document.getElementById('modal-staff-dayoff-ignore')) {
+    document.body.insertAdjacentHTML('beforeend', _ssManagerIgnoreModalHTML());
+  }
+  document.getElementById('ss-manager-ignore-msg').textContent = message;
+  document.getElementById('modal-staff-dayoff-ignore').classList.add('show');
+}
+
+function _ssGetSwapGroup(user) {
+  if (!user) return '';
+  var rawRole = user.role || (state.staffInfo[user.username] || {}).role || '';
+  var team = user.team || (state.staffInfo[user.username] || {}).team || '';
+  var role = _resolveRole(rawRole, team) || rawRole || '';
+  if (role === 'Data Analyst Leader' || role === 'Data Analyst Supervisor') return 'lead';
+  if (role === 'Training Manager' || role === 'Training Assistant') return 'training';
+  if (role === 'Sr Data Supervisor') return 'sr-ds';
+  if (role === 'Data Supervisor') return 'ds';
+  if (role === 'Data Analyst' || role === 'Sr Data Analyst') return 'da';
+  return '';
+}
+
+function _ssManagerSwapModalHTML() {
+  return '<div id="modal-staff-dayoff-swap" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-staff-dayoff-swap\')">' +
+    '<div class="modal" style="width:440px;">' +
+      '<div class="modal-title">Apply Day-Off Swap</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Selected staff day off</div>' +
+        '<div id="ss-manager-swap-source" style="font-size:14px;font-weight:700;color:var(--accent);"></div>' +
+      '</div>' +
+      '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Swap with visible staff</div>' +
+        '<select id="ss-manager-target-user" class="login-select" style="width:100%;font-size:13px;" onchange="_ssManagerSwapUpdateDates()">' +
+          '<option value="">- Select person -</option>' +
+        '</select>' +
+      '</div>' +
+      '<div id="ss-manager-target-date-wrap" style="margin-bottom:12px;"></div>' +
+      '<div id="ss-manager-swap-msg" style="display:none;margin-bottom:10px;padding:8px 10px;background:rgba(239,68,68,.1);border-left:3px solid var(--err);border-radius:4px;font-size:12px;color:var(--err);"></div>' +
+      '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Reason (optional)</div>' +
+        '<input id="ss-manager-reason" class="login-input" style="width:100%;box-sizing:border-box;font-size:13px;" placeholder="e.g. coverage adjustment" />' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="btn" onclick="closeModal(\'modal-staff-dayoff-swap\')">Cancel</button>' +
+        '<button class="btn btn-accent" id="ss-manager-submit" onclick="_ssSubmitManagerDayoffSwap()">Apply Now</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function _ssOpenManagerDayoffSwap(username, day) {
+  if (!_ssCanManageSchedule()) return;
+  if (!_ssIsFutureDayoff(day)) {
+    toast('Direct schedule swap is only available for future day-offs.', 'err');
+    return;
+  }
+  var sourceWeek = _getUserWeekShiftSummary(username, day, day);
+  if (sourceWeek.distinctShifts.length > 1) {
+    var sourceUser0 = state.users.find(function(u) { return u.username === username; }) || { name: username };
+    _ssShowManagerIgnoreModal(sourceUser0.name + ' changes shift in this week, so direct schedule swap is ignored.');
+    return;
+  }
+  if (!document.getElementById('modal-staff-dayoff-swap')) {
+    document.body.insertAdjacentHTML('beforeend', _ssManagerSwapModalHTML());
+  }
+
+  _ssManagerSwap.username = username;
+  _ssManagerSwap.day = day;
+  document.getElementById('ss-manager-reason').value = '';
+  document.getElementById('ss-manager-target-date-wrap').innerHTML = '';
+  document.getElementById('ss-manager-swap-msg').style.display = 'none';
+  document.getElementById('ss-manager-submit').disabled = false;
+  document.getElementById('ss-manager-submit').style.opacity = '';
+
+  var sourceUser = state.users.find(function(u) { return u.username === username; }) || { name: username };
+  document.getElementById('ss-manager-swap-source').textContent = sourceUser.name + ' - ' + day + ' (' + getWkDay(day) + ')';
+  var sourceGroup = _ssGetSwapGroup(sourceUser);
+
+  var candidates = _ssVisibleUsers.filter(function(u) {
+    if (!u || u.username === username) return false;
+    if (!sourceGroup || _ssGetSwapGroup(u) !== sourceGroup) return false;
+    return Object.keys(state.staffSchedule[u.username] || {}).some(function(dk) {
+      return _ssIsFutureDayoff(dk) && _getSched(u.username, dk) === '0';
+    });
+  });
+
+  document.getElementById('ss-manager-target-user').innerHTML = '<option value="">- Select person -</option>' +
+    candidates.map(function(u) {
+      return '<option value="' + u.username + '">' + u.name + ' (' + (u.team || '?') + ')</option>';
+    }).join('');
+
+  document.getElementById('modal-staff-dayoff-swap').classList.add('show');
+}
+
+function _ssManagerSwapUpdateDates() {
+  var targetUsername = document.getElementById('ss-manager-target-user').value;
+  var wrap = document.getElementById('ss-manager-target-date-wrap');
+  var msgEl = document.getElementById('ss-manager-swap-msg');
+  msgEl.style.display = 'none';
+  if (!targetUsername || !_ssManagerSwap.day) {
+    wrap.innerHTML = '';
+    return;
+  }
+  var dayoffs = Object.keys(state.staffSchedule[targetUsername] || {}).filter(function(dk) {
+    return _ssIsFutureDayoff(dk) && _getSched(targetUsername, dk) === '0';
+  });
+  dayoffs = _sortDateKeys(dayoffs);
+  if (dayoffs.length === 0) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);">No future day off available for this person.</div>';
+    return;
+  }
+  wrap.innerHTML = '<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Their future day off</div>' +
+    '<select id="ss-manager-target-date" class="login-select" style="width:100%;font-size:13px;" onchange="_ssManagerSwapValidate()">' +
+    '<option value="">- Select date -</option>' +
+    dayoffs.map(function(dk) { return '<option value="' + dk + '">' + dk + ' (' + getWkDay(dk) + ')</option>'; }).join('') +
+    '</select>';
+}
+
+function _ssManagerSwapValidate() {
+  var targetUsername = document.getElementById('ss-manager-target-user').value;
+  var targetDateEl = document.getElementById('ss-manager-target-date');
+  var targetDate = targetDateEl ? targetDateEl.value : '';
+  var msgEl = document.getElementById('ss-manager-swap-msg');
+  var submitBtn = document.getElementById('ss-manager-submit');
+  if (!_ssManagerSwap.username || !_ssManagerSwap.day || !targetUsername || !targetDate) {
+    msgEl.style.display = 'none';
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '';
+    }
+    return;
+  }
+  var result = _checkManagerDirectDayoffSwapValid(_ssManagerSwap.username, _ssManagerSwap.day, targetUsername, targetDate);
+  if (!result.ok) {
+    if (result.blockType === 'shift-transition') {
+      msgEl.style.display = 'none';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+      }
+      return;
+    }
+    msgEl.textContent = '! ' + result.reason;
+    msgEl.style.display = 'block';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+    }
+    return;
+  }
+  msgEl.style.display = 'none';
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '';
+  }
+}
+
+function _ssSubmitManagerDayoffSwap() {
+  var targetUsername = document.getElementById('ss-manager-target-user').value;
+  var targetDateEl = document.getElementById('ss-manager-target-date');
+  var targetDate = targetDateEl ? targetDateEl.value : '';
+  var reason = (document.getElementById('ss-manager-reason').value || '').trim();
+  if (!_ssManagerSwap.username || !_ssManagerSwap.day) {
+    toast('Select a day-off cell first.', 'err');
+    return;
+  }
+  if (!targetUsername || !targetDate) {
+    toast('Select the swap person and their day off.', 'err');
+    return;
+  }
+
+  var result = _checkManagerDirectDayoffSwapValid(_ssManagerSwap.username, _ssManagerSwap.day, targetUsername, targetDate);
+  if (!result.ok) {
+    if (result.blockType === 'shift-transition') {
+      closeModal('modal-staff-dayoff-swap');
+      _ssShowManagerIgnoreModal(result.reason);
+      return;
+    }
+    toast('Cannot apply swap: ' + result.reason, 'err');
+    return;
+  }
+
+  var requesterUser = state.users.find(function(u) { return u.username === _ssManagerSwap.username; });
+  var targetUser = state.users.find(function(u) { return u.username === targetUsername; });
+  if (!requesterUser || !targetUser) {
+    toast('Unable to find the selected staff.', 'err');
+    return;
+  }
+
+  var request = _createDayoffSwapRequest({
+    requesterUser: requesterUser,
+    targetUser: targetUser,
+    myDate: _ssManagerSwap.day,
+    theirDate: targetDate,
+    reason: reason,
+    status: 'approved',
+    resolvedBy: currentUser.id,
+    resolvedAt: Date.now(),
+    source: 'staff-schedule-manager',
+    requesterShift: result.sourceShift || '',
+    targetShift: result.targetShift || '',
+    applyImmediately: true
+  });
+  if (!request) {
+    toast('Could not create the schedule change request.', 'err');
+    return;
+  }
+
+  if (typeof syncWrite === 'function') syncWrite(); else save();
+  closeModal('modal-staff-dayoff-swap');
+  toast('Day-off swap applied. Google Sheet writeback will follow the sync flow.', 'ok');
+  nav('staff');
+}
+
 function renderStaffRows(users, displayDates) {
+  _ssVisibleUsers = (users || []).slice();
   var _canReqSwap = !isLeader(currentUser) && !isTraining(currentUser);
+  var _canManageSchedule = _ssCanManageSchedule();
   var _nowMs = new Date().setHours(0,0,0,0);
   var _nowYr = new Date().getFullYear();
   return users.map(function(u) {
@@ -1648,6 +1886,12 @@ function renderStaffRows(users, displayDates) {
       var s = _getSched(u.username, d);
       var isFiltered = d === _ssFilterDk && _ssShiftFilter !== 'All';
       var cellBg = isFiltered ? 'background:rgba(31,102,241,0.06) !important;' : '';
+      if (_canManageSchedule && s === '0' && _ssIsFutureDayoff(d)) {
+        return '<td class="c" style="cursor:pointer;' + cellBg + '" onclick="_ssOpenManagerDayoffSwap(\'' + u.username + '\',\'' + d + '\')" title="Apply day-off swap">' +
+          '<span class="sh sh-0">-</span>' +
+          '<div style="font-size:8px;color:var(--accent);margin-top:1px;line-height:1;">SW</div>' +
+          '</td>';
+      }
       if (_isMyRow && s === '0') {
         var _dp = d.split('/');
         var _ddt = new Date(_nowYr, parseInt(_dp[1])-1, parseInt(_dp[0]));
