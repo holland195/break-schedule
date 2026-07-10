@@ -5,8 +5,8 @@
 // ═══════════════════════════════════════════════
 const SPREADSHEET_ID          = '19YqrS2ls7V74bJMQNjWavXTYEeRiMZDptbA_vKK2aPs';
 const LOGBOOK_SPREADSHEET_ID  = '1-OKeOsCVKO208UwWcjAtLqYOVMdNuFDR6fxxTHQi0ao';
-const FIREBASE_URL            = 'https://break-schedule-pave-default-rtdb.asia-southeast1.firebasedatabase.app/bsched.json';
-const FIREBASE_SECRET         = 'W0kg0YX5okfaQzWLFBiZwrY69WeK1YJufBQySZsK';
+const CLOUD_STATE_URL         = 'https://break-schedule-api.cuong-pham-222.workers.dev/api/state';
+const CLOUD_API_KEY           = '@Dmin!195';
 const ATTENDANCE_SHEET        = 'Attendance-June-2026'; // update each month
 const SCHEDULE_SHEET          = 'Schedule Jul_26';     // update each month
 const WORKING_TIME_SHEET      = 'Working Time-June-26'; // update each month (format: 'Working Time-Mon-YY')
@@ -29,11 +29,11 @@ function dailySync() {
   try {
     addLog('=== PAVE Daily Sync Start: ' + startTime.toISOString() + ' ===');
 
-    // ── 1. Pull current Firebase state once ──
-    addLog('[Firebase] Fetching current data…');
+    // ── 1. Pull current cloud state once ──
+    addLog('[Cloud] Fetching current data…');
     const raw     = firebaseGet();
     const current = raw ? JSON.parse(raw) : {};
-    addLog('[Firebase] Fetch OK. Keys: ' + Object.keys(current).join(', '));
+    addLog('[Cloud] Fetch OK. Keys: ' + Object.keys(current).join(', '));
 
     // ── 2. Sync attendance ──
     const attResult = syncAttendance(current, addLog);
@@ -47,16 +47,16 @@ function dailySync() {
     // ── 4b. Sync working time (Late/Early/Training/Others in minutes) ──
     const wtResult = syncWorkingTime(current, addLog);
 
-    // ── 5. Push back to Firebase ──
+    // ── 5. Push back to cloud state ──
     addLog('[Backup] Saving full daily JSON backup to Google Drive…');
     saveDriveBackup(current, addLog);
 
     addLog('[Purge] Purging historical active state data older than 90 days…');
     purgeActiveState(current, addLog);
 
-    addLog('[Firebase] Pushing updated data…');
+    addLog('[Cloud] Pushing updated data…');
     firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
-    addLog('[Firebase] Push OK.');
+    addLog('[Cloud] Push OK.');
 
     // ── 6. Summary ──
     const duration = ((new Date() - startTime) / 1000).toFixed(1);
@@ -390,9 +390,9 @@ function syncSchedule(current, log) {
 
 // Run this directly from the GAS editor to test schedule sync
 function runSyncSchedule() {
-  var current = firebaseGet(FIREBASE_URL, FIREBASE_SECRET) || {};
+  var current = firebaseGet() || {};
   syncSchedule(current, function(m) { console.log(m); });
-  firebaseSet(FIREBASE_URL, FIREBASE_SECRET, current);
+  firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
 }
 
 // ═══════════════════════════════════════════════
@@ -1019,20 +1019,12 @@ function findUsername(data, nameVal, empNo) {
 }
 
 // ═══════════════════════════════════════════════
-//  FIREBASE REST
+//  CLOUD STATE REST
 // ═══════════════════════════════════════════════
 
 function firebaseGet() {
-  const isFirebase = FIREBASE_URL.indexOf('firebasedatabase.app') >= 0 || FIREBASE_URL.indexOf('firebaseio.com') >= 0;
-  
-  let url = FIREBASE_URL;
-  let headers = {};
-  
-  if (isFirebase) {
-    url = FIREBASE_URL + '?auth=' + FIREBASE_SECRET;
-  } else {
-    headers["X-API-Key"] = FIREBASE_SECRET;
-  }
+  const url = CLOUD_STATE_URL;
+  const headers = { "X-API-Key": CLOUD_API_KEY };
 
   const res = UrlFetchApp.fetch(url, {
     method:             'GET',
@@ -1064,17 +1056,11 @@ function firebasePut(jsonStr) {
   if (wrapper && wrapper.data) {
     wrapper.data = LZString.compressToUTF16(wrapper.data);
   }
-
-  const isFirebase = FIREBASE_URL.indexOf('firebasedatabase.app') >= 0 || FIREBASE_URL.indexOf('firebaseio.com') >= 0;
-  
-  let url = FIREBASE_URL;
-  let headers = { 'Content-Type': 'application/json' };
-  
-  if (isFirebase) {
-    url = FIREBASE_URL + '?auth=' + FIREBASE_SECRET;
-  } else {
-    headers["X-API-Key"] = FIREBASE_SECRET;
-  }
+  const url = CLOUD_STATE_URL;
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-API-Key': CLOUD_API_KEY
+  };
 
   const res = UrlFetchApp.fetch(url, {
     method:             'PUT',
@@ -1116,14 +1102,14 @@ function dailySyncPolicy() {
   try {
     addLog('=== Policy Sync Start: ' + startTime.toISOString() + ' ===');
 
-    addLog('[Firebase] Fetching current data…');
+    addLog('[Cloud] Fetching current data…');
     var raw     = firebaseGet();
     var current = raw ? JSON.parse(raw) : {};
-    addLog('[Firebase] Fetch OK.');
+    addLog('[Cloud] Fetch OK.');
 
     var result = syncPolicy(current, addLog);
 
-    addLog('[Firebase] Pushing updated data…');
+    addLog('[Cloud] Pushing updated data…');
     firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
     addLog('[Firebase] Push OK.');
 
@@ -2136,7 +2122,7 @@ function _runShiftWriteback(shiftCode, toggleKey) {
     var policyResult = syncPolicyWriteback(current, addLog);
 
     firebasePut(JSON.stringify({ data: JSON.stringify(current) }));
-    addLog('[Firebase] Push OK.');
+    addLog('[Cloud] Push OK.');
 
     var duration = ((new Date() - startTime) / 1000).toFixed(1);
     addLog('=== Shift ' + shiftCode + ' Writeback Complete in ' + duration + 's ===');
