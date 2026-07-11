@@ -22,7 +22,7 @@
 //  0  → weekly day off (nghá»‰ tuáº§n)
 //  U  → unpaid leave
 //  S  → sick leave (BHXH)
-//  L  → personal leave (káº¿t hôn, tang)
+//  L  → social leave (hiếu hỉ, tang chế hưởng lương)
 //
 //  SHIFT MISMATCH: XA on shift B day → conflict
 
