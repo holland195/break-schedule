@@ -438,26 +438,75 @@ function clearAttAll() {
     }
 }
 
-var _attHoveredCell = null, _attKbdInstalled = !1;
+var _attSelectedCell = null, _attKbdInstalled = !1;
+
+function _attCellKey(e, t, a) {
+    return [ e || "", t || "", a || "" ].join("|");
+}
+
+function _attSetSelectedCell(e, t, a, n) {
+    _attSelectedCell = {
+        username: e,
+        monthKey: t,
+        dk: a,
+        code: n || ""
+    };
+}
+
+function _attSelectedCellKey() {
+    return _attSelectedCell ? _attCellKey(_attSelectedCell.username, _attSelectedCell.monthKey, _attSelectedCell.dk) : "";
+}
+
+function _attWriteSelectedCode(e) {
+    if (!_attSelectedCell || !e) return !1;
+    var t = Object.assign({}, DB.getMonthlyAtt(_attSelectedCell.username, _attSelectedCell.monthKey));
+    return t[_attSelectedCell.dk] = e, DB.setMonthlyAtt(_attSelectedCell.username, _attSelectedCell.monthKey, t),
+    _attSelectedCell.code = e, syncWrite(), !0;
+}
+
+function _attShiftFamilyCodes(e) {
+    var t = String(e || "").toUpperCase();
+    return "A" === t ? [ "XA", "A1", "A2", "UA1", "UA2" ] : "D" === t ? [ "XD", "D1", "D2", "UD1", "UD2" ] : "E" === t ? [ "XE", "E1", "E2", "UE1", "UE2" ] : [];
+}
+
+function _attModalCodeGroups(e, t, a) {
+    var n = (_getSched(e, a) || "").charAt(0).toUpperCase(), r = _attShiftFamilyCodes(n), o = [ "0", "A", "H", "U", "S", "L" ], s = [];
+    if (r.length) s.push({
+        label: "Shift " + n,
+        codes: r.slice()
+    });
+    var i = String(t || "").toUpperCase();
+    return i && -1 === r.indexOf(i) && -1 === o.indexOf(i) && s.push({
+        label: "Current code",
+        codes: [ i ]
+    }), s.push({
+        label: "Leave / Off",
+        codes: o
+    }), s;
+}
+
+function _attModalGroupHTML(e, t) {
+    return '<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);">' + e.label + '</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">' + e.codes.map(function(e) {
+        return '<button class="btn btn-sm' + (e === t ? " btn-accent" : "") + "\" onclick=\"document.querySelectorAll('#modal-att-cell .btn[data-att-code]').forEach(function(b){b.classList.remove('btn-accent');});this.classList.add('btn-accent');_attCellSelected='" + e + "'\" data-att-code=\"" + e + "\">" + e + "</button>";
+    }).join("") + "</div></div>";
+}
 
 function _installAttKbd() {
     _attKbdInstalled || (_attKbdInstalled = !0, document.addEventListener("keydown", function(e) {
-        var t = (e.target || {}).tagName;
+        var t = (e.target || {}).tagName, a = window.getSelection ? window.getSelection() : null, n = a ? String(a).trim() : "";
         if ("INPUT" !== t && "SELECT" !== t && "TEXTAREA" !== t && document.getElementById("sa-kbd-marker")) {
+            if (n) return;
             if ((e.ctrlKey || e.metaKey) && "z" === e.key) {
                 if (!_staffAttUndoStack.length) return;
                 return e.preventDefault(), void undoClearAtt();
             }
             if ((e.ctrlKey || e.metaKey) && "c" === e.key) {
-                if (!_attHoveredCell || !_attHoveredCell.code) return;
-                e.preventDefault(), _attCopiedCode = _attHoveredCell.code, _navStaff();
+                if (!_attSelectedCell || !_attSelectedCell.code) return;
+                e.preventDefault(), _attCopiedCode = _attSelectedCell.code, _navStaff();
             }
             if ((e.ctrlKey || e.metaKey) && "v" === e.key) {
-                if (!_attHoveredCell || !_attCopiedCode) return;
-                e.preventDefault();
-                var a = Object.assign({}, DB.getMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey));
-                a[_attHoveredCell.dk] = _attCopiedCode, DB.setMonthlyAtt(_attHoveredCell.username, _attHoveredCell.monthKey, a), 
-                syncWrite(), _navStaff();
+                _attSelectedCell && _attCopiedCode && (e.preventDefault(), _attWriteSelectedCode(_attCopiedCode),
+                _navStaff());
             }
             "Escape" === e.key && _attCopiedCode && (_attCopiedCode = "", _navStaff());
         }
@@ -465,7 +514,7 @@ function _installAttKbd() {
 }
 
 function _attCellModalHTML() {
-    return '<div id="modal-att-cell" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-att-cell\')"><div class="modal" style="width:380px;"><div class="modal-title" id="att-cell-modal-title">Edit Attendance</div><div id="att-cell-code-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0;"></div><div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;"><div style="display:flex;gap:8px;"><button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button><button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');_navStaff()">Copy</button></div><div style="display:flex;gap:8px;"><button class="btn btn-sm" onclick="closeModal(\'modal-att-cell\')">Cancel</button><button class="btn btn-accent btn-sm" onclick="saveAttCell()">Save</button></div></div></div></div>';
+    return '<div id="modal-att-cell" class="modal-overlay" onclick="if(event.target===this)closeModal(\'modal-att-cell\')"><div class="modal" style="width:420px;"><div class="modal-title" id="att-cell-modal-title">Edit Attendance</div><div id="att-cell-code-grid" style="display:flex;flex-direction:column;gap:14px;margin:14px 0;"></div><div style="display:flex;gap:8px;justify-content:space-between;margin-top:4px;"><div style="display:flex;gap:8px;"><button class="btn btn-sm" style="color:var(--err);border-color:var(--err);" onclick="clearAttCell()">Clear</button><button class="btn btn-sm" title="Copy code for quick paste" onclick="_attCopiedCode=_attCellSelected;closeModal(\'modal-att-cell\');_navStaff()">Copy</button></div><div style="display:flex;gap:8px;"><button class="btn btn-sm" onclick="closeModal(\'modal-att-cell\')">Cancel</button><button class="btn btn-accent btn-sm" onclick="saveAttCell()">Save</button></div></div></div></div>';
 }
 
 var _attCellTarget = null, _attCellSelected = "";
@@ -483,8 +532,8 @@ function openAttCellModal(e, t, a) {
         return t.username === e;
     }), o = r ? r.name : e;
     document.getElementById("att-cell-modal-title").textContent = "Edit " + a + " — " + o;
-    document.getElementById("att-cell-code-grid").innerHTML = [ "XA", "XD", "XE", "0", "A1", "A2", "UA1", "UA2", "D1", "D2", "UD1", "UD2", "E1", "E2", "UE1", "UE2", "A", "H", "U", "S", "L" ].map(function(e) {
-        return '<button class="btn btn-sm' + (e === n ? " btn-accent" : "") + "\" onclick=\"document.querySelectorAll('#att-cell-code-grid .btn').forEach(function(b){b.classList.remove('btn-accent');});this.classList.add('btn-accent');_attCellSelected='" + e + "'\">" + e + "</button>";
+    document.getElementById("att-cell-code-grid").innerHTML = _attModalCodeGroups(e, n, a).map(function(e) {
+        return _attModalGroupHTML(e, n);
     }).join(""), document.getElementById("modal-att-cell").classList.add("show");
 }
 
@@ -505,10 +554,8 @@ function clearAttCell() {
 }
 
 function attCellClick(e, t, a) {
-    if (_attCopiedCode) {
-        var n = Object.assign({}, DB.getMonthlyAtt(e, t));
-        n[a] = _attCopiedCode, DB.setMonthlyAtt(e, t, n), syncWrite(), _navStaff();
-    } else openAttCellModal(e, t, a);
+    var n = (DB.getMonthlyAtt(e, t) || {})[a] || "", r = _attSelectedCellKey() === _attCellKey(e, t, a);
+    _attSetSelectedCell(e, t, a, n), r ? openAttCellModal(e, t, a) : _navStaff();
 }
 
 function _liveFilterAttendance() {
@@ -602,23 +649,24 @@ function _liveFilterAttendance() {
             var l = o.team || (state.staffInfo[o.username] || {}).team || "", d = _resolveRole(o.role || (state.staffInfo[o.username] || {}).role || "", l) || "", p = 3 === (ROLES[d] || {}).level;
             const c = n.map(n => {
                 const r = s[n], l = _parseAttCode(r), [d, c] = n.split("/"), f = parseInt(c) === t ? e : 1 === t ? e - 1 : e, u = new Date(f, parseInt(c) - 1, parseInt(d)).getDay(), m = n === _saFilterDk && "All" !== _saShiftFilter ? "background:rgba(31,102,241,0.06) !important;" : "";
-                if (!r && !l) return `<td style="text-align:center;padding:2px 1px;background:${0 === u || 6 === u ? "var(--bg4)" : ""};${m}cursor:pointer;"\n          onclick="attCellClick('${o.username}','${a}','${n}')"\n          onmouseover="_attHoveredCell={username:'${o.username}',monthKey:'${a}',dk:'${n}',code:''}">\n          <span style="font-size:10px;color:var(--text3);">·</span></td>`;
-                const g = i.find(e => e.dk === n), x = g ? g.msgs : null, b = !p && !!g;
-                let w = "", _ = "", S = "";
+                var g = _attCellKey(o.username, a, n), x = _attSelectedCellKey() === g, b = x ? "outline:2px solid var(--accent);outline-offset:-2px;" : "";
+                if (!r && !l) return `<td style="text-align:center;padding:2px 1px;background:${0 === u || 6 === u ? "var(--bg4)" : ""};${m}${b}cursor:pointer;"\n          onclick="attCellClick('${o.username}','${a}','${n}')"\n          data-att-cell="${g}">\n          <span style="font-size:10px;color:var(--text3);">·</span></td>`;
+                const w = i.find(e => e.dk === n), _ = w ? w.msgs : null, S = !p && !!w;
+                let I = "", T = "", k = "";
                 if (l) if ("OFF" === l.type) {
                     const e = String(r).toUpperCase();
-                    _ = "0" === e || "0.0" === e ? "0" : e;
+                    T = "0" === e || "0.0" === e ? "0" : e;
                     const t = h["0.0" === e ? "0" : e] || [ "var(--D-bg)", "var(--err)" ];
-                    w = "background:" + t[0] + ";", S = "color:" + t[1] + ";font-weight:600;";
-                } else if ("HD1" === l.type || "HD2" === l.type) w = `background:${y[0]};`, S = `color:${y[1]};font-weight:600;`, 
-                _ = String(r).toUpperCase(); else {
+                    I = "background:" + t[0] + ";", k = "color:" + t[1] + ";font-weight:600;";
+                } else if ("HD1" === l.type || "HD2" === l.type) I = `background:${y[0]};`, k = `color:${y[1]};font-weight:600;`,
+                T = String(r).toUpperCase(); else {
                     const e = (l.shift || "").toUpperCase(), t = v[e];
-                    w = t ? `background:${t[0]};` : "background:rgba(74,222,128,.06);", S = t ? `color:${t[1]};font-weight:600;` : "color:var(--ok);font-weight:500;", 
-                    _ = l.shift || "✓";
-                } else _ = r || "?", S = "color:var(--text3);";
-                b && (w = "background:rgba(248,113,113,.12);", S = "color:var(--err);font-weight:700;");
-                const I = b ? '<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>' : "";
-                return `<td style="text-align:center;padding:2px 2px;${w}${m}"\n        title="${x ? x.join(" | ") : l?.reason || r || ""}" ${`onmouseover="_attHoveredCell={username:'${o.username}',monthKey:'${a}',dk:'${n}',code:'${(r || "").replace(/'/g, "\\'")}'}"`} ${`onclick="attCellClick('${o.username}','${a}','${n}')" style="cursor:pointer;"`}>\n        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${S}">${_}${I}</span>\n      </td>`;
+                    I = t ? `background:${t[0]};` : "background:rgba(74,222,128,.06);", k = t ? `color:${t[1]};font-weight:600;` : "color:var(--ok);font-weight:500;",
+                    T = l.shift || "✓";
+                } else T = r || "?", k = "color:var(--text3);";
+                S && (I = "background:rgba(248,113,113,.12);", k = "color:var(--err);font-weight:700;");
+                const C = S ? '<sup style="font-size:7px;position:relative;top:-1px;margin-left:1px;">⚠</sup>' : "";
+                return `<td style="text-align:center;padding:2px 2px;${I}${m}${b}cursor:pointer;"\n        title="${_ ? _.join(" | ") : l?.reason || r || ""}" onclick="attCellClick('${o.username}','${a}','${n}')" data-att-cell="${g}">\n        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;${k}">${T}${C}</span>\n      </td>`;
             }).join(""), u = i.length ? "background:rgba(248,113,113,.03);" : "", m = "position:sticky;z-index:1;background:var(--bg3);";
             var g = o.role || (state.staffInfo[o.username] || {}).role || "";
             return `<tr style="border-bottom:0.5px solid var(--border);${u}">\n      <td style="padding:5px 8px;white-space:nowrap;${m}left:0;min-width:92px;width:92px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;">${o.empNo || "—"}</td>\n      <td style="padding:5px 10px;white-space:nowrap;${m}left:92px;min-width:165px;width:165px;border-left:1px solid var(--border);">\n        <div style="font-size:12px;font-weight:600;">${o.name}</div>\n      </td>\n      <td style="padding:5px 8px;white-space:nowrap;${m}left:257px;min-width:145px;width:145px;border-left:1px solid var(--border);font-size:11px;color:${_roleColor(g, o.team)};">${getRoleInfo(g, o.team).label || _resolveRole(g, o.team) || "—"}</td>\n      ${c}\n    </tr>`;
