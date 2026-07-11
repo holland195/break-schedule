@@ -85,7 +85,8 @@ function load() {
            _breaksUpdatedAt:0, _usersUpdatedAt:0,
            _policyComplianceUpdatedAt:0,
            attendance:{}, monthlyAttendance:{}, breakSplits:{},
-           staffSchedule:{}, workingTime:{} };
+           staffSchedule:{}, workingTime:{},
+           leaveImportHistory:{}, leaveImportCellSources:{} };
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); } catch(e){}
@@ -208,6 +209,8 @@ if (!state.shiftConfig) state.shiftConfig = [];
 if (!state.staffSchedule) state.staffSchedule = {};
 if (!state.gasConfig) state.gasConfig = {};
 if (!state.bulkBreakEnabled) state.bulkBreakEnabled = { A: true, D: true, E: true };
+if (!state.leaveImportHistory) state.leaveImportHistory = {};
+if (!state.leaveImportCellSources) state.leaveImportCellSources = {};
 if (state._policyComplianceUpdatedAt === undefined) state._policyComplianceUpdatedAt = 0;
 // No more SEED_USERS — users come only from schedule import
 
@@ -545,12 +548,14 @@ const ATT_CODE_MAP = (() => {
     map[`${sh}2`] = { type: 'HD2', shift: sh };
     map[`U${sh}1`] = { type: 'HD1', shift: sh };
     map[`U${sh}2`] = { type: 'HD2', shift: sh };
+    map[`S${sh}1`] = { type: 'HD1', shift: sh };
+    map[`S${sh}2`] = { type: 'HD2', shift: sh };
   });
   map['A'] = { type: 'OFF', reason: 'Annual leave' };
   map['H'] = { type: 'OFF', reason: 'Public holiday' };
   map['U'] = { type: 'OFF', reason: 'Unpaid leave' };
   map['S'] = { type: 'OFF', reason: 'Sick leave' };
-  map['L'] = { type: 'OFF', reason: 'Personal leave' };
+  map['L'] = { type: 'OFF', reason: 'Social leave' };
   map['0'] = { type: 'OFF', reason: 'Day off' };
   map['0.0'] = { type: 'OFF', reason: 'Day off' };
   return map;
