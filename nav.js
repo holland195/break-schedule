@@ -179,7 +179,7 @@ function _initNavTooltips() {
     schedule:  'Break Schedule',
     requests:  'Break Swap',
     extbreak:  '30-min Break',
-    policy:    'Violations',
+    policy:    'Policy',
     arrange:   'Arrange Breaks',
     attendance:'Logbook',
     staff:     'Staff',
