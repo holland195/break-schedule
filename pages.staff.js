@@ -783,6 +783,12 @@ function _attHalfDayCode(e, t, a) {
     return t && a ? "A" === e ? t + a : e + t + a : "";
 }
 
+function _attParseLeaveDayCount(e) {
+    if (null == e) return 0;
+    var t = String(e).trim().replace(",", "."), a = parseFloat(t);
+    return isFinite(a) ? a : 0;
+}
+
 function _attWeeklyOffDaySet(e) {
     var t = _attNormalizeLabel(e), a = {};
     return t ? (/(^|[^a-z0-9])cn([^a-z0-9]|$)|chu nhat/.test(t) && (a[0] = !0), /(^|[^a-z0-9])t2([^a-z0-9]|$)|thu 2/.test(t) && (a[1] = !0), 
@@ -1055,10 +1061,10 @@ function _attNormalizeLeaveCells(e, t) {
     };
     var d = String(e.detailRange || "");
     d || (d = String(e.fromDate || "") + " - " + String(e.toDate || ""));
-    var p = d.split(/\s*[\u2012\u2013\u2014-]+\s*/).filter(Boolean), c = p.length ? _attHalfType(p[0]) : 0, f = p.length > 1 ? _attHalfType(p[1]) : c, u = p.length ? _attExtractDateParts(p[0]) : null, m = p.length > 1 ? _attExtractDateParts(p[1]) : u, g = _attWeeklyOffDaySet(e.weeklyOff), v = [];
+    var p = d.split(/\s*[\u2012\u2013\u2014-]+\s*/).filter(Boolean), c = p.length ? _attHalfType(p[0]) : 0, f = p.length > 1 ? _attHalfType(p[1]) : c, u = p.length ? _attExtractDateParts(p[0]) : null, m = p.length > 1 ? _attExtractDateParts(p[1]) : u, g = _attWeeklyOffDaySet(e.weeklyOff), v = [], y = _attParseLeaveDayCount(e.days), h = l.length > 1 && y >= l.length;
     return l.forEach(function(e, t) {
         var a = r, o = new Date(e.year, e.month - 1, e.day).getDay(), s = 0 === t, d = t === l.length - 1;
-        "A" === r && g[o] ? a = "0" : 1 === l.length && c && f ? c === f && (a = _attHalfDayCode(r, i, c)) : (s && c && u && u.dateKey === e.dateKey && (a = _attHalfDayCode(r, i, c)), 
+        "A" === r && g[o] ? a = "0" : h ? a = r : 1 === l.length && c && f ? c === f && (a = _attHalfDayCode(r, i, c)) : (s && c && u && u.dateKey === e.dateKey && (a = _attHalfDayCode(r, i, c)), 
         d && f && m && m.dateKey === e.dateKey && (a = _attHalfDayCode(r, i, f)), s && d && c && f && c !== f && (a = r)), 
         a && v.push({
             username: n.username,
