@@ -133,6 +133,18 @@ function _pcIsoWeek(dateStr) {
   return 1 + Math.round(((thu - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7);
 }
 
+function _pcMonthOptionsForYear(year) {
+  var y = String(year || '');
+  if (!y) return [];
+  return Array.from({ length: 12 }, function(_, idx) {
+    var month = String(idx + 1).padStart(2, '0');
+    return {
+      value: y + '-' + month,
+      label: new Date(Number(y), idx, 1).toLocaleString('en', { month: 'short' })
+    };
+  });
+}
+
 // ── Page state ──
 let _pcTab    = 'policy'; // 'policy' | 'records' | 'summary' | 'rules' | 'weekly'
 let _pcPage   = 1;
@@ -329,11 +341,11 @@ function renderPolicyCompliance() {
   if (isPersonal) {
     var myRecords = (typeof _fbMyRecords === 'function') ? _fbMyRecords() : [];
     var recordCountText = myRecords.length === 1 ? '1 record' : myRecords.length + ' records';
-    var feedContent = (typeof _fbRenderMine === 'function') ? _fbRenderMine() : '<div class="fb-empty">No violations on record.</div>';
+    var feedContent = (typeof _fbRenderMine === 'function') ? _fbRenderMine() : '<div class="fb-empty">No policy records on file.</div>';
 
     return '<div class="page-header pc-page-head"><div>'
-      + '<div class="page-title">Violations</div>'
-      + '<div class="page-sub">' + recordCountText + ' &nbsp;&middot;&nbsp; Personal violation reports</div>'
+      + '<div class="page-title">Policy</div>'
+      + '<div class="page-sub">' + recordCountText + ' &nbsp;&middot;&nbsp; Personal policy reports</div>'
       + '</div><button type="button" class="btn btn-sm" onclick="_pcOpenRulesModal()">View rules</button></div>'
       + '<div id="pc-content">'
       + '  <div class="pc-personal-container" style="max-width:820px;margin:0 auto;padding:16px 0;">'
@@ -353,7 +365,7 @@ function renderPolicyCompliance() {
       + '</button>';
   };
 
-  var tabs = '<div class="pc-tabbar pc-tabbar-' + mode + '" role="tablist" aria-label="Violations sections">'
+  var tabs = '<div class="pc-tabbar pc-tabbar-' + mode + '" role="tablist" aria-label="Policy sections">'
     + T('policy', '📊', 'General report')
     + T('weekly', '🗓️', 'Weekly')
     + T('summary','📅', 'Summary 30D')
@@ -367,11 +379,11 @@ function renderPolicyCompliance() {
   else if (_pcTab==='weekly')  content = _pcRenderWeekly();
 
   var titleHint = mode === 'personal'
-    ? 'Personal violation reports'
-    : 'Team violation reports';
+    ? 'Personal policy reports'
+    : 'Team policy reports';
 
   return '<div class="page-header pc-page-head"><div>'
-    + '<div class="page-title">Violations</div>'
+    + '<div class="page-title">Policy</div>'
     + '<div class="page-sub">'+_pcData().length+' records &nbsp;&middot;&nbsp; '+titleHint+'</div>'
     + '</div><button type="button" class="btn btn-sm" onclick="_pcOpenRulesModal()">View rules</button></div>'
     + tabs
@@ -417,7 +429,7 @@ function _pcCloseRulesModal() {
 function _pcRulesModalHTML() {
   return '<div id="pc-rules-modal" class="pc-rules-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="pc-rules-title" onclick="if(event.target===this)_pcCloseRulesModal()">'
     + '<div class="pc-rules-dialog">'
-    + '<div class="pc-rules-head"><div><div id="pc-rules-title" class="pc-rules-title">Violation rules</div><div class="pc-rules-sub">Policy reference, shown only when needed.</div></div><button type="button" class="btn btn-sm" onclick="_pcCloseRulesModal()">Close</button></div>'
+    + '<div class="pc-rules-head"><div><div id="pc-rules-title" class="pc-rules-title">Policy rules</div><div class="pc-rules-sub">Policy reference, shown only when needed.</div></div><button type="button" class="btn btn-sm" onclick="_pcCloseRulesModal()">Close</button></div>'
     + '<div class="pc-rules-body">' + _pcRenderRules() + '</div>'
     + '</div></div>';
 }
@@ -425,7 +437,7 @@ function _pcRulesModalHTML() {
 function _pcCellDetailsModalHTML() {
   return '<div id="pc-cell-details-modal" class="pc-rules-modal" style="display:none;" role="dialog" aria-modal="true" onclick="if(event.target===this)_pcCloseCellDetailsModal()">'
     + '<div class="pc-rules-dialog" style="max-width:520px;">'
-    + '<div class="pc-rules-head"><div><div id="pc-cell-details-title" class="pc-rules-title">Violations List</div><div id="pc-cell-details-sub" class="pc-rules-sub">Detailed records for this period.</div></div><button type="button" class="btn btn-sm" onclick="_pcCloseCellDetailsModal()">Close</button></div>'
+    + '<div class="pc-rules-head"><div><div id="pc-cell-details-title" class="pc-rules-title">Policy Records</div><div id="pc-cell-details-sub" class="pc-rules-sub">Detailed policy records for this period.</div></div><button type="button" class="btn btn-sm" onclick="_pcCloseCellDetailsModal()">Close</button></div>'
     + '<div class="pc-rules-body" id="pc-cell-details-body" style="padding:16px 20px;max-height:60vh;overflow-y:auto;"></div>'
     + '</div></div>';
 }
@@ -469,9 +481,9 @@ function _pcShowCellDetails(username, name, periodKey, type) {
       var parts = periodKey.split('-');
       var monthsMap = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'};
       var mName = monthsMap[parts[1]] || parts[1];
-      subEl.textContent = 'Violations in ' + mName + ' ' + parts[0] + ' (' + records.length + ' records)';
+      subEl.textContent = 'Policy records in ' + mName + ' ' + parts[0] + ' (' + records.length + ' records)';
     } else {
-      subEl.textContent = 'Violations in Wk' + periodKey + ' (' + records.length + ' records)';
+      subEl.textContent = 'Policy records in Wk' + periodKey + ' (' + records.length + ' records)';
     }
   }
 
@@ -499,6 +511,72 @@ function _pcShowCellDetails(username, name, periodKey, type) {
   if (modal) modal.style.display = 'flex';
 }
 
+function _pcShowSummaryPersonDetails(username, name) {
+  var cutoff = _pcCutoff30();
+  var today = _pcToday();
+  var records = _pcData().filter(function(r) {
+    if (r.status === 'Cancelled') return false;
+    if (r.username !== username) return false;
+    if (!r.date || r.date < cutoff || r.date > today) return false;
+    if (_pcS30Role && r.role !== _pcS30Role) return false;
+    if (_pcS30Event && r.event !== _pcS30Event) return false;
+    if (_pcS30Leader && r.leader !== _pcS30Leader) return false;
+    return true;
+  }).sort(function(a, b) {
+    var dComp = (b.date || '').localeCompare(a.date || '');
+    if (dComp !== 0) return dComp;
+    if (a.time && b.time) {
+      var tComp = b.time.localeCompare(a.time);
+      if (tComp !== 0) return tComp;
+    }
+    return (b.no || 0) - (a.no || 0);
+  });
+
+  var titleEl = document.getElementById('pc-cell-details-title');
+  var subEl = document.getElementById('pc-cell-details-sub');
+  var bodyEl = document.getElementById('pc-cell-details-body');
+
+  if (titleEl) titleEl.textContent = name;
+  if (subEl) {
+    subEl.textContent = 'Summary 30D records from ' + cutoff + ' to ' + today + ' (' + records.length + ' records)';
+  }
+
+  if (bodyEl) {
+    if (records.length === 0) {
+      bodyEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);">No records found.</div>';
+    } else {
+      bodyEl.innerHTML = records.map(function(r) {
+        var description = (r.description || '').trim();
+        var shortDescription = description.length > 110 ? description.slice(0, 107) + '...' : description;
+        return '<div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--bg3);cursor:pointer;transition:background-color .15s;" '
+          + 'onclick="_pcCloseCellDetailsModal();_pcOpenEditModalByNo(' + r.no + ')" '
+          + 'onmouseover="this.style.backgroundColor=\'rgba(31,102,241,.06)\'" '
+          + 'onmouseout="this.style.backgroundColor=\'var(--bg3)\'">'
+          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'
+            + '<div style="min-width:0;">'
+              + '<div style="font-size:11px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px;">'
+                + r.date + (r.time ? ' ' + r.time : '') + ' &nbsp;&middot;&nbsp; Record #' + r.no
+              + '</div>'
+              + '<div style="font-size:13px;font-weight:600;line-height:1.5;">'
+                + '<span style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);margin-right:6px;">' + r.event + '</span>'
+                + _pcEventLabelVi(r.event)
+              + '</div>'
+              + '<div style="font-size:11px;color:var(--text3);margin-top:4px;">'
+                + 'Leader: ' + (r.leader || '-') + ' &nbsp;&middot;&nbsp; ' + _resolveRole(r.role)
+              + '</div>'
+              + (shortDescription ? '<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;">' + shortDescription + '</div>' : '')
+            + '</div>'
+            + '<div style="flex-shrink:0;">' + _pcStatusBadge(r.status) + '</div>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+    }
+  }
+
+  var modal = document.getElementById('pc-cell-details-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
 if (!window._pcReportPopoverEscBound) {
   window._pcReportPopoverEscBound = true;
   document.addEventListener('keydown', function(e) {
@@ -517,10 +595,18 @@ function _pcRenderPolicy() {
   var ss   = 'height:30px;padding:0 10px;font-size:12px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;';
 
   // ── Filter panel ──
-  var years   = ['2026'];
+  var years = [...new Set(all.map(function(r) {
+    return (r.date || '').slice(0, 4);
+  }).filter(Boolean))].sort().reverse();
+  if (!years.length) years = ['2026'];
+  if (years.indexOf(_pcPolYear) === -1) _pcPolYear = years[0];
   var quarters= ['Q1','Q2','Q3','Q4'];
-  var months  = ['2026-01','2026-02','2026-03','2026-04','2026-05'];
-  var mLabels = {'2026-01':'Jan','2026-02':'Feb','2026-03':'Mar','2026-04':'Apr','2026-05':'May'};
+  var monthOptions = _pcMonthOptionsForYear(_pcPolYear);
+  var months  = monthOptions.map(function(opt) { return opt.value; });
+  var mLabels = monthOptions.reduce(function(map, opt) {
+    map[opt.value] = opt.label;
+    return map;
+  }, {});
 
   var filterBar = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
     + '<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Year</div>'
@@ -537,7 +623,7 @@ function _pcRenderPolicy() {
     + '<option value="">All months</option>'
     + months.map(function(m){return '<option value="'+m+'"'+(m===_pcPolMon?' selected':'')+'>'+(mLabels[m]||m)+'</option>';}).join('')
     + '</select></div>'
-    + '<button onclick="_pcPolYear=\'2026\';_pcPolQ=\'\';_pcPolMon=\'\';_pcRerender()" style="'+ss+'margin-top:13px;color:var(--text2);">Reset</button>';
+    + '<button onclick="_pcPolYear=\''+years[0]+'\';_pcPolQ=\'\';_pcPolMon=\'\';_pcRerender()" style="'+ss+'margin-top:13px;color:var(--text2);">Reset</button>';
 
   // Admin import button
   if (isAdmin(currentUser)) {
@@ -597,7 +683,7 @@ function _pcRenderPolicy() {
     + '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:120px;">ROLE</th>'
     + '<th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--accent);font-family:\'IBM Plex Mono\',monospace;width:56px;">TOTAL</th>'
     + shownMonths.map(function(m){
-        var lbl = (mLabels[m]||m).replace(' 2026','');
+        var lbl = mLabels[m] || m;
         return '<th style="padding:8px 6px;text-align:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;min-width:44px;">'+lbl+'</th>';
       }).join('')
     + '</tr></thead>';
@@ -765,14 +851,14 @@ function _pcRenderRecords() {
         return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;'+rowBg+'" onclick="_pcOpenEditModalByNo('+r.no+')">'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.no+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;font-family:\'IBM Plex Mono\',monospace;white-space:nowrap;">'+r.date+(r.time ? ' <span style="color:var(--text3);font-size:10px;">'+r.time+'</span>' : '')+'</td>'
-          + '<td style="padding:7px 10px;font-weight:600;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+fbIcon+'</td>'
+          + '<td style="padding:7px 10px;font-weight:600;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;">'+r.empNo+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;">'+_resolveRole(r.role)+'</td>'
           + '<td style="padding:7px 10px;text-align:center;"><span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;background:var(--bg4);color:var(--text2);">'+(r.shift||'—')+'</span></td>'
           + '<td style="padding:7px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-weight:700;font-size:12px;color:var(--accent);">'+r.event+'</td>'
           + '<td style="padding:7px 10px;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.leader+'</td>'
           + '<td style="padding:7px 10px;">'+_pcStatusBadge(r.status)+'</td>'
-          + '<td style="padding:7px 10px;">'+(r.agentFeedback?'<span style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'')+'</td>'
+          + '<td style="padding:7px 10px;text-align:center;">'+(r.agentFeedback?'<span title="Employee feedback added" style="font-size:11px;color:var(--ok);">&#x1F4AC;</span>':'<span style="color:var(--text3);">-</span>')+'</td>'
           + actionHTML
 
           + '</tr>';
@@ -784,13 +870,27 @@ function _pcRenderRecords() {
     + '<button class="btn btn-sm" onclick="_pcPage=Math.min('+totalPages+',_pcPage+1);_pcRerender()" '+(_pcPage>=totalPages?'disabled':'')+'>Next</button>'
     + '</div>';
 
-  var colWidths = {'#':'44px','DATE':'88px','NAME':'155px','EMP NO.':'74px','ROLE':'120px','SFT':'44px','EVENT':'68px','LEADER':'108px','STATUS':'108px','FB':'36px','ACTIONS':'120px'};
+  var recordHeaders = [
+    { key:'NO.', label:'No.', width:'44px' },
+    { key:'DATE', label:'Date', width:'88px' },
+    { key:'NAME', label:'Name', width:'155px' },
+    { key:'EMP_NO', label:'Emp No.', width:'74px' },
+    { key:'ROLE', label:'Role', width:'120px' },
+    { key:'SHIFT', label:'Shift', width:'56px' },
+    { key:'EVENT', label:'Event', width:'68px' },
+    { key:'LEADER', label:'Leader', width:'108px' },
+    { key:'STATUS', label:'Status', width:'108px' },
+    { key:'FEEDBACK', label:'Feedback', width:'72px' }
+  ];
+  if (showActions) {
+    recordHeaders.push({ key:'ACTIONS', label:'Actions', width:'120px' });
+  }
   return stats + filterRow
     + '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">'
     + '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px;table-layout:fixed;">'
     + '<thead><tr style="background:var(--bg3);border-bottom:2px solid var(--border2);">'
-    + ['#','DATE','NAME','EMP NO.','ROLE','SFT','EVENT','LEADER','STATUS','FB', showActions?'ACTIONS':''].filter(Boolean).map(function(h){
-        return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:'+(colWidths[h]||'auto')+';">'+h+'</th>';
+    + recordHeaders.map(function(h){
+        return '<th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;width:'+h.width+';">'+h.label+'</th>';
       }).join('')
     + '</tr></thead><tbody>'+rows+'</tbody></table></div>'
     + pager;
@@ -956,9 +1056,9 @@ function _pcRenderSummary() {
         return '<span title="'+(_pcEventLabelVi(e[0])||e[0])+'" style="display:inline-flex;align-items:center;gap:3px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg4);color:var(--text2);margin:1px;">'
           + e[0]+(e[1]>1?'<b style="color:var(--accent);margin-left:2px;">×'+e[1]+'</b>':'')+'</span>';
       }).join('');
-      return '<tr style="border-bottom:1px solid var(--border);">'
+      return '<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="_pcShowSummaryPersonDetails(\''+p.username+'\', \''+p.name.replace(/'/g, "\\'")+'\')">'
         + '<td style="padding:6px 10px;font-size:11px;color:var(--text3);vertical-align:top;">'+(i+1)+'</td>'
-        + '<td style="padding:6px 10px;font-weight:600;font-size:12px;vertical-align:top;">'+p.name+repeatBadge+'</td>'
+        + '<td style="padding:6px 10px;font-weight:600;font-size:12px;vertical-align:top;">'+p.name+repeatBadge+' <span style="font-size:10px;color:var(--text3);font-weight:400;">View details</span></td>'
         + '<td style="padding:6px 10px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:13px;vertical-align:top;'+_pcHeat(p.records.length)+'">'+p.records.length+'</td>'
         + '<td style="padding:6px 10px;vertical-align:top;">'+evBadges+'</td>'
         + '</tr>';
@@ -1449,6 +1549,122 @@ function _pcTrainingAction(no, newStatus) {
 // ════════════════════════════════════════════
 //  WARNING EMAIL FUNCTIONS (Training only)
 // ════════════════════════════════════════════
+
+function _pcRenderDetailCardsUnified(records) {
+  if (!records || records.length === 0) {
+    return '<div style="text-align:center;padding:24px;color:var(--text3);">No records found.</div>';
+  }
+
+  return records.map(function(r) {
+    var description = (r.description || '').trim();
+    var shortDescription = description.length > 110 ? description.slice(0, 107) + '...' : description;
+    return '<div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--bg3);cursor:pointer;transition:background-color .15s;" '
+      + 'onclick="_pcCloseCellDetailsModal();_pcOpenEditModalByNo(' + r.no + ')" '
+      + 'onmouseover="this.style.backgroundColor=\'rgba(31,102,241,.06)\'" '
+      + 'onmouseout="this.style.backgroundColor=\'var(--bg3)\'">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'
+        + '<div style="min-width:0;">'
+          + '<div style="font-size:11px;font-family:\'IBM Plex Mono\',monospace;color:var(--text3);margin-bottom:4px;">'
+            + r.date + (r.time ? ' ' + r.time : '') + ' &nbsp;&middot;&nbsp; Record #' + r.no
+          + '</div>'
+          + '<div style="font-size:13px;font-weight:600;line-height:1.5;">'
+            + '<span style="font-family:\'IBM Plex Mono\',monospace;color:var(--accent);margin-right:6px;">' + r.event + '</span>'
+            + _pcEventLabelVi(r.event)
+          + '</div>'
+          + '<div style="font-size:11px;color:var(--text3);margin-top:4px;">'
+            + 'Leader: ' + (r.leader || '-') + ' &nbsp;&middot;&nbsp; ' + _resolveRole(r.role)
+          + '</div>'
+          + (shortDescription ? '<div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.5;">' + shortDescription + '</div>' : '')
+        + '</div>'
+        + '<div style="flex-shrink:0;">' + _pcStatusBadge(r.status) + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function _pcShowCellDetails(username, name, periodKey, type) {
+  var records = [];
+  var all = _pcData();
+
+  if (type === 'month') {
+    records = all.filter(function(r) {
+      return r.username === username && r.date && r.date.startsWith(periodKey) && r.status !== 'Cancelled';
+    });
+  } else if (type === 'week') {
+    var monthPfx = String(_pcWeeklyYear) + '-' + (_pcWeeklyMonth < 10 ? '0' : '') + _pcWeeklyMonth;
+    var targetWeek = parseInt(periodKey);
+    records = all.filter(function(r) {
+      return r.username === username && r.date && r.date.startsWith(monthPfx) && _pcIsoWeek(r.date) === targetWeek && r.status !== 'Cancelled';
+    });
+  }
+
+  records.sort(function(a, b) {
+    var dComp = (b.date || '').localeCompare(a.date || '');
+    if (dComp !== 0) return dComp;
+    if (a.time && b.time) {
+      var tComp = b.time.localeCompare(a.time);
+      if (tComp !== 0) return tComp;
+    }
+    return (b.no || 0) - (a.no || 0);
+  });
+
+  var titleEl = document.getElementById('pc-cell-details-title');
+  var subEl = document.getElementById('pc-cell-details-sub');
+  var bodyEl = document.getElementById('pc-cell-details-body');
+
+  if (titleEl) titleEl.textContent = name;
+  if (subEl) {
+    if (type === 'month') {
+      var parts = periodKey.split('-');
+      var monthsMap = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'};
+      var mName = monthsMap[parts[1]] || parts[1];
+      subEl.textContent = 'Policy records in ' + mName + ' ' + parts[0] + ' (' + records.length + ' records)';
+    } else {
+      subEl.textContent = 'Policy records in Wk' + periodKey + ' (' + records.length + ' records)';
+    }
+  }
+
+  if (bodyEl) bodyEl.innerHTML = _pcRenderDetailCardsUnified(records);
+
+  var modal = document.getElementById('pc-cell-details-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function _pcShowSummaryPersonDetails(username, name) {
+  var cutoff = _pcCutoff30();
+  var today = _pcToday();
+  var records = _pcData().filter(function(r) {
+    if (r.status === 'Cancelled') return false;
+    if (r.username !== username) return false;
+    if (!r.date || r.date < cutoff || r.date > today) return false;
+    if (_pcS30Role && r.role !== _pcS30Role) return false;
+    if (_pcS30Event && r.event !== _pcS30Event) return false;
+    if (_pcS30Leader && r.leader !== _pcS30Leader) return false;
+    return true;
+  }).sort(function(a, b) {
+    var dComp = (b.date || '').localeCompare(a.date || '');
+    if (dComp !== 0) return dComp;
+    if (a.time && b.time) {
+      var tComp = b.time.localeCompare(a.time);
+      if (tComp !== 0) return tComp;
+    }
+    return (b.no || 0) - (a.no || 0);
+  });
+
+  var titleEl = document.getElementById('pc-cell-details-title');
+  var subEl = document.getElementById('pc-cell-details-sub');
+  var bodyEl = document.getElementById('pc-cell-details-body');
+
+  if (titleEl) titleEl.textContent = name;
+  if (subEl) {
+    subEl.textContent = 'Summary 30D records from ' + cutoff + ' to ' + today + ' (' + records.length + ' records)';
+  }
+
+  if (bodyEl) bodyEl.innerHTML = _pcRenderDetailCardsUnified(records);
+
+  var modal = document.getElementById('pc-cell-details-modal');
+  if (modal) modal.style.display = 'flex';
+}
 
 function _pcSendWarningEmail(username, name) {
   if (!isTraining(currentUser) && !isAdmin(currentUser)) return;

@@ -13,7 +13,7 @@
 //   - Can read all agent feedback
 //   - Badge shows records with unread feedback
 //
-//  Embedded inside the unified Violations page.
+//  Embedded inside the unified Policy page.
 // ═══════════════════════════════════════════════
 
 // ── Page state ──
@@ -140,15 +140,15 @@ function _fbRenderMine() {
     return '<div class="fb-empty-state" style="text-align:center;padding:64px 16px;color:var(--text3);">'
       + '<div style="font-size:36px;margin-bottom:12px;">🎉</div>'
       + '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">You have a clean record!</div>'
-      + '<div style="font-size:12px;">No policy violations have been reported. Keep up the great work!</div>'
+      + '<div style="font-size:12px;">No policy records have been reported. Keep up the great work!</div>'
       + '</div>';
   }
 
   var pending = records.filter(function(r) { return r.status === 'Processing'; }).length;
 
   var banner = pending > 0
-    ? '<div class="fb-alert fb-alert-warn" role="status">You have <b>' + pending + '</b> violation(s) awaiting your response.</div>'
-    : '<div class="fb-alert fb-alert-ok" role="status">All violations acknowledged.</div>';
+    ? '<div class="fb-alert fb-alert-warn" role="status">You have <b>' + pending + '</b> policy record(s) awaiting your response.</div>'
+    : '<div class="fb-alert fb-alert-ok" role="status">All policy records acknowledged.</div>';
 
   var cards = records.map(function(r) {
     var realIdx  = _fbData().indexOf(r);
@@ -236,15 +236,15 @@ function _fbRenderPageShell(isEmbedded) {
   if (isAgent) {
     var myCount   = _fbMyRecords().length;
     var teamCount = _fbData().length;
-    tabBar = '<div class="fb-subtabs fb-subtabs-personal" role="tablist" aria-label="Violation ownership">'
-      + _fbTabBtn('mine',  'My Violations', myCount)
+    tabBar = '<div class="fb-subtabs fb-subtabs-personal" role="tablist" aria-label="Policy ownership">'
+      + _fbTabBtn('mine',  'My Policy', myCount)
       + _fbTabBtn('team',  'My Team',       teamCount)
       + '</div>';
   }
 
   var content = (_fbTab === 'mine') ? _fbRenderMine() : _fbRenderTeam();
 
-  var title = mode === 'training' ? 'Training Review Queue' : isAgent ? 'My Violations' : 'Team Violations';
+  var title = mode === 'training' ? 'Training Policy Queue' : isAgent ? 'My Policy' : 'Team Policy';
   var sub = isAgent
   ? (_fbMyRecords().length + ' records &middot; ' + _fbMyRecords().filter(function(r){
       return r.status !== 'Resolved' && !r.agentFeedback && !r.agentDone;
@@ -350,7 +350,7 @@ function _fbRenderPersonList(groups) {
 
 function _fbRenderPersonDetail(username, groups) {
   if (!username) {
-    return '<div class="fb-empty">Select a person from the list to view their violations.</div>';
+    return '<div class="fb-empty">Select a person from the list to view their policy records.</div>';
   }
   var g = null;
   for (var gi = 0; gi < groups.length; gi++) { if (groups[gi].username === username) { g = groups[gi]; break; } }
@@ -367,7 +367,7 @@ function _fbRenderPersonDetail(username, groups) {
     + '</span>'
     + '</div>'
     + '<div class="fb-detail-badges">'
-    + '<span class="fb-count-pill">' + g.records.length + ' violation' + (g.records.length !== 1 ? 's' : '') + '</span>'
+    + '<span class="fb-count-pill">' + g.records.length + ' policy record' + (g.records.length !== 1 ? 's' : '') + '</span>'
     + (newFb > 0 && isLeader(currentUser) ? '<span class="fb-count-pill is-new">' + newFb + ' new</span>' : '')
     + '</div>'
     + '</div>';
@@ -440,7 +440,7 @@ function _fbRenderPersonDetail(username, groups) {
 
   var activeHtml = activeRecords.length > 0
     ? activeRecords.map(renderCard).join('')
-    : '<div class="fb-empty fb-empty-compact">No active violations.</div>';
+    : '<div class="fb-empty fb-empty-compact">No active policy records.</div>';
 
   var historyHtml = '';
   if (historyRecords.length > 0) {
@@ -453,7 +453,7 @@ function _fbRenderPersonDetail(username, groups) {
   }
 
   var activeHeader = '<div class="fb-list-head">'
-    + 'Active Violations (' + activeRecords.length + ')'
+    + 'Active Policy Records (' + activeRecords.length + ')'
     + '</div>';
 
   return header + activeHeader + activeHtml + historyHtml;
